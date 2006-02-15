@@ -697,6 +697,43 @@ dbus_server_setup_with_g_main (DBusServer   *server,
 }
 
 /**
+ * Returns a connection to the given address.
+ * 
+ * (Internally, calls dbus_connection_open() then calls
+ * dbus_connection_setup_with_g_main() on the result.)
+ *
+ * @param address address of the connection to open 
+ * @param error address where an error can be returned.
+ * @returns a DBusConnection
+ */
+DBusGConnection*
+dbus_g_connection_open (const gchar  *address,
+                        GError      **error)
+{
+  DBusConnection *connection;
+  DBusError derror;
+
+  g_return_val_if_fail (error == NULL || *error == NULL, NULL);
+
+  _dbus_g_value_types_init ();
+  
+  dbus_error_init (&derror);
+
+  connection = dbus_connection_open (socket, &derror);
+  if (connection == NULL)
+    {
+      dbus_set_g_error (error, &derror);
+      dbus_error_free (&derror);
+      return NULL;
+    }
+
+  /* does nothing if it's already been done */
+  dbus_connection_setup_with_g_main (connection, NULL);
+
+  return DBUS_G_CONNECTION_FROM_CONNECTION (connection);
+}
+
+/**
  * Returns a connection to the given bus. The connection is a global variable
  * shared with other callers of this function.
  * 

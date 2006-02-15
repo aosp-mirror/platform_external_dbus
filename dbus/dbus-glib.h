@@ -68,8 +68,11 @@ gboolean         dbus_g_error_has_name    (GError      *error,
 const char *     dbus_g_error_get_name    (GError      *error);
 
 void             dbus_g_thread_init (void);
-DBusGConnection* dbus_g_bus_get     (DBusBusType   type,
-                                     GError      **error);
+
+DBusGConnection* dbus_g_connection_open (const gchar  *address,
+                                         GError      **error);
+DBusGConnection* dbus_g_bus_get         (DBusBusType   type,
+                                         GError      **error);
 
 typedef struct _DBusGObjectInfo DBusGObjectInfo;
 typedef struct _DBusGMethodInfo DBusGMethodInfo;
