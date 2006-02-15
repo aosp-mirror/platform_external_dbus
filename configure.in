@@ -980,62 +980,72 @@ AC_SUBST(DBUS_QT3_LIBS)
 
 dnl Qt detection
 
+AC_MSG_CHECKING([if we want to link to Qt debugging libraries])
+qt_suffix=
 if test x$enable_qt_debug = xyes; then
-
-    PKG_CHECK_MODULES(DBUS_QT, QtCore_debug >= 4.0, have_qt_debug=yes, have_qt_debug=no)
-    if test x$have_qt_debug = xno; then
-        AC_MSG_ERROR([Qt debug libraries explicitly required, but not found])
-    fi
-
-    QT_CORE=QtCore_debug
-    QT_TESTLIB=QtTest_debug
-    have_qt=yes
+    qt_suffix=_debug
+    AC_MSG_RESULT([debug])
 else
-    PKG_CHECK_MODULES(DBUS_QT, QtCore >= 4.0, have_qt=yes, have_qt=no)
-
-    if test x$have_qt = xno ; then
-        AC_MSG_WARN([Qt development libraries not found])
-    fi
-
-    if test x$enable_qt = xyes; then
-        if test x$have_qt = xno; then
-	    AC_MSG_ERROR([Qt integration explicitly required, and Qt libraries not found])
-        fi
-    fi
-    if test x$enable_qt = xno; then
-        have_qt=no;
-    fi
-
-    QT_CORE=QtCore
-    QT_TESTLIB=QtTest
+    AC_MSG_RESULT([release])
 fi
 
-QT_MOC=`$PKG_CONFIG --variable=exec_prefix $QT_CORE`
-QT_MOC=${QT_MOC}/bin/moc
+QT_CORE=QtCore$qt_suffix
+QT_XML=QtXml$qt_suffix
+QT_TESTLIB=QtTest$qt_suffix
+min_qt_version=4.1
+
+PKG_CHECK_MODULES([DBUS_QT], 
+                  [$QT_CORE >= $min_qt_version $QT_XML >= $min_qt_version], 
+                  have_qt=yes, 
+                  have_qt=no)
+
+dnl Check for moc too
+if test x$have_qt = xyes ; then
+    AC_MSG_CHECKING([for moc])
+    QT_MOC=`$PKG_CONFIG --variable=exec_prefix $QT_CORE`
+    QT_MOC=${QT_MOC}/bin/moc
+
+    if test -x "$QT_MOC"; then
+        AC_MSG_RESULT([found, $QT_MOC])
+    else
+	AC_MSG_RESULT([not found])
+	AC_MSG_WARN([moc not found; disabling Qt])
+	have_qt=no
+    fi
+fi
+
+if test x$have_qt = xno ; then
+    if test x$enable_qt = xyes; then
+	    AC_MSG_ERROR([Qt integration explicitly required, and Qt libraries not found])
+    fi
+    have_qt=no
+else
+    dnl Qt flags
+    AC_SUBST(DBUS_QT_CFLAGS)
+    AC_SUBST(DBUS_QT_LIBS)
+    AC_SUBST(QT_MOC)
+
+    dnl QTestLib detection
+    PKG_CHECK_MODULES([DBUS_QTESTLIB], 
+    	              [$QT_TESTLIB >= $min_qt_version], 
+                      have_qtest=yes, 
+                      have_qtest=no)
+
+    if test x$have_qtest = xno ; then
+        AC_MSG_WARN([Qt Unit Test library not found])
+    fi
+
+    if test x$have_qt = xno; then
+        have_qtest=no
+    fi
+
+
+    AC_SUBST(DBUS_QTESTLIB_CFLAGS)
+    AC_SUBST(DBUS_QTESTLIB_LIBS)
+fi
 
 AM_CONDITIONAL(HAVE_QT, test x$have_qt = xyes)
-
-dnl Qt flags
-AC_SUBST(DBUS_QT_CFLAGS)
-AC_SUBST(DBUS_QT_LIBS)
-AC_SUBST(QT_MOC)
-
-
-dnl QTestLib detection
-PKG_CHECK_MODULES(DBUS_QTESTLIB, $QT_TESTLIB >= 4.1, have_qtest=yes, have_qtest=no)
-
-if test x$have_qtest = xno ; then
-    AC_MSG_WARN([Qt Unit Test library not found])
-fi
-
-if test x$have_qt = xno; then
-    have_qtest=no
-fi
-
 AM_CONDITIONAL(HAVE_QTESTLIB, test x$have_qtest = xyes)
-
-AC_SUBST(DBUS_QTESTLIB_CFLAGS)
-AC_SUBST(DBUS_QTESTLIB_LIBS)
 
 ### X11 detection
 AC_PATH_XTRA
