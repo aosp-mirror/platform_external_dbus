@@ -1,6 +1,13 @@
 Important for 1.0
 ===
 
+ - add a new return code from dbus_connection_dispatch() called 
+   IN_PROGRESS or RECURSED or something, indicating that DATA_REMAINS
+   but another dispatch is in progress, so we can't dispatch at 
+   this time. Fixes the recursive deadlock. See the @todo for more
+   and this thread: http://lists.freedesktop.org/archives/dbus/2006-February/004128.html
+
+
  - Remove all deprecated functions
 
  - Audit @todo and FIXME for security issues
