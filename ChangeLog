@@ -27,7 +27,6 @@
 	but it's now possible to store these in arrays, emit them in
 	signals, etc.
 
->>>>>>> 1.959
 2006-02-10  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-signature.c (dbus_signature_iter_recurse): Correctly
