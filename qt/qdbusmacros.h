@@ -1,4 +1,4 @@
-/* qdbusserver.h QDBusServer object
+/* qdbusmessage.h QDBusMessage object
  *
  * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
  *
@@ -20,29 +20,17 @@
  *
  */
 
-#ifndef QDBUSSERVER_H
-#define QDBUSSERVER_H
+#ifndef QDBUSMACROS_H
+#define QDBUSMACROS_H
 
-#include "qdbusmacros.h"
-#include <QtCore/qobject.h>
-#include <QtCore/qstring.h>
+#include <QtCore/qglobal.h>
 
-class QDBusConnectionPrivate;
-class QDBusError;
-
-class QDBUS_EXPORT QDBusServer: public QObject
-{
-    Q_OBJECT
-public:
-    QDBusServer(const QString &address, QObject *parent = 0);
-
-    bool isConnected() const;
-    QDBusError lastError() const;
-    QString address() const;
-
-private:
-    Q_DISABLE_COPY(QDBusServer)
-    QDBusConnectionPrivate *d;
-};
+#ifndef QDBUS_EXPORT
+#ifdef QDBUS_MAKEDLL
+# define QDBUS_EXPORT Q_DECL_EXPORT
+#else
+# define QDBUS_EXPORT Q_DECL_IMPORT
+#endif
+#endif
 
 #endif

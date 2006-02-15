@@ -1,6 +1,8 @@
 /* qdbusconnection.cpp
  *
  * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
+ * Copyright (C) 2006 Trolltech AS. All rights reserved.
+ *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -15,16 +17,21 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, write to the Free Software Foundation
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
 
-#include <QtCore/qdebug.h>
-#include <QtCore/qcoreapplication.h>
+#include <qdebug.h>
+#include <qcoreapplication.h>
 
 #include "qdbusconnection.h"
+#include "qdbuserror.h"
+#include "qdbusmessage.h"
 #include "qdbusconnection_p.h"
+#include "qdbusinterface_p.h"
+#include "qdbusobject_p.h"
+#include "qdbusutil.h"
 
 QT_STATIC_CONST_IMPL char *QDBusConnection::default_connection_name = "qt_dbus_default_connection";
 
@@ -197,14 +204,7 @@ bool QDBusConnection::send(const QDBusMessage &message) const
 {
     if (!d || !d->connection)
         return false;
-
-    DBusMessage *msg = message.toDBusMessage();
-    if (!msg)
-        return false;
-
-    bool isOk = dbus_connection_send(d->connection, msg, 0);
-    dbus_message_unref(msg);
-    return isOk;
+    return d->send(message);
 }
 
 int QDBusConnection::sendWithReplyAsync(const QDBusMessage &message, QObject *receiver,
@@ -221,57 +221,98 @@ QDBusMessage QDBusConnection::sendWithReply(const QDBusMessage &message) const
     if (!d || !d->connection)
         return QDBusMessage::fromDBusMessage(0);
 
-    DBusMessage *msg = message.toDBusMessage();
-    if (!msg)
-        return QDBusMessage::fromDBusMessage(0);
-    DBusMessage *reply = dbus_connection_send_with_reply_and_block(d->connection, msg,
-                                                -1, &d->error);
-    d->handleError();
-    dbus_message_unref(msg);
+    if (!QCoreApplication::instance()) {
+        DBusMessage *msg = message.toDBusMessage();
+        if (!msg)
+            return QDBusMessage::fromDBusMessage(0);
 
-    return QDBusMessage::fromDBusMessage(reply);
+        DBusMessage *reply = dbus_connection_send_with_reply_and_block(d->connection, msg,
+                                                                       -1, &d->error);
+        d->handleError();
+        dbus_message_unref(msg);
+
+        if (lastError().isValid())
+            return QDBusMessage::fromError(lastError());
+
+        return QDBusMessage::fromDBusMessage(reply);
+    } else {
+        QDBusReplyWaiter waiter;
+        if (d->sendWithReplyAsync(message, &waiter, SLOT(reply(const QDBusMessage&))) > 0) {
+            // enter the event loop and wait for a reply
+            waiter.exec(QEventLoop::ExcludeUserInputEvents | QEventLoop::WaitForMoreEvents);
+        
+            d->lastError = waiter.replyMsg; // set or clear error
+            return waiter.replyMsg;
+        }
+
+        return QDBusMessage::fromDBusMessage(0);
+    }
 }
 
-bool QDBusConnection::connect(const QString &path, const QString &interface,
+bool QDBusConnection::connect(const QString &service, const QString &path, const QString& interface,
                               const QString &name, QObject *receiver, const char *slot)
+{
+    return connect(service, path, interface, name, QString(), receiver, slot);
+}
+
+bool QDBusConnection::connect(const QString &service, const QString &path, const QString& interface,
+                              const QString &name, const QString &signature,
+                              QObject *receiver, const char *slot)
 {
     if (!receiver || !slot || !d || !d->connection)
         return false;
 
-    QDBusConnectionPrivate::SignalHook hook;
+    QString source = getNameOwner(service);
+    if (source.isEmpty())
+        return false;
+    source += path;
 
+    // check the slot
+    QDBusConnectionPrivate::SignalHook hook;
+    if ((hook.midx = QDBusConnectionPrivate::findSlot(receiver, slot + 1, hook.params)) == -1)
+        return false;
+    
     hook.interface = interface;
     hook.name = name;
+    hook.signature = signature;
     hook.obj = QPointer<QObject>(receiver);
-    if (!hook.setSlot(slot + 1))
-        return false;
 
-    d->signalHooks.insertMulti(path, hook);
+    d->signalHooks.insertMulti(source, hook);
     d->connect(receiver, SIGNAL(destroyed(QObject*)), SLOT(objectDestroyed(QObject*)));
 
     return true;
 }
 
-bool QDBusConnection::registerObject(const QString &path, const QString &interface,
-                                     QObject *object)
+bool QDBusConnection::registerObject(const QString &path, QObject *object, RegisterOptions options)
 {
-    if (!d || !d->connection || !object || path.isEmpty() || interface.isEmpty())
+    return registerObject(path, QString(), object, options);
+}
+
+bool QDBusConnection::registerObject(const QString &path, const QString &interface,
+                                     QObject *object, RegisterOptions options)
+{
+    if (!d || !d->connection || !object || !options || !QDBusUtil::isValidObjectPath(path))
         return false;
 
-    QDBusConnectionPrivate::ObjectHook hook;
-    hook.interface = interface;
-    hook.obj = object;
+    QString iface = interface;
+    if (options & ExportForAnyInterface)
+        iface.clear();
 
-    QDBusConnectionPrivate::ObjectHookHash::iterator it = d->objectHooks.find(path);
-    while (it != d->objectHooks.end() && it.key() == path) {
-        if (it.value().interface == interface) {
-            d->objectHooks.erase(it);
-            break;
-        }
-        ++it;
-    }
+    QDBusConnectionPrivate::ObjectDataHash& hook = d->objectHooks[path];
 
-    d->objectHooks.insert(path, hook);
+    // if we're replacing and matching any interface, then we're replacing every interface
+    // this catches ExportAdaptors | Reexport too
+    if (( options & ( ExportForAnyInterface | Reexport )) == ( ExportForAnyInterface | Reexport ))
+        hook.clear();
+
+    // we're not matching any interface, but if we're not replacing, make sure it doesn't exist yet
+    else if (( options & Reexport ) == 0 && hook.find(iface) != hook.end())
+        return false;
+
+    QDBusConnectionPrivate::ObjectData& data = hook[iface];
+
+    data.flags = options;
+    data.obj = object;
 
     d->connect(object, SIGNAL(destroyed(QObject*)), SLOT(objectDestroyed(QObject*)));
     qDebug("REGISTERED FOR %s", path.toLocal8Bit().constData());
@@ -284,9 +325,44 @@ void QDBusConnection::unregisterObject(const QString &path)
     if (!d || !d->connection)
         return;
 
-    // TODO - check interfaces
     d->objectHooks.remove(path);
 }
+
+QDBusInterface QDBusConnection::findInterface(const QString& service, const QString& path,
+                                              const QString& interface)
+{
+    // create one
+    QDBusInterfacePrivate *priv = new QDBusInterfacePrivate;
+    priv->conn = *this;
+
+    if (!QDBusUtil::isValidObjectPath(path) || !QDBusUtil::isValidInterfaceName(interface))
+        return QDBusInterface(priv);
+
+    // check if it's there first
+    QString owner = getNameOwner(service);
+    if (owner.isEmpty())
+        return QDBusInterface(priv);
+
+    // getNameOwner returns empty if d is 0
+    Q_ASSERT(d);
+    priv->service = owner;
+    priv->path = path;
+    priv->data = d->findInterface(interface).constData();
+
+    return QDBusInterface(priv); // will increment priv's refcount
+}
+
+QDBusObject QDBusConnection::findObject(const QString& service, const QString& path)
+{
+    QDBusObjectPrivate* priv = 0;
+    if (d && QDBusUtil::isValidObjectPath(path)) {
+        QString owner = getNameOwner(service);
+        
+        if (!owner.isEmpty())
+            priv = new QDBusObjectPrivate(d, owner, path);
+    }
+    return QDBusObject(priv, *this);
+}        
 
 bool QDBusConnection::isConnected( ) const
 {
@@ -307,21 +383,38 @@ QString QDBusConnection::baseService() const
 
 bool QDBusConnection::requestName(const QString &name, NameRequestMode mode)
 {
-    //FIXME: DBUS_NAME_FLAGS_* are bit fields not enumeration
-    static const int DBusModes[] = { 0, DBUS_NAME_FLAG_ALLOW_REPLACEMENT,
-        DBUS_NAME_FLAG_REPLACE_EXISTING };
-    Q_ASSERT(mode == 0 || mode == AllowReplace ||
-             mode == ReplaceExisting );
+    static const int DBusModes[] = { DBUS_NAME_FLAG_ALLOW_REPLACEMENT, 0,
+        DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_ALLOW_REPLACEMENT};
 
-    DBusError error;
-    dbus_error_init (&error);
-    dbus_bus_request_name(d->connection, name.toUtf8(), DBusModes[mode], &error);
-    if (dbus_error_is_set (&error)) {
-        qDebug("Error %s\n", error.message);
-        dbus_error_free (&error);
-        return false;
-    }
-    return true;
+    int retval = dbus_bus_request_name(d->connection, name.toUtf8(), DBusModes[mode], &d->error);
+    d->handleError();
+    return retval == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER ||
+        retval == DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER;
 }
 
-#include "qdbusconnection.moc"
+bool QDBusConnection::releaseName(const QString &name)
+{
+    int retval = dbus_bus_release_name(d->connection, name.toUtf8(), &d->error);
+    d->handleError();
+    if (lastError().isValid())
+        return false;
+    return retval == DBUS_RELEASE_NAME_REPLY_RELEASED;
+}
+
+QString QDBusConnection::getNameOwner(const QString& name)
+{
+    if (QDBusUtil::isValidUniqueConnectionName(name))
+        return name;
+    if (!d || !QDBusUtil::isValidBusName(name))
+        return QString();
+    
+    QDBusMessage msg = QDBusMessage::methodCall(DBUS_SERVICE_DBUS, DBUS_PATH_DBUS,
+                                                DBUS_INTERFACE_DBUS, "GetNameOwner");
+    msg << name;
+    QDBusMessage reply = sendWithReply(msg);
+    if (!lastError().isValid() && reply.type() == QDBusMessage::ReplyMessage)
+        return reply.first().toString();
+    return QString();
+}
+
+#include "qdbusconnection_p.moc"

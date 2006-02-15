@@ -1,6 +1,8 @@
 /* qdbusvariant.h DBUS variant struct
  *
  * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
+ * Copyright (C) 2006 Trolltech AS. All rights reserved.
+ *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -15,23 +17,21 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, write to the Free Software Foundation
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
 
 #ifndef QDBUSVARIANT_H
 #define QDBUSVARIANT_H
 
-#include "dbus/qdbus.h"
-
-#include <QtCore/qmetatype.h>
-#include <QtCore/qstring.h>
-#include <QtCore/qvariant.h>
+#include "qdbusmacros.h"
+#include "qdbustype.h"
+#include <qvariant.h>
 
 struct QDBUS_EXPORT QDBusVariant
 {
-    QString signature;
+    QDBusType type;
     QVariant value;
 };
 Q_DECLARE_METATYPE(QDBusVariant)

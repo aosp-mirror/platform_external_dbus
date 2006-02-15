@@ -1,0 +1,10 @@
+These are the Qt4 D-Bus bindings.
+
+They are being maintained by Trolltech AS. As we are currently
+considering placing this code in a future version of Qt, we would like
+to ask any contributors to contact us before submitting code to this
+repository.
+
+
+For more information, please contact 
+    Thiago Macieira <thiago.macieira@trolltech.com>

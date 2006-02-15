@@ -1,6 +1,8 @@
 /* qdbuserror.h QDBusError object
  *
  * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
+ * Copyright (C) 2006 Trolltech AS. All rights reserved.
+ *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -15,23 +17,25 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, write to the Free Software Foundation
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
 
 #ifndef QDBUSERROR_H
 #define QDBUSERROR_H
 
-#include "dbus/qdbus.h"
+#include "qdbusmacros.h"
 #include <QtCore/qstring.h>
 
 struct DBusError;
+class QDBusMessage;
 
 class QDBUS_EXPORT QDBusError
 {
 public:
     QDBusError(const DBusError *error = 0);
+    QDBusError(const QDBusMessage& msg);
 
     inline QString name() const { return nm; }
     inline QString message() const { return msg; }

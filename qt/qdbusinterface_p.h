@@ -1,6 +1,6 @@
-/* qdbusmessage.h QDBusMessage private object
+/* 
  *
- * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
+ * Copyright (C) 2006 Thiago José Macieira <thiago@kde.org>
  * Copyright (C) 2006 Trolltech AS. All rights reserved.
  *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
@@ -22,26 +22,46 @@
  *
  */
 
-#ifndef QDBUSMESSAGE_P_H
-#define QDBUSMESSAGE_P_H
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the public API.  This header file may
+// change from version to version without notice, or even be
+// removed.
+//
+// We mean it.
+//
+//
 
-#include <qatomic.h>
-#include <qstring.h>
-struct DBusMessage;
+#ifndef QDBUSINTERFACEPRIVATE_H
+#define QDBUSINTERFACEPRIVATE_H
 
-class QDBusMessagePrivate
+#include "qdbusobject.h"
+#include "qdbusinterface.h"
+#include "qdbusconnection.h"
+#include "qdbuserror.h"
+
+#define ANNOTATION_NO_WAIT      "com.trolltech.DBus.NoWaitForReply"
+
+class QDBusInterfacePrivate
 {
 public:
-    QDBusMessagePrivate(QDBusMessage *qq);
-    ~QDBusMessagePrivate();
-
-    QString service, path, interface, name, message, signature;
-    DBusMessage *msg;
-    DBusMessage *reply;
-    QDBusMessage *q;
-    int type;
-    int timeout;
     QAtomic ref;
+    QDBusConnection conn;
+    QString service;
+    QString path;
+    QDBusError lastError;
+    
+    //QConstSharedDataPointer<QDBusIntrospection::Interface> data;
+    const QDBusIntrospection::Interface* data;
+
+    inline bool needsIntrospection() const
+    { return data->introspection.isNull(); }
+
+    inline void introspect()
+    { if (needsIntrospection()) QDBusObject(conn, service, path).introspect(); }
 };
+
 
 #endif

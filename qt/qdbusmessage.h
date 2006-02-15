@@ -1,6 +1,8 @@
 /* qdbusmessage.h QDBusMessage object
  *
  * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
+ * Copyright (C) 2006 Trolltech AS. All rights reserved.
+ *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -15,22 +17,22 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, write to the Free Software Foundation
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
 
 #ifndef QDBUSMESSAGE_H
 #define QDBUSMESSAGE_H
 
-#include "dbus/qdbus.h"
-
+#include "qdbusmacros.h"
 #include <QtCore/qlist.h>
 #include <QtCore/qvariant.h>
 
 #include <limits.h>
 
 class QDBusMessagePrivate;
+class QDBusError;
 struct DBusMessage;
 
 class QDBUS_EXPORT QDBusMessage: public QList<QVariant>
@@ -49,23 +51,32 @@ public:
 
     static QDBusMessage signal(const QString &path, const QString &interface,
                                const QString &name);
-    static QDBusMessage methodCall(const QString &service, const QString &path,
-                                   const QString &interface, const QString &method);
+    static QDBusMessage methodCall(const QString &destination, const QString &path,
+                                   const QString &interface, const QString &method,
+                                   const QString &signature = QString());
     static QDBusMessage methodReply(const QDBusMessage &other);
+    static QDBusMessage error(const QDBusMessage &other, const QString &name,
+                              const QString &message = QString());
+    static QDBusMessage error(const QDBusMessage &other, const QDBusError &error);
 
     QString path() const;
     QString interface() const;
-    QString name() const; //rename to member?
-    QString sender() const; //rename to service?
+    QString name() const;
+    inline QString member() const { return name(); }
+    inline QString method() const { return name(); }
+    QString service() const;
+    inline QString sender() const { return service(); }
     MessageType type() const;
 
     int timeout() const;
     void setTimeout(int ms);
 
+    QString signature() const;
 
 //protected:
     DBusMessage *toDBusMessage() const;
     static QDBusMessage fromDBusMessage(DBusMessage *dmsg);
+    static QDBusMessage fromError(const QDBusError& error);
     int serialNumber() const;
     int replySerialNumber() const;
 

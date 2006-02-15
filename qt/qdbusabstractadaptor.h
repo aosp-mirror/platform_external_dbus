@@ -1,6 +1,7 @@
-/* qdbusserver.h QDBusServer object
+/* -*- mode: C++ -*-
  *
- * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
+ * Copyright (C) 2006 Trolltech AS. All rights reserved.
+ *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
  * Licensed under the Academic Free License version 2.1
  *
@@ -15,34 +16,29 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, write to the Free Software Foundation
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
 
-#ifndef QDBUSSERVER_H
-#define QDBUSSERVER_H
+#ifndef QDBUSABSTRACTADAPTOR_H
+#define QDBUSABSTRACTADAPTOR_H
 
-#include "qdbusmacros.h"
 #include <QtCore/qobject.h>
-#include <QtCore/qstring.h>
+#include "qdbusmacros.h"
 
-class QDBusConnectionPrivate;
-class QDBusError;
-
-class QDBUS_EXPORT QDBusServer: public QObject
+class QDBUS_EXPORT QDBusAbstractAdaptor: public QObject
 {
     Q_OBJECT
 public:
-    QDBusServer(const QString &address, QObject *parent = 0);
+    QDBusAbstractAdaptor(QObject* parent);
+    ~QDBusAbstractAdaptor();
 
-    bool isConnected() const;
-    QDBusError lastError() const;
-    QString address() const;
+protected:
+    void setAutoRelaySignals(bool enable);
 
-private:
-    Q_DISABLE_COPY(QDBusServer)
-    QDBusConnectionPrivate *d;
+private slots:
+    void polish();
 };
 
 #endif

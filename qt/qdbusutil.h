@@ -1,6 +1,5 @@
-/* qdbusmarshall.h QDBusMarshall object
+/* -*- C++ -*-
  *
- * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
  * Copyright (C) 2006 Trolltech AS. All rights reserved.
  *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
@@ -17,26 +16,35 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation
+ * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
 
-#ifndef QDBUSMARSHALL_H
-#define QDBUSMARSHALL_H
+#ifndef QDBUSUTIL_H
+#define QDBUSUTIL_H
 
-struct DBusMessage;
+#include <QtCore/qstring.h>
 
-template <typename T> class QList;
-class QVariant;
-class QString;
+#include "qdbusmacros.h"
 
-class QDBusMarshall
+namespace QDBusUtil
 {
-public:
-    static void listToMessage(const QList<QVariant> &list, DBusMessage *message,
-                              const QString& signature);
-    static void messageToList(QList<QVariant> &list, DBusMessage *message);
-};
+    bool isValidInterfaceName(const QString &ifaceName) QDBUS_EXPORT;
+
+    bool isValidUniqueConnectionName(const QString &busName) QDBUS_EXPORT;
+
+    bool isValidBusName(const QString &busName) QDBUS_EXPORT;
+
+    bool isValidMemberName(const QString &memberName) QDBUS_EXPORT;
+
+    bool isValidErrorName(const QString &errorName) QDBUS_EXPORT;
+
+    bool isValidObjectPath(const QString &path) QDBUS_EXPORT;
+
+    bool isValidSignature(const QString &signature) QDBUS_EXPORT;
+
+    bool isValidSingleSignature(const QString &signature) QDBUS_EXPORT;
+}
 
 #endif
