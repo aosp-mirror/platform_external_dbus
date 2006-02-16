@@ -761,6 +761,21 @@ main (int argc, char **argv)
 
   {
     GArray *array;
+    guint32 arraylen;
+
+    array = g_array_new (FALSE, TRUE, sizeof (guint32));
+
+    arraylen = 0;
+    g_print ("Calling (wrapped) zero-length recursive1\n");
+    if (!org_freedesktop_DBus_Tests_MyObject_recursive1 (proxy, array,
+							 &arraylen, &error))
+      lose_gerror ("Failed to complete (wrapped) zero-length recursive1 call", error);
+    if (arraylen != 0)
+      lose ("(wrapped) zero-length recursive1 call returned invalid length %u", arraylen);
+  }
+
+  {
+    GArray *array;
     guint32 val;
     guint32 arraylen;
 

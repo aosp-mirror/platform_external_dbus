@@ -232,7 +232,7 @@ _dbus_string_init_const_len (DBusString *str,
   DBusRealString *real;
   
   _dbus_assert (str != NULL);
-  _dbus_assert (value != NULL);
+  _dbus_assert (len == 0 || value != NULL);
   _dbus_assert (len <= _DBUS_STRING_MAX_MAX_LENGTH);
   _dbus_assert (len >= 0);
   

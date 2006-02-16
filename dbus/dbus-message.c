@@ -1735,10 +1735,12 @@ dbus_message_iter_get_fixed_array (DBusMessageIter  *iter,
                                    int              *n_elements)
 {
   DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  int subtype = _dbus_type_reader_get_current_type(&real->u.reader);
 
   _dbus_return_if_fail (_dbus_message_iter_check (real));
   _dbus_return_if_fail (value != NULL);
-  _dbus_return_if_fail (dbus_type_is_fixed (_dbus_type_reader_get_current_type (&real->u.reader)));
+  _dbus_return_if_fail ((subtype == DBUS_TYPE_INVALID) ||
+                         dbus_type_is_fixed (subtype));
 
   _dbus_type_reader_read_fixed_multi (&real->u.reader,
                                       value, n_elements);

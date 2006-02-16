@@ -1081,9 +1081,10 @@ demarshal_collection_array (DBusGValueMarshalCtx    *context,
   dbus_message_iter_get_fixed_array (&subiter,
 				     &msgarray,
 				     &msgarray_len);
-  g_assert (msgarray != NULL);
-  g_assert (msgarray_len >= 0);
-  g_array_append_vals (ret, msgarray, (guint) msgarray_len);
+  g_assert (msgarray != NULL || msgarray_len == 0);
+
+  if (msgarray_len)
+    g_array_append_vals (ret, msgarray, (guint) msgarray_len);
 
   g_value_set_boxed_take_ownership (value, ret);
   

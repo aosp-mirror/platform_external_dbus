@@ -1,5 +1,28 @@
 2006-02-16  Robert McQueen  <robot101@debian.org>
 
+	* dbus/dbus-message.c (dbus_message_iter_get_fixed_array):
+	Patch from Rob Taylor <rob.taylor@collabora.co.uk> to correct a bogus
+	assertion that the next element to read from the iter is fixed in
+	size. This is not the case when you are at the end of the iter,
+	because the next element type is INVALID.
+
+	* dbus/dbus-string.c (_dbus_string_init_const_len): Correct a
+	a bogus assert which means that you may not initialise a 0-length
+	string unless you provide a non-NULL pointer. This prevented
+	you from marshalling messages containing zero-length arrays in
+	some cases.
+
+	* glib/dbus-gvalue.c (demarshal_collection_array): Another patch
+	from Rob to correct bogus asserts when trying to demarshal an
+	array and get_fixed_array got you 0 elements. Append nothing to
+	the GArray in this case.
+
+	* test/glib/test-dbus-glib.c: Add a test case for round-tripping
+	an empty array via the glib bindings. Without all of the above
+	patches, this new test fails.
+
+2006-02-16  Robert McQueen  <robot101@debian.org>
+
 	* glib/dbus-gmain.c: Make the previous commit compile.
 
 	* python/_dbus.py, python/matchrules.py: Patch from Ole Andre
