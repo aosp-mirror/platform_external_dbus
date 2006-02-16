@@ -1,5 +1,12 @@
 2006-02-16  Robert McQueen  <robot101@debian.org>
 
+	* acinclude.m4, configure.in: Patch from Brad Hards
+	<bradh@frogmouth.net> to avoid warnings from autoconf 1.9 by
+	improving quoting, re-ordering a few checks, and a few other
+	aesthetic tidy-ups.
+
+2006-02-16  Robert McQueen  <robot101@debian.org>
+
 	* dbus/dbus-message.c (dbus_message_iter_get_fixed_array):
 	Patch from Rob Taylor <rob.taylor@collabora.co.uk> to correct a bogus
 	assertion that the next element to read from the iter is fixed in

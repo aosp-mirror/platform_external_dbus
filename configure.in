@@ -3,11 +3,11 @@ AC_PREREQ(2.52)
 
 AC_INIT(dbus/dbus.h)
 
+AC_CANONICAL_TARGET
+
 AM_INIT_AUTOMAKE(dbus, 0.60)
 
 AM_CONFIG_HEADER(config.h)
-
-AC_CANONICAL_TARGET
 
 # Honor aclocal flags
 ACLOCAL="$ACLOCAL $ACLOCAL_FLAGS"
@@ -46,35 +46,36 @@ AC_PROG_CXX
 AC_ISC_POSIX
 AC_HEADER_STDC
 
-AC_ARG_ENABLE(qt,               [  --enable-qt           enable Qt-friendly client library],enable_qt=$enableval,enable_qt=auto)
-AC_ARG_ENABLE(qt-debug,               [  --enable-qt-debug  enable Qt-friendly client library, linked to debug Qt libraries],enable_qt_debug=$enableval,enable_qt_debug=no)
-AC_ARG_ENABLE(qt3,              [  --enable-qt3          enable Qt3-friendly client library],enable_qt3=$enableval,enable_qt3=no)
-AC_ARG_ENABLE(glib,             [  --enable-glib         enable GLib-friendly client library],enable_glib=$enableval,enable_glib=auto)
-AC_ARG_ENABLE(gtk,              [  --enable-gtk          enable GTK-requiring executables],enable_gtk=$enableval,enable_gtk=auto)
-AC_ARG_ENABLE(tests,            [  --enable-tests        enable unit test code],enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
-AC_ARG_ENABLE(ansi,             [  --enable-ansi         enable -ansi -pedantic gcc flags],enable_ansi=$enableval,enable_ansi=no)
-AC_ARG_ENABLE(verbose-mode,     [  --enable-verbose-mode support verbose debug mode],enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
-AC_ARG_ENABLE(asserts,          [  --enable-asserts      include assertion checks],enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
-AC_ARG_ENABLE(checks,           [  --enable-checks       include sanity checks on public API],enable_checks=$enableval,enable_checks=yes)
-AC_ARG_ENABLE(xml-docs,         [  --enable-xml-docs     build XML documentation (requires xmlto)],enable_xml_docs=$enableval,enable_xml_docs=auto)
-AC_ARG_ENABLE(doxygen-docs,     [  --enable-doxygen-docs     build DOXYGEN documentation (requires Doxygen)],enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
-AC_ARG_ENABLE(gcov,             [  --enable-gcov         compile with coverage profiling instrumentation (gcc only)],enable_gcov=$enableval,enable_gcov=no)
-AC_ARG_ENABLE(abstract-sockets, [  --enable-abstract-sockets  use abstract socket namespace (linux only)],enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
-AC_ARG_ENABLE(gcj,              [  --enable-gcj          build gcj bindings],enable_gcj=$enableval,enable_gcj=no)
-AC_ARG_ENABLE(mono,             [  --enable-mono         build mono bindings],enable_mono=$enableval,enable_mono=no)
-AC_ARG_ENABLE(mono_docs,        [  --enable-mono-docs    build mono docs],enable_mono_docs=$enableval,enable_mono_docs=no)
-AC_ARG_ENABLE(python,           [  --enable-python       build python bindings],enable_python=$enableval,enable_python=auto)
-AC_ARG_ENABLE(selinux,          [  --enable-selinux      build with SELinux support],enable_selinux=$enableval,enable_selinux=auto)
-AC_ARG_ENABLE(dnotify,          [  --enable-dnotify      build with dnotify support (linux only)],enable_dnotify=$enableval,enable_dnotify=auto)
+AC_ARG_ENABLE(qt, AS_HELP_STRING([--enable-qt],[enable Qt-friendly client library]),enable_qt=$enableval,enable_qt=auto)
+AC_ARG_ENABLE(qt-debug, AS_HELP_STRING([--enable-qt-debug],[enable Qt-friendly client library, linked to debug Qt libraries]),enable_qt_debug=$enableval,enable_qt_debug=no)
+AC_ARG_ENABLE(qt3, AS_HELP_STRING([--enable-qt3],[enable Qt3-friendly client library]),enable_qt3=$enableval,enable_qt3=auto)
+AC_ARG_ENABLE(glib, AS_HELP_STRING([--enable-glib],[enable GLib-friendly client library]),enable_glib=$enableval,enable_glib=auto)
+AC_ARG_ENABLE(gtk, AS_HELP_STRING([--enable-gtk],[enable GTK-requiring executables]),enable_gtk=$enableval,enable_gtk=auto)
+AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[enable unit test code]),enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
+AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
+AC_ARG_ENABLE(verbose-mode, AS_HELP_STRING([--enable-verbose-mode],[support verbose debug mode]),enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
+AC_ARG_ENABLE(asserts, AS_HELP_STRING([--enable-asserts],[include assertion checks]),enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
+AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
+AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
+AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
+AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
+AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
+AC_ARG_ENABLE(gcj, AS_HELP_STRING([--enable-gcj],[build gcj bindings]),enable_gcj=$enableval,enable_gcj=no)
+AC_ARG_ENABLE(mono, AS_HELP_STRING([--enable-mono],[build mono bindings]),enable_mono=$enableval,enable_mono=no)
+AC_ARG_ENABLE(mono_docs, AS_HELP_STRING([--enable-mono-docs],[build mono docs]),enable_mono_docs=$enableval,enable_mono_docs=no)
+AC_ARG_ENABLE(python, AS_HELP_STRING([--enable-python],[build python bindings]),enable_python=$enableval,enable_python=auto)
+AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
+AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
 
-AC_ARG_WITH(xml,                [  --with-xml=[libxml/expat]           XML library to use])
-AC_ARG_WITH(init-scripts,       [  --with-init-scripts=[redhat]        Style of init scripts to install])
-AC_ARG_WITH(session-socket-dir, [  --with-session-socket-dir=[dirname] Where to put sockets for the per-login-session message bus])
-AC_ARG_WITH(test-socket-dir,    [  --with-test-socket-dir=[dirname]    Where to put sockets for make check])
-AC_ARG_WITH(system-pid-file,    [  --with-system-pid-file=[pidfile]    PID file for systemwide daemon])
-AC_ARG_WITH(system-socket,      [  --with-system-socket=[filename]     UNIX domain socket for systemwide daemon])
-AC_ARG_WITH(console-auth-dir,   [  --with-console-auth-dir=[dirname]   directory to check for console ownerhip])
-AC_ARG_WITH(dbus_user,		[  --with-dbus-user=<user>  User for running the DBUS daemon (messagebus)])
+AC_ARG_WITH(xml, AS_HELP_STRING([--with-xml=[libxml/expat]],[XML library to use]))
+AC_ARG_WITH(init-scripts, AS_HELP_STRING([--with-init-scripts=[redhat]],[Style of init scripts to install]))
+AC_ARG_WITH(session-socket-dir, AS_HELP_STRING([--with-session-socket-dir=[dirname]],[Where to put sockets for the per-login-session message bus]))
+AC_ARG_WITH(test-socket-dir, AS_HELP_STRING([--with-test-socket-dir=[dirname]],[Where to put sockets for make check]))
+AC_ARG_WITH(system-pid-file, AS_HELP_STRING([--with-system-pid-file=[pidfile]],[PID file for systemwide daemon]))
+AC_ARG_WITH(system-socket, AS_HELP_STRING([--with-system-socket=[filename]],[UNIX domain socket for systemwide daemon]))
+AC_ARG_WITH(console-auth-dir, AS_HELP_STRING([--with-console-auth-dir=[dirname]],[directory to check for console ownerhip]))
+AC_ARG_WITH(dbus_user, AS_HELP_STRING([--with-dbus-user=<user>],[User for running the DBUS daemon (messagebus)]))
+
 
 dnl DBUS_BUILD_TESTS controls unit tests built in to .c files 
 dnl and also some stuff in the test/ subdir
@@ -973,12 +974,12 @@ fi
 
 AM_CONDITIONAL(HAVE_QT3, test x$have_qt3 = xyes)
 
-dnl Qt flags
+dnl Qt3 flags
 AC_SUBST(DBUS_QT3_CXXFLAGS)
 AC_SUBST(DBUS_QT3_LIBS)
 
 
-dnl Qt detection
+dnl Qt4 detection
 
 AC_MSG_CHECKING([if we want to link to Qt debugging libraries])
 qt_suffix=
@@ -1020,7 +1021,7 @@ if test x$have_qt = xno ; then
     fi
     have_qt=no
 else
-    dnl Qt flags
+    dnl Qt4 flags
     AC_SUBST(DBUS_QT_CFLAGS)
     AC_SUBST(DBUS_QT_LIBS)
     AC_SUBST(QT_MOC)
@@ -1257,7 +1258,7 @@ AC_DEFINE_UNQUOTED(DBUS_USER,"$DBUS_USER", [User for running the system BUS daem
 #### Tell tests where to find certain stuff in builddir
 ABSOLUTE_TOP_BUILDDIR=`cd ${ac_top_builddir}. && pwd`
 
-AC_DEFUN(TEST_PATH, [
+AC_DEFUN([TEST_PATH], [
 TEST_$1=${ABSOLUTE_TOP_BUILDDIR}/test/$2
 AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1",
                    [Full path to test file test/$2 in builddir])
@@ -1409,7 +1410,7 @@ echo "
         bindir:                   ${EXPANDED_BINDIR}
         sysconfdir:               ${EXPANDED_SYSCONFDIR}
         localstatedir:            ${EXPANDED_LOCALSTATEDIR}
-	datadir:              ${EXPANDED_DATADIR}
+	datadir:                  ${EXPANDED_DATADIR}
 	source code location:	  ${srcdir}
 	compiler:		  ${CC}
 	cflags:		          ${CFLAGS}
@@ -1448,7 +1449,7 @@ echo "
         Building verbose mode:    ${enable_verbose_mode}
         Building assertions:      ${enable_asserts}
         Building checks:          ${enable_checks}
-        Building Qt bindings:     ${have_qt}
+        Building Qt4 bindings:    ${have_qt}
         Building Qt3 bindings:    ${have_qt3}
         Building GLib bindings:   ${have_glib}
         Building Python bindings: ${have_python}
