@@ -1,5 +1,14 @@
 2006-02-16  Robert McQueen  <robot101@debian.org>
 
+	* configure.in: Patch from Debian packages by Sjoerd Simons
+	<sjoerd@debian.org> to add --with-qt-moc and --with-qt3-moc
+	arguments so it's possible to build both bindings in the
+	same tree.
+
+	* qt/Makefile.am: Fix truncated value so that make dist works.
+
+2006-02-16  Robert McQueen  <robot101@debian.org>
+
 	* acinclude.m4, configure.in: Patch from Brad Hards
 	<bradh@frogmouth.net> to avoid warnings from autoconf 1.9 by
 	improving quoting, re-ordering a few checks, and a few other

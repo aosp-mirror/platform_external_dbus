@@ -52,7 +52,7 @@ libdbus_qt4_1_la_SOURCES = 			\
 	$(top_srcdir)/qt/qdbusobject.h          \
 	$(top_srcdir)/qt/qdbusobject_p.h        \
 	$(top_srcdir)/qt/qdbusserver.h          \
-	$(top_srcdir)/qt/qdbusstandardinterfaces.
+	$(top_srcdir)/qt/qdbusstandardinterfaces.h \
 	$(top_srcdir)/qt/qdbustype.h            \
 	$(top_srcdir)/qt/qdbusvariant.h		\
 	$(top_srcdir)/qt/qdbusxmlparser_p.h     
