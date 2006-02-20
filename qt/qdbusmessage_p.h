@@ -42,6 +42,8 @@ public:
     int type;
     int timeout;
     QAtomic ref;
+
+    mutable bool repliedTo : 1;
 };
 
 #endif

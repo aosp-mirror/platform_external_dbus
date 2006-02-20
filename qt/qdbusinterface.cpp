@@ -142,7 +142,7 @@ QDBusMessage QDBusInterface::callWithArgs(const QDBusIntrospection::Method& meth
     else
         args.clear();
 
-    if (method.annotations.contains(ANNOTATION_NO_WAIT))
+    if (method.annotations.value(ANNOTATION_NO_WAIT, "false") == "true")
         mode = NoWaitForReply;
 
     return callWithArgs(method.name, signature, args, mode);

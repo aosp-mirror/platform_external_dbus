@@ -62,7 +62,6 @@ public:
     
     int flags;
     int slotIdx;
-    bool generateReply : 1;
 };
 
 static dbus_bool_t qDBusAddTimeout(DBusTimeout *timeout, void *data)
@@ -418,7 +417,7 @@ static int parametersForMethod(const QByteArray &sig, QList<int>& metaTypes)
 }
 
 static int findSlot(const QMetaObject *mo, const QByteArray &name, int flags,
-                    const QDBusTypeList &types, QList<int>& metaTypes, bool &isAsync, int &msgPos)
+                    const QDBusTypeList &types, QList<int>& metaTypes, int &msgPos)
 {
     // find the first slot
     const QMetaObject *super = mo;
@@ -448,7 +447,7 @@ static int findSlot(const QMetaObject *mo, const QByteArray &name, int flags,
             continue;
 
         int returnType = returnTypeId(mm.typeName());
-        isAsync = checkAsyncTag(mm.tag());
+        bool isAsync = checkAsyncTag(mm.tag());
 
         // consistency check:
         if (isAsync && returnType != QMetaType::Void)
@@ -543,7 +542,6 @@ bool QDBusConnectionPrivate::activateReply(QObject *object, int idx, const QList
     data->message = msg;
     data->metaTypes = metaTypes;
     data->slotIdx = idx;
-    data->generateReply = false;
 
     QCoreApplication::postEvent( this, data );
     
@@ -567,15 +565,10 @@ bool QDBusConnectionPrivate::activateCall(QObject* object, int flags,
     // the original types, the message signature is used to determine the original type.
     // Aside from that, the "int" and "unsigned" types will be tried as well.
     //
-    // Return message handling depends on whether the asynchronous tag ("async" or "Q_ASYNC")
-    // tag is found, whether the slot takes a QDBusMessage parameter and whether there are
-    // return values (non-const reference parameters or a return type).
-    // The table indicates the possibilities:
-    //   async       QDBusMessage parameter     return values      return message generated
-    //    yes         irrelevant                  irrelevant            no
-    //    no          irrelevant                     yes                yes
-    //    no             yes                         no                 no
-    //    no             no                          no                 yes
+    // The D-Bus specification requires that all MethodCall messages be replied to, unless the
+    // caller specifically waived this requirement. This means that we inspect if the user slot
+    // generated a reply and, if it didn't, we will. Obviously, if the user slot doesn't take a
+    // QDBusMessage parameter, it cannot generate a reply.
     //
     // When a return message is generated, the slot's return type, if any, will be placed
     // in the message's first position. If there are non-const reference parameters to the
@@ -586,7 +579,6 @@ bool QDBusConnectionPrivate::activateCall(QObject* object, int flags,
 
     QList<int> metaTypes;
     int idx;
-    bool isAsync;
     int msgPos;
     
     {
@@ -594,24 +586,10 @@ bool QDBusConnectionPrivate::activateCall(QObject* object, int flags,
         QDBusTypeList typeList(msg.signature().toUtf8());
 
         // find a slot that matches according to the rules above
-        idx = ::findSlot(mo, msg.name().toUtf8(), flags, typeList, metaTypes, isAsync, msgPos);
+        idx = ::findSlot(mo, msg.name().toUtf8(), flags, typeList, metaTypes, msgPos);
         if (idx == -1)
             // no match
             return false;
-    }
-
-    bool generateReply;
-    if (isAsync)
-        generateReply = false;
-    else if (metaTypes[0] != QMetaType::Void)
-        generateReply = true;
-    else {
-        if (msgPos != 0)
-            // generate a reply if there are more parameters past QDBusMessage
-            generateReply = metaTypes.count() > msgPos + 1;
-        else
-            // generate a reply if there are more parameters than input parameters
-            generateReply = metaTypes.count() > msg.count() + 1;
     }
 
     // found the slot to be called
@@ -627,7 +605,6 @@ bool QDBusConnectionPrivate::activateCall(QObject* object, int flags,
     // save our state:
     call->metaTypes = metaTypes;
     call->slotIdx = idx;
-    call->generateReply = generateReply;
 
     QCoreApplication::postEvent( this, call );
 
@@ -715,10 +692,11 @@ void QDBusConnectionPrivate::deliverCall(const CallDeliveryEvent& data) const
         fail = data.object->qt_metacall(QMetaObject::InvokeMetaMethod,
                                         data.slotIdx, params.data()) >= 0;
 
-    // do we create a reply?
-    if (data.generateReply) {
+    // do we create a reply? Only if the caller is waiting for a reply and one hasn't been sent
+    // yet.
+    if (!msg.noReply() && !msg.wasRepliedTo()) {
         if (!fail) {
-            // yes
+            // normal reply
             QDBusMessage reply = QDBusMessage::methodReply(msg);
             reply += outputArgs;
                 
@@ -1208,25 +1186,6 @@ void QDBusConnectionPrivate::disposeOf(QDBusObjectPrivate* p)
     QMutexLocker locker(&mutex);
     disposeOfLocked( const_cast<QDBusIntrospection::Object*>(p->data) );
 }
-
-#ifndef QT_NO_DEBUG
-int QDBusReplyWaiter::exec(QEventLoop::ProcessEventsFlags flags)
-{
-    static int eventlevel;
-    level = ++eventlevel;
-    qDebug("QDBusReplyWaiter::exec %p level %d starting", this, level);
-    int retcode = QEventLoop::exec(flags);
-    qDebug("QDBusReplyWaiter::exec %p level %d exiting", this, level);
-    --eventlevel;
-    return retcode;
-}
-
-void QDBusReplyWaiter::exit(int retcode)
-{
-    qDebug("QDBusReplyWaiter::exit %p level %d called", this, level);
-    QEventLoop::exit(retcode);
-}
-#endif
 
 void QDBusReplyWaiter::reply(const QDBusMessage &msg)
 {

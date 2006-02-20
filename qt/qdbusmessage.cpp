@@ -34,7 +34,8 @@
 #include "qdbusmessage_p.h"
 
 QDBusMessagePrivate::QDBusMessagePrivate(QDBusMessage *qq)
-    : msg(0), reply(0), q(qq), type(DBUS_MESSAGE_TYPE_INVALID), timeout(-1), ref(1)
+    : msg(0), reply(0), q(qq), type(DBUS_MESSAGE_TYPE_INVALID), timeout(-1), ref(1),
+      repliedTo(false)
 {
 }
 
@@ -143,6 +144,7 @@ QDBusMessage QDBusMessage::methodReply(const QDBusMessage &other)
     QDBusMessage message;
     message.d->type = DBUS_MESSAGE_TYPE_METHOD_RETURN;
     message.d->reply = dbus_message_ref(other.d->msg);
+    other.d->repliedTo = true;
 
     return message;
 }
@@ -166,6 +168,7 @@ QDBusMessage QDBusMessage::error(const QDBusMessage &other, const QString &name,
     message.d->name = name;
     message.d->message = msg;
     message.d->reply = dbus_message_ref(other.d->msg);
+    other.d->repliedTo = true;
 
     return message;
 }
@@ -187,6 +190,7 @@ QDBusMessage QDBusMessage::error(const QDBusMessage &other, const QDBusError &er
     message.d->name = error.name();
     message.d->message = error.message();
     message.d->reply = dbus_message_ref(other.d->msg);
+    other.d->repliedTo = true;
 
     return message;
 }
@@ -371,6 +375,30 @@ void QDBusMessage::setTimeout(int ms)
 }
 
 /*!
+    Returns the flag that indicates if this message should see a reply or not. This is only
+    meaningful for MethodCall messages: any other kind of message cannot have replies and this
+    function will always return false for them.
+*/
+bool QDBusMessage::noReply() const
+{
+    if (!d->msg)
+        return false;
+    return dbus_message_get_no_reply(d->msg);
+}
+
+/*!
+    Sets the flag that indicates whether we're expecting a reply from the callee. This flag only
+    makes sense for MethodCall messages.
+
+    \param enable       whether to enable the flag (i.e., we are not expecting a reply)
+*/
+void QDBusMessage::setNoReply(bool enable)
+{
+    if (d->msg)
+        dbus_message_set_no_reply(d->msg, enable);
+}
+
+/*!
     Returns the unique serial number assigned to this message
     or 0 if the message was not sent yet.
  */
@@ -394,6 +422,15 @@ int QDBusMessage::replySerialNumber() const
     if (!d->msg)
         return 0;
     return dbus_message_get_reply_serial(d->msg);
+}
+
+/*!
+    Returns true if this is a MethodCall message and a reply for it has been generated using
+    QDBusMessage::methodReply or QDBusMessage::error.
+*/
+bool QDBusMessage::wasRepliedTo() const
+{
+    return d->repliedTo;
 }
 
 /*!

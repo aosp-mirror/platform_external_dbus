@@ -180,12 +180,6 @@ class QDBusReplyWaiter: public QEventLoop
 public:
     QDBusMessage replyMsg;
 
-#ifndef QT_NO_DEBUG
-    int level;
-    int exec(ProcessEventsFlags flags);
-    void exit(int = 0);
-#endif
-
 public slots:
     void reply(const QDBusMessage &msg);
 };    

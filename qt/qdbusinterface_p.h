@@ -42,7 +42,7 @@
 #include "qdbusconnection.h"
 #include "qdbuserror.h"
 
-#define ANNOTATION_NO_WAIT      "com.trolltech.DBus.NoWaitForReply"
+#define ANNOTATION_NO_WAIT      "org.freedesktop.DBus.Method.NoReply"
 
 class QDBusInterfacePrivate
 {

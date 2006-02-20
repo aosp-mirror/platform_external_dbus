@@ -71,6 +71,9 @@ public:
     int timeout() const;
     void setTimeout(int ms);
 
+    bool noReply() const;
+    void setNoReply(bool enable);
+
     QString signature() const;
 
 //protected:
@@ -79,6 +82,7 @@ public:
     static QDBusMessage fromError(const QDBusError& error);
     int serialNumber() const;
     int replySerialNumber() const;
+    bool wasRepliedTo() const;
 
 private:
     QDBusMessagePrivate *d;
