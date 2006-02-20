@@ -179,17 +179,17 @@
 	<ricardo.kekki@movial.fi> to make dbus-binding-tool heed C symbol name
 	annotations when generating glib client bindings.
 
-1999-11-30  John (J5) Palmieri  <johnp@redhat.com>
+2005-12-19 John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-shared.h: Call it shared constants instead of shared macros
 
 	* dbus/dbus-protocol.h: add DOxygen markup to quiet warnings
 
-1999-11-30  John (J5) Palmieri  <johnp@redhat.com>
+2005-12-19 John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-shared.h: add DOxygen markup to quiet warnings
 
-1999-11-30  John (J5) Palmieri  <johnp@redhat.com> 
+2005-12-19 John (J5) Palmieri  <johnp@redhat.com> 
 
 	* dbus/dbus-macros.h: correct DOxygen end of section (s/}@/@})
 
@@ -11169,7 +11169,7 @@
 	* bus/main.c: (main):
 	Add simple activation support, doesn't work yet though.
 
-1999-11-30  Zack Rusin  <zack@kde.org>
+2003-02-15   Zack Rusin  <zack@kde.org>
 
 	* qt/dbus-qthread.cpp:  small casting fix
 
@@ -13007,7 +13007,7 @@
 	because any app can be a server, and any app can be a client,
 	the bus is a special kind of server.
 
-2002-11-22  Zack Rusin  <zack@kde.org>
+Thu Nov 21 23:35:31 2002  Zack Rusin  <zack@kde.org>
 
 	* Doxyfile : adding. Still needs Makefile rules to be generated
 	automatically (just run "doxygen" in the toplevel dir for now to
