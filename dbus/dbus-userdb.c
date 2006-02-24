@@ -61,7 +61,7 @@ _dbus_group_info_free_allocated (DBusGroupInfo *info)
   if (info == NULL) /* hash table will pass NULL */
     return;
 
-  _dbus_group_info_free_allocated (info);
+  _dbus_group_info_free (info);
   dbus_free (info);
 }
 

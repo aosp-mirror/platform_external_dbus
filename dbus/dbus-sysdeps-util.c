@@ -680,17 +680,6 @@ _dbus_group_info_fill_gid (DBusGroupInfo *info,
   return fill_group_info (info, gid, NULL, error);
 }
 
-/**
- * Frees the members of info (but not info itself).
- *
- * @param info the group info
- */
-void
-_dbus_group_info_free (DBusGroupInfo    *info)
-{
-  dbus_free (info->groupname);
-}
-
 /** @} */ /* End of DBusInternalsUtils functions */
 
 /**

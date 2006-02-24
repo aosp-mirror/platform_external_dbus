@@ -1,3 +1,14 @@
+2006-02-24  John (J5) Palmieri <johnp@redhat.com>
+	
+	* patch from Sjoerd Simons <sjoerd at debian.org>:	
+
+	* dbus/dbus-sysdeps-util.c (_dbus_group_info_free): Moved to 
+	dbus/dbus-sysdeps.c
+
+	* dbus/dbus-userdb.c (_dbus_group_info_free_allocated): Don't
+	call _dbus_group_info_free_allocated which causes infinite loop,
+	correctly call _dbus_group_info_free
+
 2006-02-20  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* qt/qdbusinterface_p.h:

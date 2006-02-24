@@ -1754,6 +1754,17 @@ _dbus_user_info_free (DBusUserInfo *info)
 }
 
 /**
+ * Frees the members of info (but not info itself).
+ *
+ * @param info the group info
+ */
+void
+_dbus_group_info_free (DBusGroupInfo    *info)
+{
+  dbus_free (info->groupname);
+}
+
+/**
  * Sets fields in DBusCredentials to DBUS_PID_UNSET,
  * DBUS_UID_UNSET, DBUS_GID_UNSET.
  *
