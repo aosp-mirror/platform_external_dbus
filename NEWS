@@ -1,3 +1,25 @@
+D-BUS 0.61 (24 Febuary 2006)
+==
+- Documentation all around
+- dbus-launch now produces correct sh and csh syntax
+- Nested arrays now work correctly
+- GLib bindings:
+  - Inheriting from DBusGProxy is now possible
+  - GPtrArrays can now be marshalled
+  - org.freedesktop.DBus.GLib.ClientCSymbol annotation added
+  - Openning connections to arbitrary addresses now supported
+- Python bindings:
+  - sender_keyword and path_keyword keywords added to signal listener API
+  - Byte types now demarshal to unsigned char
+  - calling methods now do the correct thing
+- Qt bindings:
+  - both Qt3 and Qt4 bindings can be built at the same time
+  - Use the standard org.freedesktop.DBus.Method.NoReply annotation 
+    for the "async" calls instead of creating one for us.
+- Mono bindings:
+  - 64bit arch fixes
+- Massive bug fixing all around
+
 D-BUS 0.60 (30 November 2005)
 ==
 

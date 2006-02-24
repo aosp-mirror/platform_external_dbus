@@ -1,3 +1,11 @@
+2006-02-24  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Released 0.61
+
+2006-02-24  John (J5) Palmieri  <johnp@redhat.com>
+	
+	* proxies.py: Fix the callchain
+
 2006-02-24  John (J5) Palmieri <johnp@redhat.com>
 	
 	* patch from Sjoerd Simons <sjoerd at debian.org>:	
