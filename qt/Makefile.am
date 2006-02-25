@@ -58,9 +58,9 @@ libdbus_qt4_1_la_SOURCES = 			\
 	$(top_srcdir)/qt/qdbusxmlparser_p.h     
 
 
-$(top_srcdir)/qt/qdbusabstractadaptor.lo: qdbusabstractadaptor.moc
-$(top_srcdir)/qt/qdbusserver.lo: qdbusserver.moc
-$(top_srcdir)/qt/qdbusconnection.lo: qdbusconnection_p.moc
+qdbusabstractadaptor.lo: qdbusabstractadaptor.moc
+qdbusserver.lo: qdbusserver.moc
+qdbusconnection.lo: qdbusconnection_p.moc
 
 CLEANFILES=qdbusabstractadaptor.moc qdbusserver.moc qdbusconnection.moc
 
