@@ -71,4 +71,4 @@ dbus_bool_t     dbus_type_is_fixed                   (int            typecode);
 
 DBUS_END_DECLS
 
-#endif /* DBUS_MESSAGE_H */
+#endif /* DBUS_SIGNATURE_H */

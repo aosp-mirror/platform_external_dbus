@@ -41,6 +41,7 @@
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-server.h>
 #include <dbus/dbus-shared.h>
+#include <dbus/dbus-signature.h>
 #include <dbus/dbus-threads.h>
 #include <dbus/dbus-types.h>
 

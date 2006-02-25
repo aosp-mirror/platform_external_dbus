@@ -37,6 +37,7 @@ dbusinclude_HEADERS=				\
 	dbus-protocol.h				\
 	dbus-server.h				\
 	dbus-shared.h				\
+	dbus-signature.h			\
 	dbus-threads.h				\
 	dbus-types.h				\
 	$(GLIB_INCLUDES)			\
@@ -84,7 +85,6 @@ DBUS_LIB_SOURCES=				\
 	dbus-sha.c				\
 	dbus-sha.h				\
 	dbus-signature.c			\
-	dbus-signature.h			\
 	dbus-timeout.c				\
 	dbus-timeout.h				\
 	dbus-threads-internal.h			\
