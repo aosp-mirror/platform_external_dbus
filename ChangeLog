@@ -1,3 +1,11 @@
+2006-02-26  Havoc Pennington  <hp@redhat.com>
+
+	* bus/dbus-daemon.1.in: improve the language in a couple spots I noticed
+
+	* dbus/dbus-bus.c (internal_bus_get): in the error message if the
+	session bus variable is unset, suggest "man dbus-launch" and "man
+	dbus-daemon" to figure out how to fix the problem
+
 2006-02-25  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-glib-tool.c (usage): fix up the usage message, someone

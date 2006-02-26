@@ -351,7 +351,7 @@ internal_bus_get (DBusBusType  type,
   if (address == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Unable to determine the address of the message bus");
+                      "Unable to determine the address of the message bus (try 'man dbus-launch' and 'man dbus-daemon' for help)");
       _DBUS_UNLOCK (bus);
       return NULL;
     }

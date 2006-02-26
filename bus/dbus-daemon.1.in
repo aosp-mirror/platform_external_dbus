@@ -295,16 +295,22 @@ by max_message_size.
 
 .PP
 max_completed_connections divided by max_connections_per_user is the
-number of users that can work together to DOS all other users by using
-up all connections.
+number of users that can work together to denial-of-service all other users by using
+up all connections on the systemwide bus.
+
+.PP
+Limits are normally only of interest on the systemwide bus, not the user session 
+buses.
 
 .TP
 .I "<policy>"
 
 .PP
-The <policy> element defines a policy to be applied to a particular
+The <policy> element defines a security policy to be applied to a particular
 set of connections to the bus. A policy is made up of
-<allow> and <deny> elements.
+<allow> and <deny> elements. Policies are normally used with the systemwide bus;
+they are analogous to a firewall in that they allow expected traffic 
+and prevent unexpected traffic.
 
 .PP
 The <policy> element has one of three attributes:
@@ -559,11 +565,13 @@ probably add a way to set the default connection context.
 Second, any time a connection asks to own a name, 
 the bus daemon will check permissions with the security 
 context of the connection as source, the security context specified
-for the name with an <associate> element as target, object 
+for the name in the config file as target, object 
 class "dbus" and requested permission "acquire_svc".
 
 .PP
-If the name has no security context associated in the 
+The security context for a bus name is specified with the 
+<associate> element described earlier in this document.
+If a name has no security context associated in the 
 configuration file, the security context of the bus daemon 
 itself will be used.
 
