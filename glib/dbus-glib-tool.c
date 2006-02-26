@@ -246,7 +246,7 @@ lose_gerror (const char *prefix, GError *error)
 static void
 usage (int ecode)
 {
-  fprintf (stderr, "dbus-binding-tool [--version] [--help] [--pretty-print]\n");
+  fprintf (stderr, "dbus-binding-tool [--version] [--help] --mode=[pretty|glib-server|glib-client] [--ignore-unsupported] [--force] [--output=FILE] [--prefix=SYMBOL_PREFIX]\n");
   exit (ecode);
 }
 

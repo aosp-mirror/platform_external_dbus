@@ -1,3 +1,8 @@
+2006-02-25  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-glib-tool.c (usage): fix up the usage message, someone
+	should make this thing use the new glib options parser
+
 2006-02-25  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* qt/Makefile.am: Patch by Sjoerd Simons. Fix the path to the
