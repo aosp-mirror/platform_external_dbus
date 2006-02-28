@@ -1,3 +1,9 @@
+2006-02-28  Thiago Macieira <thiago.macieira@trolltech.com>
+
+	* qt/Makefile.am: Patch by Sjoerd Simons. More .moc issues:
+        make/automake don't detect that we're talking about the same
+        .lo file if I specify the full path to the source files.
+
 2006-02-26  Havoc Pennington  <hp@redhat.com>
 
 	* bus/dbus-daemon.1.in: improve the language in a couple spots I noticed

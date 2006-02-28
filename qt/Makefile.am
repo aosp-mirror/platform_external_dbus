@@ -21,41 +21,40 @@ dbusinclude_HEADERS=	\
 	qdbusabstractadaptor.h
 
 libdbus_qt4_1_la_SOURCES = 			\
-	$(top_srcdir)/qt/qdbusconnection.cpp    \
-	$(top_srcdir)/qt/qdbuserror.cpp         \
-	$(top_srcdir)/qt/qdbusintegrator.cpp    \
-	$(top_srcdir)/qt/qdbusmarshall.cpp      \
-	$(top_srcdir)/qt/qdbusmessage.cpp       \
-	$(top_srcdir)/qt/qdbusserver.cpp        \
-	$(top_srcdir)/qt/qdbustype.cpp          \
-	$(top_srcdir)/qt/qdbusobject.cpp        \
-	$(top_srcdir)/qt/qdbusinterface.cpp     \
-	$(top_srcdir)/qt/qdbusstandardinterfaces.cpp	\
-	$(top_srcdir)/qt/qdbusxmlparser.cpp     \
-	$(top_srcdir)/qt/qdbusutil.cpp          \
-	$(top_srcdir)/qt/qdbusintrospection.cpp \
-	$(top_srcdir)/qt/qdbusabstractadaptor.cpp	\
-	$(top_srcdir)/qt/qdbusthread.cpp        \
+	qdbusconnection.cpp    \
+	qdbuserror.cpp         \
+	qdbusintegrator.cpp    \
+	qdbusmarshall.cpp      \
+	qdbusmessage.cpp       \
+	qdbusserver.cpp        \
+	qdbustype.cpp          \
+	qdbusobject.cpp        \
+	qdbusinterface.cpp     \
+	qdbusstandardinterfaces.cpp	\
+	qdbusxmlparser.cpp     \
+	qdbusutil.cpp          \
+	qdbusintrospection.cpp \
+	qdbusabstractadaptor.cpp	\
+	qdbusthread.cpp        \
 						\
-	$(top_srcdir)/dbus/qdbus.h              \
-	$(top_srcdir)/qt/qdbusabstractadaptor.h \
-	$(top_srcdir)/qt/qdbusconnection.h      \
-	$(top_srcdir)/qt/qdbusconnection_p.h    \
-	$(top_srcdir)/qt/qdbuserror.h           \
-	$(top_srcdir)/qt/qdbusinterface.h       \
-	$(top_srcdir)/qt/qdbusinterface_p.h     \
-	$(top_srcdir)/qt/qdbusintrospection.h   \
-	$(top_srcdir)/qt/qdbusmacros.h          \
-	$(top_srcdir)/qt/qdbusmarshall.h        \
-	$(top_srcdir)/qt/qdbusmessage.h         \
-	$(top_srcdir)/qt/qdbusmessage_p.h       \
-	$(top_srcdir)/qt/qdbusobject.h          \
-	$(top_srcdir)/qt/qdbusobject_p.h        \
-	$(top_srcdir)/qt/qdbusserver.h          \
-	$(top_srcdir)/qt/qdbusstandardinterfaces.h \
-	$(top_srcdir)/qt/qdbustype.h            \
-	$(top_srcdir)/qt/qdbusvariant.h		\
-	$(top_srcdir)/qt/qdbusxmlparser_p.h     
+	qdbusabstractadaptor.h \
+	qdbusconnection.h      \
+	qdbusconnection_p.h    \
+	qdbuserror.h           \
+	qdbusinterface.h       \
+	qdbusinterface_p.h     \
+	qdbusintrospection.h   \
+	qdbusmacros.h          \
+	qdbusmarshall.h        \
+	qdbusmessage.h         \
+	qdbusmessage_p.h       \
+	qdbusobject.h          \
+	qdbusobject_p.h        \
+	qdbusserver.h          \
+	qdbusstandardinterfaces.h \
+	qdbustype.h            \
+	qdbusvariant.h		\
+	qdbusxmlparser_p.h     
 
 
 qdbusabstractadaptor.lo: qdbusabstractadaptor.moc
