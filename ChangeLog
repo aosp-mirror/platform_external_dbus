@@ -1,3 +1,18 @@
+2006-03-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-connection.c: 
+	(_dbus_connection_block_pending_call):
+	Check to see if our data has already been read off the connection
+	by another blocking pending call before we block in poll.
+	(check_for_reply_and_update_dispatch_unlocked):
+	Code taken from _dbus_connection_block_pending_call - checks for
+	an already read reply and updates the dispatch if there is one.
+
+	* test/name-test/test-pending-call-dispatch.c:
+	New test for making sure we don't get stuck polling a 
+	dbus connection which has no data on the socket when
+	blocking out of order on two or more pending calls.
+
 2006-02-28  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* qt/Makefile.am: Patch by Sjoerd Simons. More .moc issues:

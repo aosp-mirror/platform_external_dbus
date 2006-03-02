@@ -2533,6 +2533,36 @@ check_for_reply_unlocked (DBusConnection *connection,
   return NULL;
 }
 
+static dbus_bool_t
+check_for_reply_and_update_dispatch_unlocked (DBusPendingCall *pending)
+{
+  DBusMessage *reply;
+  DBusDispatchStatus status;
+  DBusConnection *connection;
+
+  connection = pending->connection;
+
+  reply = check_for_reply_unlocked (connection, pending->reply_serial);
+  if (reply != NULL)
+    {
+      _dbus_verbose ("%s checked for reply\n", _DBUS_FUNCTION_NAME);
+
+      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply\n");
+
+      _dbus_pending_call_complete_and_unlock (pending, reply);
+      dbus_message_unref (reply);
+
+      CONNECTION_LOCK (connection);
+      status = _dbus_connection_get_dispatch_status_unlocked (connection);
+      _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+      dbus_pending_call_unref (pending);
+
+      return TRUE;
+    }
+
+  return FALSE;
+}
+
 /**
  * When a function that blocks has been called with a timeout, and we
  * run out of memory, the time to wait for memory is based on the
@@ -2616,6 +2646,11 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
                  start_tv_sec, start_tv_usec,
                  end_tv_sec, end_tv_usec);
 
+  /* check to see if we already got the data off the socket */
+  /* from another blocked pending call */
+  if (check_for_reply_and_update_dispatch_unlocked (pending))
+    return;
+
   /* Now we wait... */
   /* always block at least once as we know we don't have the reply yet */
   _dbus_connection_do_iteration_unlocked (connection,
@@ -2645,27 +2680,8 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
     }
   
   if (status == DBUS_DISPATCH_DATA_REMAINS)
-    {
-      DBusMessage *reply;
-      
-      reply = check_for_reply_unlocked (connection, client_serial);
-      if (reply != NULL)
-        {
-          _dbus_verbose ("%s checked for reply\n", _DBUS_FUNCTION_NAME);
-
-          _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply\n");
-          
-          _dbus_pending_call_complete_and_unlock (pending, reply);
-          dbus_message_unref (reply);
-
-          CONNECTION_LOCK (connection);
-          status = _dbus_connection_get_dispatch_status_unlocked (connection);
-          _dbus_connection_update_dispatch_status_and_unlock (connection, status);
-          dbus_pending_call_unref (pending);
-          
-          return;
-        }
-    }
+    if (check_for_reply_and_update_dispatch_unlocked (pending))
+      return;  
   
   _dbus_get_current_time (&tv_sec, &tv_usec);
   
