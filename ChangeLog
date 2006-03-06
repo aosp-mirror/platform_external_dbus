@@ -1,5 +1,13 @@
 2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* qt/dbusidl2cpp.cpp:
+	* qt/Makefile.am: add the dbusidl2cpp tool, the replacement
+	for dcopidl2cpp, found in the KDE installations (or the more
+	modern kalyptus): generate Qt4 C++ code for the input XML
+	introspection. Currently no IDL parsing.
+
+2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* test/qt/*: Update the self-tests.
 
 2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>

@@ -60,6 +60,10 @@ libdbus_qt4_1_la_SOURCES = 			\
 	qdbusvariant.h		\
 	qdbusxmlparser_p.h     
 
+bin_PROGRAMS = dbusidl2cpp
+dbusidl2cpp_SOURCES = dbusidl2cpp.cpp
+dbusidl2cpp_LDFLAGS = $(all_libraries) -no-undefined 
+dbusidl2cpp_LDADD = $(LIB_QTCORE) libdbus-qt4-1.la
 
 qdbusabstractadaptor.lo: qdbusabstractadaptor.moc qdbusabstractadaptor_p.moc
 qdbusserver.lo: qdbusserver.moc
