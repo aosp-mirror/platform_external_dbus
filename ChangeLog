@@ -1,3 +1,8 @@
+2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* qt/Doxyfile: Adding a Doxyfile for the Qt4 bindings
+        dir. This is C++, so we can't use the DBus ones.
+
 2006-03-02  John (J5) Palmieri  <johnp@redhat.com>
 
 	* python/dbus_bindings.pyx: Remove refrence to sys/cdefs.h
