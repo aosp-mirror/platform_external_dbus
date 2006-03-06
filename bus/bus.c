@@ -790,6 +790,9 @@ bus_context_reload_config (BusContext *context,
   DBusString config_file;
   dbus_bool_t ret;
 
+  /* Flush the user database cache */
+  _dbus_user_database_flush(context->user_database);
+
   ret = FALSE;
   _dbus_string_init_const (&config_file, context->config_file);
   parser = bus_config_load (&config_file, TRUE, NULL, error);

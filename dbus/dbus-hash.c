@@ -422,6 +422,22 @@ _dbus_hash_table_unref (DBusHashTable *table)
     }
 }
 
+/**
+ * Removed all entries from a hash table.
+ *
+ * @param table the hash table to remove all entries from.
+ */
+void
+_dbus_hash_table_remove_all (DBusHashTable *table)
+{
+  DBusHashIter iter;
+  _dbus_hash_iter_init (table, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      _dbus_hash_iter_remove_entry(&iter);
+    }
+}
+
 static DBusHashEntry*
 alloc_entry (DBusHashTable *table)
 {

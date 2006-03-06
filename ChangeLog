@@ -1,3 +1,15 @@
+2006-03-06  Sjoerd Simons <sjoerd@luon.net>
+
+	* bus/bus.c: (bus_context_reload_config): Flush the user database cache on
+	config reload.
+	* bus/dbus-daemon.1.in: Also note that SIGHUP flushes the user/group
+	information caches
+	* dbus/dbus-hash.c: (_dbus_hash_table_remove_all): 
+	* dbus/dbus-hash.h: Add function to remove all entries from a hash table
+	* dbus/dbus-userdb.c: (_dbus_user_database_flush):
+	* dbus/dbus-userdb.h: Add function to flush all user/group information
+	caches.
+
 2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/dbusidl2cpp.cpp:

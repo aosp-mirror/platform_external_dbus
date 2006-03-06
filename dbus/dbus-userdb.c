@@ -476,6 +476,18 @@ _dbus_user_database_new (void)
   return NULL;
 }
 
+/**
+ * Flush all information out of the user database. 
+ */
+void
+_dbus_user_database_flush (DBusUserDatabase *db) 
+{
+  _dbus_hash_table_remove_all(db->users_by_name);
+  _dbus_hash_table_remove_all(db->groups_by_name);
+  _dbus_hash_table_remove_all(db->users);
+  _dbus_hash_table_remove_all(db->groups);
+}
+
 #ifdef DBUS_BUILD_TESTS
 /**
  * Increments refcount of user database.
