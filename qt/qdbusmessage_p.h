@@ -27,6 +27,7 @@
 
 #include <qatomic.h>
 #include <qstring.h>
+#include "qdbusconnection.h"
 struct DBusMessage;
 
 class QDBusMessagePrivate
@@ -36,6 +37,7 @@ public:
     ~QDBusMessagePrivate();
 
     QString service, path, interface, name, message, signature;
+    QDBusConnection connection;
     DBusMessage *msg;
     DBusMessage *reply;
     QDBusMessage *q;

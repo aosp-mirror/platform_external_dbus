@@ -36,6 +36,9 @@ class QDBUS_EXPORT QDBusError
 public:
     QDBusError(const DBusError *error = 0);
     QDBusError(const QDBusMessage& msg);
+    inline QDBusError(const QString &name, const QString &message)
+        : nm(name), msg(message)
+    { }
 
     inline QString name() const { return nm; }
     inline QString message() const { return msg; }

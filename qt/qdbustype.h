@@ -45,7 +45,7 @@ public:
         QtNames,
         QVariantNames
     };
-    
+
     QDBusType();
     explicit QDBusType(int type);
     explicit QDBusType(QVariant::Type type);
@@ -109,9 +109,6 @@ public:
     QDBusTypeList(DBusSignatureIter*);
 
     bool canBeMap() const;
-
-    inline QDBusTypeList& operator<<(const QDBusType& item)
-        { QList<QDBusType>::operator<<(item); return *this; }
 
     QByteArray dbusSignature() const;
 };

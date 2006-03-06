@@ -33,6 +33,7 @@
 
 class QDBusMessagePrivate;
 class QDBusError;
+class QDBusConnection;
 struct DBusMessage;
 
 class QDBUS_EXPORT QDBusMessage: public QList<QVariant>
@@ -52,8 +53,7 @@ public:
     static QDBusMessage signal(const QString &path, const QString &interface,
                                const QString &name);
     static QDBusMessage methodCall(const QString &destination, const QString &path,
-                                   const QString &interface, const QString &method,
-                                   const QString &signature = QString());
+                                   const QString &interface, const QString &method);
     static QDBusMessage methodReply(const QDBusMessage &other);
     static QDBusMessage error(const QDBusMessage &other, const QString &name,
                               const QString &message = QString());
@@ -72,13 +72,15 @@ public:
     void setTimeout(int ms);
 
     bool noReply() const;
-    void setNoReply(bool enable);
 
     QString signature() const;
+    void setSignature(const QString &signature);
+
+    QDBusConnection connection() const;
 
 //protected:
     DBusMessage *toDBusMessage() const;
-    static QDBusMessage fromDBusMessage(DBusMessage *dmsg);
+    static QDBusMessage fromDBusMessage(DBusMessage *dmsg, const QDBusConnection &connection);
     static QDBusMessage fromError(const QDBusError& error);
     int serialNumber() const;
     int replySerialNumber() const;

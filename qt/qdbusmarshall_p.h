@@ -1,4 +1,4 @@
-/* qdbusmarshall.h QDBusMarshall object
+/* qdbusmarshall_p.h QDBusMarshall object
  *
  * Copyright (C) 2005 Harald Fernengel <harry@kdevelop.org>
  * Copyright (C) 2006 Trolltech AS. All rights reserved.
@@ -22,8 +22,20 @@
  *
  */
 
-#ifndef QDBUSMARSHALL_H
-#define QDBUSMARSHALL_H
+//
+//  W A R N I N G
+//  -------------
+//
+// This file is not part of the public API.  This header file may
+// change from version to version without notice, or even be
+// removed.
+//
+// We mean it.
+//
+//
+
+#ifndef QDBUSMARSHALLPRIVATE_H
+#define QDBUSMARSHALLPRIVATE_H
 
 struct DBusMessage;
 
@@ -31,6 +43,9 @@ template <typename T> class QList;
 class QVariant;
 class QString;
 
+/*!
+    \internal
+*/
 class QDBusMarshall
 {
 public:

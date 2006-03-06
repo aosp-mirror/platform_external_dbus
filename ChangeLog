@@ -1,5 +1,12 @@
 2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* qt/*: 
+	* dbus/qdbus.h: Sync with KDE Subversion revision 516237. This
+	represents the first feature-complete version of the Qt4
+	bindings since I took ove maintainership.
+
+2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* qt/Doxyfile: Adding a Doxyfile for the Qt4 bindings
         dir. This is C++, so we can't use the DBus ones.
 

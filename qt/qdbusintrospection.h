@@ -113,7 +113,7 @@ public:
         Properties properties;
 
         inline bool operator==(const Interface &other) const
-        { return name == other.name; }
+        { return !name.isEmpty() && name == other.name; }
     };
 
     struct Object: public QSharedData

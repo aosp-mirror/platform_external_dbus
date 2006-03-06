@@ -28,6 +28,8 @@
 #include "qdbusmessage.h"
 #include "qdbusobject.h"
 #include "qdbusintrospection.h"
+#include "qdbusreply.h"
+#include "qdbusvariant.h"
 #include <QtCore/qstring.h>
 #include <QtCore/qvariant.h>
 #include <QtCore/qlist.h>
@@ -35,9 +37,6 @@
 class QDBusConnection;
 
 class QDBusInterfacePrivate;
-/**
- * Base class for all DBUS interfaces in the QtDBUS binding.
- */
 class QDBUS_EXPORT QDBusInterface
 {
     friend class QDBusConnection;
@@ -49,171 +48,65 @@ public:
     };
 
 public:
-    /**
-     * Construct an interface of the given name
-     */
     QDBusInterface(const QDBusObject& obj, const QString& name);
-
-    /**
-     * @overload.
-     * Construct an interface of the given name
-     */
-    QDBusInterface(QDBusConnection& conn, const QString& service, const QString& path, const QString& name);
-
-    /**
-     * Construct a copy of the interface.
-     */
     QDBusInterface(const QDBusInterface&);
-
-    /**
-     * Destructs this interface.
-     */
     virtual ~QDBusInterface();
 
-    /**
-     * Copy the interface.
-     */
     QDBusInterface& operator=(const QDBusInterface&);
     
-    /**
-     * Returns the object associated with this interface.
-     */
     inline QDBusObject object()
     { return QDBusObject(*this); }
 
     inline const QDBusObject object() const
     { return QDBusObject(*this); }
 
-    /**
-     * Returns the connection this interface is on.
-     */
+    inline operator QDBusObject()
+    { return QDBusObject(*this); }
+
+    inline operator const QDBusObject() const
+    { return QDBusObject(*this); }
+
+    
     QDBusConnection connection() const;
 
-    /**
-     * Returns the name of the service this interface is associated with.
-     */
     QString service() const;
-
-    /**
-     * Returns the object path that this interface is associated with.
-     */
     QString path() const;
-    
-    /**
-     * Returns the name of this interface.
-     */
     QString interface() const;
 
-    /**
-     * Returns the introspection XML fragment data of this interface.
-     */
     virtual QString introspectionData() const;
-
-    /**
-     * Returns the interface data for this interface.
-     */
     const QDBusIntrospection::Interface& interfaceData() const;
-
-    /**
-     * Returns the annotations present in this interface, if any.
-     */
     const QDBusIntrospection::Annotations& annotationData() const;
-
-    /**
-     * List all methods in this interface.
-     */
     const QDBusIntrospection::Methods& methodData() const;
-
-    /**
-     * List all signals in this interface.
-     */
     const QDBusIntrospection::Signals& signalData() const;
-
-    /**
-     * List all properties in this interface.
-     */
     const QDBusIntrospection::Properties& propertyData() const;
 
-    /**
-     * Call the given method.
-     */
     QDBusMessage callWithArgs(const QDBusIntrospection::Method& method,
                               const QList<QVariant>& args = QList<QVariant>(),
                               CallMode mode = WaitForReply);
-
-    /**
-     * Call the given method.
-     */
     QDBusMessage callWithArgs(const QString& method, const QList<QVariant>& args = QList<QVariant>(),
                               CallMode mode = WaitForReply);
-
-    /**
-     * Call the given method.
-     */
     QDBusMessage callWithArgs(const QString& method, const QString& signature,
                               const QList<QVariant>& args = QList<QVariant>(),
                               CallMode mode = WaitForReply);
    
-    /**
-     * Connects the DBUS signal to the given slot.
-     */
     bool connect(const QDBusIntrospection::Signal&, QObject* obj, const char *slot);
-
-    /**
-     * Connects the DBUS signal to the given slot.
-     */
     bool connect(const QString& signalName, QObject* obj, const char *slot);
-
-    /**
-     * Connects the DBUS signal to the given slot.
-     */
     bool connect(const QString& signalName, const QString& signature,
                  QObject* obj, const char *slot);
 
-    /**
-     * Gets the value of the given property.
-     */
-    QVariant propertyGet(const QDBusIntrospection::Property&);
+    QDBusReply<QDBusVariant> property(const QDBusIntrospection::Property&);
+    QDBusReply<QDBusVariant> property(const QString& property);
 
-    /**
-     * Gets the value of the given property.
-     */
-    QVariant propertyGet(const QString& property);
+    QDBusReply<void> setProperty(const QDBusIntrospection::Property&, const QDBusVariant& newValue);
+    QDBusReply<void> setProperty(const QString& property, const QDBusVariant& newValue);
 
-    /**
-     * Sets the value of the given property.
-     */
-    void propertySet(const QDBusIntrospection::Property&, QVariant newValue);
-
-    /**
-     * Sets the value of the given property.
-     */
-    void propertySet(const QString& property, QVariant newValue);
-
-    /**
-     * Casts to QDBusObject.
-     */
-    inline operator QDBusObject()
-    { return QDBusObject(*this); }
-
-    /**
-     * Casts to const QDBusObject.
-     */
-    inline operator const QDBusObject() const
-    { return QDBusObject(*this); }
-
-    /**
-     * Call the given method.
-     */
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
     template<typename MethodType>
     inline QDBusMessage call(MethodType m)
     {
         return callWithArgs(m);
     }
 
-    /**
-     * Call the given method.
-     */
     template<typename MethodType, typename T1>
         inline QDBusMessage call(MethodType m, T1 t1)
     {
@@ -222,9 +115,6 @@ public:
         return callWithArgs(m, args);
     }
 
-    /**
-     * Call the given method.
-     */
     template<typename MethodType, typename T1, typename T2>
         inline QDBusMessage call(MethodType m, T1 t1, T2 t2)
     {
@@ -233,9 +123,6 @@ public:
         return callWithArgs(m, args);
     }
 
-    /**
-     * Call the given method.
-     */
     template<typename MethodType, typename T1, typename T2, typename T3>
         inline QDBusMessage call(MethodType m, T1 t1, T2 t2, T3 t3)
     {
@@ -244,9 +131,6 @@ public:
         return callWithArgs(m, args);
     }
       
-    /**
-     * Call the given method.
-     */
     template<typename MethodType, typename T1, typename T2, typename T3, typename T4>
         inline QDBusMessage call(MethodType m, T1 t1, T2 t2, T3 t3, T4 t4)
     {
@@ -255,9 +139,6 @@ public:
         return callWithArgs(m, args);
     }
 
-    /**
-     * Call the given method.
-     */
     template<typename MethodType, typename T1, typename T2, typename T3, typename T4, typename T5>
         inline QDBusMessage call(MethodType m, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5)
     {
@@ -266,9 +147,6 @@ public:
         return callWithArgs(m, args);
     }
   
-    /**
-     * Call the given method.
-     */
     template<typename MethodType, typename T1, typename T2, typename T3, typename T4, typename T5,
         typename T6>
         inline QDBusMessage call(MethodType m, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6)
@@ -278,9 +156,6 @@ public:
         return callWithArgs(m, args);
     }
 
-    /**
-     * Call the given method.
-     */
     template<typename MethodType, typename T1, typename T2, typename T3, typename T4, typename T5,
         typename T6, typename T7>
         inline QDBusMessage call(MethodType m, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7)
@@ -290,9 +165,6 @@ public:
         return callWithArgs(m, args);
     }
 
-    /**
-     * Call the given method.
-     */
     template<typename MethodType, typename T1, typename T2, typename T3, typename T4, typename T5,
         typename T6, typename T7, typename T8>
         inline QDBusMessage call(MethodType m, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7, T8 t8)
@@ -301,6 +173,11 @@ public:
         args << t1 << t2 << t3 << t4 << t5 << t6 << t7 << t8;
         return callWithArgs(m, args);
     }
+#else
+    // fool Doxygen
+    inline QDBusMessage call(const QDBusIntrospection::Method &method, ...);
+    inline QDBusMessage call(const QString &method, ...);
+#endif
 
 private:
     QDBusInterface(QDBusInterfacePrivate*);

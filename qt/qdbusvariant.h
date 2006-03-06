@@ -33,6 +33,17 @@ struct QDBUS_EXPORT QDBusVariant
 {
     QDBusType type;
     QVariant value;
+
+    inline QDBusVariant()
+    { }
+    inline QDBusVariant(const QVariant &variant) : value(variant)
+    { }
+    inline QDBusVariant(const QVariant &variant, const QDBusType &forcetype)
+        : type(forcetype), value(variant)
+    { }
+
+    inline operator const QVariant &() const
+    { return value; }
 };
 Q_DECLARE_METATYPE(QDBusVariant)
 

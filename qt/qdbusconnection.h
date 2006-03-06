@@ -41,23 +41,38 @@ class QDBUS_EXPORT QDBusConnection
 {
 public:
     enum BusType { SessionBus, SystemBus, ActivationBus };
+    enum NameRequestMode { NoReplace = 0, ProhibitReplace = 1, ReplaceExisting = 2 };
+    enum RegisterOption {
+        ExportAdaptors = 0x01,
 
-    QDBusConnection(const QString &name = QLatin1String(default_connection_name));
+        ExportSlots = 0x10,
+        ExportSignals = 0x20,
+        ExportProperties = 0x40,
+        ExportContents = 0xf0,
+
+        ExportNonScriptableSlots = 0x110,
+        ExportNonScriptableSignals = 0x220,
+        ExportNonScriptableProperties = 0x440,
+        ExportNonScriptableContents = 0xff0,
+
+        ExportChildObjects = 0x1000
+    };
+    enum UnregisterMode {
+        UnregisterNode,
+        UnregisterTree
+    };
+
+    Q_DECLARE_FLAGS(RegisterOptions, RegisterOption);
+
+    QDBusConnection(const QString &name);
     QDBusConnection(const QDBusConnection &other);
     ~QDBusConnection();
 
     QDBusConnection &operator=(const QDBusConnection &other);
 
     bool isConnected() const;
-    QDBusError lastError() const;
-
-    enum NameRequestMode { NoReplace = 0, ProhibitReplace = 1, ReplaceExisting = 2 };
-    bool requestName(const QString &name, NameRequestMode mode = NoReplace);
-    bool releaseName(const QString& name);
-    QString getNameOwner(const QString& name);
-
-
     QString baseService() const;
+    QDBusError lastError() const;
 
     bool send(const QDBusMessage &message) const;
     QDBusMessage sendWithReply(const QDBusMessage &message) const;
@@ -70,48 +85,45 @@ public:
                  const QString &name, const QString& signature,
                  QObject *receiver, const char *slot);
 
-    enum RegisterOption {
-        ExportForAnyInterface = 0x01,
-        ExportAdaptors = 0x03,
-        
-        ExportOwnSlots = 0x10,
-        ExportOwnSignals = 0x20,
-        ExportOwnProperties = 0x40,
-        ExportOwnContents = 0xf0,
-        
-        ExportNonScriptableSlots = 0x100,
-        ExportNonScriptableSignals = 0x200,
-        ExportNonScriptableProperties = 0x400,
-        ExportNonScriptables = 0xf00,
-        
-        ExportChildObjects = 0x1000,        
-
-        Reexport = 0x100000,
-    };
-    Q_DECLARE_FLAGS(RegisterOptions, RegisterOption);
-    
-    bool registerObject(const QString &path, const QString &interface, QObject *object,
-                        RegisterOptions options = ExportOwnContents);
     bool registerObject(const QString &path, QObject *object,
                         RegisterOptions options = ExportAdaptors);
-    void unregisterObject(const QString &path);
+    void unregisterObject(const QString &path, UnregisterMode = UnregisterNode);
 
     QDBusObject findObject(const QString& service, const QString& path);
     QDBusInterface findInterface(const QString& service, const QString& path, const QString& interface);
-    
+
+#ifndef QT_NO_MEMBER_TEMPLATES
+    template<class Interface>
+    inline Interface findInterface(const QString &service, const QString &path)
+    { return Interface(findObject(service, path)); }
+#endif
+
+    bool requestName(const QString &name, NameRequestMode mode = NoReplace);
+    bool releaseName(const QString& name);
+    QString getNameOwner(const QString& name);
 
     static QDBusConnection addConnection(BusType type,
-                               const QString &name = QLatin1String(default_connection_name));
+                                         const QString &name);
     static QDBusConnection addConnection(const QString &address,
-                               const QString &name = QLatin1String(default_connection_name));
-    static void closeConnection(const QString &name = QLatin1String(default_connection_name));
-
-    QT_STATIC_CONST char *default_connection_name;
+                                         const QString &name);
+    static void closeConnection(const QString &name);
 
 private:
     friend class QDBusObject;
     QDBusConnectionPrivate *d;
 };
+
+namespace QDBus {
+    QDBusConnection &sessionBus();
+    QDBusConnection &systemBus();
+}
+
+template<class Interface>
+inline Interface qDBusConnectionFindInterface(QDBusConnection &connection, const QString &service,
+                                              const QString &path)
+{
+    return Interface(connection.findObject(service, path));
+}
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QDBusConnection::RegisterOptions)
 #endif

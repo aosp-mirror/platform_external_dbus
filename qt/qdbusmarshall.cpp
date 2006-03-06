@@ -22,7 +22,7 @@
  *
  */
 
-#include "qdbusmarshall.h"
+#include "qdbusmarshall_p.h"
 #include "qdbustype.h"
 #include "qdbusvariant.h"
 
@@ -349,8 +349,10 @@ static void qAppendVariantToMessage(DBusMessageIter *it, const QDBusType & /* ty
     }
     else {
         v = var;
-        t = QDBusType::guessFromVariant(v);
     }
+
+    if (!t.isValid())
+        t = QDBusType::guessFromVariant(v);        
     
     // now add this variant
     DBusMessageIter sub;

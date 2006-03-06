@@ -27,18 +27,24 @@
 #include <QtCore/qobject.h>
 #include "qdbusmacros.h"
 
+class QDBusAbstractAdaptorPrivate;
 class QDBUS_EXPORT QDBusAbstractAdaptor: public QObject
 {
     Q_OBJECT
+protected:
+    QDBusAbstractAdaptor(QObject *parent);
+
 public:
-    QDBusAbstractAdaptor(QObject* parent);
     ~QDBusAbstractAdaptor();
+
+    QObject *object() const;
 
 protected:
     void setAutoRelaySignals(bool enable);
 
-private slots:
-    void polish();
+private:
+    friend class QDBusAbstractAdaptorPrivate;
+    QDBusAbstractAdaptorPrivate *d;
 };
 
 #endif

@@ -56,11 +56,16 @@ public:
     //QConstSharedDataPointer<QDBusIntrospection::Interface> data;
     const QDBusIntrospection::Interface* data;
 
+    inline QDBusInterfacePrivate(const QDBusConnection &other) : conn(other), data(emptyData())
+    { }
+
     inline bool needsIntrospection() const
-    { return data->introspection.isNull(); }
+    { return data && data->introspection.isNull(); }
 
     inline void introspect()
-    { if (needsIntrospection()) QDBusObject(conn, service, path).introspect(); }
+    { if (needsIntrospection()) conn.findObject(service, path).introspect(); }
+
+    static const QDBusIntrospection::Interface *emptyData();
 };
 
 

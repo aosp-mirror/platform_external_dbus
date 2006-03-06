@@ -26,6 +26,7 @@
 #define QDBUS_STANDARD_INTERFACES_H
 
 #include "qdbusinterface.h"
+#include "qdbusreply.h"
 #include <QtCore/qstring.h>
 #include <QtCore/qstringlist.h>
 #include <dbus/dbus.h>
@@ -41,27 +42,23 @@ public:
     static inline const char* staticIntrospectionData()
     {
         return
-            "<interface name=\"org.freedesktop.DBus.Peer\">"
-            "<method name=\"Ping\" />"
-            "</interface>";
+            "  <interface name=\"org.freedesktop.DBus.Peer\">\n"
+            "    <method name=\"Ping\" />\n"
+            "  </interface>\n";
     }
 
 public:
     explicit QDBusPeerInterface(const QDBusObject& obj)
-        : QDBusInterface(obj, staticInterfaceName())
-    { }
-
-    QDBusPeerInterface(QDBusConnection& conn, const QString& service, const QString& path)
-        : QDBusInterface(conn, service, path, staticInterfaceName())
+        : QDBusInterface(obj, QLatin1String(staticInterfaceName()))
     { }
 
     ~QDBusPeerInterface();
 
     inline virtual QString introspectionData() const
-    { return staticIntrospectionData(); }
+    { return QString::fromLatin1(staticIntrospectionData()); }
 
-    inline void ping()
-    { call(QLatin1String("Ping")); }
+    inline QDBusReply<void> ping()
+    { return call(QLatin1String("Ping")); }
 };
 
 class QDBUS_EXPORT QDBusIntrospectableInterface: public QDBusInterface
@@ -73,28 +70,24 @@ public:
     static inline const char* staticIntrospectionData()
     {
         return
-            "<interface name=\"org.freedesktop.DBus.Introspectable\">"
-            "<method name=\"Introspect\">"
-            "<arg name=\"xml_data\" type=\"s\" direction=\"out\" />"
-            "</method>"
-            "</interface>";
+            "  <interface name=\"org.freedesktop.DBus.Introspectable\">\n"
+            "    <method name=\"Introspect\">\n"
+            "      <arg name=\"xml_data\" type=\"s\" direction=\"out\"/>\n"
+            "    </method>\n"
+            "  </interface>\n";
     }
 public:
     explicit QDBusIntrospectableInterface(const QDBusObject& obj)
-        : QDBusInterface(obj, staticInterfaceName())
-    { }
-
-    QDBusIntrospectableInterface(QDBusConnection& conn, const QString& service, const QString& path)
-        : QDBusInterface(conn, service, path, staticInterfaceName())
+        : QDBusInterface(obj, QLatin1String(staticInterfaceName()))
     { }
 
     ~QDBusIntrospectableInterface();
 
     inline virtual QString introspectionData() const
-    { return staticIntrospectionData(); }
-    
-    inline QString introspect()
-    { return call(QLatin1String("Introspect")).at(0).toString(); }
+    { return QLatin1String(staticIntrospectionData()); }
+
+    inline QDBusReply<QString> introspect()
+    { return call(QLatin1String("Introspect")); }
 };
 
 class QDBUS_EXPORT QDBusPropertiesInterface: public QDBusInterface
@@ -106,39 +99,38 @@ public:
     static inline const char* staticIntrospectionData()
     {
         return
-            "<interface name=\"org.freedesktop.DBus.Properties\">"
-            "<method name=\"Get\">"
-            "<arg name=\"interface_name\" type=\"s\" direction=\"in\"/>"
-            "<arg name=\"property_name\" type=\"s\" direction=\"in\"/>"
-            "<arg name=\"value\" type=\"v\" direction=\"out\"/>"
-            "</method>"
-            "<method name=\"Set\">"
-            "<arg name=\"interface_name\" type=\"s\" direction=\"in\"/>"
-            "<arg name=\"property_name\" type=\"s\" direction=\"in\"/>"
-            "<arg name=\"value\" type=\"v\" direction=\"in\"/>"
-            "</method>";
+            "  <interface name=\"org.freedesktop.DBus.Properties\">\n"
+            "    <method name=\"Get\">\n"
+            "      <arg name=\"interface_name\" type=\"s\" direction=\"in\"/>\n"
+            "      <arg name=\"property_name\" type=\"s\" direction=\"in\"/>\n"
+            "      <arg name=\"value\" type=\"v\" direction=\"out\"/>\n"
+            "    </method>\n"
+            "    <method name=\"Set\">\n"
+            "      <arg name=\"interface_name\" type=\"s\" direction=\"in\"/>\n"
+            "      <arg name=\"property_name\" type=\"s\" direction=\"in\"/>\n"
+            "      <arg name=\"value\" type=\"v\" direction=\"in\"/>\n"
+            "    </method>\n"
+            "  </interface>\n";
             }
 public:
     explicit QDBusPropertiesInterface(const QDBusObject& obj)
-        : QDBusInterface(obj, staticInterfaceName())
-    { }
-
-    QDBusPropertiesInterface(QDBusConnection& conn, const QString& service, const QString& path)
-        : QDBusInterface(conn, service, path, staticInterfaceName())
+        : QDBusInterface(obj, QLatin1String(staticInterfaceName()))
     { }
 
     ~QDBusPropertiesInterface();
-    
+
     inline virtual QString introspectionData() const
-    { return staticIntrospectionData(); }
+    { return QString::fromLatin1(staticIntrospectionData()); }
 
-    inline void set(const QString& interfaceName, const QString& propertyName, QVariant value)
-    { call(QLatin1String("Set.ssv"), interfaceName, propertyName, value); }
+    inline QDBusReply<void> set(const QString& interfaceName, const QString& propertyName,
+                                const QDBusVariant &value)
+    { return call(QLatin1String("Set.ssv"), interfaceName, propertyName, value); }
 
-    inline QVariant get(const QString& interfaceName, const QString& propertyName)
-    { return call(QLatin1String("Get.ss"), interfaceName, propertyName).at(0); }
+    inline QDBusReply<QDBusVariant> get(const QString& interfaceName, const QString& propertyName)
+    { return call(QLatin1String("Get.ss"), interfaceName, propertyName); }
 };
 
+#if 0
 class QDBUS_EXPORT QDBusBusInterface: public QDBusInterface
 {
 public:
@@ -152,58 +144,54 @@ public:
         : QDBusInterface(obj, staticInterfaceName())
     { }
 
-    QDBusBusInterface(QDBusConnection& conn, const QString& service, const QString& path)
-        : QDBusInterface(conn, service, path, staticInterfaceName())
-    { }
-
     ~QDBusBusInterface();
 
     inline virtual QString introspectionData() const
     { return staticIntrospectionData(); }
 
-    inline unsigned requestName(const QString& name, unsigned flags)
-    { return call(QLatin1String("RequestName.su"), name, flags).at(0).toUInt(); }
+    inline QDBusReply<unsigned> requestName(const QString& name, unsigned flags)
+    { return call(QLatin1String("RequestName.su"), name, flags); }
 
-    inline unsigned releaseName(const QString& name)
-    { return call(QLatin1String("ReleaseName.s"), name).at(0).toUInt(); }
+    inline QDBusReply<unsigned> releaseName(const QString& name)
+    { return call(QLatin1String("ReleaseName.s"), name); }
 
-    inline unsigned startServiceByName(const QString& name, unsigned flags)
-    { return call(QLatin1String("StartServiceByName.su"), name, flags).at(0).toUInt(); }
+    inline QDBusReply<unsigned> startServiceByName(const QString& name, unsigned flags)
+    { return call(QLatin1String("StartServiceByName.su"), name, flags); }
 
-    inline QString Hello()
-    { return call(QLatin1String("Hello")).at(0).toString(); }
+    inline QDBusReply<QString> Hello()
+    { return call(QLatin1String("Hello")); }
 
-    inline bool nameHasOwner(const QString& name)
-    { return call(QLatin1String("NameHasOwner.s"), name).at(0).toBool(); }
+    inline QDBusReply<bool> nameHasOwner(const QString& name)
+    { return call(QLatin1String("NameHasOwner.s"), name); }
 
-    inline QStringList listNames()
-    { return call(QLatin1String("ListNames")).at(0).toStringList(); }
+    inline QDBusReply<QStringList> listNames()
+    { return call(QLatin1String("ListNames")); }
 
-    inline void addMatch(const QString& rule)
-    { call(QLatin1String("AddMatch"), rule); }
+    inline QDBusReply<void> addMatch(const QString& rule)
+    { return call(QLatin1String("AddMatch"), rule); }
 
-    inline void removeMatch(const QString& rule)
-    { call(QLatin1String("RemoveMatch"), rule); }
+    inline QDBusReply<void> removeMatch(const QString& rule)
+    { return call(QLatin1String("RemoveMatch"), rule); }
 
-    inline QString getNameOwner(const QString& name)
-    { return call(QLatin1String("GetNameOwner.s"), name).at(0).toString(); }
+    inline QDBusReply<QString> getNameOwner(const QString& name)
+    { return call(QLatin1String("GetNameOwner.s"), name); }
 
-    inline QStringList listQueuedOwners(const QString& name)
-    { return call(QLatin1String("ListQueuedOwners.s"), name).at(0).toStringList(); }
+    inline QDBusReply<QStringList> listQueuedOwners(const QString& name)
+    { return call(QLatin1String("ListQueuedOwners.s"), name); }
 
-    inline quint32 getConnectionUnixUser(const QString& connectionName)
-    { return call(QLatin1String("GetConnectionUnixUser.s"), connectionName).at(0).toUInt(); }
+    inline QDBusReply<quint32> getConnectionUnixUser(const QString& connectionName)
+    { return call(QLatin1String("GetConnectionUnixUser.s"), connectionName); }
 
-    inline quint32 getConnectionUnixProcessID(const QString& connectionName)
-    { return call(QLatin1String("GetConnectionUnixProcessID.s"), connectionName).at(0).toUInt(); }
+    inline QDBusReply<quint32> getConnectionUnixProcessID(const QString& connectionName)
+    { return call(QLatin1String("GetConnectionUnixProcessID.s"), connectionName); }
 
-    inline QByteArray getConnectionSELinuxSecurityContext(const QString& connectionName)
-    { return call(QLatin1String("GetConnectionSELinuxSecurityContext.s"), connectionName).at(0).toByteArray(); }
+    inline QDBusReply<QByteArray> getConnectionSELinuxSecurityContext(const QString& connectionName)
+    { return call(QLatin1String("GetConnectionSELinuxSecurityContext.s"), connectionName); }
 
-    inline void reloadConfig()
-    { call(QLatin1String("ReloadConfig")); }
+    inline QDBusReply<void> reloadConfig()
+    { return call(QLatin1String("ReloadConfig")); }
 };
-    
+#endif    
 
 namespace org {
     namespace freedesktop {

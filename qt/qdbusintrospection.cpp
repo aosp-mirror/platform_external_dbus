@@ -54,6 +54,11 @@
 */
 
 /*!
+    \fn QDBusIntrospection::Argument::operator==
+    Compares this object against \p other and return true if they are the same.
+*/
+
+/*!
     \struct QDBusIntrospection::Method
     \brief Information about one method.
 
@@ -84,11 +89,21 @@
 */
 
 /*!
+    \fn QDBusIntrospection::Method::operator==
+    Compares this object against \p other and return true if they are the same.
+*/
+
+/*!
     \struct QDBusIntrospection::Signal
     \brief Information about one signal.
 
     This struct represents one signal discovered through introspection. A signal is composed of
     its \a name, its output arguments, and, optionally, annotations.
+*/
+
+/*!
+    \var QDBusIntrospection::Signal::name
+    The signal's name.
 */
 
 /*!
@@ -100,6 +115,11 @@
     \var QDBusIntrospection::Signal::annotations
     The annotations associated with the signal. Each annotation is a pair of strings, where the key
     is of the same format as a D-Bus interface name. The value is arbitrary.
+*/
+
+/*!
+    \fn QDBusIntrospection::Signal::operator==
+    Compares this object against \p other and return true if they are the same.
 */
 
 /*!
@@ -137,6 +157,11 @@
     \var QDBusIntrospection::Property::annotations
     The annotations associated with the property. Each annotation is a pair of strings, where the key
     is of the same format as a D-Bus interface name. The value is arbitrary.
+*/
+
+/*!
+    \fn QDBusIntrospection::Property::operator==
+    Compares this object against \p other and return true if they are the same.
 */
 
 /*!
@@ -183,6 +208,14 @@
 /*!
     \var QDBusIntrospection::Interface::properties
     The properties available in this interface. Property names are unique.
+*/
+
+/*!
+    \fn QDBusIntrospection::Interface::operator==
+    Compares this object against \p other and return true if they are the same.
+
+    Note that two interfaces are considered to be the same if they have the same name. The internal
+    structures in the objects are not compared.
 */
 
 /*!
@@ -233,6 +266,7 @@
 /*!
     \struct QDBusIntrospection::ObjectTree
     \brief Complete information about one object node and its descendency.
+    
     This struct contains the same data as QDBusIntrospection::Object, plus the actual data for the
     interfaces and child (sub) objects that was available in the XML document.
 */
@@ -296,8 +330,8 @@
 /*!
     Parses the XML document fragment containing one interface.
 
-    The first element tag in this XML data must be either <node> or <interface>. If it is
-    <node>, then the <interface> tag must be a child tag of the <node> one.
+    The first element tag in this XML data must be either \<node\> or \<interface\>. If it is
+    \<node\>, then the \<interface\> tag must be a child tag of the \<node\> one.
 
     If there are multiple interfaces in this XML data, it is undefined which one will be
     returned.
@@ -320,8 +354,8 @@ QDBusIntrospection::parseInterface(const QString &xml)
 /*!
     Parses the XML document fragment containing several interfaces.
 
-    If the first element tag in this document fragment is <node>, the interfaces parsed will
-    be those found as child elements of the <node> tag.
+    If the first element tag in this document fragment is \<node\>, the interfaces parsed will
+    be those found as child elements of the \<node\> tag.
 
     \param xml          the XML data to be parsed
     \returns            the parsed interfaces
@@ -336,7 +370,7 @@ QDBusIntrospection::parseInterfaces(const QString &xml)
 /*!
     Parses the XML document fragment containing one object.
 
-    The first element tag in this document must be <node>. If that tag does not contain
+    The first element tag in this document must be \<node\>. If that tag does not contain
     a name attribute, the \a path argument will be used to determine the path of this
     object node.
 

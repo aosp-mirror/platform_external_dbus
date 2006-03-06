@@ -37,22 +37,22 @@ static QDBusIntrospection::Annotations
 parseAnnotations(const QDomElement& elem)
 {
     QDBusIntrospection::Annotations retval;
-    QDomNodeList list = elem.elementsByTagName("annotation");
+    QDomNodeList list = elem.elementsByTagName(QLatin1String("annotation"));
     for (int i = 0; i < list.count(); ++i)
     {
         QDomElement ann = list.item(i).toElement();
         if (ann.isNull())
             continue;
-        
-        QString name = ann.attribute("name"),
-               value = ann.attribute("value");
+
+        QString name = ann.attribute(QLatin1String("name")),
+               value = ann.attribute(QLatin1String("value"));
 
         if (name.isEmpty())
             continue;
 
         retval.insert(name, value);
     }
-    
+
     return retval;
 }
 
@@ -68,24 +68,24 @@ static QDBusIntrospection::Arguments
 parseArgs(const QDomElement& elem, const QLatin1String& direction, bool acceptEmpty = false)
 {
     QDBusIntrospection::Arguments retval;
-    QDomNodeList list = elem.elementsByTagName("arg");
+    QDomNodeList list = elem.elementsByTagName(QLatin1String("arg"));
     for (int i = 0; i < list.count(); ++i)
     {
         QDomElement arg = list.item(i).toElement();
         if (arg.isNull())
             continue;
 
-        if ((acceptEmpty && !arg.hasAttribute("direction")) ||
-            arg.attribute("direction") == direction) {
-            
+        if ((acceptEmpty && !arg.hasAttribute(QLatin1String("direction"))) ||
+            arg.attribute(QLatin1String("direction")) == direction) {
+
             QDBusIntrospection::Argument argData;
-            if (arg.hasAttribute("name"))
-                argData.name = arg.attribute("name"); // can be empty
-            argData.type = parseType(arg.attribute("type"));
-            
+            if (arg.hasAttribute(QLatin1String("name")))
+                argData.name = arg.attribute(QLatin1String("name")); // can be empty
+            argData.type = parseType(arg.attribute(QLatin1String("type")));
+
             if (!argData.type.isValid())
                 continue;
-            
+
             retval << argData;
         }
     }
@@ -98,7 +98,7 @@ QDBusXmlParser::QDBusXmlParser(const QString& service, const QString& path,
 {
     QDomDocument doc;
     doc.setContent(xmlData);
-    m_node = doc.firstChildElement("node");
+    m_node = doc.firstChildElement(QLatin1String("node"));
 }
 
 QDBusXmlParser::QDBusXmlParser(const QString& service, const QString& path,
@@ -121,16 +121,16 @@ QDBusXmlParser::interfaces() const
 
     if (m_node.isNull())
         return retval;
-        
-    QDomNodeList interfaces = m_node.elementsByTagName("interface");
+
+    QDomNodeList interfaces = m_node.elementsByTagName(QLatin1String("interface"));
     for (int i = 0; i < interfaces.count(); ++i)
     {
         QDomElement iface = interfaces.item(i).toElement();
-        QString ifaceName = iface.attribute("name");
+        QString ifaceName = iface.attribute(QLatin1String("name"));
         if (iface.isNull() || ifaceName.isEmpty())
             continue;           // for whatever reason
 
-        QDBusIntrospection::Interface *ifaceData;
+        QDBusIntrospection::Interface *ifaceData = 0; // make gcc shut up
         if (m_store) {
             QSharedDataPointer<QDBusIntrospection::Interface> knownData =
                 m_store->findInterface(ifaceName);
@@ -161,11 +161,11 @@ QDBusXmlParser::interfaces() const
         ifaceData->annotations = parseAnnotations(iface);
 
         // parse methods
-        QDomNodeList list = iface.elementsByTagName("method");
+        QDomNodeList list = iface.elementsByTagName(QLatin1String("method"));
         for (int j = 0; j < list.count(); ++j)
         {
             QDomElement method = list.item(j).toElement();
-            QString methodName = method.attribute("name");
+            QString methodName = method.attribute(QLatin1String("name"));
             if (method.isNull() || methodName.isEmpty())
                 continue;
 
@@ -178,15 +178,15 @@ QDBusXmlParser::interfaces() const
             methodData.annotations = parseAnnotations(method);
 
             // add it
-            ifaceData->methods.insert(methodName, methodData);                
+            ifaceData->methods.insert(methodName, methodData);
         }
 
         // parse signals
-        list = iface.elementsByTagName("signal");
+        list = iface.elementsByTagName(QLatin1String("signal"));
         for (int j = 0; j < list.count(); ++j)
         {
             QDomElement signal = list.item(j).toElement();
-            QString signalName = signal.attribute("name");
+            QString signalName = signal.attribute(QLatin1String("name"));
             if (signal.isNull() || signalName.isEmpty())
                 continue;
 
@@ -202,11 +202,11 @@ QDBusXmlParser::interfaces() const
         }
 
         // parse properties
-        list = iface.elementsByTagName("property");
+        list = iface.elementsByTagName(QLatin1String("property"));
         for (int j = 0; j < list.count(); ++j)
         {
             QDomElement property = list.item(j).toElement();
-            QString propertyName = property.attribute("name");
+            QString propertyName = property.attribute(QLatin1String("name"));
             if (property.isNull() || propertyName.isEmpty())
                 continue;
 
@@ -214,14 +214,14 @@ QDBusXmlParser::interfaces() const
 
             // parse data
             propertyData.name = propertyName;
-            propertyData.type = parseType(property.attribute("type"));
+            propertyData.type = parseType(property.attribute(QLatin1String("type")));
             propertyData.annotations = parseAnnotations(property);
 
             if (!propertyData.type.isValid())
                 // cannot be!
                 continue;
 
-            QString access = property.attribute("access");
+            QString access = property.attribute(QLatin1String("access"));
             if (access.isEmpty())
                 // can't be empty either!
                 continue;
@@ -248,49 +248,51 @@ QDBusXmlParser::interfaces() const
 QSharedDataPointer<QDBusIntrospection::Object>
 QDBusXmlParser::object() const
 {
-    QSharedDataPointer<QDBusIntrospection::Object> retval;
-    
     if (m_node.isNull())
-        return retval;
+        return QSharedDataPointer<QDBusIntrospection::Object>();
 
     // check if the store knows about this one
     QDBusIntrospection::Object* objData;
     if (m_store) {
-        retval = objData = m_store->findObject(m_service, m_path);
+        objData = m_store->findObject(m_service, m_path);
     }
     else {
         objData = new QDBusIntrospection::Object;
         objData->service = m_service;
         objData->path = m_path;
     }
-    
+
     // check if we have anything to process
     if (objData->introspection.isNull() && !m_node.firstChild().isNull()) {
         // yes, introspect this object
         QTextStream ts(&objData->introspection);
         m_node.save(ts,2);
-        
-        QDomNodeList objects = m_node.elementsByTagName("node");
+
+        QDomNodeList objects = m_node.elementsByTagName(QLatin1String("node"));
         for (int i = 0; i < objects.count(); ++i) {
             QDomElement obj = objects.item(i).toElement();
-            QString objName = obj.attribute("name");
+            QString objName = obj.attribute(QLatin1String("name"));
             if (obj.isNull() || objName.isEmpty())
                 continue;           // for whatever reason
 
             objData->childObjects.append(objName);
         }
 
-        QDomNodeList interfaces = m_node.elementsByTagName("interface");
+        QDomNodeList interfaces = m_node.elementsByTagName(QLatin1String("interface"));
         for (int i = 0; i < interfaces.count(); ++i) {
             QDomElement iface = interfaces.item(i).toElement();
-            QString ifaceName = iface.attribute("name");
+            QString ifaceName = iface.attribute(QLatin1String("name"));
             if (iface.isNull() || ifaceName.isEmpty())
                 continue;
 
             objData->interfaces.append(ifaceName);
         }
+    } else {
+        objData->introspection = QLatin1String("<node/>\n");
     }
 
+    QSharedDataPointer<QDBusIntrospection::Object> retval;
+    retval = objData;
     return retval;
 }
 
@@ -308,17 +310,17 @@ QDBusXmlParser::objectTree() const
     retval->path = m_path;
 
     QTextStream ts(&retval->introspection);
-    m_node.save(ts,2);    
-    
+    m_node.save(ts,2);
+
     // interfaces are easy:
     retval->interfaceData = interfaces();
     retval->interfaces = retval->interfaceData.keys();
 
     // sub-objects are slightly more difficult:
-    QDomNodeList objects = m_node.elementsByTagName("node");
+    QDomNodeList objects = m_node.elementsByTagName(QLatin1String("node"));
     for (int i = 0; i < objects.count(); ++i) {
         QDomElement obj = objects.item(i).toElement();
-        QString objName = obj.attribute("name");
+        QString objName = obj.attribute(QLatin1String("name"));
         if (obj.isNull() || objName.isEmpty())
             continue;           // for whatever reason
 
@@ -331,10 +333,10 @@ QDBusXmlParser::objectTree() const
 
             // parse it
             QString objAbsName = m_path;
-            if (!objAbsName.endsWith('/'))
-                objAbsName.append('/');
+            if (!objAbsName.endsWith(QLatin1Char('/')))
+                objAbsName.append(QLatin1Char('/'));
             objAbsName += objName;
-            
+
             QDBusXmlParser parser(m_service, objAbsName, obj, m_store);
             retval->childObjectData.insert(objName, parser.objectTree());
         }
@@ -344,4 +346,4 @@ QDBusXmlParser::objectTree() const
 
     return QSharedDataPointer<QDBusIntrospection::ObjectTree>( retval );
 }
-    
+
