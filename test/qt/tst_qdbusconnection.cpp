@@ -3,15 +3,26 @@
 
 #include <QtTest/QtTest>
 
+#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/qdbus.h>
+
+class MyObject: public QObject
+{
+    Q_OBJECT
+public slots:
+    void method(const QDBusMessage &msg) { serial = msg.serialNumber(); path = msg.path(); }
+
+public:
+    int serial;
+    QString path;
+    MyObject() : serial(0) { }
+};
 
 class tst_QDBusConnection: public QObject
 {
     Q_OBJECT
 
 private slots:
-    void init();
-    void cleanupTestCase();
     void addConnection();
     void connect();
     void send();
@@ -23,6 +34,11 @@ private slots:
     void getNameOwner();
     void releaseName_data();
     void releaseName();
+
+    void registerObject();
+
+public:
+    bool callMethod(const QDBusConnection &conn, const QString &path);
 };
 
 class QDBusSpy: public QObject
@@ -37,25 +53,9 @@ public:
     int serial;
 };
 
-void tst_QDBusConnection::init()
-{
-    if (qstrcmp(QTest::currentTestFunction(), "addConnection") == 0)
-        return;
-
-    QDBusConnection::addConnection(QDBusConnection::SessionBus);
-    QVERIFY(QDBusConnection().isConnected());
-}
-
-void tst_QDBusConnection::cleanupTestCase()
-{
-    QDBusConnection::closeConnection();
-
-    QVERIFY(!QDBusConnection().isConnected());
-}
-
 void tst_QDBusConnection::sendSignal()
 {
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
 
     QVERIFY(con.isConnected());
 
@@ -70,7 +70,7 @@ void tst_QDBusConnection::sendSignal()
 
 void tst_QDBusConnection::send()
 {
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
 
     QVERIFY(con.isConnected());
 
@@ -86,7 +86,7 @@ void tst_QDBusConnection::send()
 
 void tst_QDBusConnection::sendAsync()
 {
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
     QDBusSpy spy;
@@ -107,7 +107,7 @@ void tst_QDBusConnection::connect()
 {
     QDBusSpy spy;
 
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
 
     con.connect(con.baseService(), "/org/kde/selftest", "org.kde.selftest", "ping", &spy,
                  SLOT(handlePing(QString)));
@@ -133,7 +133,7 @@ void tst_QDBusConnection::addConnection()
         QVERIFY(con.isConnected());
         QVERIFY(!con.lastError().isValid());
 
-        QDBusConnection con2;
+        QDBusConnection con2("foo");
         QVERIFY(!con2.isConnected());
         QVERIFY(!con2.lastError().isValid());
 
@@ -157,26 +157,6 @@ void tst_QDBusConnection::addConnection()
         QVERIFY(!con.isConnected());
         QVERIFY(!con.lastError().isValid());
     }
-
-    {
-        {
-            QDBusConnection con = QDBusConnection::addConnection(
-                    QDBusConnection::SessionBus);
-            QVERIFY(con.isConnected());
-        }
-
-        {
-            QDBusConnection con;
-            QVERIFY(con.isConnected());
-            QDBusConnection::closeConnection();
-            QVERIFY(con.isConnected());
-        }
-
-        {
-            QDBusConnection con;
-            QVERIFY(!con.isConnected());
-        }
-    }
 }
 
 void tst_QDBusConnection::requestName_data()
@@ -197,7 +177,7 @@ void tst_QDBusConnection::requestName_data()
 
 void tst_QDBusConnection::requestName()
 {
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
 
     QVERIFY(con.isConnected());
     
@@ -224,7 +204,7 @@ void tst_QDBusConnection::getNameOwner_data()
 
     QTest::newRow("bus") << "org.freedesktop.DBus" << "org.freedesktop.DBus";
 
-    QString base = QDBusConnection().baseService();
+    QString base = QDBus::sessionBus().baseService();
     QTest::newRow("address") << base << base;
     QTest::newRow("self") << "com.trolltech.QtDBUS.tst_qdbusconnection" << base;
 }
@@ -234,7 +214,7 @@ void tst_QDBusConnection::getNameOwner()
     QFETCH(QString, name);
     QFETCH(QString, expectedResult);
 
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
     QString result = con.getNameOwner(name);
@@ -249,7 +229,7 @@ void tst_QDBusConnection::releaseName_data()
 
 void tst_QDBusConnection::releaseName()
 {
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
 
     QVERIFY(con.isConnected());
     
@@ -260,6 +240,105 @@ void tst_QDBusConnection::releaseName()
     bool result = con.releaseName(requestedName);
 
     QCOMPARE(result, expectedResult);
+}
+
+void tst_QDBusConnection::registerObject()
+{
+    QDBusConnection &con = QDBus::sessionBus();
+    QVERIFY(con.isConnected());
+
+    // make sure nothing is using our paths:
+    QVERIFY(!callMethod(con, "/"));
+    QVERIFY(!callMethod(con, "/p1"));
+    QVERIFY(!callMethod(con, "/p2"));
+    QVERIFY(!callMethod(con, "/p1/q"));
+    QVERIFY(!callMethod(con, "/p1/q/r"));
+
+    {
+        // register one object at root:
+        MyObject obj;
+        QVERIFY(con.registerObject("/", &obj, QDBusConnection::ExportSlots));
+        QVERIFY(callMethod(con, "/"));
+        QCOMPARE(obj.path, QString("/"));
+    }
+    // make sure it's gone
+    QVERIFY(!callMethod(con, "/"));
+
+    {
+        // register one at an element:
+        MyObject obj;
+        QVERIFY(con.registerObject("/p1", &obj, QDBusConnection::ExportSlots));
+        QVERIFY(!callMethod(con, "/"));
+        QVERIFY(callMethod(con, "/p1"));
+        QCOMPARE(obj.path, QString("/p1"));
+
+        // re-register it somewhere else
+        QVERIFY(con.registerObject("/p2", &obj, QDBusConnection::ExportSlots));
+        QVERIFY(callMethod(con, "/p1"));
+        QCOMPARE(obj.path, QString("/p1"));
+        QVERIFY(callMethod(con, "/p2"));
+        QCOMPARE(obj.path, QString("/p2"));
+    }
+    // make sure it's gone
+    QVERIFY(!callMethod(con, "/p1"));
+    QVERIFY(!callMethod(con, "/p2"));
+
+    {
+        // register at a deep path
+        MyObject obj;
+        QVERIFY(con.registerObject("/p1/q/r", &obj, QDBusConnection::ExportSlots));
+        QVERIFY(!callMethod(con, "/"));
+        QVERIFY(!callMethod(con, "/p1"));
+        QVERIFY(!callMethod(con, "/p1/q"));
+        QVERIFY(callMethod(con, "/p1/q/r"));
+        QCOMPARE(obj.path, QString("/p1/q/r"));
+    }
+    // make sure it's gone
+    QVERIFY(!callMethod(con, "/p1/q/r"));
+
+    {
+        MyObject obj;
+        QVERIFY(con.registerObject("/p1/q2", &obj, QDBusConnection::ExportSlots));
+        QVERIFY(callMethod(con, "/p1/q2"));
+        QCOMPARE(obj.path, QString("/p1/q2"));
+
+        // try unregistering
+        con.unregisterObject("/p1/q2");
+        QVERIFY(!callMethod(con, "/p1/q2"));
+
+        // register it again
+        QVERIFY(con.registerObject("/p1/q2", &obj, QDBusConnection::ExportSlots));
+        QVERIFY(callMethod(con, "/p1/q2"));
+        QCOMPARE(obj.path, QString("/p1/q2"));
+        
+        // now try removing things around it:
+        con.unregisterObject("/p2");
+        QVERIFY(callMethod(con, "/p1/q2")); // unrelated object shouldn't affect
+
+        con.unregisterObject("/p1");
+        QVERIFY(callMethod(con, "/p1/q2")); // unregistering just the parent shouldn't affect it
+
+        con.unregisterObject("/p1/q2/r");
+        QVERIFY(callMethod(con, "/p1/q2")); // unregistering non-existing child shouldn't affect it either
+
+        con.unregisterObject("/p1/q");
+        QVERIFY(callMethod(con, "/p1/q2")); // unregistering sibling (before) shouldn't affect
+
+        con.unregisterObject("/p1/r");
+        QVERIFY(callMethod(con, "/p1/q2")); // unregistering sibling (after) shouldn't affect
+
+        // now remove it:
+        con.unregisterObject("/p1", QDBusConnection::UnregisterTree);
+        QVERIFY(!callMethod(con, "/p1/q2")); // we removed the full tree
+    }
+}
+
+bool tst_QDBusConnection::callMethod(const QDBusConnection &conn, const QString &path)
+{
+    QDBusMessage msg = QDBusMessage::methodCall(conn.baseService(), path, "local.any", "method");
+    QDBusMessage reply = conn.sendWithReply(msg);
+
+    return reply.type() == QDBusMessage::ReplyMessage;
 }    
 
 QTEST_MAIN(tst_QDBusConnection)

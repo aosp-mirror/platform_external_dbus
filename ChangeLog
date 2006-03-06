@@ -1,5 +1,9 @@
 2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* test/qt/*: Update the self-tests.
+
+2006-03-06  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* qt/*: 
 	* dbus/qdbus.h: Sync with KDE Subversion revision 516237. This
 	represents the first feature-complete version of the Qt4

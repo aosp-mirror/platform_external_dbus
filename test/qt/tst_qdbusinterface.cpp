@@ -20,6 +20,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <qcoreapplication.h>
 #include <qmetatype.h>
 #include <QtTest/QtTest>
@@ -63,26 +64,42 @@ const char introspectionData[] =
     "<node name=\"subObject\"/>"
     "</node>";
 
+class IntrospectionAdaptor: public QDBusAbstractAdaptor
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.DBus.Introspectable")
+public:
+    IntrospectionAdaptor(QObject *parent)
+        : QDBusAbstractAdaptor(parent)
+    { }
+        
+public slots:
+
+    void Introspect(const QDBusMessage &msg)
+    {
+        QDBusMessage reply = QDBusMessage::methodReply(msg);
+        reply << ::introspectionData;
+        if (!msg.connection().send(reply))
+            exit(1);
+    }
+};    
+
 class MyObject: public QObject
 {
     Q_OBJECT
+public:
+    MyObject()
+    {
+        new IntrospectionAdaptor(this);
+    }
+
 public slots:
 
     void ping(const QDBusMessage &msg)
     {
-        QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::SessionBus);
         QDBusMessage reply = QDBusMessage::methodReply(msg);
         reply << static_cast<QList<QVariant> >(msg);
-        if (!con.send(reply))
-            exit(1);
-    }
-
-    void Introspect(const QDBusMessage &msg)
-    {
-        QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::SessionBus);
-        QDBusMessage reply = QDBusMessage::methodReply(msg);
-        reply << ::introspectionData;
-        if (!con.send(reply))
+        if (!msg.connection().send(reply))
             exit(1);
     }
 };
@@ -110,7 +127,7 @@ void emitSignal(const QString &interface, const QString &name, const QString &ar
 {
     QDBusMessage msg = QDBusMessage::signal("/", interface, name);
     msg << arg;
-    QDBusConnection().send(msg);
+    QDBus::sessionBus().send(msg);
 
     QTest::qWait(200);
 }
@@ -121,7 +138,6 @@ class tst_QDBusInterface: public QObject
     MyObject obj;
 private slots:
     void initTestCase();
-    void cleanupTestCase();
 
     void call_data();
     void call();
@@ -134,18 +150,11 @@ private slots:
 
 void tst_QDBusInterface::initTestCase()
 {
-    QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::SessionBus);
+    QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
     QVERIFY(con.requestName( TEST_SERVICE_NAME ));
 
-    con.registerObject("/", "org.freedesktop.DBus.Introspectable", &obj);
-    con.registerObject("/", TEST_INTERFACE_NAME, &obj);
-}
-
-void tst_QDBusInterface::cleanupTestCase()
-{
-    QDBusConnection::closeConnection();
-    QVERIFY(!QDBusConnection().isConnected());
+    con.registerObject("/", &obj, QDBusConnection::ExportAdaptors | QDBusConnection::ExportSlots);
 }
 
 void tst_QDBusInterface::call_data()
@@ -209,9 +218,9 @@ void tst_QDBusInterface::call_data()
 
 void tst_QDBusInterface::call()
 {
-    QDBusConnection con;
-    QDBusInterface iface(con, con.baseService(), QLatin1String("/"),
-                         TEST_INTERFACE_NAME);
+    QDBusConnection &con = QDBus::sessionBus();
+    QDBusInterface iface = con.findInterface(con.baseService(), QLatin1String("/"),
+                                             TEST_INTERFACE_NAME);
 
     QFETCH(QString, method);
     QFETCH(QVariantList, input);
@@ -262,16 +271,16 @@ void tst_QDBusInterface::call()
 void tst_QDBusInterface::introspect_data()
 {
     QTest::addColumn<QString>("service");
-    QTest::newRow("base") << QDBusConnection().baseService();
+    QTest::newRow("base") << QDBus::sessionBus().baseService();
     QTest::newRow("name") << TEST_SERVICE_NAME;
 }
 
 void tst_QDBusInterface::introspect()
 {
     QFETCH(QString, service);
-    QDBusConnection con;
-    QDBusInterface iface(con, service, QLatin1String("/"),
-                         TEST_INTERFACE_NAME);
+    QDBusConnection &con = QDBus::sessionBus();
+    QDBusInterface iface = con.findInterface(service, QLatin1String("/"),
+                                             TEST_INTERFACE_NAME);
 
     QDBusIntrospection::Methods mm = iface.methodData();
     QVERIFY(mm.count() == 2);
@@ -287,9 +296,9 @@ void tst_QDBusInterface::introspect()
 
 void tst_QDBusInterface::signal()
 {
-    QDBusConnection con;
-    QDBusInterface iface(con, con.baseService(), QLatin1String("/"),
-                         TEST_INTERFACE_NAME);
+    QDBusConnection &con = QDBus::sessionBus();
+    QDBusInterface iface = con.findInterface(con.baseService(), QLatin1String("/"),
+                                             TEST_INTERFACE_NAME);
 
     QString signalName = TEST_SIGNAL_NAME;
 

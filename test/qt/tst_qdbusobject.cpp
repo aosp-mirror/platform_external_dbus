@@ -20,6 +20,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <qcoreapplication.h>
 #include <qmetatype.h>
 #include <QtTest/QtTest>
@@ -46,26 +47,42 @@ const char introspectionData[] =
     "<node name=\"subObject\"/>"
     "</node>";
 
+class IntrospectionAdaptor: public QDBusAbstractAdaptor
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.DBus.Introspectable")
+public:
+    IntrospectionAdaptor(QObject *parent)
+        : QDBusAbstractAdaptor(parent)
+    { }
+        
+public slots:
+
+    void Introspect(const QDBusMessage &msg)
+    {
+        QDBusMessage reply = QDBusMessage::methodReply(msg);
+        reply << ::introspectionData;
+        if (!msg.connection().send(reply))
+            exit(1);
+    }
+};    
+
 class MyObject: public QObject
 {
     Q_OBJECT
+public:
+    MyObject()
+    {
+        new IntrospectionAdaptor(this);
+    }
+
 public slots:
 
     void ping(const QDBusMessage &msg)
     {
-        QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::SessionBus);
         QDBusMessage reply = QDBusMessage::methodReply(msg);
         reply << static_cast<QList<QVariant> >(msg);
-        if (!con.send(reply))
-            exit(1);
-    }
-
-    void Introspect(const QDBusMessage &msg)
-    {
-        QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::SessionBus);
-        QDBusMessage reply = QDBusMessage::methodReply(msg);
-        reply << ::introspectionData;
-        if (!con.send(reply))
+        if (!msg.connection().send(reply))
             exit(1);
     }
 };
@@ -77,7 +94,6 @@ class tst_QDBusObject: public QObject
 
 private slots:
     void initTestCase();        // connect to D-Bus
-    void cleanupTestCase();     // disconnect from D-Bus
 
     void construction_data();
     void construction();
@@ -88,18 +104,11 @@ private slots:
 
 void tst_QDBusObject::initTestCase()
 {
-    QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::SessionBus);
+    QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
     QVERIFY(con.requestName("com.trolltech.tst_qdbusobject"));
 
-    con.registerObject("/", "org.freedesktop.DBus.Introspectable", &obj);
-    con.registerObject("/", "com.trolltech.tst_qdbusobject.MyObject", &obj);
-}
-
-void tst_QDBusObject::cleanupTestCase()
-{
-    QDBusConnection::closeConnection();
-    QVERIFY(!QDBusConnection().isConnected());
+    con.registerObject("/", &obj, QDBusConnection::ExportAdaptors | QDBusConnection::ExportSlots);
 }
 
 void tst_QDBusObject::construction_data()
@@ -128,14 +137,14 @@ void tst_QDBusObject::construction_data()
 
 void tst_QDBusObject::construction()
 {
-    QDBusConnection con;        // default
+    QDBusConnection &con = QDBus::sessionBus();
 
     QFETCH(QString, service);
     QFETCH(QString, path);
     QFETCH(bool, isValid);
     //QFETCH(bool, exists);
 
-    QDBusObject o(con, service, path);
+    QDBusObject o = con.findObject(service, path);
     QCOMPARE(o.isValid(), isValid);
 
     if (isValid) {
@@ -164,7 +173,7 @@ void tst_QDBusObject::introspection_data()
     interfaces << "org.freedesktop.DBus" << DBUS_INTERFACE_INTROSPECTABLE;
     QTest::newRow("server") << "org.freedesktop.DBus" << "/" << interfaces;
 
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
     interfaces.clear();
     interfaces << "com.trolltech.tst_qdbusobject.MyObject" << DBUS_INTERFACE_INTROSPECTABLE;    
 
@@ -174,12 +183,12 @@ void tst_QDBusObject::introspection_data()
 
 void tst_QDBusObject::introspection()
 {
-    QDBusConnection con;
+    QDBusConnection &con = QDBus::sessionBus();
 
     QFETCH(QString, service);
     QFETCH(QString, path);
 
-    QDBusObject o(con, service, path);
+    QDBusObject o = con.findObject(service, path);
 
     if (!o.isValid())
         QVERIFY(o.introspect().isEmpty());

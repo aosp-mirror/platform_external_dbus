@@ -2,6 +2,7 @@
 #include <qdebug.h>
 
 #include <QtTest/QtTest>
+#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/qdbus.h>
 
 class tst_Hal: public QObject
@@ -18,9 +19,9 @@ class Spy: public QObject
     Q_OBJECT
 public:
     int count;
-    QDBusConnection conn;
+    QDBusConnection &conn;
 
-    Spy(QDBusConnection c) : count(0), conn(c)
+    Spy(QDBusConnection &c) : count(0), conn(c)
     { }
 
 public slots:
@@ -40,7 +41,7 @@ public slots:
 
 void tst_Hal::getDevices()
 {
-    QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::SystemBus);
+    QDBusConnection &con = QDBus::systemBus();
     QVERIFY(con.isConnected());
 
     QDBusMessage msg = QDBusMessage::methodCall("org.freedesktop.Hal",
@@ -49,12 +50,13 @@ void tst_Hal::getDevices()
 
     QDBusMessage reply = con.sendWithReply(msg);
     QVERIFY(!reply.isEmpty());
+    QVERIFY(reply.type() == QDBusMessage::ReplyMessage);
     qDebug() << reply;
 }
 
 void tst_Hal::lock()
 {
-    QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::SystemBus);
+    QDBusConnection &con = QDBus::systemBus();
     QVERIFY(con.isConnected());
 
     Spy spy( con );
@@ -68,6 +70,7 @@ void tst_Hal::lock()
     msg << "No reason...";
 
     QDBusMessage reply = con.sendWithReply(msg);
+    QTest::qWait(200);
     qDebug() << reply;
     QCOMPARE(spy.count, 3);
     QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
