@@ -61,7 +61,7 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
       switch (type)
 	{
 	case DBUS_TYPE_STRING:
-          dbus_message_iter_get_basic (iter, &str);
+	  dbus_message_iter_get_basic (iter, &str);
 	  if (!literal)
 	    printf ("string \"");
 	  printf ("%s", str);
@@ -69,13 +69,31 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 	    printf ("\"\n");
 	  break;
 
+	case DBUS_TYPE_OBJECT_PATH:
+	  dbus_message_iter_get_basic (iter, &str);
+	  if (!literal)
+	    printf ("object path \"");
+	  printf ("%s", str);
+	  if (!literal)
+	    printf ("\"\n");
+	  break;
+
+	case DBUS_TYPE_SIGNATURE:
+	  dbus_message_iter_get_basic (iter, &str);
+	  if (!literal)
+	    printf ("signature \"");
+	  printf ("%s", str);
+	  if (!literal)
+	    printf ("\"\n");
+	  break;
+
 	case DBUS_TYPE_INT32:
-          dbus_message_iter_get_basic (iter, &int32);
+	  dbus_message_iter_get_basic (iter, &int32);
 	  printf ("int32 %d\n", int32);
 	  break;
 
 	case DBUS_TYPE_UINT32:
-          dbus_message_iter_get_basic (iter, &uint32);
+	  dbus_message_iter_get_basic (iter, &uint32);
 	  printf ("uint32 %u\n", uint32);
 	  break;
 
