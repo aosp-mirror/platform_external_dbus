@@ -1483,6 +1483,7 @@ echo "
         Session bus socket dir:   ${DBUS_SESSION_SOCKET_DIR}
         Console auth dir:         ${DBUS_CONSOLE_AUTH_DIR}
 	System bus user:          ${DBUS_USER}
+	Session bus services dir: ${EXPANDED_DATADIR}/dbus-1/services
         'make check' socket dir:  ${TEST_SOCKET_DIR}
 "
 

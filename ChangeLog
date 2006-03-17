@@ -1,3 +1,13 @@
+2006-03-16  John (J5) Palmieri  <johnp@redhat.com>
+
+	Patch from Milosz Derezynski <internalerror at gmail.com>
+	
+	* configure.in:
+	Output the service directory in the configure summary
+
+	* dbus-1.pc.in:
+	Add session_bus_services_dir
+
 2006-03-10  Ross Burton  <ross@openedhand.com>
 
 	* tools/dbus-print-message.c:
