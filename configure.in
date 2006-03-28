@@ -999,8 +999,9 @@ fi
 
 QT_CORE=QtCore$qt_suffix
 QT_XML=QtXml$qt_suffix
+QT_GUI=QtGui$qt_suffix
 QT_TESTLIB=QtTest$qt_suffix
-min_qt_version=4.1
+min_qt_version=4.1.3
 
 PKG_CHECK_MODULES([DBUS_QT], 
                   [$QT_CORE >= $min_qt_version $QT_XML >= $min_qt_version], 
@@ -1040,7 +1041,7 @@ else
 
     dnl QTestLib detection
     PKG_CHECK_MODULES([DBUS_QTESTLIB], 
-    	              [$QT_TESTLIB >= $min_qt_version], 
+    	              [$QT_TESTLIB >= 4.1.0], 
                       have_qtest=yes, 
                       have_qtest=no)
 
@@ -1052,12 +1053,33 @@ else
         have_qtest=no
     fi
 
-
     AC_SUBST(DBUS_QTESTLIB_CFLAGS)
     AC_SUBST(DBUS_QTESTLIB_LIBS)
+
+    dnl QtGui detection
+    PKG_CHECK_MODULES([DBUS_QT_GUI], [$QT_GUI >= $min_qt_version],
+    		      have_qt_gui=yes,
+		      have_qt_gui=no)
+
+    if test x$have_qt_gui = xyes ; then
+        AC_MSG_CHECKING([for uic])
+	QT_UIC=`$PKG_CONFIG --variable=exec_prefix $QT_GUI`/bin/uic
+
+	if test -x "$QT_UIC" ; then
+	    AC_MSG_RESULT([found, $QT_UIC])
+	else
+	    AC_MSG_RESULT([not found, disabling Qt Gui])
+	    have_qt_gui=no
+	fi
+    fi
+
+    AC_SUBST(DBUS_QT_GUI_CFLAGS)
+    AC_SUBST(DBUS_QT_GUI_LIBS)
+    AC_SUBST(QT_UIC)
 fi
 
 AM_CONDITIONAL(HAVE_QT, test x$have_qt = xyes)
+AM_CONDITIONAL(HAVE_QT_GUI, test x$have_qt_gui = xyes)
 AM_CONDITIONAL(HAVE_QTESTLIB, test x$have_qtest = xyes)
 
 ### X11 detection
