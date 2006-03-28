@@ -1397,6 +1397,7 @@ glib/examples/statemachine/Makefile
 python/Makefile
 python/examples/Makefile
 qt/Makefile
+qt/examples/Makefile
 qt3/Makefile
 gcj/Makefile
 gcj/org/Makefile

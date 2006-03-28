@@ -1,5 +1,22 @@
 2006-03-28  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* configure.in qt/Makefile.am: add qt/examples
+	* qt/examples: Add QtDBus example programs:
+	  - hello: Hello, World
+	  - ping: Simple method-calling program
+	  - pong: Simple object-exporting program (not using adaptors)
+	  - complexping: Interactive method-calling program 
+		(also gets and sets properties).
+	  - complexpong: Sample program exporting methods, signals and
+		properties, using adaptors.
+	  - dbus: Simple implementation of a generic method-calling
+		program, similar to 'dbus-send', but with semantics
+		similar to 'dcop'.
+	  - chat: Simplistic chat program, implemented using signals
+		and the system bus. Looks like IRC.
+
+2006-03-28  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* configure.in: Detect QtGui (necessary for one of the
           example programs). Note: this increases the minimum required
           version of Qt to 4.1.3.
