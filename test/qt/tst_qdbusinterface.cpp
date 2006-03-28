@@ -20,7 +20,6 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
-#define DBUS_API_SUBJECT_TO_CHANGE 1
 #include <qcoreapplication.h>
 #include <qmetatype.h>
 #include <QtTest/QtTest>
@@ -28,10 +27,11 @@
 #include <dbus/qdbus.h>
 #include <QtCore/qvariant.h>
 
+#include "common.h"
+
 Q_DECLARE_METATYPE(QVariantList)
 
 #define TEST_INTERFACE_NAME "com.trolltech.QtDBus.MyObject"
-#define TEST_SERVICE_NAME "com.trolltech.QtDBus.tst_qdbusinterface"
 #define TEST_SIGNAL_NAME "somethingHappened"
 
 const char introspectionData[] =
@@ -142,7 +142,6 @@ private slots:
     void call_data();
     void call();
 
-    void introspect_data();
     void introspect();
 
     void signal();
@@ -152,7 +151,6 @@ void tst_QDBusInterface::initTestCase()
 {
     QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
-    QVERIFY(con.requestName( TEST_SERVICE_NAME ));
 
     con.registerObject("/", &obj, QDBusConnection::ExportAdaptors | QDBusConnection::ExportSlots);
 }
@@ -169,16 +167,21 @@ void tst_QDBusInterface::call_data()
     input << qVariantFromValue(1);
     QTest::newRow("int") << "ping" << input << input;
     QTest::newRow("int-int") << "ping.i" << input << input;
-    QTest::newRow("int-int16") << "ping.n" << input << input;
+    QTest::newRow("int-int16") << "ping.n" << input << (QVariantList() << qVariantFromValue(short(1)));
 
     // try doing some conversions
     QVariantList output;
     output << qVariantFromValue(1U);
     QTest::newRow("int-uint") << "ping.u" << input << output;
-    QTest::newRow("int-uint16") << "ping.q" << input << output;
 
-    QTest::newRow("int-int64") << "ping.x" << input << (QVariantList() << qVariantFromValue(1LL));
-    QTest::newRow("int-uint64") << "ping.t" << input << (QVariantList() << qVariantFromValue(1ULL));
+#if QT_VERSION >= 0x040200
+    output.clear();
+    output << qVariantFromValue(ushort(1));
+    QTest::newRow("int-uint16") << "ping.q" << input << output;
+#endif
+
+    QTest::newRow("int-int64") << "ping.x" << input << (QVariantList() << qVariantFromValue(Q_INT64_C(1)));
+    QTest::newRow("int-uint64") << "ping.t" << input << (QVariantList() << qVariantFromValue(Q_UINT64_C(1)));
     QTest::newRow("int-double") << "ping.d" << input << (QVariantList() << qVariantFromValue(1.0));
 
     output.clear();
@@ -192,13 +195,23 @@ void tst_QDBusInterface::call_data()
 
     output.clear();
     output << qVariantFromValue(1);
-    QTest::newRow("string-int") << "ping.i" << input << input;
+    QTest::newRow("string-int") << "ping.i" << input << output;
+
+#if QT_VERSION >= 0x040200
+    output.clear();
+    output << qVariantFromValue(short(1));
     QTest::newRow("string-int16") << "ping.n" << input << input;
+#endif
 
     output.clear();
     output << qVariantFromValue(1U);
     QTest::newRow("string-uint") << "ping.u" << input << output;
+
+#if QT_VERSION >= 0x040200
+    output.clear();
+    output << qVariantFromValue(ushort(1));
     QTest::newRow("string-uint16") << "ping.q" << input << output;
+#endif
 
     QTest::newRow("string-int64") << "ping.x" << input << (QVariantList() << qVariantFromValue(1LL));
     QTest::newRow("string-uint64") << "ping.t" << input << (QVariantList() << qVariantFromValue(1ULL));
@@ -219,8 +232,8 @@ void tst_QDBusInterface::call_data()
 void tst_QDBusInterface::call()
 {
     QDBusConnection &con = QDBus::sessionBus();
-    QDBusInterface iface = con.findInterface(con.baseService(), QLatin1String("/"),
-                                             TEST_INTERFACE_NAME);
+    QDBusInterface *iface = con.findInterface(con.baseService(), QLatin1String("/"),
+                                              TEST_INTERFACE_NAME);
 
     QFETCH(QString, method);
     QFETCH(QVariantList, input);
@@ -228,30 +241,30 @@ void tst_QDBusInterface::call()
     
     QDBusMessage reply;
     // try first callWithArgs:
-    reply = iface.callWithArgs(method, input);
+    reply = iface->callWithArgs(method, input);
 
     QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
     if (!output.isEmpty()) {
         QCOMPARE(reply.count(), output.count());
-        QCOMPARE(static_cast<QVariantList>(reply), output);
+        QVERIFY(compare(reply, output));
     }
 
     // try the template methods
     if (input.isEmpty())
-        reply = iface.call(method);
+        reply = iface->call(method);
     else if (input.count() == 1)
         switch (input.at(0).type())
         {
         case QVariant::Int:
-            reply = iface.call(method, input.at(0).toInt());
+            reply = iface->call(method, input.at(0).toInt());
             break;
 
         case QVariant::UInt:
-            reply = iface.call(method, input.at(0).toUInt());
+            reply = iface->call(method, input.at(0).toUInt());
             break;
 
         case QVariant::String:
-            reply = iface.call(method, input.at(0).toString());
+            reply = iface->call(method, input.at(0).toString());
             break;
 
         default:
@@ -259,73 +272,50 @@ void tst_QDBusInterface::call()
             break;
         }
     else
-        reply = iface.call(method, input.at(0).toString(), input.at(1).toString());
+        reply = iface->call(method, input.at(0).toString(), input.at(1).toString());
 
     QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
     if (!output.isEmpty()) {
         QCOMPARE(reply.count(), output.count());
-        QCOMPARE(static_cast<QVariantList>(reply), output);
+        QVERIFY(compare(reply, output));
     }
-}
-
-void tst_QDBusInterface::introspect_data()
-{
-    QTest::addColumn<QString>("service");
-    QTest::newRow("base") << QDBus::sessionBus().baseService();
-    QTest::newRow("name") << TEST_SERVICE_NAME;
 }
 
 void tst_QDBusInterface::introspect()
 {
-    QFETCH(QString, service);
     QDBusConnection &con = QDBus::sessionBus();
-    QDBusInterface iface = con.findInterface(service, QLatin1String("/"),
-                                             TEST_INTERFACE_NAME);
+    QDBusInterface *iface = con.findInterface(QDBus::sessionBus().baseService(), QLatin1String("/"),
+                                              TEST_INTERFACE_NAME);
 
-    QDBusIntrospection::Methods mm = iface.methodData();
-    QVERIFY(mm.count() == 2);
+    const QMetaObject *mo = iface->metaObject();
 
-    QDBusIntrospection::Signals sm = iface.signalData();
-    QVERIFY(sm.count() == 1);
-    QVERIFY(sm.contains(TEST_SIGNAL_NAME));
+    qDebug("Improve to a better testcase of QDBusMetaObject");
+    QCOMPARE(mo->methodCount() - mo->methodOffset(), 3);
+    QVERIFY(mo->indexOfSignal(TEST_SIGNAL_NAME "(QString)") != -1);
 
-    QDBusIntrospection::Properties pm = iface.propertyData();
-    QVERIFY(pm.count() == 1);
-    QVERIFY(pm.contains("prop1"));
+    QCOMPARE(mo->propertyCount() - mo->propertyOffset(), 1);
+    QVERIFY(mo->indexOfProperty("prop1") != -1);
+
+    iface->deleteLater();
 }
 
 void tst_QDBusInterface::signal()
 {
     QDBusConnection &con = QDBus::sessionBus();
-    QDBusInterface iface = con.findInterface(con.baseService(), QLatin1String("/"),
-                                             TEST_INTERFACE_NAME);
-
-    QString signalName = TEST_SIGNAL_NAME;
+    QDBusInterface *iface = con.findInterface(con.baseService(), QLatin1String("/"),
+                                              TEST_INTERFACE_NAME);
 
     QString arg = "So long and thanks for all the fish";
     {
         Spy spy;
-        iface.connect(signalName, &spy, SLOT(spySlot(QString)));
+        spy.connect(iface, SIGNAL(somethingHappened(QString)), SLOT(spySlot(QString)));
 
-        emitSignal(TEST_INTERFACE_NAME, signalName, arg);
-        QVERIFY(spy.count == 1);
+        emitSignal(TEST_INTERFACE_NAME, TEST_SIGNAL_NAME, arg);
+        QCOMPARE(spy.count, 1);
         QCOMPARE(spy.received, arg);
     }
 
-    QDBusIntrospection::Signals sm = iface.signalData();
-    QVERIFY(sm.contains(signalName));
-
-    const QDBusIntrospection::Signal& signal = sm.value(signalName);
-    QCOMPARE(signal.name, signalName);
-    QVERIFY(!signal.outputArgs.isEmpty());
-    {
-        Spy spy;
-        iface.connect(signal, &spy, SLOT(spySlot(QString)));
-
-        emitSignal(TEST_INTERFACE_NAME, signalName, arg);
-        QVERIFY(spy.count == 1);
-        QCOMPARE(spy.received, arg);
-    }
+    iface->deleteLater();
 }
 
 QTEST_MAIN(tst_QDBusInterface)

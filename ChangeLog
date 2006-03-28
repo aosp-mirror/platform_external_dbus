@@ -1,5 +1,11 @@
 2006-03-28  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* test/qt/*: Sync with KDE Subversion revision 523647.
+        Update the testcases to the new API. Remove testcases for
+        classes that are no longer public or have been removed.
+
+2006-03-28  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* qt/*: 
 	* dbus/qdbus.h: Sync with KDE Subversion revision
 	523647. Hopefully, this will be the last of the

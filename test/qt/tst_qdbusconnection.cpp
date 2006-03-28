@@ -3,7 +3,6 @@
 
 #include <QtTest/QtTest>
 
-#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/qdbus.h>
 
 class MyObject: public QObject
@@ -28,12 +27,6 @@ private slots:
     void send();
     void sendAsync();
     void sendSignal();
-    void requestName_data();
-    void requestName();
-    void getNameOwner_data();
-    void getNameOwner();
-    void releaseName_data();
-    void releaseName();
 
     void registerObject();
 
@@ -157,89 +150,6 @@ void tst_QDBusConnection::addConnection()
         QVERIFY(!con.isConnected());
         QVERIFY(!con.lastError().isValid());
     }
-}
-
-void tst_QDBusConnection::requestName_data()
-{
-    QTest::addColumn<QString>("requestedName");
-    QTest::addColumn<int>("flags");
-    QTest::addColumn<bool>("expectedResult");
-
-    QTest::newRow("null") << QString() << (int)QDBusConnection::NoReplace << false;
-    QTest::newRow("empty") << QString("") << (int)QDBusConnection::NoReplace << false;
-    QTest::newRow("invalid") << "./invalid name" << (int)QDBusConnection::NoReplace << false;
-//    QTest::newRow("existing") << "org.freedesktop.DBus"
-//                              << (int)QDBusConnection::NoReplace << false;
-
-    QTest::newRow("ok1") << "com.trolltech.QtDBUS.tst_qdbusconnection"
-                         << (int)QDBusConnection::NoReplace << true;
-}
-
-void tst_QDBusConnection::requestName()
-{
-    QDBusConnection &con = QDBus::sessionBus();
-
-    QVERIFY(con.isConnected());
-    
-    QFETCH(QString, requestedName);
-    QFETCH(int, flags);
-    QFETCH(bool, expectedResult);
-
-    bool result = con.requestName(requestedName, (QDBusConnection::NameRequestMode)flags);
-
-//    QEXPECT_FAIL("existing", "For whatever reason, the bus lets us replace this name", Abort);
-    QCOMPARE(result, expectedResult);
-}
-
-void tst_QDBusConnection::getNameOwner_data()
-{
-    QTest::addColumn<QString>("name");
-    QTest::addColumn<QString>("expectedResult");
-
-    QTest::newRow("null") << QString() << QString();
-    QTest::newRow("empty") << QString("") << QString();
-
-    QTest::newRow("invalid") << ".invalid" << QString();
-    QTest::newRow("non-existent") << "com.trolltech.QtDBUS.foo" << QString();
-
-    QTest::newRow("bus") << "org.freedesktop.DBus" << "org.freedesktop.DBus";
-
-    QString base = QDBus::sessionBus().baseService();
-    QTest::newRow("address") << base << base;
-    QTest::newRow("self") << "com.trolltech.QtDBUS.tst_qdbusconnection" << base;
-}
-
-void tst_QDBusConnection::getNameOwner()
-{
-    QFETCH(QString, name);
-    QFETCH(QString, expectedResult);
-
-    QDBusConnection &con = QDBus::sessionBus();
-    QVERIFY(con.isConnected());
-
-    QString result = con.getNameOwner(name);
-
-    QCOMPARE(result, expectedResult);
-}
-
-void tst_QDBusConnection::releaseName_data()
-{
-    requestName_data();
-}
-
-void tst_QDBusConnection::releaseName()
-{
-    QDBusConnection &con = QDBus::sessionBus();
-
-    QVERIFY(con.isConnected());
-    
-    QFETCH(QString, requestedName);
-    //QFETCH(int, flags);
-    QFETCH(bool, expectedResult);
-
-    bool result = con.releaseName(requestedName);
-
-    QCOMPARE(result, expectedResult);
 }
 
 void tst_QDBusConnection::registerObject()

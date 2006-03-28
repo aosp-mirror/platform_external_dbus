@@ -3,15 +3,12 @@
 
 #include <QtTest/QtTest>
 
-#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/qdbus.h>
 
 #include "common.h"
 
-Q_DECLARE_METATYPE(QVariant)
-
 const char *slotSpy;
-QString propSpy;
+QString valueSpy;
 
 namespace QTest {
     char *toString(QDBusMessage::MessageType t)
@@ -39,8 +36,6 @@ class tst_QDBusAbstractAdaptor: public QObject
     Q_OBJECT
 
 private slots:
-    void initTestCase();
-
     void methodCalls_data();
     void methodCalls();
     void signalEmissions_data();
@@ -50,9 +45,9 @@ private slots:
     void overloadedSignalEmission();
     void readProperties();
     void writeProperties();
-    void adaptorIntrospection_data();
-    void adaptorIntrospection();
-    void objectTreeIntrospection();
+
+    void typeMatching_data();
+    void typeMatching();
 };
 
 class QDBusSignalSpy: public QObject
@@ -88,10 +83,6 @@ class Interface1: public QDBusAbstractAdaptor
 public:
     Interface1(QObject *parent) : QDBusAbstractAdaptor(parent)
     { }
-
-    static QDBusIntrospection::Methods methodData;
-    static QDBusIntrospection::Signals signalData;
-    static QDBusIntrospection::Properties propertyData;
 };
 
 class Interface2: public QDBusAbstractAdaptor
@@ -111,7 +102,7 @@ public:
     { return __PRETTY_FUNCTION__; }
 
     void setProp2(const QString &value)
-    { slotSpy = __PRETTY_FUNCTION__; propSpy = value; }
+    { slotSpy = __PRETTY_FUNCTION__; valueSpy = value; }
 
     void emitSignal(const QString &, const QVariant &)
     { emit signal(); }
@@ -121,11 +112,6 @@ public slots:
 
 signals:
     void signal();
-
-public:
-    static QDBusIntrospection::Methods methodData;
-    static QDBusIntrospection::Signals signalData;
-    static QDBusIntrospection::Properties propertyData;    
 };
 
 class Interface3: public QDBusAbstractAdaptor
@@ -145,7 +131,7 @@ public:
     { return __PRETTY_FUNCTION__; }
 
     void setProp2(const QString &value)
-    { slotSpy = __PRETTY_FUNCTION__; propSpy = value; }
+    { slotSpy = __PRETTY_FUNCTION__; valueSpy = value; }
 
     void emitSignal(const QString &name, const QVariant &value)
     {
@@ -166,11 +152,6 @@ signals:
     void signalVoid();
     void signalInt(int);
     void signalString(const QString &);
-
-public:
-    static QDBusIntrospection::Methods methodData;
-    static QDBusIntrospection::Signals signalData;
-    static QDBusIntrospection::Properties propertyData;    
 };
 
 class Interface4: public QDBusAbstractAdaptor
@@ -190,7 +171,7 @@ public:
     { return __PRETTY_FUNCTION__; }
 
     void setProp2(const QString &value)
-    { slotSpy = __PRETTY_FUNCTION__; propSpy = value; }
+    { slotSpy = __PRETTY_FUNCTION__; valueSpy = value; }
 
     void emitSignal(const QString &, const QVariant &value)
     {
@@ -219,84 +200,228 @@ signals:
     void signal();
     void signal(int);
     void signal(const QString &);
-
-public:
-    static QDBusIntrospection::Methods methodData;
-    static QDBusIntrospection::Signals signalData;
-    static QDBusIntrospection::Properties propertyData;    
 };
 
-
-QDBusIntrospection::Methods Interface1::methodData;
-QDBusIntrospection::Signals Interface1::signalData;
-QDBusIntrospection::Properties Interface1::propertyData;    
-QDBusIntrospection::Methods Interface2::methodData;
-QDBusIntrospection::Signals Interface2::signalData;
-QDBusIntrospection::Properties Interface2::propertyData;    
-QDBusIntrospection::Methods Interface3::methodData;
-QDBusIntrospection::Signals Interface3::signalData;
-QDBusIntrospection::Properties Interface3::propertyData;    
-QDBusIntrospection::Methods Interface4::methodData;
-QDBusIntrospection::Signals Interface4::signalData;
-QDBusIntrospection::Properties Interface4::propertyData;
-
-void tst_QDBusAbstractAdaptor::initTestCase()
+class MyObject: public QObject
 {
-    QDBusIntrospection::Method method;
-    method.name = "Method";
-    Interface2::methodData << method;
-    Interface4::methodData << method;
-    method.inputArgs << arg("i");
-    Interface4::methodData << method;
-    method.inputArgs.clear();
-    method.inputArgs << arg("s");
-    Interface4::methodData << method;
+    Q_OBJECT
+public:
+    Interface1 *if1;
+    Interface2 *if2;
+    Interface3 *if3;
+    Interface4 *if4;
 
-    method.name = "MethodVoid";
-    method.inputArgs.clear();
-    Interface3::methodData << method;
-    method.name = "MethodInt";
-    method.inputArgs << arg("i");
-    Interface3::methodData << method;
-    method.name = "MethodString";
-    method.inputArgs.clear();
-    method.inputArgs << arg("s");
-    Interface3::methodData << method;
+    MyObject(int n = 4)
+        : if1(0), if2(0), if3(0), if4(0)
+    {
+        switch (n)
+        {
+        case 4:
+            if4 = new Interface4(this);
+        case 3:
+            if3 = new Interface3(this);
+        case 2:
+            if2 = new Interface2(this);
+        case 1:
+            if1 = new Interface1(this);
+        }
+    }
+};        
 
-    QDBusIntrospection::Signal signal;
-    signal.name = "Signal";
-    Interface2::signalData << signal;
-    Interface4::signalData << signal;
-    signal.outputArgs << arg("i");
-    Interface4::signalData << signal;
-    signal.outputArgs.clear();
-    signal.outputArgs << arg("s");
-    Interface4::signalData << signal;
+class TypesInterface: public QDBusAbstractAdaptor
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "local.TypesInterface")
+public:
+    TypesInterface(QObject *parent)
+        : QDBusAbstractAdaptor(parent)
+    { }
 
-    signal.name = "SignalVoid";
-    signal.outputArgs.clear();
-    Interface3::signalData << signal;
-    signal.name = "SignalInt";
-    signal.outputArgs << arg("i");
-    Interface3::signalData << signal;
-    signal.name = "SignalString";
-    signal.outputArgs.clear();
-    signal.outputArgs << arg("s");
-    Interface3::signalData << signal;
+    union
+    {
+        bool b;
+        uchar uc;
+        short s;
+        ushort us;
+        int i;
+        uint ui;
+        qlonglong ll;
+        qulonglong ull;
+        double d;
+    } dataSpy;
+    QVariant variantSpy;
+    QString stringSpy;
+    QVariantList listSpy;
+    QStringList stringlistSpy;
+    QByteArray bytearraySpy;
+    QVariantMap mapSpy;
 
-    QDBusIntrospection::Property prop;
-    prop.name = "Prop1";
-    prop.type = QDBusType('s');
-    prop.access = QDBusIntrospection::Property::Read;
-    Interface2::propertyData << prop;
-    Interface3::propertyData << prop;
-    Interface4::propertyData << prop;
-    prop.name = "Prop2";
-    prop.access = QDBusIntrospection::Property::ReadWrite;
-    Interface2::propertyData << prop;
-    Interface3::propertyData << prop;
-    Interface4::propertyData << prop;
-}
+public slots:
+    void methodBool(bool b)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.b = b;
+    }
+
+    void methodUChar(uchar uc)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.uc = uc;
+    }
+
+    void methodShort(short s)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.s = s;
+    }
+
+    void methodUShort(ushort us)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.us = us;
+    }
+    
+    void methodInt(int i)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.i = i;
+    }
+
+    void methodUInt(uint ui)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.ui = ui;
+    }
+
+    void methodLongLong(qlonglong ll)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.ll = ll;
+    }
+
+    void methodULongLong(qulonglong ull)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.ull = ull;
+    }
+
+    void methodDouble(double d)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        dataSpy.d = d;
+    }
+    
+    void methodString(const QString &s)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        stringSpy = s;
+    }
+
+    void methodVariant(const QVariant &v)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        variantSpy = v;
+    }
+
+    void methodList(const QVariantList &l)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        listSpy = l;
+    }
+
+    void methodStringList(const QStringList &sl)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        stringlistSpy = sl;
+    }
+
+    void methodByteArray(const QByteArray &ba)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        bytearraySpy = ba;
+    }
+    
+    void methodMap(const QVariantMap &m)
+    {
+        slotSpy = __PRETTY_FUNCTION__;
+        mapSpy = m;
+    }
+    
+    bool retrieveBool()
+    {
+        return dataSpy.b;
+    }
+
+    uchar retrieveUChar()
+    {
+        return dataSpy.uc;
+    }
+
+    short retrieveShort()
+    {
+        return dataSpy.s;
+    }
+
+    ushort retrieveUShort()
+    {
+        return dataSpy.us;
+    }
+    
+    int retrieveInt()
+    {
+        return dataSpy.i;
+    }
+
+    uint retrieveUInt()
+    {
+        return dataSpy.ui;
+    }
+
+    qlonglong retrieveLongLong()
+    {
+        return dataSpy.ll;
+    }
+
+    qulonglong retrieveULongLong()
+    {
+        return dataSpy.ull;
+    }
+
+    double retrieveDouble()
+    {
+        return dataSpy.d;
+    }
+    
+    QString retrieveString()
+    {
+        return stringSpy;
+    }
+
+    QVariant retrieveVariant()
+    {
+        return variantSpy;
+    }
+
+    QVariantList retrieveList()
+    {
+        return listSpy;
+    }
+
+    QStringList retrieveStringList()
+    {
+        return stringlistSpy;
+    }
+
+    QByteArray retrieveByteArray()
+    {
+        return bytearraySpy;
+    }
+    
+    QVariantMap retrieveMap()
+    {
+        return mapSpy;
+    }
+};
 
 void tst_QDBusAbstractAdaptor::methodCalls_data()
 {
@@ -313,93 +438,78 @@ void tst_QDBusAbstractAdaptor::methodCalls()
     QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
-    QDBusObject dobj = con.findObject(con.baseService(), "/");
-    QVERIFY(dobj.isValid());
+    //QDBusInterface *empty = con.findInterface(con.baseService(), "/", QString());
+    QDBusInterface *if1 = con.findInterface(con.baseService(), "/", "local.Interface1");
+    QDBusInterface *if2 = con.findInterface(con.baseService(), "/", "local.Interface2");
+    QDBusInterface *if3 = con.findInterface(con.baseService(), "/", "local.Interface3");
+    QDBusInterface *if4 = con.findInterface(con.baseService(), "/", "local.Interface4");
 
-    //QDBusInterface empty(dobj, QString());
-    QDBusInterface if1(dobj, "local.Interface1");
-    QDBusInterface if2(dobj, "local.Interface2");
-    QDBusInterface if3(dobj, "local.Interface3");
-    QDBusInterface if4(dobj, "local.Interface4");
+    QObject deleter;
+    if1->setParent(&deleter);
+    if2->setParent(&deleter);
+    if3->setParent(&deleter);
+    if4->setParent(&deleter);
 
     // must fail: no object
-    //QCOMPARE(empty.call("method").type(), QDBusMessage::ErrorMessage);
-    QCOMPARE(if1.call("method").type(), QDBusMessage::ErrorMessage);
-
-    QObject obj;
-    con.registerObject("/", &obj);
+    //QCOMPARE(empty->call("method").type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(if1->call("method").type(), QDBusMessage::ErrorMessage);
 
     QFETCH(int, nInterfaces);
-    switch (nInterfaces)
-    {
-    case 4:
-        new Interface4(&obj);
-    case 3:
-        new Interface3(&obj);
-    case 2:
-        new Interface2(&obj);
-    case 1:
-        new Interface1(&obj);
-    }
+    MyObject obj(nInterfaces);
+    con.registerObject("/", &obj);
 
     // must fail: no such method
-    QCOMPARE(if1.call("method").type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(if1->call("method").type(), QDBusMessage::ErrorMessage);
     if (!nInterfaces--)
         return;
     if (!nInterfaces--)
         return;
 
     // simple call: one such method exists
-    QCOMPARE(if2.call("method").type(), QDBusMessage::ReplyMessage);
+    QCOMPARE(if2->call("method").type(), QDBusMessage::ReplyMessage);
     QCOMPARE(slotSpy, "void Interface2::method()");
     if (!nInterfaces--)
         return;
 
     // multiple methods in multiple interfaces, no name overlap
-    QCOMPARE(if1.call("methodVoid").type(), QDBusMessage::ErrorMessage);
-    QCOMPARE(if1.call("methodInt").type(), QDBusMessage::ErrorMessage);
-    QCOMPARE(if1.call("methodString").type(), QDBusMessage::ErrorMessage);
-    QCOMPARE(if2.call("methodVoid").type(), QDBusMessage::ErrorMessage);
-    QCOMPARE(if2.call("methodInt").type(), QDBusMessage::ErrorMessage);
-    QCOMPARE(if2.call("methodString").type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(if1->call("methodVoid").type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(if1->call("methodInt").type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(if1->call("methodString").type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(if2->call("methodVoid").type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(if2->call("methodInt").type(), QDBusMessage::ErrorMessage);
+    QCOMPARE(if2->call("methodString").type(), QDBusMessage::ErrorMessage);
 
-    QCOMPARE(if3.call("methodVoid").type(), QDBusMessage::ReplyMessage);
+    QCOMPARE(if3->call("methodVoid").type(), QDBusMessage::ReplyMessage);
     QCOMPARE(slotSpy, "void Interface3::methodVoid()");
-    QCOMPARE(if3.call("methodInt", 42).type(), QDBusMessage::ReplyMessage);
+    QCOMPARE(if3->call("methodInt", 42).type(), QDBusMessage::ReplyMessage);
     QCOMPARE(slotSpy, "void Interface3::methodInt(int)");
-    QCOMPARE(if3.call("methodString", QString("")).type(), QDBusMessage::ReplyMessage);
+    QCOMPARE(if3->call("methodString", QString("")).type(), QDBusMessage::ReplyMessage);
     QCOMPARE(slotSpy, "void Interface3::methodString(QString)");
 
     if (!nInterfaces--)
         return;
 
     // method overloading: different interfaces
-    QCOMPARE(if4.call("method").type(), QDBusMessage::ReplyMessage);
+    QCOMPARE(if4->call("method").type(), QDBusMessage::ReplyMessage);
     QCOMPARE(slotSpy, "void Interface4::method()");
 
     // method overloading: different parameters
-    QCOMPARE(if4.call("method.i", 42).type(), QDBusMessage::ReplyMessage);
+    QCOMPARE(if4->call("method.i", 42).type(), QDBusMessage::ReplyMessage);
     QCOMPARE(slotSpy, "void Interface4::method(int)");
-    QCOMPARE(if4.call("method.s", QString()).type(), QDBusMessage::ReplyMessage);
+    QCOMPARE(if4->call("method.s", QString()).type(), QDBusMessage::ReplyMessage);
     QCOMPARE(slotSpy, "void Interface4::method(QString)");
     
 }
 
-static void emitSignal(QDBusConnection &con, const QString &iface, const QString &name,
+static void emitSignal(MyObject *obj, const QString &iface, const QString &name,
                        const QVariant &parameter)
 {
-    QObject obj;
-    Interface2 *if2 = new Interface2(&obj);
-    Interface3 *if3 = new Interface3(&obj);
-    Interface4 *if4 = new Interface4(&obj);
-    con.registerObject("/",&obj);
-
     if (iface.endsWith('2'))
-        if2->emitSignal(name, parameter);
+        obj->if2->emitSignal(name, parameter);
     else if (iface.endsWith('3'))
-        if3->emitSignal(name, parameter);
+        obj->if3->emitSignal(name, parameter);
     else if (iface.endsWith('4'))
-        if4->emitSignal(name, parameter);
+        obj->if4->emitSignal(name, parameter);
     
     QTest::qWait(200);
 }
@@ -426,22 +536,29 @@ void tst_QDBusAbstractAdaptor::signalEmissions()
     QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
-    QDBusObject dobj = con.findObject(con.baseService(), "/");
-    QVERIFY(dobj.isValid());
+    MyObject obj(3);
+    con.registerObject("/", &obj);
 
-    //QDBusInterface empty(dobj, QString());
-    QDBusInterface if2(dobj, "local.Interface2");
-    QDBusInterface if3(dobj, "local.Interface3");
+    //QDBusInterface empty = con.findInterface(con.baseService(), "/", QString());
+    QDBusInterface *if2 = con.findInterface(con.baseService(), "/", "local.Interface2");
+    QDBusInterface *if3 = con.findInterface(con.baseService(), "/", "local.Interface3");
+    QObject deleter;
+    if2->setParent(&deleter);
+    if3->setParent(&deleter);
 
     // connect all signals and emit only one
     {
         QDBusSignalSpy spy;
-        if2.connect("signal", &spy, SLOT(slot(QDBusMessage)));
-        if3.connect("signalVoid", &spy, SLOT(slot(QDBusMessage)));
-        if3.connect("signalInt", &spy, SLOT(slot(QDBusMessage)));
-        if3.connect("signalString", &spy, SLOT(slot(QDBusMessage)));
+        con.connect(con.baseService(), "/", "local.Interface2", "signal",
+                    &spy, SLOT(slot(QDBusMessage)));
+        con.connect(con.baseService(), "/", "local.Interface3", "signalVoid",
+                    &spy, SLOT(slot(QDBusMessage)));
+        con.connect(con.baseService(), "/", "local.Interface3", "signalInt",
+                    &spy, SLOT(slot(QDBusMessage)));
+        con.connect(con.baseService(), "/", "local.Interface3", "signalString",
+                    &spy, SLOT(slot(QDBusMessage)));
         
-        emitSignal(con, interface, name, parameter);
+        emitSignal(&obj, interface, name, parameter);
         
         QCOMPARE(spy.count, 1);
         QCOMPARE(spy.interface, interface);
@@ -454,10 +571,10 @@ void tst_QDBusAbstractAdaptor::signalEmissions()
     {
         QDBusSignalSpy spy;
         con.connect(con.baseService(), "/", interface, name, &spy, SLOT(slot(QDBusMessage)));
-        emitSignal(con, "local.Interface2", "signal", QVariant());
-        emitSignal(con, "local.Interface3", "signalVoid", QVariant());
-        emitSignal(con, "local.Interface3", "signalInt", QVariant(1));
-        emitSignal(con, "local.Interface3", "signalString", QVariant("foo"));
+        emitSignal(&obj, "local.Interface2", "signal", QVariant());
+        emitSignal(&obj, "local.Interface3", "signalVoid", QVariant());
+        emitSignal(&obj, "local.Interface3", "signalInt", QVariant(1));
+        emitSignal(&obj, "local.Interface3", "signalString", QVariant("foo"));
         
         QCOMPARE(spy.count, 1);
         QCOMPARE(spy.interface, interface);
@@ -472,15 +589,14 @@ void tst_QDBusAbstractAdaptor::sameSignalDifferentPaths()
     QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
-    QObject obj;
-    Interface2 *if2 = new Interface2(&obj);
+    MyObject obj(2);
 
     con.registerObject("/p1",&obj);
     con.registerObject("/p2",&obj);
 
     QDBusSignalSpy spy;
     con.connect(con.baseService(), "/p1", "local.Interface2", "signal", &spy, SLOT(slot(QDBusMessage)));
-    if2->emitSignal(QString(), QVariant());
+    obj.if2->emitSignal(QString(), QVariant());
     QTest::qWait(200);
     
     QCOMPARE(spy.count, 1);
@@ -491,7 +607,7 @@ void tst_QDBusAbstractAdaptor::sameSignalDifferentPaths()
     // now connect the other one
     spy.count = 0;
     con.connect(con.baseService(), "/p2", "local.Interface2", "signal", &spy, SLOT(slot(QDBusMessage)));
-    if2->emitSignal(QString(), QVariant());
+    obj.if2->emitSignal(QString(), QVariant());
     QTest::qWait(200);
     
     QCOMPARE(spy.count, 2);
@@ -511,19 +627,25 @@ void tst_QDBusAbstractAdaptor::overloadedSignalEmission()
     QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
+    MyObject obj;
+    con.registerObject("/", &obj);
+
     QString interface = "local.Interface4";
     QString name = "signal";
     QFETCH(QVariant, parameter);
-    QDBusInterface if4 = con.findInterface(con.baseService(), "/", interface);
+    //QDBusInterface *if4 = con.findInterface(con.baseService(), "/", interface);
     
     // connect all signals and emit only one
     {
         QDBusSignalSpy spy;
-        if4.connect("signal.", &spy, SLOT(slot(QDBusMessage)));
-        if4.connect("signal.i", &spy, SLOT(slot(QDBusMessage)));
-        if4.connect("signal.s", &spy, SLOT(slot(QDBusMessage)));
+        con.connect(con.baseService(), "/", "local.Interface4", "signal", "",
+                    &spy, SLOT(slot(QDBusMessage)));
+        con.connect(con.baseService(), "/", "local.Interface4", "signal", "i",
+                    &spy, SLOT(slot(QDBusMessage)));
+        con.connect(con.baseService(), "/", "local.Interface4", "signal", "s",
+                    &spy, SLOT(slot(QDBusMessage)));
         
-        emitSignal(con, interface, name, parameter);
+        emitSignal(&obj, interface, name, parameter);
         
         QCOMPARE(spy.count, 1);
         QCOMPARE(spy.interface, interface);
@@ -537,9 +659,9 @@ void tst_QDBusAbstractAdaptor::overloadedSignalEmission()
     {
         QDBusSignalSpy spy;
         con.connect(con.baseService(), "/", interface, name, signature, &spy, SLOT(slot(QDBusMessage)));
-        emitSignal(con, "local.Interface4", "signal", QVariant());
-        emitSignal(con, "local.Interface4", "signal", QVariant(1));
-        emitSignal(con, "local.Interface4", "signal", QVariant("foo"));
+        emitSignal(&obj, "local.Interface4", "signal", QVariant());
+        emitSignal(&obj, "local.Interface4", "signal", QVariant(1));
+        emitSignal(&obj, "local.Interface4", "signal", QVariant("foo"));
         
         QCOMPARE(spy.count, 1);
         QCOMPARE(spy.interface, interface);
@@ -554,24 +676,21 @@ void tst_QDBusAbstractAdaptor::readProperties()
     QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
-    QObject obj;
-    new Interface2(&obj);
-    new Interface3(&obj);
-    new Interface4(&obj);
+    MyObject obj;
     con.registerObject("/", &obj);
 
     for (int i = 2; i <= 4; ++i) {
         QString name = QString("Interface%1").arg(i);
-        QDBusInterface iface = con.findInterface(con.baseService(), "/", "local." + name);
+        QDBusInterface *iface = con.findInterface(con.baseService(), "/", "local." + name);
 
         for (int j = 1; j <= 2; ++j) {
             QString propname = QString("prop%1").arg(j);
-            QDBusVariant value = iface.property(propname);
+            QVariant value = iface->property(propname.toLatin1());
 
-            QVERIFY(value.type == QDBusType('s'));
-            QVERIFY(value.value.type() == QVariant::String);
-            QCOMPARE(value.value.toString(), QString("QString %1::%2() const").arg(name, propname));
+            QCOMPARE(value.userType(), int(QVariant::String));
+            QCOMPARE(value.toString(), QString("QString %1::%2() const").arg(name, propname));
         }
+        iface->deleteLater();
     }
 }
 
@@ -580,28 +699,28 @@ void tst_QDBusAbstractAdaptor::writeProperties()
     QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
-    QObject obj;
-    new Interface2(&obj);
-    new Interface3(&obj);
-    new Interface4(&obj);
+    MyObject obj;
     con.registerObject("/", &obj);
 
     for (int i = 2; i <= 4; ++i) {
         QString name = QString("Interface%1").arg(i);
-        QDBusInterface iface = con.findInterface(con.baseService(), "/", "local." + name);
+        QDBusInterface *iface = con.findInterface(con.baseService(), "/", "local." + name);
 
-        QDBusVariant value(name);
+        QVariant value(name);
 
-        propSpy.clear();
-        iface.setProperty("prop1", value);
-        QVERIFY(propSpy.isEmpty()); // call mustn't have succeeded
+        valueSpy.clear();
+        iface->setProperty("prop1", value);
+        QVERIFY(valueSpy.isEmpty()); // call mustn't have succeeded
 
-        iface.setProperty("prop2", value);
-        QCOMPARE(propSpy, name);
+        iface->setProperty("prop2", value);
+        QCOMPARE(valueSpy, name);
         QCOMPARE(QString(slotSpy), QString("void %1::setProp2(const QString&)").arg(name));
+
+        iface->deleteLater();
     }
 }
 
+#if 0
 void tst_QDBusAbstractAdaptor::adaptorIntrospection_data()
 {
     methodCalls_data();
@@ -785,7 +904,79 @@ void tst_QDBusAbstractAdaptor::objectTreeIntrospection()
             QDBusIntrospection::parseObject(xml);
         QVERIFY(!tree.childObjects.contains("q"));
     }
-}    
+}
+#endif
+
+static inline QVariant nest(const QVariant& v)
+{
+    QVariant ret;
+    qVariantSetValue(ret, v);
+    return ret;
+}
+
+void tst_QDBusAbstractAdaptor::typeMatching_data()
+{
+    QTest::addColumn<QString>("basename");
+    QTest::addColumn<QString>("signature");
+    QTest::addColumn<QVariant>("value");
+
+    QTest::newRow("bool") << "Bool" << "b" << QVariant(true);
+    QTest::newRow("byte") << "UChar" << "y" << qVariantFromValue(uchar(42));
+    QTest::newRow("short") << "Short" << "n" << qVariantFromValue(short(-43));
+    QTest::newRow("ushort") << "UShort" << "q" << qVariantFromValue(ushort(44));
+    QTest::newRow("int") << "Int" << "i" << QVariant(42);
+    QTest::newRow("uint") << "UInt" << "u" << QVariant(42U);
+    QTest::newRow("qlonglong") << "LongLong" << "x" << QVariant(Q_INT64_C(42));
+    QTest::newRow("qulonglong") << "ULongLong" << "t" << QVariant(Q_UINT64_C(42));
+    QTest::newRow("double") << "Double" << "d" << QVariant(2.5);
+    QTest::newRow("string") << "String" << "s" << QVariant("Hello, World!");
+
+    QTest::newRow("variant") << "Variant" << "v" << nest(QVariant("Hello again!"));
+    QTest::newRow("list") << "List" << "av" << QVariant(QVariantList()
+                                                        << nest(42)
+                                                        << nest(QString("foo"))
+                                                        << nest(QByteArray("bar"))
+                                                        << nest(nest(QString("baz"))));
+    QTest::newRow("stringlist") << "StringList" << "as" << QVariant(QStringList() << "Hello" << "world");
+    QTest::newRow("bytearray") << "ByteArray" << "ay" << QVariant(QByteArray("foo"));
+
+    QVariantMap map;
+    map["one"] = nest(1);       // int
+    map["The answer to life, the Universe and everything"] = nest(42u); // uint
+    map["In the beginning..."] = nest(QString("There was nothing")); // string
+    map["but Unix came and said"] = nest(QByteArray("\"Hello, World\"")); // bytearray
+    map["two"] = nest(qVariantFromValue(short(2))); // short
+    QTest::newRow("map") << "Map" << "a{sv}" << QVariant(map);
+}
+
+void tst_QDBusAbstractAdaptor::typeMatching()
+{
+    QObject obj;
+    new TypesInterface(&obj);
+
+    QDBusConnection &con = QDBus::sessionBus();
+    con.registerObject("/types", &obj);
+
+    QFETCH(QString, basename);
+    QFETCH(QString, signature);
+    QFETCH(QVariant, value);
+
+    QDBusMessage reply;
+    QDBusInterface *iface = con.findInterface(con.baseService(), "/types", "local.TypesInterface");
+
+    reply = iface->callWithArgs("method" + basename + '.' + signature, QVariantList() << value);
+    QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
+
+    reply = iface->call("retrieve" + basename);
+    QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
+    QCOMPARE(reply.count(), 1);
+
+    const QVariant &retval = reply.at(0);
+    QCOMPARE(retval.userType(), value.userType());
+    QVERIFY(compare(retval, value));
+
+    iface->deleteLater();
+}
 
 QTEST_MAIN(tst_QDBusAbstractAdaptor)
 
