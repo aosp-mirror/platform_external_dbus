@@ -1,6 +1,5 @@
 /* 
  *
- * Copyright (C) 2006 Thiago José Macieira <thiago@kde.org>
  * Copyright (C) 2006 Trolltech AS. All rights reserved.
  *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
@@ -37,36 +36,30 @@
 #ifndef QDBUSINTERFACEPRIVATE_H
 #define QDBUSINTERFACEPRIVATE_H
 
-#include "qdbusobject.h"
+#include "qdbusabstractinterface_p.h"
+#include "qdbusmetaobject_p.h"
 #include "qdbusinterface.h"
-#include "qdbusconnection.h"
-#include "qdbuserror.h"
 
-#define ANNOTATION_NO_WAIT      "org.freedesktop.DBus.Method.NoReply"
-
-class QDBusInterfacePrivate
+class QDBusInterfacePrivate: public QDBusAbstractInterfacePrivate
 {
 public:
-    QAtomic ref;
-    QDBusConnection conn;
-    QString service;
-    QString path;
-    QDBusError lastError;
-    
-    //QConstSharedDataPointer<QDBusIntrospection::Interface> data;
-    const QDBusIntrospection::Interface* data;
+    Q_DECLARE_PUBLIC(QDBusInterface)
 
-    inline QDBusInterfacePrivate(const QDBusConnection &other) : conn(other), data(emptyData())
-    { }
+    QDBusMetaObject *metaObject;
 
-    inline bool needsIntrospection() const
-    { return data && data->introspection.isNull(); }
+    inline QDBusInterfacePrivate(const QDBusConnection &con, QDBusConnectionPrivate *conp,
+                                 const QString &serv, const QString &p, const QString &iface,
+                                 QDBusMetaObject *mo = 0)
+        : QDBusAbstractInterfacePrivate(con, conp, serv, p, iface), metaObject(mo)
+    {
+    }
+    ~QDBusInterfacePrivate()
+    {
+        if (!metaObject->cached)
+            delete metaObject;
+    }
 
-    inline void introspect()
-    { if (needsIntrospection()) conn.findObject(service, path).introspect(); }
-
-    static const QDBusIntrospection::Interface *emptyData();
+    int metacall(QMetaObject::Call c, int id, void **argv);
 };
-
 
 #endif

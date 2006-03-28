@@ -52,13 +52,17 @@
 #include <dbus/dbus.h>
 
 #include "qdbusmessage.h"
-#include "qdbusintrospection.h"
 
 class QDBusMessage;
 class QSocketNotifier;
 class QTimerEvent;
 class QDBusObjectPrivate;
 class CallDeliveryEvent;
+class QMetaMethod;
+class QDBusInterfacePrivate;
+class QDBusMetaObject;
+class QDBusAbstractInterface;
+class QDBusBusService;
 
 typedef struct DBusConnection;
 typedef struct DBusServer;
@@ -119,8 +123,7 @@ public:
     typedef QMultiHash<int, Watcher> WatcherHash;
     typedef QHash<int, DBusTimeout *> TimeoutHash;
     typedef QMultiHash<QString, SignalHook> SignalHookHash;
-    typedef QHash<QString, QSharedDataPointer<QDBusIntrospection::Interface> > KnownInterfacesHash;
-    typedef QHash<QString, QDBusIntrospection::Object* > KnownObjectsHash;
+    typedef QHash<QString, QDBusMetaObject* > MetaObjectHash;
     
 public:
     // public methods
@@ -134,22 +137,23 @@ public:
     void closeConnection();
     void timerEvent(QTimerEvent *e);
 
+    QString getNameOwner(const QString &service);    
+
     bool send(const QDBusMessage &message) const;
+    QDBusMessage sendWithReply(const QDBusMessage &message, int mode);
     int sendWithReplyAsync(const QDBusMessage &message, QObject *receiver,
-                           const char *method) const;
+                           const char *method);
     void connectSignal(const QString &key, const SignalHook &hook);
     void registerObject(const ObjectTreeNode *node);
+    void connectRelay(const QString &service, const QString &path, const QString &interface,
+                      QDBusAbstractInterface *receiver, const char *signal);
+    void disconnectRelay(const QString &service, const QString &path, const QString &interface,
+                         QDBusAbstractInterface *receiver, const char *signal);
     
     bool handleSignal(const QString &path, const QDBusMessage &msg);
     bool handleSignal(const QDBusMessage &msg);
     bool handleObjectCall(const QDBusMessage &message);
     bool handleError();
-
-    void disposeOfLocked(QDBusIntrospection::Object* obj);
-    void disposeOf(QDBusObjectPrivate* obj);
-    QSharedDataPointer<QDBusIntrospection::Interface> findInterface(const QString& name);
-    QDBusIntrospection::Object* findObject(const QString& service,
-                                           const QString& path);
 
     bool activateSignal(const SignalHook& hook, const QDBusMessage &msg);
     bool activateCall(QObject* object, int flags, const QDBusMessage &msg);
@@ -160,8 +164,15 @@ public:
     CallDeliveryEvent *postedCallDeliveryEvent();
     void deliverCall(const CallDeliveryEvent &data) const;
 
+    QDBusInterfacePrivate *findInterface(const QString &service, const QString &path,
+                                         const QString &interface);
+
 protected:
     virtual void customEvent(QEvent *event);
+
+private:
+    QDBusMetaObject *findMetaObject(const QString &service, const QString &path,
+                                    QString &interface);        
 
 public slots:
     // public slots
@@ -182,6 +193,7 @@ public:
     ConnectionMode mode;
     DBusConnection *connection;
     DBusServer *server;
+    QDBusBusService *busService;
 
     WatcherHash watchers;
     TimeoutHash timeouts;
@@ -189,20 +201,18 @@ public:
     QList<DBusTimeout *> pendingTimeouts;
 
     ObjectTreeNode rootNode;
+    MetaObjectHash cachedMetaObjects;
 
     QMutex callDeliveryMutex;
     CallDeliveryEvent *callDeliveryState; // protected by the callDeliveryMutex mutex
-
-public:
-    // public mutable member variables
-    mutable KnownInterfacesHash knownInterfaces;
-    mutable KnownObjectsHash knownObjects;
 
 public:
     // static methods
     static int messageMetaType;
     static int registerMessageMetaType();
     static int findSlot(QObject *obj, const char *slotName, QList<int>& params);
+    static DBusHandlerResult messageFilter(DBusConnection *, DBusMessage *, void *);
+    static void messageResultReceived(DBusPendingCall *, void *);
 };
 
 class QDBusReplyWaiter: public QEventLoop
@@ -215,7 +225,7 @@ public slots:
     void reply(const QDBusMessage &msg);
 };
 
-extern int qDBusParametersForMethod(const QByteArray &sig, QList<int>& metaTypes);
+extern int qDBusParametersForMethod(const QMetaMethod &mm, QList<int>& metaTypes);
 extern int qDBusNameToTypeId(const char *name);
 extern bool qDBusCheckAsyncTag(const char *tag);
 

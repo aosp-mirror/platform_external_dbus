@@ -25,26 +25,31 @@
 #define QDBUSUTIL_H
 
 #include <QtCore/qstring.h>
+#include <QtCore/qvariant.h>
 
 #include "qdbusmacros.h"
 
 namespace QDBusUtil
 {
-    bool isValidInterfaceName(const QString &ifaceName) QDBUS_EXPORT;
+    QDBUS_EXPORT bool isValidInterfaceName(const QString &ifaceName);
 
-    bool isValidUniqueConnectionName(const QString &busName) QDBUS_EXPORT;
+    QDBUS_EXPORT bool isValidUniqueConnectionName(const QString &busName);
 
-    bool isValidBusName(const QString &busName) QDBUS_EXPORT;
+    QDBUS_EXPORT bool isValidBusName(const QString &busName);
 
-    bool isValidMemberName(const QString &memberName) QDBUS_EXPORT;
+    QDBUS_EXPORT bool isValidMemberName(const QString &memberName);
 
-    bool isValidErrorName(const QString &errorName) QDBUS_EXPORT;
+    QDBUS_EXPORT bool isValidErrorName(const QString &errorName);
 
-    bool isValidObjectPath(const QString &path) QDBUS_EXPORT;
+    QDBUS_EXPORT bool isValidObjectPath(const QString &path);
 
-    bool isValidSignature(const QString &signature) QDBUS_EXPORT;
+    QDBUS_EXPORT bool isValidSignature(const QString &signature);
 
-    bool isValidSingleSignature(const QString &signature) QDBUS_EXPORT;
+    QDBUS_EXPORT bool isValidSingleSignature(const QString &signature);
+
+    QDBUS_EXPORT QVariant::Type signatureToType(const QString &signature);
+
+    QDBUS_EXPORT const char *typeToSignature(QVariant::Type type);
 }
 
 #endif

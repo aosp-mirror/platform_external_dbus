@@ -26,7 +26,7 @@
 #include "qdbusinterface.h"
 #include "qdbusinterface_p.h"
 #include "qdbusconnection_p.h"
-#include "qdbusobject_p.h"
+#include "qdbusutil.h"
 
 #include <QtXml/qdom.h>
 #include <QtCore/qmap.h>
@@ -56,14 +56,6 @@ parseAnnotations(const QDomElement& elem)
     return retval;
 }
 
-static QDBusType
-parseType(const QString& type)
-{
-    if (type.isEmpty())
-        return QDBusType();
-    return QDBusType(type);
-}
-
 static QDBusIntrospection::Arguments
 parseArgs(const QDomElement& elem, const QLatin1String& direction, bool acceptEmpty = false)
 {
@@ -81,9 +73,8 @@ parseArgs(const QDomElement& elem, const QLatin1String& direction, bool acceptEm
             QDBusIntrospection::Argument argData;
             if (arg.hasAttribute(QLatin1String("name")))
                 argData.name = arg.attribute(QLatin1String("name")); // can be empty
-            argData.type = parseType(arg.attribute(QLatin1String("type")));
-
-            if (!argData.type.isValid())
+            argData.type = arg.attribute(QLatin1String("type"));
+            if (!QDBusUtil::isValidSingleSignature(argData.type))
                 continue;
 
             retval << argData;
@@ -93,8 +84,8 @@ parseArgs(const QDomElement& elem, const QLatin1String& direction, bool acceptEm
 }
 
 QDBusXmlParser::QDBusXmlParser(const QString& service, const QString& path,
-                               const QString& xmlData, QDBusConnectionPrivate* store)
-    : m_service(service), m_path(path), m_store(store)
+                               const QString& xmlData)
+    : m_service(service), m_path(path)
 {
     QDomDocument doc;
     doc.setContent(xmlData);
@@ -102,16 +93,9 @@ QDBusXmlParser::QDBusXmlParser(const QString& service, const QString& path,
 }
 
 QDBusXmlParser::QDBusXmlParser(const QString& service, const QString& path,
-                               const QDomElement& node, QDBusConnectionPrivate* store)
-    : m_service(service), m_path(path), m_node(node), m_store(store)
+                               const QDomElement& node)
+    : m_service(service), m_path(path), m_node(node)
 {
-}
-
-void QDBusXmlParser::parse(const QDBusObjectPrivate* d, const QString &xml)
-{
-    QDBusXmlParser parser(d->data->service, d->data->path, xml, d->parent);
-    parser.object();
-    parser.interfaces();
 }
 
 QDBusIntrospection::Interfaces
@@ -130,27 +114,8 @@ QDBusXmlParser::interfaces() const
         if (iface.isNull() || ifaceName.isEmpty())
             continue;           // for whatever reason
 
-        QDBusIntrospection::Interface *ifaceData = 0; // make gcc shut up
-        if (m_store) {
-            QSharedDataPointer<QDBusIntrospection::Interface> knownData =
-                m_store->findInterface(ifaceName);
-            if (!knownData.constData()->introspection.isEmpty()) {
-                // it's already known
-                // we don't have to re-parse
-                retval.insert(ifaceName, knownData);
-                continue;
-            }
-
-            // ugly, but ok
-            // we don't want to detach
-            // we *WANT* to modify the shared data
-            ifaceData = const_cast<QDBusIntrospection::Interface*>( knownData.constData() );
-        }
-        else {
-            ifaceData = new QDBusIntrospection::Interface;
-            ifaceData->name = ifaceName;
-        }
-
+        QDBusIntrospection::Interface *ifaceData = new QDBusIntrospection::Interface;
+        ifaceData->name = ifaceName;
         {
             // save the data
             QTextStream ts(&ifaceData->introspection);
@@ -214,10 +179,10 @@ QDBusXmlParser::interfaces() const
 
             // parse data
             propertyData.name = propertyName;
-            propertyData.type = parseType(property.attribute(QLatin1String("type")));
+            propertyData.type = property.attribute(QLatin1String("type"));
             propertyData.annotations = parseAnnotations(property);
 
-            if (!propertyData.type.isValid())
+            if (!QDBusUtil::isValidSingleSignature(propertyData.type))
                 // cannot be!
                 continue;
 
@@ -251,16 +216,10 @@ QDBusXmlParser::object() const
     if (m_node.isNull())
         return QSharedDataPointer<QDBusIntrospection::Object>();
 
-    // check if the store knows about this one
     QDBusIntrospection::Object* objData;
-    if (m_store) {
-        objData = m_store->findObject(m_service, m_path);
-    }
-    else {
-        objData = new QDBusIntrospection::Object;
-        objData->service = m_service;
-        objData->path = m_path;
-    }
+    objData = new QDBusIntrospection::Object;
+    objData->service = m_service;
+    objData->path = m_path;
 
     // check if we have anything to process
     if (objData->introspection.isNull() && !m_node.firstChild().isNull()) {
@@ -337,7 +296,7 @@ QDBusXmlParser::objectTree() const
                 objAbsName.append(QLatin1Char('/'));
             objAbsName += objName;
 
-            QDBusXmlParser parser(m_service, objAbsName, obj, m_store);
+            QDBusXmlParser parser(m_service, objAbsName, obj);
             retval->childObjectData.insert(objName, parser.objectTree());
         }
 

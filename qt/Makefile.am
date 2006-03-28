@@ -1,80 +1,72 @@
 if HAVE_QT
 INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_QT_CFLAGS) -DDBUS_COMPILATION
 
-dbusincludedir=$(includedir)/dbus-1.0/dbus
-
 lib_LTLIBRARIES=libdbus-qt4-1.la
 
-dbusinclude_HEADERS=	\
-	qdbusmacros.h	\
-	qdbuserror.h 	\
-	qdbusmessage.h	\
-	qdbusserver.h	\
-	qdbusconnection.h \
-	qdbusvariant.h	\
-	qdbusobject.h	\
-	qdbusinterface.h \
-	qdbustype.h	\
-	qdbusstandardinterfaces.h \
-	qdbusutil.h	\
-	qdbusintrospection.h \
-	qdbusabstractadaptor.h \
-	qdbusreply.h
+dbusincludedir=$(includedir)/dbus-1.0/dbus
+dbusinclude_HEADERS=    \
+        qdbus.h         \
+        qdbusbus.h      \
+        qdbusmacros.h   \
+        qdbuserror.h    \
+        qdbusmessage.h  \
+        qdbusserver.h   \
+        qdbusconnection.h \
+        qdbusabstractinterface.h \
+        qdbusinterface.h \
+        qdbusutil.h     \
+        qdbusabstractadaptor.h \
+        qdbusreply.h    \
+        qdbustypehelper_p.h
 
-libdbus_qt4_1_la_SOURCES = 			\
-	qdbusconnection.cpp    \
-	qdbuserror.cpp         \
-	qdbusintegrator.cpp    \
-	qdbusinternalfilters.cpp \
-	qdbusmarshall.cpp      \
-	qdbusmessage.cpp       \
-	qdbusserver.cpp        \
-	qdbustype.cpp          \
-	qdbusobject.cpp        \
-	qdbusinterface.cpp     \
-	qdbusstandardinterfaces.cpp	\
-	qdbusxmlparser.cpp     \
-	qdbusutil.cpp          \
-	qdbusintrospection.cpp \
-	qdbusabstractadaptor.cpp	\
-	qdbusthread.cpp        \
-						\
-	qdbusabstractadaptor.h \
+noinst_HEADERS=		\
 	qdbusabstractadaptor_p.h \
-	qdbusconnection.h      \
+	qdbusabstractinterface_p.h \
 	qdbusconnection_p.h    \
-	qdbuserror.h           \
-	qdbusinterface.h       \
 	qdbusinterface_p.h     \
-	qdbusintrospection.h   \
-	qdbusmacros.h          \
+	qdbusintrospection_p.h \
 	qdbusmarshall_p.h      \
-	qdbusmessage.h         \
 	qdbusmessage_p.h       \
-	qdbusobject.h          \
-	qdbusobject_p.h        \
-	qdbusreply.h	       \
-	qdbusserver.h          \
-	qdbusstandardinterfaces.h \
-	qdbustype.h            \
-	qdbusvariant.h		\
-	qdbusxmlparser_p.h     
+	qdbusmetaobject_p.h    \
+	qdbustype_p.h		\
+	qdbusxmlparser_p.h
+
+libdbus_qt4_1_la_SOURCES =      \
+        qdbusbus.cpp            \
+        qdbusconnection.cpp     \
+        qdbuserror.cpp          \
+        qdbusintegrator.cpp     \
+        qdbusmarshall.cpp       \
+        qdbusmessage.cpp        \
+        qdbusserver.cpp         \
+        qdbustype.cpp           \
+        qdbusabstractinterface.cpp \
+        qdbusinterface.cpp      \
+        qdbusxmlparser.cpp      \
+        qdbusutil.cpp           \
+        qdbusintrospection.cpp  \
+        qdbusabstractadaptor.cpp \
+        qdbusthread.cpp         \
+        qdbusinternalfilters.cpp \
+        qdbusmetaobject.cpp
 
 bin_PROGRAMS = dbusidl2cpp
 dbusidl2cpp_SOURCES = dbusidl2cpp.cpp
-dbusidl2cpp_LDFLAGS = $(all_libraries) -no-undefined 
-dbusidl2cpp_LDADD = $(LIB_QTCORE) libdbus-qt4-1.la
+dbusidl2cpp_LDFLAGS = -no-undefined 
+dbusidl2cpp_LDADD = $(DBUS_QT_LIBS) libdbus-qt4-1.la
 
 qdbusabstractadaptor.lo: qdbusabstractadaptor.moc qdbusabstractadaptor_p.moc
+qdbusabstractinterface.lo: qdbusabstractinterface.moc
+qdbusbus.lo: qdbusbus.moc
 qdbusserver.lo: qdbusserver.moc
 qdbusconnection.lo: qdbusconnection_p.moc
 
-CLEANFILES=qdbusabstractadaptor.moc qdbusserver.moc qdbusconnection.moc qdbusabstractadaptor_p.moc
+CLEANFILES=qdbusabstractadaptor.moc qdbusserver.moc qdbusconnection.moc qdbusconnection_p.moc qdbusabstractadaptor_p.moc qdbusbus.moc qdbusabstractinterface.moc
 
 libdbus_qt4_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
 libdbus_qt4_1_la_LDFLAGS= -version-info 1:0 -no-undefined
 
-EXTRA_DIST = Doxyfile
+EXTRA_DIST = qt-dbus.qdocconf
 
 %.moc: %.h
 	$(QT_MOC) $< > $@

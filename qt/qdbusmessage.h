@@ -26,19 +26,21 @@
 #define QDBUSMESSAGE_H
 
 #include "qdbusmacros.h"
+#include "qdbuserror.h"
 #include <QtCore/qlist.h>
 #include <QtCore/qvariant.h>
 
 #include <limits.h>
 
 class QDBusMessagePrivate;
-class QDBusError;
 class QDBusConnection;
+class QDBusConnectionPrivate;
 struct DBusMessage;
 
 class QDBUS_EXPORT QDBusMessage: public QList<QVariant>
 {
-    friend class QDBusConnection;
+    //friend class QDBusConnection;
+    friend class QDBusConnectionPrivate;
 public:
     enum { DefaultTimeout = -1, NoTimeout = INT_MAX};
     enum MessageType { InvalidMessage, MethodCallMessage, ReplyMessage,
@@ -78,16 +80,15 @@ public:
 
     QDBusConnection connection() const;
 
-//protected:
-    DBusMessage *toDBusMessage() const;
-    static QDBusMessage fromDBusMessage(DBusMessage *dmsg, const QDBusConnection &connection);
-    static QDBusMessage fromError(const QDBusError& error);
     int serialNumber() const;
     int replySerialNumber() const;
     bool wasRepliedTo() const;
 
 private:
-    QDBusMessagePrivate *d;
+    DBusMessage *toDBusMessage() const;
+    static QDBusMessage fromDBusMessage(DBusMessage *dmsg, const QDBusConnection &connection);
+    static QDBusMessage fromError(const QDBusError& error);
+    QDBusMessagePrivate *d_ptr;
 };
 
 #ifndef QT_NO_DEBUG

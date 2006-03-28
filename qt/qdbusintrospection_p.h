@@ -30,7 +30,6 @@
 #include <QtCore/qmap.h>
 #include <QtCore/qpair.h>
 #include <QtCore/qshareddata.h>
-#include "qdbustype.h"
 #include "qdbusmacros.h"
 
 class QDBUS_EXPORT QDBusIntrospection
@@ -59,7 +58,7 @@ public:
 
     struct Argument
     {
-        QDBusType type;
+        QString type;
         QString name;
 
         inline bool operator==(const Argument& other) const
@@ -93,7 +92,7 @@ public:
     {
         enum Access { Read, Write, ReadWrite };
         QString name;
-        QDBusType type;
+        QString type;
         Access access;
         Annotations annotations;
 

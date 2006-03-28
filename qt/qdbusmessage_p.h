@@ -33,14 +33,13 @@ struct DBusMessage;
 class QDBusMessagePrivate
 {
 public:
-    QDBusMessagePrivate(QDBusMessage *qq);
+    QDBusMessagePrivate();
     ~QDBusMessagePrivate();
 
     QString service, path, interface, name, message, signature;
     QDBusConnection connection;
     DBusMessage *msg;
     DBusMessage *reply;
-    QDBusMessage *q;
     int type;
     int timeout;
     QAtomic ref;

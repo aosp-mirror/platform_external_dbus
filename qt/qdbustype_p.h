@@ -39,13 +39,6 @@ class QDBusTypePrivate;
 class QDBUS_EXPORT QDBusType
 {
 public:
-    enum StringFormat
-    {
-        ConventionalNames,
-        QtNames,
-        QVariantNames
-    };
-
     QDBusType();
     explicit QDBusType(int type);
     explicit QDBusType(QVariant::Type type);
@@ -59,7 +52,7 @@ public:
 
     QDBusType& operator=(const QDBusType& other);
 
-    QVariant::Type qvariantType() const;
+    int qvariantType() const;
 
     int dbusType() const;
     QByteArray dbusSignature() const;
@@ -77,11 +70,11 @@ public:
     QDBusType mapValue() const;
 
     bool operator==(const QDBusType& other) const;
+    inline bool operator!=(const QDBusType &other) const
+    { return !(*this == other); }
 
-    QString toString(StringFormat = QtNames) const;
-
-    static QVariant::Type qvariantType(int type);
-    static QVariant::Type qvariantType(const char* signature);
+    static int qvariantType(int type);
+    static int qvariantType(const char* signature);
     static int dbusType(QVariant::Type);
     static const char* dbusSignature(QVariant::Type);
 

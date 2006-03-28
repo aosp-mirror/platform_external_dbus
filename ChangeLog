@@ -1,3 +1,14 @@
+2006-03-28  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* qt/*: 
+	* dbus/qdbus.h: Sync with KDE Subversion revision
+	523647. Hopefully, this will be the last of the
+	source-incompatible changes. Documentation has been improved;
+	support for QList<basic-types> has been added; QDBusObject is
+	gone; QDBus(Abstract)Interface is now a QObject with
+	auto-generated meta-object; QDBusIntrospection is marked
+	private, since QMetaObject can be used now; lots of bugfixes.
+
 2006-03-16  John (J5) Palmieri  <johnp@redhat.com>
 
 	Patch from Milosz Derezynski <internalerror at gmail.com>

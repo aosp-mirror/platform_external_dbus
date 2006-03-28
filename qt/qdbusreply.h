@@ -30,22 +30,22 @@
 #include "qdbusmacros.h"
 #include "qdbusmessage.h"
 #include "qdbuserror.h"
-#include "qdbusvariant.h"
+
+#include "qdbustypehelper_p.h"
 
 template<typename T>
 class QDBUS_EXPORT QDBusReply
 {
     typedef T Type;
 public:
-    
     inline QDBusReply(const QDBusMessage &reply)
-        : m_error(reply)
+        : m_error(reply), m_data(Type())
     {
         if (isSuccess())
-            m_data = qvariant_cast<Type>(reply.at(0));
+            m_data = QDBusTypeHelper<Type>::fromVariant(reply.at(0));
     }
     inline QDBusReply(const QDBusError &error)
-        : m_error(error)
+        : m_error(error), m_data(Type())
     {
     }    
 
@@ -64,14 +64,14 @@ public:
         return m_data;
     }
 
-    static QDBusReply<T> fromVariant(const QDBusReply<QDBusVariant> &variantReply)
+    static QDBusReply<T> fromVariant(const QDBusReply<QVariant> &variantReply)
     {
         QDBusReply<T> retval;
         retval.m_error = variantReply.m_error;
         if (retval.isSuccess()) {
-            retval.m_data = qvariant_cast<Type>(variantReply.value);
-            if (!qVariantCanConvert<Type>(variantReply.value))
-                retval.m_error = QDBusError(QLatin1String(DBUS_ERROR_INVALID_SIGNATURE),
+            retval.m_data = qvariant_cast<Type>(variantReply.m_data);
+            if (!qVariantCanConvert<Type>(variantReply.m_data))
+                retval.m_error = QDBusError(QDBusError::InvalidSignature,
                                             QLatin1String("Unexpected reply signature"));
         }
         return retval;
@@ -82,7 +82,7 @@ private:
     Type m_data;
 };
 
-#ifndef DOXYGEN_SHOULD_SKIP_THIS
+# ifndef Q_QDOC
 // specialize for void:
 template<>
 class QDBUS_EXPORT QDBusReply<void>
@@ -105,6 +105,6 @@ public:
 private:
     QDBusError m_error;
 };
-#endif
+# endif
 
 #endif

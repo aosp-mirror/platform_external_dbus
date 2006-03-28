@@ -26,25 +26,37 @@
 #include <dbus/dbus.h>
 #include <QtCore/qcoreapplication.h>
 #include <QtCore/qmetaobject.h>
+#include <QtCore/qstringlist.h>
 
-#include "qdbusstandardinterfaces.h"
 #include "qdbusabstractadaptor.h"
 #include "qdbusabstractadaptor_p.h"
 #include "qdbusinterface_p.h"   // for ANNOTATION_NO_WAIT
 #include "qdbusmessage.h"
-#include "qdbustype.h"
-#include "qdbusvariant.h"
+#include "qdbusutil.h"
+
+static const char introspectableInterfaceXml[] =
+    "  <interface name=\"org.freedesktop.DBus.Introspectable\">\n"
+    "    <method name=\"Introspect\">\n"
+    "      <arg name=\"xml_data\" type=\"s\" direction=\"out\"/>\n"
+    "    </method>\n"
+    "  </interface>\n";
+
+static const char propertiesInterfaceXml[] =
+    "  <interface name=\"org.freedesktop.DBus.Properties\">\n"
+    "    <method name=\"Get\">\n"
+    "      <arg name=\"interface_name\" type=\"s\" direction=\"in\"/>\n"
+    "      <arg name=\"property_name\" type=\"s\" direction=\"in\"/>\n"
+    "      <arg name=\"value\" type=\"v\" direction=\"out\"/>\n"
+    "    </method>\n"
+    "    <method name=\"Set\">\n"
+    "      <arg name=\"interface_name\" type=\"s\" direction=\"in\"/>\n"
+    "      <arg name=\"property_name\" type=\"s\" direction=\"in\"/>\n"
+    "      <arg name=\"value\" type=\"v\" direction=\"in\"/>\n"
+    "    </method>\n"
+    "  </interface>\n";
 
 // implement the D-Bus org.freedesktop.DBus.Introspectable interface
 // we do that by analysing the metaObject of all the adaptor interfaces
-
-static inline QString dbusMemberName(const char *qtMemberName)
-{
-    QString retval = QLatin1String(qtMemberName);
-    if (!retval.isEmpty())
-        retval[0] = retval[0].toUpper();
-    return retval;
-}
 
 static QString generateInterfaceXml(const QMetaObject *mo, int flags, int methodOffset, int propOffset)
 {
@@ -57,8 +69,8 @@ static QString generateInterfaceXml(const QMetaObject *mo, int flags, int method
 
             QMetaProperty mp = mo->property(i);
 
-            if (!mp.isScriptable() && (flags & QDBusConnection::ExportNonScriptableProperties) !=
-                QDBusConnection::ExportNonScriptableProperties)
+            if (!mp.isScriptable() && (flags & QDBusConnection::ExportAllProperties) !=
+                QDBusConnection::ExportAllProperties)
                 continue;
 
             int access = 0;
@@ -72,8 +84,8 @@ static QString generateInterfaceXml(const QMetaObject *mo, int flags, int method
                 continue;
 
             retval += QString(QLatin1String("    <property name=\"%1\" type=\"%2\" access=\"%3\" />\n"))
-                      .arg(dbusMemberName(mp.name()))
-                      .arg(QLatin1String(QDBusType::dbusSignature( QVariant::Type(typeId) )))
+                      .arg(mp.name())
+                      .arg(QLatin1String( QDBusUtil::typeToSignature( QVariant::Type(typeId) )))
                       .arg(QLatin1String( accessvalues[access] ));
         }
     }
@@ -99,20 +111,19 @@ static QString generateInterfaceXml(const QMetaObject *mo, int flags, int method
 
         QString xml = QString(QLatin1String("    <%1 name=\"%2\">\n"))
                       .arg(isSignal ? QLatin1String("signal") : QLatin1String("method"))
-                      .arg(dbusMemberName(signature.left(paren)));
+                      .arg(QLatin1String(signature.left(paren)));
 
         // check the return type first
         int typeId = qDBusNameToTypeId(mm.typeName());
         if (typeId)
             xml += QString(QLatin1String("      <arg type=\"%1\" direction=\"out\"/>\n"))
-                   .arg(QLatin1String(QDBusType::dbusSignature( QVariant::Type(typeId) )));
+                   .arg(QLatin1String(QDBusUtil::typeToSignature( QVariant::Type(typeId) )));
         else if (*mm.typeName())
             continue;           // wasn't a valid type
 
         QList<QByteArray> names = mm.parameterNames();
         QList<int> types;
-        int inputCount = qDBusParametersForMethod(QMetaObject::normalizedSignature(signature),
-                                                  types);
+        int inputCount = qDBusParametersForMethod(mm, types);
         if (inputCount == -1)
             continue;           // invalid form
         if (isSignal && inputCount + 1 != types.count())
@@ -137,12 +148,12 @@ static QString generateInterfaceXml(const QMetaObject *mo, int flags, int method
 
             xml += QString(QLatin1String("      <arg %1type=\"%2\" direction=\"%3\"/>\n"))
                    .arg(name)
-                   .arg(QLatin1String(QDBusType::dbusSignature( QVariant::Type(types.at(j)) )))
+                   .arg(QLatin1String(QDBusUtil::typeToSignature( QVariant::Type(types.at(j)) )))
                    .arg(isOutput ? QLatin1String("out") : QLatin1String("in"));
         }
 
         if (!isScriptable &&
-            !(flags & (QDBusConnection::ExportNonScriptableSlots | QDBusConnection::ExportNonScriptableSignals)))
+            !(flags & (QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals)))
             continue;
 
         if (qDBusCheckAsyncTag(mm.tag()))
@@ -194,7 +205,7 @@ static QString generateMetaObjectXml(QString interface, const QMetaObject *mo, c
     else
         xml = generateInterfaceXml(mo, flags, base->methodCount(), base->propertyCount());
 
-    return QString(QLatin1String("  <interface name=\"%1\">\n%2  </interface>"))
+    return QString(QLatin1String("  <interface name=\"%1\">\n%2  </interface>\n"))
         .arg(interface, xml);
 }
 
@@ -219,9 +230,6 @@ void qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node,
     xml_data += QLatin1String("<node>\n");
 
     if (node->obj) {
-        xml_data += QLatin1String( QDBusIntrospectableInterface::staticIntrospectionData() );
-        xml_data += QLatin1String( QDBusPropertiesInterface::staticIntrospectionData() );
-
         if (node->flags & QDBusConnection::ExportContents) {
             const QMetaObject *mo = node->obj->metaObject();
             for ( ; mo != &QObject::staticMetaObject; mo = mo->superClass())
@@ -244,7 +252,7 @@ void qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node,
                     // add the interface's contents:
                     ifaceXml += generateMetaObjectXml(it->interface, it->metaObject,
                                                       &QDBusAbstractAdaptor::staticMetaObject,
-                                                      QDBusConnection::ExportNonScriptableContents);
+                                                      QDBusConnection::ExportAllContents);
 
                     QDBusAbstractAdaptorPrivate::saveIntrospectionXml(it->adaptor, ifaceXml);
                 }
@@ -252,6 +260,9 @@ void qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node,
                 xml_data += ifaceXml;
             }
         }
+
+        xml_data += QLatin1String( introspectableInterfaceXml );
+        xml_data += QLatin1String( propertiesInterfaceXml );
     }
 
     if (node->flags & QDBusConnection::ExportChildObjects) {
@@ -308,8 +319,8 @@ void qDBusPropertyGet(const QDBusConnectionPrivate::ObjectTreeNode *node, const 
         int pidx = node->obj->metaObject()->indexOfProperty(property_name);
         if (pidx != -1) {
             QMetaProperty mp = node->obj->metaObject()->property(pidx);
-            if (mp.isScriptable() || (node->flags & QDBusConnection::ExportNonScriptableProperties) ==
-                QDBusConnection::ExportNonScriptableProperties)
+            if (mp.isScriptable() || (node->flags & QDBusConnection::ExportAllProperties) ==
+                QDBusConnection::ExportAllProperties)
                 value = mp.read(node->obj);
         }
     }
@@ -331,7 +342,7 @@ void qDBusPropertySet(const QDBusConnectionPrivate::ObjectTreeNode *node, const 
     Q_ASSERT(msg.count() == 3);
     QString interface_name = msg.at(0).toString();
     QByteArray property_name = msg.at(1).toString().toUtf8();
-    QVariant value = msg.at(2).value<QDBusVariant>();
+    QVariant value = QDBusTypeHelper<QVariant>::fromVariant(msg.at(2));
 
     QDBusAdaptorConnector *connector;
     if (node->flags & QDBusConnection::ExportAdaptors &&
@@ -353,8 +364,8 @@ void qDBusPropertySet(const QDBusConnectionPrivate::ObjectTreeNode *node, const 
         int pidx = node->obj->metaObject()->indexOfProperty(property_name);
         if (pidx != -1) {
             QMetaProperty mp = node->obj->metaObject()->property(pidx);
-            if (mp.isScriptable() || (node->flags & QDBusConnection::ExportNonScriptableProperties) ==
-                QDBusConnection::ExportNonScriptableProperties) {
+            if (mp.isScriptable() || (node->flags & QDBusConnection::ExportAllProperties) ==
+                QDBusConnection::ExportAllProperties) {
 
                 if (mp.write(node->obj, value)) {
                     msg.connection().send(QDBusMessage::methodReply(msg));

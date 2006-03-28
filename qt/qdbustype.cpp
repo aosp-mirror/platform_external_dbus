@@ -22,264 +22,17 @@
  *
  */
 
-#include "qdbustype.h"
-#include "qdbusvariant.h"
+#include "qdbustype_p.h"
+#include "qdbustypehelper_p.h"
 #include <dbus/dbus.h>
 
 #include <QtCore/qstringlist.h>
 
-/// \internal
-class QDBusPrettyTypeBase
-{
-public:
-    struct Entry
-    {
-        const char* prettyName;
-        char signature;
-    };
-
-    enum Direction
-    {
-        In,
-        Out
-    };
-
-    enum Access
-    {
-        Read,
-        Write,
-        ReadWrite
-    };
-
-    // so that the compiler doesn't complain
-    virtual ~QDBusPrettyTypeBase() { }
-
-    virtual QString addElementsToArray(const QString& subType) = 0;
-    virtual QString addElementsToMap(const QString& key, const QString& value) = 0;
-    virtual QString addElementsToStruct(const QStringList& subTypes) = 0;
-    virtual const Entry* entryMap() = 0;
-
-    QString toString(const QDBusType& type);
-    QString toString(const QDBusTypeList& list);
-};
-
-/// \internal
-class QDBusConventionalNames: public QDBusPrettyTypeBase
-{
-public:
-    virtual QString addElementsToArray(const QString& subType);
-    virtual QString addElementsToMap(const QString& key, const QString& value);
-    virtual QString addElementsToStruct(const QStringList& subTypes) ;
-    virtual const Entry* entryMap();
-};
-
-/// \internal
-class QDBusQtNames: public QDBusPrettyTypeBase
-{
-public:
-    virtual QString addElementsToArray(const QString& subType);
-    virtual QString addElementsToMap(const QString& key, const QString& value);
-    virtual QString addElementsToStruct(const QStringList& subTypes) ;
-    virtual const Entry* entryMap();
-};
-
-//! \internal
-class QDBusQVariantNames: public QDBusQtNames
-{
-public:
-    virtual QString addElementsToArray(const QString& subType);
-    virtual QString addElementsToMap(const QString& key, const QString& value);
-    virtual QString addElementsToStruct(const QStringList& subTypes) ;
-};
-
-static QString findInMap(char type, const QDBusPrettyTypeBase::Entry* map)
-{
-    for ( ; map->signature; ++map)
-        if (type == map->signature)
-            return QLatin1String(map->prettyName);
-    return QString();
-}
-
-//
-// Input MUST be valid
-//
-inline QString QDBusPrettyTypeBase::toString(const QDBusType& type)
-{
-    const Entry* map = entryMap();
-
-    const QDBusTypeList subTypes = type.subTypes();
-    switch (type.dbusType()) {
-    case DBUS_TYPE_STRUCT: {
-        // handle a struct
-        // find its sub-types
-
-        QStringList subStrings;
-        QDBusTypeList subTypes = type.subTypes();
-        foreach (QDBusType t, subTypes)
-            subStrings << toString( t );
-
-        return addElementsToStruct(subStrings);
-    }
-
-    case DBUS_TYPE_DICT_ENTRY: {
-        Q_ASSERT_X(subTypes.size() == 2, "QDBusType::toString",
-                   "maps must have exactly two elements");
-
-        QString key = findInMap( subTypes.at(0).dbusType(), map );
-        QString value = toString( subTypes.at(1) );
-
-        Q_ASSERT(!key.isNull());
-
-        return addElementsToMap( key, value );
-    }
-    case DBUS_TYPE_ARRAY: {
-        Q_ASSERT_X(subTypes.size() == 1, "QDBusType::toString",
-                   "more than one element in array");
-
-        if (type.qvariantType() == QVariant::Map)
-            return toString( subTypes.first() );
-        return addElementsToArray( toString( subTypes.at(0) ) );
-    }
-
-    default: {
-        // normal, non-compound type
-        QString name = findInMap(type.dbusType(), map);
-        Q_ASSERT(!name.isNull());
-        return name;
-    }
-    }
-}
-
-const QDBusPrettyTypeBase::Entry* QDBusConventionalNames::entryMap()
-{
-    static QDBusPrettyTypeBase::Entry translation[] = {
-        { "BYTE", DBUS_TYPE_BYTE },
-        { "BOOLEAN", DBUS_TYPE_BOOLEAN },
-        { "INT16", DBUS_TYPE_INT16 },
-        { "UINT16", DBUS_TYPE_UINT16 },
-        { "INT32", DBUS_TYPE_INT32 },
-        { "UINT32", DBUS_TYPE_UINT32 },
-        { "INT64", DBUS_TYPE_INT64 },
-        { "UINT64", DBUS_TYPE_UINT64 },
-        { "DOUBLE", DBUS_TYPE_DOUBLE },
-        { "STRING", DBUS_TYPE_STRING },
-        { "OBJECT_PATH", DBUS_TYPE_OBJECT_PATH },
-        { "SIGNATURE", DBUS_TYPE_SIGNATURE },
-        { "VARIANT", DBUS_TYPE_VARIANT }
-    };
-    return translation;
-}
-
-QString QDBusConventionalNames::addElementsToStruct(const QStringList& subTypes)
-{
-    return QString( QLatin1String("STRUCT of (%1)") )
-        .arg( subTypes.join( QLatin1String(",") ) );
-}
-
-QString QDBusConventionalNames::addElementsToMap(const QString& key, const QString& value)
-{
-    return QString( QLatin1String("ARRAY of DICT_ENTRY of (%1,%2)") )
-        .arg(key).arg(value);
-}
-
-QString QDBusConventionalNames::addElementsToArray(const QString& subType)
-{
-    return QString( QLatin1String("ARRAY of %1") )
-        .arg(subType);
-}
-
-const QDBusPrettyTypeBase::Entry* QDBusQtNames::entryMap()
-{
-    static QDBusPrettyTypeBase::Entry translation[] = {
-        { "uchar", DBUS_TYPE_BYTE },
-        { "bool", DBUS_TYPE_BOOLEAN },
-        { "short", DBUS_TYPE_INT16 },
-        { "ushort", DBUS_TYPE_UINT16 },
-        { "int", DBUS_TYPE_INT32 },
-        { "uint", DBUS_TYPE_UINT32 },
-        { "qlonglong", DBUS_TYPE_INT64 },
-        { "qulonglong", DBUS_TYPE_UINT64 },
-        { "double", DBUS_TYPE_DOUBLE },
-        { "QString", DBUS_TYPE_STRING },
-        { "QString", DBUS_TYPE_OBJECT_PATH },
-        { "QString", DBUS_TYPE_SIGNATURE },
-        { "QDBusVariant", DBUS_TYPE_VARIANT }
-    };
-    return translation;
-}
-
-static inline QString templateArg(const QString& input)
-{
-    if (input.endsWith(QLatin1Char('>')))
-        return input + QLatin1Char(' ');
-    return input;
-}
-
-QString QDBusQtNames::addElementsToStruct(const QStringList& subTypes)
-{
-    Q_UNUSED(subTypes);
-
-    return QLatin1String("QVariantList");      // CHANGEME in the future
-}
-
-QString QDBusQtNames::addElementsToMap(const QString& key, const QString& value)
-{
-    if (key == QLatin1String("QString") && value == QLatin1String("QDBusVariant"))
-        return QLatin1String("QVariantMap");
-
-    return QString( QLatin1String("QMap<%1, %2>") )
-        .arg(key)
-        .arg( templateArg(value) );
-}
-
-QString QDBusQtNames::addElementsToArray(const QString& subType)
-{
-    if (subType == QLatin1String("uchar"))
-        // special case
-        return QLatin1String("QByteArray");
-    else if (subType == QLatin1String("QString"))
-        // special case
-        return QLatin1String("QStringList");
-
-    return QString( QLatin1String("QList<%1>") )
-        .arg( templateArg(subType) );
-}
-
-QString QDBusQVariantNames::addElementsToStruct(const QStringList& subTypes)
-{
-    Q_UNUSED(subTypes);
-
-    return QLatin1String("QVariantList");
-}
-
-QString QDBusQVariantNames::addElementsToMap(const QString& key, const QString& value)
-{
-    Q_UNUSED(key);
-    Q_UNUSED(value);
-
-    return QLatin1String("QVariantMap");
-}
-
-QString QDBusQVariantNames::addElementsToArray(const QString& subType)
-{
-    if (subType == QLatin1String("uchar"))
-        // special case
-        return QLatin1String("QByteArray");
-    else if (subType == QLatin1String("QString"))
-        // special case
-        return QLatin1String("QStringList");
-
-    return QLatin1String("QVariantList");
-}
-
-/*!
-    \internal
-*/
 class QDBusTypePrivate: public QSharedData
 {
 public:
     int code;
-    mutable QVariant::Type qvariantType;
+    mutable int qvariantType;
     mutable QByteArray signature;
     QDBusTypeList subTypes;
 
@@ -291,6 +44,7 @@ public:
 /*!
     \class QDBusType
     \brief Represents one single D-Bus type.
+    \internal
 
     D-Bus provides a set of primitive types that map to normal, C++ types and to QString, as well as
     the possibility to extend the set with the so-called "container" types. The available types are
@@ -322,18 +76,6 @@ public:
 */
 
 /*!
-    \enum QDBusType::StringFormat
-
-    This enum is used in QDBusType::toString to determine which type of formatting
-    to apply to the D-Bus types:
-
-    \value ConventionalNames    Use the DBus conventional names, such as STRING, BOOLEAN or
-                                ARRAY of BYTE.
-    \value QtNames              Use the Qt type names, such as QString, bool and QList<quint32>
-    \value QVariantNames        Same as QtNames, but for containers, use QVariantList and QVariantMap
-*/
-
-/*!
     Constructs an empty (invalid) type.
 */
 QDBusType::QDBusType()
@@ -342,7 +84,7 @@ QDBusType::QDBusType()
 }
 
 /*!
-    Constructs the type based on the given DBus type.
+    Constructs the type based on the D-Bus type given by \a type.
 */
 QDBusType::QDBusType(int type)
 {
@@ -351,7 +93,7 @@ QDBusType::QDBusType(int type)
 }
 
 /*!
-    Constructs the type based on the given QVariant type.
+    Constructs the type based on the QVariant type given by \a type.
 
     \sa QVariant::Type
 */
@@ -360,38 +102,33 @@ QDBusType::QDBusType(QVariant::Type type)
     const char *sig = dbusSignature(type);
 
     // it never returns NULL
+    // but it may return an empty string:
     if (sig[0] == '\0')
         return;
 
-    d = new QDBusTypePrivate;
-    d->qvariantType = type;
-    d->code = sig[0];
-    if (sig[1] == '\0')
-        // single-letter type
-        return;
-    else if (sig[2] == '\0') {
-        // two-letter type
-        // must be an array
+    if (qstrlen(sig) > 2) {
+        *this = QDBusType(sig);
+    } else {
+        d = new QDBusTypePrivate;
+        d->qvariantType = type;
         d->code = sig[0];
-        QDBusType t;
-        t.d = new QDBusTypePrivate;
-        t.d->code = sig[1];
-        d->subTypes << t;
-    }
-    else {
-        // the only longer type is "a{sv}"
-        Q_ASSERT(sig[1] == '{' && sig[5] == '\0');
-
-        static QDBusType map("a{sv}");
-        d->subTypes = map.d->subTypes;
+        if (sig[1] == '\0')
+            // single-letter type
+            return;
+        else {
+            // two-letter type
+            // must be an array
+            d->code = sig[0];
+            QDBusType t;
+            t.d = new QDBusTypePrivate;
+            t.d->code = sig[1];
+            d->subTypes << t;
+        }
     }
 }
 
 /*!
-    Parses the given DBus signature and constructs the type it represents.
-
-    \param signature    the signature to parse. It must represent one single type, but can be
-                        a container type.
+    Parses the D-Bus signature given by \a signature and constructs the type it represents.
 */
 QDBusType::QDBusType(const char* signature)
 {
@@ -406,10 +143,8 @@ QDBusType::QDBusType(const char* signature)
 }
 
 /*!
-    Parses the given DBus signature and constructs the type it represents.
-
-    \param str          the signature to parse. It must represent one single type, but can
-                        a container type.
+    \overload
+    Parses the D-Bus signature given by \a str and constructs the type it represents.
 */
 QDBusType::QDBusType(const QString& str)
 {
@@ -417,10 +152,8 @@ QDBusType::QDBusType(const QString& str)
 }
 
 /*!
-    Parses the given DBus signature and constructs the type it represents.
-
-    \param str          the signature to parse. It must represent one single type, but can
-                        a container type.
+    \overload 
+    Parses the D-Bus signature given by \a str and constructs the type it represents.
 */
 QDBusType::QDBusType(const QByteArray& str)
 {
@@ -430,8 +163,6 @@ QDBusType::QDBusType(const QByteArray& str)
 /*!
     \internal
     Creates a QDBusType object based on the current element pointed to by \a iter.
-
-    \param iter         the iterator. Can be pointing to container types.
 */
 QDBusType::QDBusType(DBusSignatureIter* iter)
     : d(new QDBusTypePrivate)
@@ -458,7 +189,7 @@ QDBusType::QDBusType(DBusSignatureIter* iter)
 }
 
 /*!
-    Copies the type from the other object.
+    Copies the type from the object \a other.
 */
 QDBusType::QDBusType(const QDBusType& other)
     : d(other.d)
@@ -473,7 +204,7 @@ QDBusType::~QDBusType()
 }
 
 /*!
-    Copies the type from the other object.
+    Copies the type from the object given by \a other.
 */
 QDBusType& QDBusType::operator=(const QDBusType& other)
 {
@@ -550,24 +281,15 @@ QByteArray QDBusType::dbusSignature() const
 /*!
     Returns the QVariant::Type for this entry.
 */
-QVariant::Type QDBusType::qvariantType() const
+int QDBusType::qvariantType() const
 {
     if (d && d->qvariantType != QVariant::Invalid)
         return d->qvariantType;
 
-    // check the special array cases:
-    if (isArray()) {
-        QDBusType t = arrayElement();
+    if (!d)
+        return QVariant::Invalid;
 
-        if (t.dbusType() == DBUS_TYPE_BYTE)
-            return QVariant::ByteArray;
-        else if (t.dbusType() == DBUS_TYPE_DICT_ENTRY)
-            return QVariant::Map;
-        else if (t.isBasic() && t.qvariantType() == QVariant::String)
-            return QVariant::StringList;
-    }
-
-    return qvariantType(dbusType());
+    return d->qvariantType = qvariantType(dbusSignature().constData());
 }
 
 /*!
@@ -580,8 +302,6 @@ bool QDBusType::isValid() const
 
 /*!
     Returns true if this type is a basic one.
-
-    \sa dbus_type_is_basic
 */
 bool QDBusType::isBasic() const
 {
@@ -590,8 +310,6 @@ bool QDBusType::isBasic() const
 
 /*!
     Returns true if this type is a container.
-
-    \sa dbus_type_is_container
 */
 bool QDBusType::isContainer() const
 {
@@ -601,7 +319,7 @@ bool QDBusType::isContainer() const
 /*!
     Returns the subtypes of this type, if this is a container.
 
-    \sa isContainer
+    \sa isContainer()
 */
 QDBusTypeList QDBusType::subTypes() const
 {
@@ -613,7 +331,7 @@ QDBusTypeList QDBusType::subTypes() const
 /*!
     Returns true if this type is an array.
 
-    \sa isContainer, arrayElement
+    \sa isContainer(), arrayElement()
 */
 bool QDBusType::isArray() const
 {
@@ -624,7 +342,7 @@ bool QDBusType::isArray() const
     This is a convenience function that returns the element type of an array.
     If this object is not an array, it returns an invalid QDBusType.
 
-    \sa isArray
+    \sa isArray()
 */
 QDBusType QDBusType::arrayElement() const
 {
@@ -636,7 +354,7 @@ QDBusType QDBusType::arrayElement() const
 /*!
     Returns true if this type is a map (i.e., an array of dictionary entries).
 
-    \sa isContainer, isArray, arrayElement
+    \sa isContainer(), isArray(), arrayElement()
 */
 bool QDBusType::isMap() const
 {
@@ -647,7 +365,7 @@ bool QDBusType::isMap() const
     If this object is a map, returns the (basic) type that corresponds to the key type.
     If this object is not a map, returns an invalid QDBusType.
 
-    \sa isMap
+    \sa isMap()
 */
 QDBusType QDBusType::mapKey() const
 {
@@ -660,7 +378,7 @@ QDBusType QDBusType::mapKey() const
     If this object is a map, returns the type that corresponds to the value type.
     If this object is not a map, returns an invalid QDBusType.
 
-    \sa isMap
+    \sa isMap()
 */
 QDBusType QDBusType::mapValue() const
 {
@@ -670,7 +388,7 @@ QDBusType QDBusType::mapValue() const
 }
 
 /*!
-    Returns true if the two types match.
+    Returns true if this type is the same one as \a other.
 */
 bool QDBusType::operator==(const QDBusType& other) const
 {
@@ -682,37 +400,23 @@ bool QDBusType::operator==(const QDBusType& other) const
 }
 
 /*!
-    Returns a string representation of this type.
+    \fn QDBusType::operator!=(const QDBusType &other) const
+    Returns true if the this type and the one given by \a other are different.
 */
-QString QDBusType::toString(StringFormat sf) const
-{
-    switch (sf) {
-    case ConventionalNames:
-        return QDBusConventionalNames().toString(*this);
-
-    case QtNames:
-        return QDBusQtNames().toString(*this);
-
-    case QVariantNames:
-        return QDBusQVariantNames().toString(*this);
-    }
-
-    return QString();           // invalid
-}
 
 /*!
-    Converts the DBus type to QVariant::Type
+    Converts the DBus type code \a type to QVariant::Type.
 */
-QVariant::Type QDBusType::qvariantType(int type)
+int QDBusType::qvariantType(int type)
 {
     char c[2] = { type, 0 };
     return qvariantType(c);
 }
 
 /*!
-    Converts the DBus type signature to QVariant::Type.
+    Converts the DBus type signature \a signature to QVariant::Type.
 */
-QVariant::Type QDBusType::qvariantType(const char* signature)
+int QDBusType::qvariantType(const char* signature)
 {
     if (!signature)
         return QVariant::Invalid;
@@ -736,12 +440,18 @@ QVariant::Type QDBusType::qvariantType(const char* signature)
     case DBUS_TYPE_BOOLEAN:
         return QVariant::Bool;
 
+    case DBUS_TYPE_BYTE:
+        return QMetaType::UChar;
+
     case DBUS_TYPE_INT16:
+        return QMetaType::Short;
+
+    case DBUS_TYPE_UINT16:
+        return QMetaType::UShort;
+        
     case DBUS_TYPE_INT32:
         return QVariant::Int;
-
-    case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_UINT16:
+        
     case DBUS_TYPE_UINT32:
         return QVariant::UInt;
 
@@ -763,23 +473,51 @@ QVariant::Type QDBusType::qvariantType(const char* signature)
         return QVariant::List;  // change to QDBusStruct in the future
 
     case DBUS_TYPE_VARIANT:
-        return QVariant::UserType; // must set user-type too
+        return QDBusTypeHelper<QVariant>::id();
 
     case DBUS_TYPE_ARRAY:       // special case
-        // check if it's a string list
-        if (qvariantType(signature + 1) == QVariant::String)
-            return QVariant::StringList;
+        switch (signature[1]) {
+        case DBUS_TYPE_BOOLEAN:
+            return QDBusTypeHelper<bool>::listId();
 
-        // maybe it's a byte array
-        if (DBUS_TYPE_BYTE == signature[1])
+        case DBUS_TYPE_BYTE:
             return QVariant::ByteArray;
 
-        // check if it's a dict
-        if (DBUS_DICT_ENTRY_BEGIN_CHAR == signature[1])
+        case DBUS_TYPE_INT16:
+            return QDBusTypeHelper<short>::listId();
+
+        case DBUS_TYPE_UINT16:
+            return QDBusTypeHelper<ushort>::listId();
+
+        case DBUS_TYPE_INT32:
+            return QDBusTypeHelper<int>::listId();
+
+        case DBUS_TYPE_UINT32:
+            return QDBusTypeHelper<uint>::listId();
+
+        case DBUS_TYPE_INT64:
+            return QDBusTypeHelper<qlonglong>::listId();
+
+        case DBUS_TYPE_UINT64:
+            return QDBusTypeHelper<qulonglong>::listId();
+
+        case DBUS_TYPE_DOUBLE:
+            return QDBusTypeHelper<double>::listId();
+
+        case DBUS_TYPE_STRING:
+        case DBUS_TYPE_OBJECT_PATH:
+        case DBUS_TYPE_SIGNATURE:
+            return QVariant::StringList;
+
+        case DBUS_TYPE_VARIANT:
+            return QVariant::List;
+
+        case DBUS_DICT_ENTRY_BEGIN_CHAR:
             return QVariant::Map;
 
-        return QVariant::List;
-
+        default:
+            return QVariant::List;
+        }
     default:
         return QVariant::Invalid;
 
@@ -787,9 +525,7 @@ QVariant::Type QDBusType::qvariantType(const char* signature)
 }
 
 /*!
-    Converts the QVariant::Type to a DBus type code.
-
-    \param t            the type to convert
+    Converts the QVariant::Type \a t to a DBus type code.
 */
 int QDBusType::dbusType(QVariant::Type t)
 {
@@ -802,7 +538,6 @@ int QDBusType::dbusType(QVariant::Type t)
         return DBUS_TYPE_INT32;
 
     case QVariant::UInt:
-    case QVariant::Char:
         return DBUS_TYPE_UINT32;
 
     case QVariant::LongLong:
@@ -825,9 +560,6 @@ int QDBusType::dbusType(QVariant::Type t)
         return DBUS_TYPE_BYTE;
 
     case QVariant::String:
-    case QVariant::Date:
-    case QVariant::Time:
-    case QVariant::DateTime:
         return DBUS_TYPE_STRING;
 
     case QVariant::Map:
@@ -841,22 +573,20 @@ int QDBusType::dbusType(QVariant::Type t)
         return DBUS_TYPE_ARRAY;
 
     case QVariant::UserType:
-        return DBUS_TYPE_VARIANT;
+        return DBUS_TYPE_INVALID; // invalid
 
     default:
         break;                  // avoid compiler warnings
     }
 
-    if (int(t) == QMetaTypeId<QDBusVariant>::qt_metatype_id())
+    if (int(t) == QDBusTypeHelper<QVariant>::id())
         return DBUS_TYPE_VARIANT;
 
     return DBUS_TYPE_INVALID;
 }
 
 /*!
-    Converts the QVariant::Type to a DBus type signature.
-
-    \param t            the type to convert
+    Converts the QVariant::Type \a t to a DBus type signature.
 */
 const char* QDBusType::dbusSignature(QVariant::Type t)
 {
@@ -869,7 +599,6 @@ const char* QDBusType::dbusSignature(QVariant::Type t)
         return DBUS_TYPE_INT32_AS_STRING;
 
     case QVariant::UInt:
-    case QVariant::Char:
         return DBUS_TYPE_UINT32_AS_STRING;
 
     case QMetaType::Short:
@@ -891,9 +620,6 @@ const char* QDBusType::dbusSignature(QVariant::Type t)
         return DBUS_TYPE_DOUBLE_AS_STRING;
 
     case QVariant::String:
-    case QVariant::Date:
-    case QVariant::Time:
-    case QVariant::DateTime:
         return DBUS_TYPE_STRING_AS_STRING;
 
     case QVariant::Map:
@@ -920,8 +646,24 @@ const char* QDBusType::dbusSignature(QVariant::Type t)
             DBUS_TYPE_VARIANT_AS_STRING; // av
 
     default:
-        if (int(t) == qMetaTypeId<QDBusVariant>())
+        if (int(t) == QDBusTypeHelper<QVariant>::id())
             return DBUS_TYPE_VARIANT_AS_STRING;
+        if (int(t) == QDBusTypeHelper<bool>::listId())
+            return DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_BOOLEAN_AS_STRING;
+        if (int(t) == QDBusTypeHelper<short>::listId())
+            return DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT16_AS_STRING;
+        if (int(t) == QDBusTypeHelper<ushort>::listId())
+            return DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_UINT16_AS_STRING;
+        if (int(t) == QDBusTypeHelper<int>::listId())
+            return DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT32_AS_STRING;
+        if (int(t) == QDBusTypeHelper<uint>::listId())
+            return DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_UINT32_AS_STRING;
+        if (int(t) == QDBusTypeHelper<qlonglong>::listId())
+            return DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_INT64_AS_STRING;
+        if (int(t) == QDBusTypeHelper<qulonglong>::listId())
+            return DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_UINT64_AS_STRING;
+        if (int(t) == QDBusTypeHelper<double>::listId())
+            return DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_DOUBLE_AS_STRING;
 
         return DBUS_TYPE_INVALID_AS_STRING;
     }
@@ -931,12 +673,10 @@ const char* QDBusType::dbusSignature(QVariant::Type t)
     \enum QDBusType::VariantListMode
     Defines how the guessFromVariant() function will behave when the QVariant is of type
     QVariant::List.
-
-    \todo Improve the algorithm
 */
 
 /*!
-    Guesses the DBus type from the given variant.
+    Guesses the DBus type from the given \a variant.
 */
 QDBusType QDBusType::guessFromVariant(const QVariant& variant, VariantListMode mode)
 {
@@ -944,46 +684,36 @@ QDBusType QDBusType::guessFromVariant(const QVariant& variant, VariantListMode m
         // investigate deeper
         QDBusType t;
         t.d = new QDBusTypePrivate;
+        const QVariantList list = variant.toList();
 
-        if (mode == ListIsArray) {
-            t.d->code = DBUS_TYPE_ARRAY;
-
-            const QVariantList list = variant.toList();
-            if (!list.isEmpty()) {
-                // check if all elements have the same type
-                QVariant::Type type = list.first().type();
-                foreach (const QVariant& v, list)
-                    if (type != v.type()) {
-                        // at least one is different
-                        type = QVariant::Invalid;
-                        break;
-                    }
-
-                if (type != QVariant::Invalid) {
-                    // all are of the same type
-                    t.d->subTypes << guessFromVariant(list.first());
-                    return t;
-                }
-            }
-
-            // internal information has been lost or there are many types
-            QDBusType nested;
-            nested.d = new QDBusTypePrivate;
-            nested.d->code = DBUS_TYPE_VARIANT;
-            t.d->subTypes << nested;
-            return t;
-        }
-        else {
-            // treat it as a struct
-            t.d->code = DBUS_TYPE_STRUCT;
-
-            // add the elements:
-            const QVariantList list = variant.toList();
+        t.d->code = DBUS_TYPE_ARRAY;
+        if (!list.isEmpty()) {
+            // check if all elements have the same type
+            QVariant::Type type = list.first().type();
             foreach (const QVariant& v, list)
-                t.d->subTypes << guessFromVariant(v, mode);
-
+                if (type != v.type()) {
+                    // at least one is different
+                    type = QVariant::Invalid;
+                    break;
+                }
+            
+            if (type != QVariant::Invalid) {
+                // all are of the same type
+                t.d->subTypes << guessFromVariant(list.first());
+                return t;
+            }
+        } else {
+            // an array of "something"
+            t.d->subTypes << QDBusType('v');
             return t;
         }
+            
+        // treat it as a struct
+        t.d->code = DBUS_TYPE_STRUCT;
+        foreach (const QVariant& v, list)
+            t.d->subTypes << guessFromVariant(v, mode);
+        
+        return t;
     }
     else if (variant.type() == QVariant::Map) {
         // investigate deeper
@@ -1029,12 +759,13 @@ QDBusType QDBusType::guessFromVariant(const QVariant& variant, VariantListMode m
         return t;
     }
     else
-        return QDBusType(variant.type());
+        return QDBusType( QVariant::Type( variant.userType() ) );
 }
 
 /*!
    \class QDBusTypeList
    \brief A list of DBus types.
+   \internal
 
    Represents zero or more DBus types in sequence, such as those used in argument lists
    or in subtypes of structs and maps.
@@ -1049,21 +780,18 @@ QDBusType QDBusType::guessFromVariant(const QVariant& variant, VariantListMode m
 /*!
    \fn QDBusTypeList::QDBusTypeList(const QDBusTypeList& other)
 
-   Copy constructor.
-   \param other         the list to copy
- */
+   Copy constructor: copies the type list from \a other.
+*/
 
 /*!
    \fn QDBusTypeList::QDBusTypeList(const QList<QDBusType>& other)
 
-   Copy constructor.
-   \param other         the list to copy
- */
+   Copy constructor: copies the type list from \a other.
+*/
 
 /*!
-   Constructs a type list by parsing the signature given.
-   \param signature     the signature to be parsed
- */
+   Constructs a type list by parsing the given \a signature.
+*/
 QDBusTypeList::QDBusTypeList(const char* signature)
 {
     if (!signature || !*signature)
@@ -1085,8 +813,6 @@ QDBusTypeList::QDBusTypeList(const char* signature)
 /*!
     \internal
     Constructs a type list by parsing the elements on this iterator level.
-
-    \param iter         the iterator containing the elements on this level
 */
 QDBusTypeList::QDBusTypeList(DBusSignatureIter* iter)
 {

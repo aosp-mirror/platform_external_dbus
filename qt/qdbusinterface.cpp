@@ -1,6 +1,5 @@
 /* -*- C++ -*-
  *
- * Copyright (C) 2005 Thiago Macieira <thiago@kde.org>
  * Copyright (C) 2006 Trolltech AS. All rights reserved.
  *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
@@ -23,485 +22,219 @@
  */
 
 #include "qdbusinterface.h"
-#include "qdbusobject.h"
-#include "qdbusstandardinterfaces.h"
+
+#include <dbus/dbus.h>
+#include <QtCore/qpointer.h>
 
 #include "qdbusinterface_p.h"
-
-/*!
-    \internal
-*/
-struct EmptyInterfaceInitializer
-{
-    QDBusIntrospection::Interface *data;
-    EmptyInterfaceInitializer()
-    {
-        data = new QDBusIntrospection::Interface;
-        data->ref = 1;
-        data->introspection = QLatin1String("");
-    }
-
-    ~EmptyInterfaceInitializer()
-    {
-        Q_ASSERT(data->ref == 1);
-        delete data;
-        data = 0;
-    }
-};
-
-Q_GLOBAL_STATIC(EmptyInterfaceInitializer, emptyDataInit);
-
-const QDBusIntrospection::Interface*
-QDBusInterfacePrivate::emptyData()
-{
-    return emptyDataInit()->data;
-}
+#include "qdbusconnection_p.h"
 
 /*!
     \class QDBusInterface
-    \brief Base class for all D-Bus interfaces in the QtDBus binding, allowing access to remote interfaces.
+    \brief Proxy class for interfaces on remote objects.
 
     QDBusInterface is a generic accessor class that is used to place calls to remote objects,
     connect to signals exported by remote objects and get/set the value of remote properties. This
     class is useful for dynamic access to remote objects: that is, when you do not have a generated
     code that represents the remote interface.
 
-    Generated-code classes also derive from QDBusInterface, all methods described here are also
-    valid for generated-code classes. In addition to those described here, generated-code classes
-    provide member functions for the remote methods, which allow for compile-time checking of the
-    correct parameters and return values, as well as property type-matching and signal
-    parameter-matching.
-
     Calls are usually placed by using the call() function, which constructs the message, sends it
     over the bus, waits for the reply and decodes the reply. Signals are connected to by using the
-    connect() family of functions, whose behavior is similar to QObject::connect(). Finally,
-    properties are accessed using the property() and setProperty() functions, whose behaviour is
-    also similar to QObject::property() and QObject::setProperty().
-
-    \sa \ref StandardInterfaces, \ref dbusidl2cpp
+    normal QObject::connect() function. Finally, properties are accessed using the
+    QObject::property() and QObject::setProperty() functions. 
 */
 
-/*!
-    \enum QDBusInterface::CallMode
-    \todo turn this into flags and add UseEventLoop/NoUseEventLoop
-
-    Specifies how a call should be placed. The valid options are:
-    \value NoWaitForReply       place the call but don't wait for the reply (the reply's contents
-                                will be discarded)
-    \value WaitForReply         place the call and wait for the method to finish before returning
-                                (the reply's contents will be returned)
-    \value NoUseEventLoop       don't use an event loop to wait for a reply, but instead block on
-                                network operations while waiting. This option means the
-                                user-interface may not be updated for the duration of the call.
-    \value UseEventLoop         use the Qt event loop to wait for a reply. This option means the
-                                user-interface will update, but it also means other events may
-                                happen, like signal delivery and other D-Bus method calls.
-
-    When using UseEventLoop, applications must be prepared for reentrancy in any function.
-*/
-
-QDBusInterface::QDBusInterface(QDBusInterfacePrivate* p)
-    : d(p)
+QDBusInterface::QDBusInterface(QDBusInterfacePrivate *p)
+    : QDBusAbstractInterface(p)
 {
-    d->ref.ref();
 }
 
 /*!
-    Constructs a QDBusInterface object by associating it with the interface \p name in the remote
-    object \p obj.
-*/
-QDBusInterface::QDBusInterface(const QDBusObject& obj, const QString& name)
-    : d(0)
-{
-    *this = obj.connection().findInterface(obj.service(), obj.path(), name);
-}
-
-/*!
-    Constructs a copy QDBusInterface object.
-*/
-QDBusInterface::QDBusInterface(const QDBusInterface &other)
-    : d(0)
-{
-    *this = other;
-}
-
-/*!
-    Releases this object's resources.
+    Destroy the object interface and frees up any resource used.
 */
 QDBusInterface::~QDBusInterface()
 {
-    if (!d->ref.deref())
-        delete d;
+    // resources are freed in QDBusInterfacePrivate::~QDBusInterfacePrivate()
 }
 
 /*!
-    Constructs a copy QDBusInterface object.
+    \internal
+    Overrides QObject::metaObject to return our own copy.
 */
-QDBusInterface& QDBusInterface::operator=(const QDBusInterface& other)
+const QMetaObject *QDBusInterface::metaObject() const
 {
-    other.d->ref.ref();
-    QDBusInterfacePrivate* old = qAtomicSetPtr(&d, other.d);
-    if (old && !old->ref.deref())
-        delete old;
-
-    return *this;
+    return d_func()->metaObject;
 }
 
 /*!
-    \fn QDBusInterface::object()
-    Returns the object associated with this interface.
+    \internal
+    Override QObject::qt_metacast to catch the interface name too.
 */
-
-/*!
-    \fn QDBusInterface::object() const
-    \overload
-    Returns the object associated with this interface.
-*/
-
-/*!
-    \fn "QDBusInterface::operator QDBusObject"
-    \overload
-    Returns the object associated with this interface.
-*/
-
-/*!
-    \fn "QDBusInterface::operator const QDBusObject"
-    \overload
-    Returns the object associated with this interface.
-*/
-
-/*!
-    Returns the connection this interface is assocated with.
-*/
-QDBusConnection QDBusInterface::connection() const
+void *QDBusInterface::qt_metacast(const char *_clname)
 {
-    return d->conn;
+    if (!_clname) return 0;
+    if (!strcmp(_clname, "QDBusInterface"))
+        return static_cast<void*>(const_cast<QDBusInterface*>(this));
+    if (d_func()->interface == _clname)
+        return static_cast<void*>(const_cast<QDBusInterface*>(this));
+    return QDBusAbstractInterface::qt_metacast(_clname);
 }
 
 /*!
-    Returns the name of the service this interface is associated with.
+    \internal
+    Dispatch the call through the private.
 */
-QString QDBusInterface::service() const
+int QDBusInterface::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 {
-    return d->service;
+    _id = QDBusAbstractInterface::qt_metacall(_c, _id, _a);
+    if (_id < 0)
+        return _id;
+    return d_func()->metacall(_c, _id, _a);
 }
 
-/*!
-    Returns the object path that this interface is associated with.
-*/
-QString QDBusInterface::path() const
+int QDBusInterfacePrivate::metacall(QMetaObject::Call c, int id, void **argv)
 {
-    return d->path;
-}
+    Q_Q(QDBusInterface);
+    
+    if (c == QMetaObject::InvokeMetaMethod) {
+        int offset = metaObject->methodOffset();
+        QMetaMethod mm = metaObject->method(id + offset);
+        
+        if (mm.methodType() == QMetaMethod::Signal) {
+            // signal relay from D-Bus world to Qt world
+            QMetaObject::activate(q, metaObject, id, argv);
+            
+        } else if (mm.methodType() == QMetaMethod::Slot) {
+            // method call relay from Qt world to D-Bus world
+            // get D-Bus equivalent signature
+            QString methodName = metaObject->dbusNameForMethod(id);
+            const int *inputTypes = metaObject->inputTypesForMethod(id);
+            const int *outputTypes = metaObject->outputTypesForMethod(id);
 
-/*!
-    Returns the name of this interface.
-*/
-QString QDBusInterface::interface() const
-{
-    return d->data->name;
-}
+            int inputTypesCount = *inputTypes;
+            int outputTypesCount = *outputTypes++;
 
-/*!
-    Returns the XML document fragment that describes the introspection of this interface. This is
-    the raw XML form of the structures returned by interfaceData().
- */
-QString QDBusInterface::introspectionData() const
-{
-    d->introspect();
-    return d->data->introspection;
-}
+            // we will assume that the input arguments were passed correctly
+            QVariantList args;
+            for (int i = 1; i <= inputTypesCount; ++i)
+                args << QVariant(inputTypes[i], argv[i]);
 
-/*!
-    Returns the interface data for this interface. This is the parsed form of the XML introspection
-    data, as returned by introspectionData().
- */
-const QDBusIntrospection::Interface& QDBusInterface::interfaceData() const
-{
-    d->introspect();
-    return *d->data;
-}
+            // make the call
+            QPointer<QDBusInterface> qq = q;
+            QDBusMessage reply = q->callWithArgs(methodName, args);
+            args.clear();
 
-/*!
-    Returns the annotations present in this interface, if any.
-    This information can also be found in the data returned by interfaceData().
-*/
-const QDBusIntrospection::Annotations& QDBusInterface::annotationData() const
-{
-    d->introspect();
-    return d->data->annotations;
-}
+            // access to "this" or to "q" below this point must check for "qq"
+            // we may have been deleted!
 
-/*!
-    Returns a map of all the methods found in this interface.
-    This information can also be found in the data returned by interfaceData().
-*/
-const QDBusIntrospection::Methods& QDBusInterface::methodData() const
-{
-    d->introspect();
-    return d->data->methods;
-}
+            // check if we got the right number of parameters back:
+            bool success = false;
+            if (reply.count() == outputTypesCount) {
+                // copy the values out
+                for (int i = 0; i < outputTypesCount; ++i) {
+                    // treat the return value specially, since it may be null:
+                    if (i == 0 && argv[0] == 0)
+                        continue;
 
-/*!
-    Returns a map of all the signals found in this interface.
-    This information can also be found in the data returned by interfaceData().
-*/
-const QDBusIntrospection::Signals& QDBusInterface::signalData() const
-{
-    d->introspect();
-    return d->data->signals_;
-}
+                    // ensure that the types are correct:
+                    const QVariant &item = reply.at(i);
+                    if (outputTypes[i] != item.userType()) {
+                        success = false;
+                        break;
+                    }
 
-/*!
-    Returns a map of all the properties found in this interface.
-    This information can also be found in the data returned by interfaceData().
-*/
-const QDBusIntrospection::Properties& QDBusInterface::propertyData() const
-{
-    d->introspect();
-    return d->data->properties;
-}
+                    if (i == 0)
+                        QDBusMetaObject::assign(argv[0], item);
+                    else
+                        QDBusMetaObject::assign(argv[inputTypesCount + i], item);
+                }
+            }
 
-/*!
-    Places a call to the remote method specified by \p method on this interface, using \p a_args as
-    arguments.
+            // bail out, something weird happened
+            if (!success && !qq.isNull()) {
+                QString errmsg = QLatin1String("Invalid signature `%1' in return from call to %2.%3");
+                lastError = QDBusError(QDBusError::InvalidSignature,
+                                       errmsg.arg(reply.signature(), interface, methodName));
+            }
 
-    Normally, you should place calls using call().
-*/
-QDBusMessage QDBusInterface::callWithArgs(const QDBusIntrospection::Method& method,
-                                          const QList<QVariant>& a_args,
-                                          CallMode mode)
-{
-    QString signature = QLatin1String("");      // empty, not null
-    QVariantList args = a_args;
-
-    if (!method.inputArgs.isEmpty())
-    {
-        // go over the list of parameters for the method
-        QDBusIntrospection::Arguments::const_iterator it = method.inputArgs.begin(),
-                                                     end = method.inputArgs.end();
-        int arg;
-        for (arg = 0; it != end; ++it, ++arg)
-        {
-            // find the marshalled name for this type
-            QString typeSig = QLatin1String(it->type.dbusSignature());
-            signature += typeSig;
+            // done
+            return -1;
         }
-    }
-    else
-        args.clear();
+    } else if (c == QMetaObject::ReadProperty) {
+        // Qt doesn't support non-readable properties
+        // we have to re-check
+        QMetaProperty mp = metaObject->property(id + metaObject->propertyOffset());
+        if (!mp.isReadable())
+            return -1;          // don't read
 
-    if (method.annotations.value(QLatin1String(ANNOTATION_NO_WAIT)) == QLatin1String("true"))
-        mode = NoWaitForReply;
+        // try to read this property
+        QDBusMessage msg = QDBusMessage::methodCall(service, path, DBUS_INTERFACE_PROPERTIES,
+                                                    QLatin1String("Get"));
+        msg << interface << QString::fromUtf8(mp.name());
 
-    return callWithArgs(method.name, signature, args, mode);
-}
+        QPointer<QDBusAbstractInterface> qq = q;
+        QDBusMessage reply = connp->sendWithReply(msg, QDBusConnection::UseEventLoop);
 
-/*!
-    \overload
-    Places a call to the remote method specified by \p method on this interface, using \p args as
-    arguments.
+        // access to "this" or to "q" below this point must check for "qq"
+        // we may have been deleted!
 
-    Normally, you should place calls using call().
-*/
-QDBusMessage QDBusInterface::callWithArgs(const QString& method, const QList<QVariant>& args,
-                                          CallMode mode)
-{
-    QString m = method, sig;
-    // split out the signature from the method
-    int pos = method.indexOf(QLatin1Char('.'));
-    if (pos != -1) {
-        m.truncate(pos);
-        sig = method.mid(pos + 1);
-    }
-    return callWithArgs(m, sig, args, mode);
-}
+        if (reply.type() == QDBusMessage::ReplyMessage && reply.count() == 1 &&
+            reply.signature() == QLatin1String("v")) {
+            QVariant value = QDBusTypeHelper<QVariant>::fromVariant(reply.at(0));
 
-/*!
-    \overload
-    Places a call to the remote method specified by \p method on this interface, using \p args as
-    arguments. The \p signature parameter specifies how the arguments should be marshalled over the
-    connection. (It also serves to distinguish between overloading of remote methods by name)
-
-    Normally, you should place calls using call().
-*/
-QDBusMessage QDBusInterface::callWithArgs(const QString& method, const QString& signature,
-                                          const QList<QVariant>& args, CallMode mode)
-{
-    QDBusMessage msg = QDBusMessage::methodCall(service(), path(), interface(), method);
-    msg.setSignature(signature);
-    msg.QList<QVariant>::operator=(args);
-
-    QDBusMessage reply;
-    if (mode == WaitForReply)
-        reply = d->conn.sendWithReply(msg);
-    else
-        d->conn.send(msg);
-
-    d->lastError = reply;       // will clear if reply isn't an error
-
-    // ensure that there is at least one element
-    if (reply.isEmpty())
-        reply << QVariant();
-
-    return reply;
-}
-
-/*!
-    Connects the D-Bus signal specified by \p sig to the given slot \p slot in the object \p obj.
-
-    This function is similar to QObject::connect.
-*/
-bool QDBusInterface::connect(const QDBusIntrospection::Signal& sig, QObject* obj, const char *slot)
-{
-    QString signature = QLatin1String("");      // empty, not null
-
-    if (!sig.outputArgs.isEmpty())
-    {
-        // go over the list of parameters for the method
-        QDBusIntrospection::Arguments::const_iterator it = sig.outputArgs.begin(),
-                                                     end = sig.outputArgs.end();
-        int arg;
-        for (arg = 0; it != end; ++it, ++arg)
-        {
-            // find the marshalled name for this type
-            QString typeSig = QLatin1String(it->type.dbusSignature());
-            signature += typeSig;
+            // make sure the type is right
+            if (strcmp(mp.typeName(), value.typeName()) == 0) {
+                if (mp.type() == QVariant::LastType)
+                    // QVariant is special in this context
+                    *reinterpret_cast<QVariant *>(argv[0]) = value;
+                else
+                    QDBusMetaObject::assign(argv[0], value);
+                return -1;
+            }
         }
+
+        // got an error
+        if (qq.isNull())
+            return -1;          // bail out
+
+        if (reply.type() == QDBusMessage::ErrorMessage)
+            lastError = reply;
+        else if (reply.signature() != QLatin1String("v")) {
+            QString errmsg = QLatin1String("Invalid signature `%1' in return from call to "
+                                           DBUS_INTERFACE_PROPERTIES);
+            lastError = QDBusError(QDBusError::InvalidSignature, errmsg.arg(reply.signature()));
+        } else {
+            QString errmsg = QLatin1String("Unexpected type `%1' when retrieving property "
+                                           "`%2 %3.%4'");
+            lastError = QDBusError(QDBusError::InvalidSignature,
+                                   errmsg.arg(QLatin1String(reply.at(0).typeName()),
+                                              QLatin1String(mp.typeName()),
+                                              interface, QString::fromUtf8(mp.name())));
+        }
+        return -1;
+    } else if (c == QMetaObject::WriteProperty) {
+        // QMetaProperty::write has already checked that we're writable
+        // it has also checked that the type is right
+        QVariant value(metaObject->propertyMetaType(id), argv[0]);
+        QMetaProperty mp = metaObject->property(id + metaObject->propertyOffset());
+
+        // send the value
+        QDBusMessage msg = QDBusMessage::methodCall(service, path, DBUS_INTERFACE_PROPERTIES,
+                                                    QLatin1String("Set"));
+        msg.setSignature(QLatin1String("ssv"));
+        msg << interface << QString::fromUtf8(mp.name()) << value;
+
+        QPointer<QDBusAbstractInterface> qq = q;
+        QDBusMessage reply = connp->sendWithReply(msg, QDBusConnection::UseEventLoop);
+
+        // access to "this" or to "q" below this point must check for "qq"
+        // we may have been deleted!
+
+        if (!qq.isNull() && reply.type() != QDBusMessage::ReplyMessage)
+            lastError = reply;
+
+        return -1;
     }
-
-    return connect(sig.name, signature, obj, slot);
+    return id;
 }
 
-/*!
-    \overload
-    Connects the D-Bus signal specified by \p signalName to the given slot \p slot in the object \p
-    obj.
-
-    This function is similar to QObject::connect.
-*/
-bool QDBusInterface::connect(const QString& signalName, QObject* obj, const char *slot)
-{
-    QString s = signalName, sig;
-    // split out the signature from the name
-    int pos = signalName.indexOf(QLatin1Char('.'));
-    if (pos != -1) {
-        s.truncate(pos);
-        sig = QLatin1String("") + signalName.mid(pos + 1);
-    }
-    return connect(s, sig, obj, slot);
-}
-
-/*!
-    \overload
-    Connects the D-Bus signal specified by \p signalName to the given slot \p slot in the object \p
-    obj. The \p signature parameter allows one to connect to the signal only if it is emitted with
-    the parameters matching the given type signature.
-
-    This function is similar to QObject::connect.
-*/
-bool QDBusInterface::connect(const QString& signalName, const QString& signature,
-                             QObject* obj, const char *slot)
-{
-    return d->conn.connect(service(), path(), interface(), signalName, signature, obj, slot);
-}
-
-/*!
-    Retrieves the value of the property \p prop in the remote object. This function returns an error
-    if you try to read the value of a write-only property.
-*/
-QDBusReply<QDBusVariant> QDBusInterface::property(const QDBusIntrospection::Property& prop)
-{
-    // sanity checking
-    if (prop.access == QDBusIntrospection::Property::Write)
-        // write-only prop
-        return QDBusError(QLatin1String(DBUS_ERROR_ACCESS_DENIED),
-                     QString::fromLatin1("Property %1 in interface %2 in object %3 is write-only")
-                     .arg(prop.name, interface(), path()));
-
-    QDBusPropertiesInterface pi(object());
-    return pi.get(interface(), prop.name);
-}
-
-/*!
-    \overload
-    Retrieves the value of the property \p propname in the remote object. This function returns an
-    error if you try to read the value of a write-only property.
-*/
-QDBusReply<QDBusVariant> QDBusInterface::property(const QString& propName)
-{
-    // can't do sanity checking
-    QDBusPropertiesInterface pi(object());
-    return pi.get(interface(), propName);
-}
-
-/*!
-    Sets the value of the property \p prop to \p newValue in the remote object. This function
-    automatically changes the type of \p newValue to the property's type, but the call will fail if
-    the types don't match.
-
-    This function returns an error if the property is read-only.
-*/
-QDBusReply<void> QDBusInterface::setProperty(const QDBusIntrospection::Property& prop,
-                                             const QDBusVariant &newValue)
-{
-    // sanity checking
-    if (prop.access == QDBusIntrospection::Property::Read)
-        // read-only prop
-        return QDBusError(QLatin1String(DBUS_ERROR_ACCESS_DENIED),
-                     QString::fromLatin1("Property %1 in interface %2 in object %3 is read-only")
-                     .arg(prop.name, interface(), path()));
-
-    // set the property type
-    QDBusVariant value = newValue;
-    value.type = prop.type;
-
-    QDBusPropertiesInterface pi(object());
-    return pi.set(interface(), prop.name, value);
-}
-
-/*!
-    \overload
-    Sets the value of the property \p propName to \p newValue in the remote object. This function
-    will not change \p newValue's type to match the property, so it is your responsibility to make
-    sure it is of the correct type.
-
-    This function returns an error if the property is read-only.
-*/
-QDBusReply<void> QDBusInterface::setProperty(const QString& propName, const QDBusVariant &newValue)
-{
-    // can't do sanity checking
-    QDBusPropertiesInterface pi(object());
-    return pi.set(interface(), propName, newValue);
-}
-
-/*!
-    \fn QDBusMessage QDBusInterface::call(const QDBusIntrospection::Method &method, ...)
-
-    Calls the method \p method on this interface and passes the parameters to this function to the
-    method.
-
-    The parameters to \a call are passed on to the remote function via D-Bus as input
-    arguments. Output arguments are returned in the QDBusMessage reply.
-
-    \warning This function reenters the Qt event loop in order to wait for the reply, excluding user
-             input. During the wait, it may deliver signals and other method calls to your
-             application. Therefore, it must be prepared to handle a reentrancy whenever a call is
-             placed with call().
-*/
-
-/*!
-    \overload
-    \fn QDBusMessage QDBusInterface::call(const QString &method, ...)
-
-    Calls the method \p method on this interface and passes the parameters to this function to the
-    method.
-
-    The parameters to \a call are passed on to the remote function via D-Bus as input
-    arguments. Output arguments are returned in the QDBusMessage reply.
-
-    \warning This function reenters the Qt event loop in order to wait for the reply, excluding user
-             input. During the wait, it may deliver signals and other method calls to your
-             application. Therefore, it must be prepared to handle a reentrancy whenever a call is
-             placed with call().
-*/

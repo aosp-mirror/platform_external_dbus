@@ -30,46 +30,23 @@
 #define QDBUSMACROS_H
 
 #include <QtCore/qglobal.h>
+#include <QtCore/qmetatype.h>
+#include <QtCore/qvariant.h>
 
-#ifdef DBUS_COMPILATION
-/// \internal
+#ifdef QT_NO_MEMBER_TEMPLATES
+# error Sorry, you need a compiler with support for template member functions to compile QtDBus.
+#endif
+
+#if defined(DBUS_COMPILATION) && defined(QDBUS_MAKEDLL)
 # define QDBUS_EXPORT Q_DECL_EXPORT
 #else
-/// \internal
 # define QDBUS_EXPORT Q_DECL_IMPORT
 #endif
 
 #ifndef Q_MOC_RUN
-/*!
-    \relates QDBusAbstractAdaptor
-    \brief Marks a method as "asynchronous"
-
-    The Q_ASYNC macro can be used to mark a method to be called and not wait for it to finish
-    processing before returning from QDBusInterface::call. The called method cannot return any
-    output arguments and, if it does, any such arguments will be discarded.
-
-    You can use this macro in your own adaptors by placing it before your method's return value
-    (which must be "void") in the class declaration, as shown in the example:
-    \code
-        Q_ASYNC void myMethod();
-    \endcode
-
-    Its presence in the method implementation (outside the class declaration) is optional.
-
-    \sa #async, \ref UsingAdaptors
-*/
 # define Q_ASYNC
 #endif
 #ifndef QT_NO_KEYWORDS
-
-/*!
-    \relates QDBusAbstractAdaptor
-    \brief Marks a method as "asynchronous"
-
-    This macro is the same as #Q_ASYNC and is provided as a shorthand. However, it is not defined if
-    QT_NO_KEYWORDS is defined, which makes Qt not use its extensions to the C++ language (keywords
-    emit, signals, slots).
-*/
 # define async  Q_ASYNC
 #endif
 

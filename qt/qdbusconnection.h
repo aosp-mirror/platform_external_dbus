@@ -28,20 +28,19 @@
 #include "qdbusmacros.h"
 #include <QtCore/qstring.h>
 
-class QDBusConnectionPrivate;
-class QDBusXmlParser;
-class QDBusObject;
+class QDBusAbstractInterfacePrivate;
 class QDBusInterface;
 class QDBusError;
 class QDBusMessage;
-class QByteArray;
+class QDBusBusService;
 class QObject;
 
+class QDBusConnectionPrivate;
 class QDBUS_EXPORT QDBusConnection
 {
 public:
     enum BusType { SessionBus, SystemBus, ActivationBus };
-    enum NameRequestMode { NoReplace = 0, ProhibitReplace = 1, ReplaceExisting = 2 };
+    enum WaitMode { UseEventLoop, NoUseEventLoop };
     enum RegisterOption {
         ExportAdaptors = 0x01,
 
@@ -50,10 +49,10 @@ public:
         ExportProperties = 0x40,
         ExportContents = 0xf0,
 
-        ExportNonScriptableSlots = 0x110,
-        ExportNonScriptableSignals = 0x220,
-        ExportNonScriptableProperties = 0x440,
-        ExportNonScriptableContents = 0xff0,
+        ExportAllSlots = 0x110,
+        ExportAllSignals = 0x220,
+        ExportAllProperties = 0x440,
+        ExportAllContents = 0xff0,
 
         ExportChildObjects = 0x1000
     };
@@ -75,7 +74,7 @@ public:
     QDBusError lastError() const;
 
     bool send(const QDBusMessage &message) const;
-    QDBusMessage sendWithReply(const QDBusMessage &message) const;
+    QDBusMessage sendWithReply(const QDBusMessage &message, WaitMode mode = UseEventLoop) const;
     int sendWithReplyAsync(const QDBusMessage &message, QObject *receiver,
                            const char *slot) const;
 
@@ -87,42 +86,38 @@ public:
 
     bool registerObject(const QString &path, QObject *object,
                         RegisterOptions options = ExportAdaptors);
-    void unregisterObject(const QString &path, UnregisterMode = UnregisterNode);
+    void unregisterObject(const QString &path, UnregisterMode mode = UnregisterNode);
 
-    QDBusObject findObject(const QString& service, const QString& path);
-    QDBusInterface findInterface(const QString& service, const QString& path, const QString& interface);
-
-#ifndef QT_NO_MEMBER_TEMPLATES
     template<class Interface>
-    inline Interface findInterface(const QString &service, const QString &path)
-    { return Interface(findObject(service, path)); }
-#endif
+    inline Interface *findInterface(const QString &service, const QString &path);
+    QDBusInterface *findInterface(const QString& service, const QString& path,
+                                  const QString& interface = QString());
 
-    bool requestName(const QString &name, NameRequestMode mode = NoReplace);
-    bool releaseName(const QString& name);
-    QString getNameOwner(const QString& name);
+    QDBusBusService *busService() const;
 
-    static QDBusConnection addConnection(BusType type,
-                                         const QString &name);
-    static QDBusConnection addConnection(const QString &address,
-                                         const QString &name);
+    static QDBusConnection addConnection(BusType type, const QString &name);
+    static QDBusConnection addConnection(const QString &address, const QString &name);
     static void closeConnection(const QString &name);
 
 private:
-    friend class QDBusObject;
+    QDBusAbstractInterfacePrivate *findInterface_helper(const QString &, const QString &,
+                                                        const QString&);
     QDBusConnectionPrivate *d;
 };
 
-namespace QDBus {
-    QDBusConnection &sessionBus();
-    QDBusConnection &systemBus();
+template<class Interface>
+inline Interface *QDBusConnection::findInterface(const QString &service, const QString &path)
+{
+    register QDBusAbstractInterfacePrivate *d;
+    d = findInterface_helper(service, path, Interface::staticInterfaceName());
+    if (d)
+        return new Interface(d);
+    return 0;
 }
 
-template<class Interface>
-inline Interface qDBusConnectionFindInterface(QDBusConnection &connection, const QString &service,
-                                              const QString &path)
-{
-    return Interface(connection.findObject(service, path));
+namespace QDBus {
+    QDBUS_EXPORT QDBusConnection &sessionBus();
+    QDBUS_EXPORT QDBusConnection &systemBus();
 }
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QDBusConnection::RegisterOptions)

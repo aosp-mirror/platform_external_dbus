@@ -28,32 +28,26 @@
 #include <QtCore/qmap.h>
 #include <QtXml/qdom.h>
 #include "qdbusmacros.h"
-#include "qdbusintrospection.h"
+#include "qdbusintrospection_p.h"
 
-class QDBusConnectionPrivate;
-class QDBusObjectPrivate;
-
-/**
- * @internal
- */
+/*!
+    \internal
+*/
 class QDBusXmlParser
 {
     QString m_service;
     QString m_path;
     QDomElement m_node;
-    QDBusConnectionPrivate* m_store;
 
 public:
     QDBusXmlParser(const QString& service, const QString& path,
-                   const QString& xmlData, QDBusConnectionPrivate* store = 0);
+                   const QString& xmlData);
     QDBusXmlParser(const QString& service, const QString& path,
-                   const QDomElement& node, QDBusConnectionPrivate* store = 0);
+                   const QDomElement& node);
 
     QDBusIntrospection::Interfaces interfaces() const;
     QSharedDataPointer<QDBusIntrospection::Object> object() const;
     QSharedDataPointer<QDBusIntrospection::ObjectTree> objectTree() const;
-
-    static void parse(const QDBusObjectPrivate* d, const QString &xml);
 };
 
 #endif

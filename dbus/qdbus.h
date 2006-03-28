@@ -25,29 +25,27 @@
 
 #include <QtCore/qglobal.h>
 
-#ifndef DBUS_COMPILATION
+#if !defined(DBUS_COMPILATION)
 # include <dbus/qdbusabstractadaptor.h>
+# include <dbus/qdbusabstractinterface.h>
+# include <dbus/qdbusbus.h>
 # include <dbus/qdbusconnection.h>
 # include <dbus/qdbuserror.h>
 # include <dbus/qdbusinterface.h>
-# include <dbus/qdbusintrospection.h>
 # include <dbus/qdbusmessage.h>
-# include <dbus/qdbusobject.h>
 # include <dbus/qdbusreply.h>
 # include <dbus/qdbusserver.h>
-# include <dbus/qdbustype.h>
 # include <dbus/qdbusutil.h>
 #else
 # include <qt/qdbusabstractadaptor.h>
+# include <qt/qdbusabstractinterface.h>
+# include <qt/qdbusbus.h>
 # include <qt/qdbusconnection.h>
 # include <qt/qdbuserror.h>
 # include <qt/qdbusinterface.h>
-# include <qt/qdbusintrospection.h>
 # include <qt/qdbusmessage.h>
-# include <qt/qdbusobject.h>
 # include <qt/qdbusreply.h>
 # include <qt/qdbusserver.h>
-# include <qt/qdbustype.h>
 # include <qt/qdbusutil.h>
 #endif
 

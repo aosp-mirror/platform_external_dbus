@@ -21,12 +21,13 @@
  *
  */
 
-#include "qdbusintrospection.h"
+#include "qdbusintrospection_p.h"
 #include "qdbusxmlparser_p.h"
 
 /*!
     \class QDBusIntrospection
     \brief Information about introspected objects and interfaces on D-Bus.
+    \internal
 
     This class provides structures and methods for parsing the XML introspection data for D-Bus.
     Normally, you don't have to use the methods provided here: QDBusInterface and QDBusObject will
@@ -36,7 +37,7 @@
 */
 
 /*!
-    \struct QDBusIntrospection::Argument
+    \class QDBusIntrospection::Argument
     \brief One argument to a D-Bus method or signal.
 
     This struct represents one argument passed to a method or received from a method or signal in
@@ -54,12 +55,12 @@
 */
 
 /*!
-    \fn QDBusIntrospection::Argument::operator==
-    Compares this object against \p other and return true if they are the same.
+    \fn QDBusIntrospection::Argument::operator==(const Argument &other) const
+    Compares this object against \a other and return true if they are the same.
 */
 
 /*!
-    \struct QDBusIntrospection::Method
+    \class QDBusIntrospection::Method
     \brief Information about one method.
 
     This struct represents one method discovered through introspection. A method is composed of
@@ -89,12 +90,12 @@
 */
 
 /*!
-    \fn QDBusIntrospection::Method::operator==
-    Compares this object against \p other and return true if they are the same.
+    \fn QDBusIntrospection::Method::operator==(const Method &other) const
+    Compares this object against \a other and return true if they are the same.
 */
 
 /*!
-    \struct QDBusIntrospection::Signal
+    \class QDBusIntrospection::Signal
     \brief Information about one signal.
 
     This struct represents one signal discovered through introspection. A signal is composed of
@@ -118,12 +119,12 @@
 */
 
 /*!
-    \fn QDBusIntrospection::Signal::operator==
-    Compares this object against \p other and return true if they are the same.
+    \fn QDBusIntrospection::Signal::operator==(const Signal& other) const
+    Compares this object against \a other and return true if they are the same.
 */
 
 /*!
-    \struct QDBusIntrospection::Property
+    \class QDBusIntrospection::Property
     \brief Information about one property.
 
     This struct represents one property discovered through introspection. A property is composed of
@@ -143,9 +144,9 @@
 /*!
     \enum QDBusIntrospection::Property::Access
     The possible access rights for a property:
-    - Read
-    - Write
-    - ReadWrite
+    \value Read
+    \value Write
+    \value ReadWrite
 */
 
 /*!
@@ -160,12 +161,12 @@
 */
 
 /*!
-    \fn QDBusIntrospection::Property::operator==
-    Compares this object against \p other and return true if they are the same.
+    \fn QDBusIntrospection::Property::operator==(const Property &other) const
+    Compares this object against \a other and return true if they are the same.
 */
 
 /*!
-    \struct QDBusIntrospection::Interface
+    \class QDBusIntrospection::Interface
     \brief Information about one interface on the bus.
 
     Each interface on D-Bus has an unique \a name, identifying where that interface was defined.
@@ -211,15 +212,15 @@
 */
 
 /*!
-    \fn QDBusIntrospection::Interface::operator==
-    Compares this object against \p other and return true if they are the same.
+    \fn QDBusIntrospection::Interface::operator==(const Interface &other) const
+    Compares this object against \a other and return true if they are the same.
 
     Note that two interfaces are considered to be the same if they have the same name. The internal
     structures in the objects are not compared.
 */
 
 /*!
-    \struct QDBusIntrospection::Object
+    \class QDBusIntrospection::Object
     \brief Information about one object on the bus.
 
     An object on the D-Bus bus is represented by its service and path on the service but, unlike
@@ -234,14 +235,14 @@
     \var QDBusIntrospection::Object::service
     The object's service name.
 
-    \sa parseObject, parseObjectTree
+    \sa parseObject(), parseObjectTree()
 */
 
 /*!
     \var QDBusIntrospection::Object::path
     The object's path on the service. This is an absolute path.
 
-    \sa parseObject, parseObjectTree
+    \sa parseObject(), parseObjectTree()
 */
 
 /*!
@@ -260,11 +261,12 @@
 /*!
     \var QDBusIntrospection::Object::childObjects
     The list of child object names in this object. Note that this is a relative name, not an
-    absolute path. To obtain the absolute path, concatenate with \ref path.
+    absolute path. To obtain the absolute path, concatenate with \l
+    {QDBusIntrospection::Object::path}{path}.
 */
 
 /*!
-    \struct QDBusIntrospection::ObjectTree
+    \class QDBusIntrospection::ObjectTree
     \brief Complete information about one object node and its descendency.
     
     This struct contains the same data as QDBusIntrospection::Object, plus the actual data for the
@@ -324,20 +326,17 @@
     \typedef QDBusIntrospection::Objects
     Contains a QMap of objects and their paths relative to their immediate parent.
 
-    \sa parseObjectTree
+    \sa parseObjectTree()
 */
 
 /*!
-    Parses the XML document fragment containing one interface.
+    Parses the XML document fragment (given by \a xml) containing one interface.
 
     The first element tag in this XML data must be either \<node\> or \<interface\>. If it is
     \<node\>, then the \<interface\> tag must be a child tag of the \<node\> one.
 
     If there are multiple interfaces in this XML data, it is undefined which one will be
     returned.
-
-    \param xml          the XML data to be parsed
-    \returns            the parsed interface
 */
 QDBusIntrospection::Interface
 QDBusIntrospection::parseInterface(const QString &xml)
@@ -352,23 +351,22 @@ QDBusIntrospection::parseInterface(const QString &xml)
 }
 
 /*!
-    Parses the XML document fragment containing several interfaces.
+    Parses the XML document fragment (given by \a xml) containing several interfaces.
 
     If the first element tag in this document fragment is \<node\>, the interfaces parsed will
     be those found as child elements of the \<node\> tag.
-
-    \param xml          the XML data to be parsed
-    \returns            the parsed interfaces
 */
 QDBusIntrospection::Interfaces
 QDBusIntrospection::parseInterfaces(const QString &xml)
 {
-    QDBusXmlParser parser(QString(), QString(), xml);
+    QString null;
+    QDBusXmlParser parser(null, null, xml);
     return parser.interfaces();
 }
 
 /*!
-    Parses the XML document fragment containing one object.
+    Parses the XML document fragment (given by \a xml) containing one object, found at the service
+    \a service and path \a path.
 
     The first element tag in this document must be \<node\>. If that tag does not contain
     a name attribute, the \a path argument will be used to determine the path of this
@@ -376,11 +374,6 @@ QDBusIntrospection::parseInterfaces(const QString &xml)
 
     This function does not parse the interfaces contained in the node, nor sub-object's contents.
     It will only list their names. If you need to know their contents, use parseObjectTree.
-
-    \param xml          the XML data to be parsed
-    \param service      the service where this object is found
-    \param path         the absolute path to this node on the remote service
-    \returns            the parsed object
 */
 QDBusIntrospection::Object
 QDBusIntrospection::parseObject(const QString &xml, const QString &service, const QString &path)
@@ -393,15 +386,11 @@ QDBusIntrospection::parseObject(const QString &xml, const QString &service, cons
 }
 
 /*!
-    Parses the XML document fragment containing one object node and returns all the information
-    about the interfaces and sub-objects.
+    Parses the XML document fragment (given by \a xml) containing one object node and returns all
+    the information about the interfaces and sub-objects, found at the service \a service and path
+    \a path.
 
     The Objects map returned will contain the absolute path names in the key.
-
-    \param xml          the XML data to be parsed
-    \param service      the service where this object is found
-    \param path         the absolute path to this node on the remote service
-    \returns            the parsed objects and interfaces
 */
 QDBusIntrospection::ObjectTree
 QDBusIntrospection::parseObjectTree(const QString &xml, const QString &service, const QString &path)

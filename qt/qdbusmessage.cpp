@@ -32,9 +32,10 @@
 #include "qdbuserror.h"
 #include "qdbusmarshall_p.h"
 #include "qdbusmessage_p.h"
+#include "qdbustypehelper_p.h"
 
-QDBusMessagePrivate::QDBusMessagePrivate(QDBusMessage *qq)
-    : connection(QString()), msg(0), reply(0), q(qq), type(DBUS_MESSAGE_TYPE_INVALID),
+QDBusMessagePrivate::QDBusMessagePrivate()
+    : connection(QString()), msg(0), reply(0), type(DBUS_MESSAGE_TYPE_INVALID),
       timeout(-1), ref(1), repliedTo(false)
 {
 }
@@ -54,10 +55,12 @@ QDBusMessagePrivate::~QDBusMessagePrivate()
 
     This object can represent any of four different types of messages possible on the bus
     (see MessageType)
-     - Method calls
-     - Method return values
-     - Signal emissions
-     - Error codes
+    \list
+      \o Method calls
+      \o Method return values
+      \o Signal emissions
+      \o Error codes
+    \endlist
 
     Objects of this type are created with the four static functions signal, methodCall,
     methodReply and error.
@@ -79,128 +82,112 @@ QDBusMessagePrivate::~QDBusMessagePrivate()
     from one application and is received by all applications that are listening for that signal
     from that interface.
 
-    \param path         the path of the object that is emitting the signal
-    \param interface    the interface that is emitting the signal
-    \param name         the name of the signal (a.k.a. method name)
-    \returns            a QDBusMessage object that can be sent with with QDBusConnection::send
+    The signal will be constructed to represent a signal coming from the path \a path, interface \a
+    interface and signal name \a name.
+
+    The QDBusMessage object that is returned can be sent with QDBusConnection::send().
 */
 QDBusMessage QDBusMessage::signal(const QString &path, const QString &interface,
                                   const QString &name)
 {
     QDBusMessage message;
-    message.d->type = DBUS_MESSAGE_TYPE_SIGNAL;
-    message.d->path = path;
-    message.d->interface = interface;
-    message.d->name = name;
+    message.d_ptr->type = DBUS_MESSAGE_TYPE_SIGNAL;
+    message.d_ptr->path = path;
+    message.d_ptr->interface = interface;
+    message.d_ptr->name = name;
 
     return message;
 }
 
 /*!
     Constructs a new DBus message representing a method call. A method call always informs
-    its destination address (service, path, interface and method).
+    its destination address (\a service, \a path, \a interface and \a method).
 
     The DBus bus allows calling a method on a given remote object without specifying the
     destination interface, if the method name is unique. However, if two interfaces on the
     remote object export the same method name, the result is undefined (one of the two may be
     called or an error may be returned).
 
-    When using DBus in a peer-to-peer context (i.e., not on a bus), the service parameter is
+    When using DBus in a peer-to-peer context (i.e., not on a bus), the \a service parameter is
     optional.
-
-    Optionally, a signature parameter can be passed, indicating the type of the parameters to
-    be marshalled over the bus. If there are more arguments thanentries in the signature, the
-    tailing arguments will be silently dropped and not sent. If there are less arguments,
-    default values will be inserted (default values are those created by QVariant::convert
-    when a variant of type QVariant::Invalid is converted to the type).
 
     The QDBusObject and QDBusInterface classes provide a simpler abstraction to synchronous
     method calling.
 
-    \param service      the remote service to be called (can be a well-known name, a bus
-                        address or null)
-    \param path         the path of the object on the remote service to be called
-    \param interface    the remote interface that is wanted (can be null)
-    \param method       the remote method to be called (a.k.a., name)
-    \returns            a QDBusMessage object that can be sent with QDBusConnection::send,
-                        QDBusConnection::sendWithReply, or QDBusConnection::sendWithReplyAsync
+    This function returns a QDBusMessage object that can be sent with QDBusConnection::send(),
+    QDBusConnection::sendWithReply(), or QDBusConnection::sendWithReplyAsync().
 */
 QDBusMessage QDBusMessage::methodCall(const QString &service, const QString &path,
                                       const QString &interface, const QString &method)
 {
     QDBusMessage message;
-    message.d->type = DBUS_MESSAGE_TYPE_METHOD_CALL;
-    message.d->service = service;
-    message.d->path = path;
-    message.d->interface = interface;
-    message.d->name = method;
+    message.d_ptr->type = DBUS_MESSAGE_TYPE_METHOD_CALL;
+    message.d_ptr->service = service;
+    message.d_ptr->path = path;
+    message.d_ptr->interface = interface;
+    message.d_ptr->name = method;
 
     return message;
 }
 
 /*!
-    Constructs a new DBus message representing the return values from a called method.
-
-    \param other        the method call DBus message that this is a reply to
-    \returns            a QDBusMessage object that can be sent with QDBusConnection::send
+    Constructs a new DBus message representing the return values from a called method. The \a other
+    variable represents the method call that the reply will be for.
+    
+    This function returns a QDBusMessage object that can be sent with QDBusConnection::send().
 */
 QDBusMessage QDBusMessage::methodReply(const QDBusMessage &other)
 {
-    Q_ASSERT(other.d->msg);
+    Q_ASSERT(other.d_ptr->msg);
 
     QDBusMessage message;
-    message.d->connection = other.d->connection;
-    message.d->type = DBUS_MESSAGE_TYPE_METHOD_RETURN;
-    message.d->reply = dbus_message_ref(other.d->msg);
-    other.d->repliedTo = true;
+    message.d_ptr->connection = other.d_ptr->connection;
+    message.d_ptr->type = DBUS_MESSAGE_TYPE_METHOD_RETURN;
+    message.d_ptr->reply = dbus_message_ref(other.d_ptr->msg);
+    other.d_ptr->repliedTo = true;
 
     return message;
 }
 
 /*!
-    Constructs a DBus message representing an error condition.
+    Constructs a DBus message representing an error condition described by the \a name
+    parameter. The \a msg parameter is optional and may contain a human-readable description of the
+    error. The \a other variable represents the method call that this error relates to.
 
-    \param other        the QDBusMessage object that generated this error
-    \param name         the DBus error name (error names must follow the same convention that
-                        interface names do)
-    \param msg          the error message
-    \return             a QDBusMessage object that can be sent with QDBusMessage::send
+    This function returns a QDBusMessage object that can be sent with QDBusMessage::send().
 */
 QDBusMessage QDBusMessage::error(const QDBusMessage &other, const QString &name,
                                  const QString &msg)
 {
-    Q_ASSERT(other.d->msg);
+    Q_ASSERT(other.d_ptr->msg);
 
     QDBusMessage message;
-    message.d->connection = other.d->connection;
-    message.d->type = DBUS_MESSAGE_TYPE_ERROR;
-    message.d->name = name;
-    message.d->message = msg;
-    message.d->reply = dbus_message_ref(other.d->msg);
-    other.d->repliedTo = true;
+    message.d_ptr->connection = other.d_ptr->connection;
+    message.d_ptr->type = DBUS_MESSAGE_TYPE_ERROR;
+    message.d_ptr->name = name;
+    message.d_ptr->message = msg;
+    message.d_ptr->reply = dbus_message_ref(other.d_ptr->msg);
+    other.d_ptr->repliedTo = true;
 
     return message;
 }
 
 /*!
     \overload
-    Constructs a DBus message representing an error condition.
-
-    \param other        the QDBusMessage object that generated this error
-    \param error        the QDBusError object representing this error
-    \return             a QDBusMessage object that can be sent with QDBusMessage::send
+    Constructs a DBus message representing an error, where \a other is the method call that
+    generated this error and \a error is the error code.
 */
 QDBusMessage QDBusMessage::error(const QDBusMessage &other, const QDBusError &error)
 {
-    Q_ASSERT(other.d->msg);
+    Q_ASSERT(other.d_ptr->msg);
 
     QDBusMessage message;
-    message.d->connection = other.d->connection;
-    message.d->type = DBUS_MESSAGE_TYPE_ERROR;
-    message.d->name = error.name();
-    message.d->message = error.message();
-    message.d->reply = dbus_message_ref(other.d->msg);
-    other.d->repliedTo = true;
+    message.d_ptr->connection = other.d_ptr->connection;
+    message.d_ptr->type = DBUS_MESSAGE_TYPE_ERROR;
+    message.d_ptr->name = error.name();
+    message.d_ptr->message = error.message();
+    message.d_ptr->reply = dbus_message_ref(other.d_ptr->msg);
+    other.d_ptr->repliedTo = true;
 
     return message;
 }
@@ -208,21 +195,21 @@ QDBusMessage QDBusMessage::error(const QDBusMessage &other, const QDBusError &er
 /*!
     Constructs an empty, invalid QDBusMessage object.
 
-    \sa methodCall, methodReply, signal, error
+    \sa methodCall(), methodReply(), signal(), error()
 */
 QDBusMessage::QDBusMessage()
 {
-    d = new QDBusMessagePrivate(this);
+    d_ptr = new QDBusMessagePrivate;
 }
 
 /*!
-    Constructs a copy of the other object.
+    Constructs a copy of the object given by \a other.
 */
 QDBusMessage::QDBusMessage(const QDBusMessage &other)
     : QList<QVariant>(other)
 {
-    d = other.d;
-    d->ref.ref();
+    d_ptr = other.d_ptr;
+    d_ptr->ref.ref();
 }
 
 /*!
@@ -230,17 +217,17 @@ QDBusMessage::QDBusMessage(const QDBusMessage &other)
 */
 QDBusMessage::~QDBusMessage()
 {
-    if (!d->ref.deref())
-        delete d;
+    if (!d_ptr->ref.deref())
+        delete d_ptr;
 }
 
 /*!
-    Copies the contents of the other object.
+    Copies the contents of the object given by \a other.
 */
 QDBusMessage &QDBusMessage::operator=(const QDBusMessage &other)
 {
     QList<QVariant>::operator=(other);
-    qAtomicAssign(d, other.d);
+    qAtomicAssign(d_ptr, other.d_ptr);
     return *this;
 }
 
@@ -258,26 +245,26 @@ DBusMessage *QDBusMessage::toDBusMessage() const
 {
     DBusMessage *msg = 0;
     
-    switch (d->type) {
+    switch (d_ptr->type) {
     case DBUS_MESSAGE_TYPE_METHOD_CALL:
-        msg = dbus_message_new_method_call(data(d->service.toUtf8()), data(d->path.toUtf8()),
-                                           data(d->interface.toUtf8()), data(d->name.toUtf8()));
+        msg = dbus_message_new_method_call(data(d_ptr->service.toUtf8()), data(d_ptr->path.toUtf8()),
+                                           data(d_ptr->interface.toUtf8()), data(d_ptr->name.toUtf8()));
         break;
     case DBUS_MESSAGE_TYPE_SIGNAL:
-        msg = dbus_message_new_signal(data(d->path.toUtf8()), data(d->interface.toUtf8()),
-                                      data(d->name.toUtf8()));
+        msg = dbus_message_new_signal(data(d_ptr->path.toUtf8()), data(d_ptr->interface.toUtf8()),
+                                      data(d_ptr->name.toUtf8()));
         break;
     case DBUS_MESSAGE_TYPE_METHOD_RETURN:
-        msg = dbus_message_new_method_return(d->reply);
+        msg = dbus_message_new_method_return(d_ptr->reply);
         break;
     case DBUS_MESSAGE_TYPE_ERROR:
-        msg = dbus_message_new_error(d->reply, data(d->name.toUtf8()), data(d->message.toUtf8()));
+        msg = dbus_message_new_error(d_ptr->reply, data(d_ptr->name.toUtf8()), data(d_ptr->message.toUtf8()));
         break;
     }
     if (!msg)
         return 0;
 
-    QDBusMarshall::listToMessage(*this, msg, d->signature);
+    QDBusMarshall::listToMessage(*this, msg, d_ptr->signature);
     return msg;
 }
 
@@ -291,16 +278,16 @@ QDBusMessage QDBusMessage::fromDBusMessage(DBusMessage *dmsg, const QDBusConnect
     if (!dmsg)
         return message;
 
-    message.d->connection = connection;
-    message.d->type = dbus_message_get_type(dmsg);
-    message.d->path = QString::fromUtf8(dbus_message_get_path(dmsg));
-    message.d->interface = QString::fromUtf8(dbus_message_get_interface(dmsg));
-    message.d->name = message.d->type == DBUS_MESSAGE_TYPE_ERROR ?
+    message.d_ptr->connection = connection;
+    message.d_ptr->type = dbus_message_get_type(dmsg);
+    message.d_ptr->path = QString::fromUtf8(dbus_message_get_path(dmsg));
+    message.d_ptr->interface = QString::fromUtf8(dbus_message_get_interface(dmsg));
+    message.d_ptr->name = message.d_ptr->type == DBUS_MESSAGE_TYPE_ERROR ?
                       QString::fromUtf8(dbus_message_get_error_name(dmsg)) :
                       QString::fromUtf8(dbus_message_get_member(dmsg));
-    message.d->service = QString::fromUtf8(dbus_message_get_sender(dmsg));
-    message.d->signature = QString::fromUtf8(dbus_message_get_signature(dmsg));
-    message.d->msg = dbus_message_ref(dmsg);
+    message.d_ptr->service = QString::fromUtf8(dbus_message_get_sender(dmsg));
+    message.d_ptr->signature = QString::fromUtf8(dbus_message_get_signature(dmsg));
+    message.d_ptr->msg = dbus_message_ref(dmsg);
 
     QDBusMarshall::messageToList(message, dmsg);
     return message;
@@ -312,8 +299,8 @@ QDBusMessage QDBusMessage::fromDBusMessage(DBusMessage *dmsg, const QDBusConnect
 QDBusMessage QDBusMessage::fromError(const QDBusError &error)
 {
     QDBusMessage message;
-    message.d->type = DBUS_MESSAGE_TYPE_ERROR;
-    message.d->name = error.name();
+    message.d_ptr->type = DBUS_MESSAGE_TYPE_ERROR;
+    message.d_ptr->name = error.name();
     message << error.message();
     return message;
 }
@@ -324,7 +311,7 @@ QDBusMessage QDBusMessage::fromError(const QDBusError &error)
 */
 QString QDBusMessage::path() const
 {
-    return d->path;
+    return d_ptr->path;
 }
 
 /*!
@@ -333,17 +320,17 @@ QString QDBusMessage::path() const
 */
 QString QDBusMessage::interface() const
 {
-    return d->interface;
+    return d_ptr->interface;
 }
 
 /*!
     Returns the name of the signal that was emitted or the name of the error that was
     received.
-    \sa member
+    \sa member()
 */
 QString QDBusMessage::name() const
 {
-    return d->name;
+    return d_ptr->name;
 }
 
 /*!
@@ -362,7 +349,7 @@ QString QDBusMessage::name() const
 */
 QString QDBusMessage::service() const
 {
-    return d->service;
+    return d_ptr->service;
 }
 
 /*!
@@ -375,17 +362,16 @@ QString QDBusMessage::service() const
 */
 int QDBusMessage::timeout() const
 {
-    return d->timeout;
+    return d_ptr->timeout;
 }
 
 /*!
-    Sets the timeout for this message to be processed.
-
-    \param ms           the time, in milliseconds
+    Sets the timeout for this message to be processed, given by \a ms, in milliseconds.
 */
 void QDBusMessage::setTimeout(int ms)
 {
-    d->timeout = ms;
+    qAtomicDetach(d_ptr);
+    d_ptr->timeout = ms;
 }
 
 /*!
@@ -395,9 +381,9 @@ void QDBusMessage::setTimeout(int ms)
 */
 bool QDBusMessage::noReply() const
 {
-    if (!d->msg)
+    if (!d_ptr->msg)
         return false;
-    return dbus_message_get_no_reply(d->msg);
+    return dbus_message_get_no_reply(d_ptr->msg);
 }
 
 /*!
@@ -406,9 +392,9 @@ bool QDBusMessage::noReply() const
  */
 int QDBusMessage::serialNumber() const
 {
-    if (!d->msg)
+    if (!d_ptr->msg)
         return 0;
-    return dbus_message_get_serial(d->msg);
+    return dbus_message_get_serial(d_ptr->msg);
 }
 
 /*!
@@ -421,9 +407,9 @@ int QDBusMessage::serialNumber() const
  */
 int QDBusMessage::replySerialNumber() const
 {
-    if (!d->msg)
+    if (!d_ptr->msg)
         return 0;
-    return dbus_message_get_reply_serial(d->msg);
+    return dbus_message_get_reply_serial(d_ptr->msg);
 }
 
 /*!
@@ -432,7 +418,7 @@ int QDBusMessage::replySerialNumber() const
 */
 bool QDBusMessage::wasRepliedTo() const
 {
-    return d->repliedTo;
+    return d_ptr->repliedTo;
 }
 
 /*!
@@ -441,16 +427,25 @@ bool QDBusMessage::wasRepliedTo() const
 */
 QString QDBusMessage::signature() const
 {
-    return d->signature;
+    return d_ptr->signature;
 }
 
 /*!
-    Sets the signature for the output arguments of this method call. This function has no meaning
-    in other types of messages or when dealing with received method calls.
+    Sets the signature for the output arguments of this method call to be the value of \a
+    signature. This function has no meaning in other types of messages or when dealing with received
+    method calls.
+
+    A message's signature indicate the type of the parameters to
+    be marshalled over the bus. If there are more arguments than entries in the signature, the
+    tailing arguments will be silently dropped and not sent. If there are less arguments,
+    default values will be inserted (default values are those created by QVariant::convert
+    when a variant of type QVariant::Invalid is converted to the type).
+
 */
 void QDBusMessage::setSignature(const QString &signature)
 {
-    d->signature = signature;
+    qAtomicDetach(d_ptr);
+    d_ptr->signature = signature;
 }
 
 /*!
@@ -459,7 +454,7 @@ void QDBusMessage::setSignature(const QString &signature)
 */
 QDBusConnection QDBusMessage::connection() const
 {
-    return d->connection;
+    return d_ptr->connection;
 }
 
 /*!
@@ -467,7 +462,7 @@ QDBusConnection QDBusMessage::connection() const
 */
 QDBusMessage::MessageType QDBusMessage::type() const
 {
-    switch (d->type) {
+    switch (d_ptr->type) {
     case DBUS_MESSAGE_TYPE_METHOD_CALL:
         return MethodCallMessage;
     case DBUS_MESSAGE_TYPE_METHOD_RETURN:
@@ -493,7 +488,7 @@ QDBusMessage::MessageType QDBusMessage::type() const
 
     It can be used in the following manner:
     \code
-        QDBusReply<QString> reply = interface.call("RemoteMethod");
+        QDBusReply<QString> reply = interface->call("RemoteMethod");
         if (reply.isSuccess())
             // use the returned value
             useValue(reply.value());
@@ -504,7 +499,7 @@ QDBusMessage::MessageType QDBusMessage::type() const
 
     If the remote method call cannot fail, you can skip the error checking:
     \code
-        QString reply = interface.call("RemoteMethod");
+        QString reply = interface->call("RemoteMethod");
     \endcode
 
     However, if it does fail under those conditions, the value returned by QDBusReply::value() is
@@ -515,18 +510,18 @@ QDBusMessage::MessageType QDBusMessage::type() const
     or not, by calling isError() and isSuccess(), and inspecting the error condition by calling
     error(). You cannot call value().
 
-    \sa QDBusMessage, QDBusInterface, \ref StandardInterfaces
+    \sa QDBusMessage, QDBusInterface
 */
 
 /*!
     \fn QDBusReply::QDBusReply(const QDBusMessage &reply)
-    Automatically construct a QDBusReply object from the reply message \p reply, extracting the
+    Automatically construct a QDBusReply object from the reply message \a reply, extracting the
     first return value from it if it is a success reply.
 */
 
 /*!
     \fn QDBusReply::QDBusReply(const QDBusError &error)
-    Construct an error reply from the D-Bus error.
+    Constructs an error reply from the D-Bus error code given by \a error.
 */
 
 /*!
@@ -554,69 +549,24 @@ QDBusMessage::MessageType QDBusMessage::type() const
     the return value of this function is undefined and may be undistinguishable from a valid return
     value.
 
-    This function is not available if the remote call returns "void".
+    This function is not available if the remote call returns \c void.
 */
 
 /*!
     \fn QDBusReply::operator Type()
     Returns the same as value().
     
-    This function is not available if the remote call returns "void".
+    This function is not available if the remote call returns \c void.
 */
 
 /*!
-    \fn QDBusReply::fromVariant(const QDBusReply<QDBusVariant> &variantReply)>
-    Converts the QDBusReply<QDBusVariant> object to this type by converting the variant contained in
-    \p variantReply to the template's type and copying the error condition.
+    \internal
+    \fn QDBusReply::fromVariant(const QDBusReply<QVariant> &variantReply)
+    Converts the QDBusReply<QVariant> object to this type by converting the variant contained in
+    \a variantReply to the template's type and copying the error condition.
 
-    If the QDBusVariant in variantReply is not convertible to this type, it will assume an undefined
+    If the QVariant in variantReply is not convertible to this type, it will assume an undefined
     value.
-*/
-
-// document QDBusVariant here too
-/*!
-    \class QDBusVariant
-    \brief Represents the D-Bus type VARIANT.
-
-    This class represents a D-Bus argument of type VARIANT, which is composed of a type description
-    and its value.
-*/
-
-/*!
-    \var QDBusVariant::type
-    Contains the VARIANT's type. It will contain an invalid type if this QDBusVariant argument was
-    constructed, as opposed to being received over the D-Bus connection.
-*/
-
-/*!
-    \var QDBusVariant::value
-    Contain's the VARIANT's value.
-*/
-
-/*!
-    \fn QDBusVariant::QDBusVariant()
-    Constructs an empty variant. An empty variant cannot be sent over D-Bus without being
-    initialized first.
-*/
-
-/*!
-    \fn QDBusVariant::QDBusVariant(const QVariant &variant)
-    Constructs a D-Bus Variant from the QVariant value \p variant. The D-Bus type, if not set, will
-    be guessed from the QVariant value when actually sending the argument over D-Bus by calling
-    QDBusType::guessFromVariant. You should explicitly set the type if are unsure the automatic
-    guessing will produce the correct type.
-*/
-
-/*!
-    \fn QDBusVariant::QDBusVariant(const QVariant &variant, const QDBusType &forcetype)
-    Constructs a D-Bus Variant from the QVariant of value \p variant and sets the type to \p
-    forcetype. The actual transformation of the QVariant to the proper D-Bus type will happen only
-    when sending this argument over D-Bus.
-*/
-
-/*!
-    \fn QDBusVariant::operator const QVariant &() const
-    Returns the value #value.
 */
 
 #ifndef QT_NO_DEBUG
@@ -637,6 +587,106 @@ QDebug operator<<(QDebug dbg, QDBusMessage::MessageType t)
     }
 }
 
+static void debugVariantList(QDebug dbg, const QVariantList &list);
+static void debugVariantMap(QDebug dbg, const QVariantMap &map);
+
+static void debugVariant(QDebug dbg, const QVariant &v)
+{
+    dbg.nospace() << v.typeName() << "(";
+    switch (v.userType())
+    {
+    case QVariant::Bool:
+        dbg.nospace() << v.toBool();
+        break;
+    case QMetaType::UChar:
+        dbg.nospace() << qvariant_cast<uchar>(v);
+        break;
+    case QMetaType::Short:
+        dbg.nospace() << qvariant_cast<short>(v);
+        break;
+    case QMetaType::UShort:
+        dbg.nospace() << qvariant_cast<ushort>(v);
+        break;
+    case QVariant::Int:
+        dbg.nospace() << v.toInt();
+        break;
+    case QVariant::UInt:
+        dbg.nospace() << v.toUInt();
+        break;
+    case QVariant::LongLong:
+        dbg.nospace() << v.toLongLong();
+        break;
+    case QVariant::ULongLong:
+        dbg.nospace() << v.toULongLong();
+        break;
+    case QVariant::Double:
+        dbg.nospace() << v.toDouble();
+        break;
+    case QVariant::String:
+        dbg.nospace() << v.toString();
+        break;
+    case QVariant::ByteArray:
+        dbg.nospace() << v.toByteArray();
+        break;
+    case QVariant::StringList:
+        dbg.nospace() << v.toStringList();
+        break;
+    case QVariant::List:
+        debugVariantList(dbg, v.toList());
+        break;
+    case QVariant::Map:
+        debugVariantMap(dbg, v.toMap());
+        break;
+
+    default: {
+        int id = v.userType();
+        if (id == QDBusTypeHelper<QVariant>::id())
+            debugVariant(dbg, QDBusTypeHelper<QVariant>::fromVariant(v));
+        else if (id == QDBusTypeHelper<bool>::listId())
+            dbg.nospace() << QDBusTypeHelper<QList<bool> >::fromVariant(v);
+        else if (id == QDBusTypeHelper<short>::listId())
+            dbg.nospace() << QDBusTypeHelper<QList<short> >::fromVariant(v);
+        else if (id == QDBusTypeHelper<ushort>::listId())
+            dbg.nospace() << QDBusTypeHelper<QList<ushort> >::fromVariant(v);
+        else if (id == QDBusTypeHelper<int>::listId())
+            dbg.nospace() << QDBusTypeHelper<QList<int> >::fromVariant(v);
+        else if (id == QDBusTypeHelper<uint>::listId())
+            dbg.nospace() << QDBusTypeHelper<QList<uint> >::fromVariant(v);
+        else if (id == QDBusTypeHelper<qlonglong>::listId())
+            dbg.nospace() << QDBusTypeHelper<QList<qlonglong> >::fromVariant(v);
+        else if (id == QDBusTypeHelper<qulonglong>::listId())
+            dbg.nospace() << QDBusTypeHelper<QList<qulonglong> >::fromVariant(v);
+        else if (id == QDBusTypeHelper<double>::listId())
+            dbg.nospace() << QDBusTypeHelper<QList<double> >::fromVariant(v);
+        else
+            dbg.nospace() << "unknown";
+    }
+    }
+    dbg.nospace() << ")";
+}    
+
+static void debugVariantList(QDebug dbg, const QVariantList &list)
+{
+    bool first = true;
+    foreach (const QVariant &v, list) {
+        if (!first)
+            dbg.nospace() << ", ";
+        debugVariant(dbg, v);
+        first = false;
+    }
+}
+
+static void debugVariantMap(QDebug dbg, const QVariantMap &map)
+{
+    QVariantMap::ConstIterator it = map.constBegin();
+    QVariantMap::ConstIterator end = map.constEnd();
+    for ( ; it != end; ++it) {
+        dbg << "(" << it.key() << ", ";
+        debugVariant(dbg, it.value());
+        dbg << ") ";
+    }
+}        
+
 QDebug operator<<(QDebug dbg, const QDBusMessage &msg)
 {
     dbg.nospace() << "QDBusMessage(type=" << msg.type()
@@ -645,7 +695,9 @@ QDebug operator<<(QDebug dbg, const QDBusMessage &msg)
                   << ", interface=" << msg.interface()
                   << ", name=" << msg.name()
                   << ", signature=" << msg.signature()
-                  << ", contents=" << static_cast<QList<QVariant> >(msg) << ")";
+                  << ", contents=(";
+    debugVariantList(dbg, msg);
+    dbg.nospace() << " ) )";
     return dbg.space();
 }
 #endif

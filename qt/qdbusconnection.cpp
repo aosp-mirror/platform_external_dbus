@@ -24,13 +24,14 @@
 
 #include <qdebug.h>
 #include <qcoreapplication.h>
+#include <qstringlist.h>
 
+#include "qdbusbus.h"
 #include "qdbusconnection.h"
 #include "qdbuserror.h"
 #include "qdbusmessage.h"
 #include "qdbusconnection_p.h"
 #include "qdbusinterface_p.h"
-#include "qdbusobject_p.h"
 #include "qdbusutil.h"
 
 class QDBusConnectionManager
@@ -97,6 +98,7 @@ void QDBusConnectionManager::setConnection(const QString &name, QDBusConnectionP
 
 /*!
     \fn QDBusConnection QDBus::sessionBus()
+    \relates QDBusConnection
 
     Returns a QDBusConnection object opened with the session bus. The object reference returned
     by this function is valid until the QCoreApplication's destructor is run, when the
@@ -104,6 +106,7 @@ void QDBusConnectionManager::setConnection(const QString &name, QDBusConnectionP
 */
 /*!
     \fn QDBusConnection QDBus::systemBus()
+    \relates QDBusConnection
 
     Returns a QDBusConnection object opened with the system bus. The object reference returned
     by this function is valid until the QCoreApplication's destructor is run, when the
@@ -117,22 +120,22 @@ void QDBusConnectionManager::setConnection(const QString &name, QDBusConnectionP
     This class is the initial point in a D-Bus session. Using it, you can get access to remote
     objects, interfaces; connect remote signals to your object's slots; register objects, etc.
 
-    D-Bus connections are created using the QDBusConnection::addConnection function, which opens a
+    D-Bus connections are created using the QDBusConnection::addConnection() function, which opens a
     connection to the server daemon and does the initial handshaking, associating that connection
     with a name. Further attempts to connect using the same name will return the same
     connection.
 
-    The connection is then torn down using the QDBusConnection::closeConnection function.
+    The connection is then torn down using the QDBusConnection::closeConnection() function.
 
-    As a convenience for the two most common connection types, the QDBus::sessionBus and
-    QDBus::systemBus functions return open connections to the session server daemon and the system
+    As a convenience for the two most common connection types, the QDBus::sessionBus() and
+    QDBus::systemBus() functions return open connections to the session server daemon and the system
     server daemon, respectively. Those connections are opened when first used and are closed when
     the QCoreApplication destructor is run.
 
     D-Bus also supports peer-to-peer connections, without the need for a bus server daemon. Using
     this facility, two applications can talk to each other and exchange messages. This can be
-    achieved by passing an address to QDBusConnection::addConnection(const QString &, const QString
-    &) function, which was opened by another D-Bus application using QDBusServer.
+    achieved by passing an address to QDBusConnection::addConnection()
+    function, which was opened by another D-Bus application using QDBusServer.
 */
 
 /*!
@@ -146,15 +149,23 @@ void QDBusConnectionManager::setConnection(const QString &name, QDBusConnectionP
     On the Session Bus, one can find other applications by the same user that are sharing the same
     desktop session (hence the name). On the System Bus, however, processes shared for the whole
     system are usually found.
-
-    \todo Find out what the ActivationBus is for
 */
 
 /*!
-    \enum QDBusConnection::NameRequestMode
-    Specifies the flags for when requesting a name in the bus.
+    \enum QDBusConnection::WaitMode
+    Specifies the call waiting mode.
 
-    \bug Change the enum into flags and update with the new flags from the spec.
+    \value UseEventLoop         use the Qt Event Loop to wait for the reply
+    \value NoUseEventLoop       don't use the event loop
+
+    The \c UseEventLoop option allows for the application to continue to update its UI while the
+    call is performed, but it also opens up the possibility for reentrancy: socket notifiers may
+    fire, signals may be delivered and other D-Bus calls may be processed. The \c NoUseEventLoop
+    does not use the event loop, thus being safe from those problems, but it may block the
+    application for a noticeable period of time, in case the remote application fails to respond.
+
+    Also note that calls that go back to the local application can only be placed in \c UseEventLoop
+    mode.
 */
 
 /*!
@@ -169,21 +180,21 @@ void QDBusConnectionManager::setConnection(const QString &name, QDBusConnectionP
     \value ExportContents                       shorthand form for ExportSlots | ExportSignals |
                                                 ExportProperties
 
-    \value ExportNonScriptableSlots             export all of this object's slots, including
+    \value ExportAllSlots                       export all of this object's slots, including
                                                 non-scriptable ones
-    \value ExportNonScriptableSignals           export all of this object's signals, including
+    \value ExportAllSignals                     export all of this object's signals, including
                                                 non-scriptable ones
-    \value ExportNonScriptableProperties        export all of this object's properties, including
+    \value ExportAllProperties                  export all of this object's properties, including
                                                 non-scriptable ones
-    \value ExportNonScriptableContents          export all of this object's slots, signals and
+    \value ExportAllContents                    export all of this object's slots, signals and
                                                 properties, including non-scriptable ones
 
     \value ExportChildObjects                   export this object's child objects
 
-    \note It is currently not possible to export signals from objects. If you pass the flag
-    ExportSignals or ExportNonScriptableSignals, the registerObject() function will print a warning.
+    \warning It is currently not possible to export signals from objects. If you pass the flag
+    ExportSignals or ExportAllSignals, the registerObject() function will print a warning.
 
-    \sa QDBusConnection::registerObject, QDBusAbstractAdaptor, \ref UsingAdaptors
+    \sa registerObject(), QDBusAbstractAdaptor, {usingadaptors.html}{Using adaptors}
 */
 
 /*!
@@ -198,7 +209,7 @@ void QDBusConnectionManager::setConnection(const QString &name, QDBusConnectionP
 */
 
 /*!
-    Creates a QDBusConnection object attached to the connection with name \p name.
+    Creates a QDBusConnection object attached to the connection with name \a name.
 
     This does not open the connection. You have to call QDBusConnection::addConnection to open it.
 */
@@ -210,7 +221,7 @@ QDBusConnection::QDBusConnection(const QString &name)
 }
 
 /*!
-    Creates a copy of the \p other connection.
+    Creates a copy of the \a other connection.
 */
 QDBusConnection::QDBusConnection(const QDBusConnection &other)
 {
@@ -230,7 +241,7 @@ QDBusConnection::~QDBusConnection()
 }
 
 /*!
-    Creates a copy of the connection \p other in this object. The connection this object referenced
+    Creates a copy of the connection \a other in this object. The connection this object referenced
     before the copy is not spontaneously disconnected. See QDBusConnection::closeConnection for more
     information.
 */
@@ -247,8 +258,8 @@ QDBusConnection &QDBusConnection::operator=(const QDBusConnection &other)
 }
 
 /*!
-    Opens a connection of type \p type to one of the known busses and associate with it the
-    connection name \p name. Returns a QDBusConnection object associated with that connection.
+    Opens a connection of type \a type to one of the known busses and associate with it the
+    connection name \a name. Returns a QDBusConnection object associated with that connection.
 */
 QDBusConnection QDBusConnection::addConnection(BusType type, const QString &name)
 {
@@ -276,12 +287,25 @@ QDBusConnection QDBusConnection::addConnection(BusType type, const QString &name
 
     manager()->setConnection(name, d);
 
-    return QDBusConnection(name);
+    QDBusConnection retval(name);
+
+    // create the bus service
+    QDBusAbstractInterfacePrivate *p;
+    p = retval.findInterface_helper(QLatin1String(DBUS_SERVICE_DBUS),
+                                    QLatin1String(DBUS_PATH_DBUS),
+                                    QLatin1String(DBUS_INTERFACE_DBUS));
+    if (p) {
+        d->busService = new QDBusBusService(p);
+        d->busService->setParent(d); // auto-deletion
+        d->ref.deref();              // busService has a increased the refcounting to us
+    }
+
+    return retval;
 }
 
 /*!
-    Opens a peer-to-peer connection on address \p address and associate with it the
-    connection name \p name. Returns a QDBusConnection object associated with that connection.
+    Opens a peer-to-peer connection on address \a address and associate with it the
+    connection name \a name. Returns a QDBusConnection object associated with that connection.
 */
 QDBusConnection QDBusConnection::addConnection(const QString &address,
                     const QString &name)
@@ -299,11 +323,24 @@ QDBusConnection QDBusConnection::addConnection(const QString &address,
 
     manager()->setConnection(name, d);
 
-    return QDBusConnection(name);
+    QDBusConnection retval(name);
+
+    // create the bus service
+    QDBusAbstractInterfacePrivate *p;
+    p = retval.findInterface_helper(QLatin1String(DBUS_SERVICE_DBUS),
+                                    QLatin1String(DBUS_PATH_DBUS),
+                                    QLatin1String(DBUS_INTERFACE_DBUS));
+    if (p) {
+        d->busService = new QDBusBusService(p);
+        d->busService->setParent(d); // auto-deletion
+        d->ref.deref();              // busService has a increased the refcounting to us
+    }
+
+    return retval;
 }
 
 /*!
-    Closes the connection of name \p name.
+    Closes the connection of name \a name.
 
     Note that if there are still QDBusConnection objects associated with the same connection, the
     connection will not be closed until all references are dropped. However, no further references
@@ -321,10 +358,10 @@ void QDBusConnectionPrivate::timerEvent(QTimerEvent *e)
 }
 
 /*!
-    Sends the message over this connection, without waiting for a reply. This is suitable for errors,
-    signals, and return values as well as calls whose return values are not necessary.
+    Sends the \a message over this connection, without waiting for a reply. This is suitable for
+    errors, signals, and return values as well as calls whose return values are not necessary.
 
-    \returns true if the message was queued successfully, false otherwise
+    Returns true if the message was queued successfully, false otherwise.
 */
 bool QDBusConnection::send(const QDBusMessage &message) const
 {
@@ -334,14 +371,14 @@ bool QDBusConnection::send(const QDBusMessage &message) const
 }
 
 /*!
-    Sends the message over this connection and returns immediately after queueing it. When the reply
-    is received, the slot \p method is called in the object \p receiver. This function is suitable
-    for method calls only.
+    Sends the \a message over this connection and returns immediately after queueing it. When the
+    reply is received, the slot \a method is called in the object \a receiver. This function is
+    suitable for method calls only.
 
     This function guarantees that the slot will be called exactly once with the reply, as long as
     the parameter types match. If they don't, the reply cannot be delivered.
 
-    \returns true if the message was queued successfully, false otherwise.
+    Returns the identification of the message that was sent or 0 if nothing was sent.
 */
 int QDBusConnection::sendWithReplyAsync(const QDBusMessage &message, QObject *receiver,
         const char *method) const
@@ -353,67 +390,34 @@ int QDBusConnection::sendWithReplyAsync(const QDBusMessage &message, QObject *re
 }
 
 /*!
-    Sends the message over this connection and blocks, waiting for a reply. This function is
+    Sends the \a message over this connection and blocks, waiting for a reply. This function is
     suitable for method calls only. It returns the reply message as its return value, which will be
     either of type QDBusMessage::ReplyMessage or QDBusMessage::ErrorMessage.
 
     See the QDBusInterface::call function for a more friendly way of placing calls.
 
-    \warning This function reenters the Qt event loop in order to wait for the reply, excluding user
-             input. During the wait, it may deliver signals and other method calls to your
-             application. Therefore, it must be prepared to handle a reentrancy whenever a call is
-             placed with sendWithReply().
+    \warning If \a mode is \c UseEventLoop, this function will reenter the Qt event loop in order to
+             wait for the reply. During the wait, it may deliver signals and other method calls to
+             your application. Therefore, it must be prepared to handle a reentrancy whenever a call
+             is placed with sendWithReply.
 */
-QDBusMessage QDBusConnection::sendWithReply(const QDBusMessage &message) const
+QDBusMessage QDBusConnection::sendWithReply(const QDBusMessage &message, WaitMode mode) const
 {
     if (!d || !d->connection)
-        return QDBusMessage::fromDBusMessage(0, *this);
-
-    if (!QCoreApplication::instance()) {
-        DBusMessage *msg = message.toDBusMessage();
-        if (!msg)
-            return QDBusMessage::fromDBusMessage(0, *this);
-
-        DBusMessage *reply = dbus_connection_send_with_reply_and_block(d->connection, msg,
-                                                                       -1, &d->error);
-        d->handleError();
-        dbus_message_unref(msg);
-
-        if (lastError().isValid())
-            return QDBusMessage::fromError(lastError());
-
-        return QDBusMessage::fromDBusMessage(reply, *this);
-    } else {
-        QDBusReplyWaiter waiter;
-        if (d->sendWithReplyAsync(message, &waiter, SLOT(reply(const QDBusMessage&))) > 0) {
-            // enter the event loop and wait for a reply
-            waiter.exec(QEventLoop::ExcludeUserInputEvents | QEventLoop::WaitForMoreEvents);
-
-            d->lastError = waiter.replyMsg; // set or clear error
-            return waiter.replyMsg;
-        }
-
-        return QDBusMessage::fromDBusMessage(0, *this);
-    }
+        return QDBusMessage();
+    return d->sendWithReply(message, mode);
 }
 
 /*!
-    Connects the signal to the slot \p slot in object \p receiver.
+    Connects the signal specified by the \a service, \a path, \a interface and \a name parameters to
+    the slot \a slot in object \a receiver. The arguments \a service and \a path can be empty,
+    denoting a connection to any signal of the \a interface - \a name pair, from any remote
+    application.
 
-    \param service      the service that will emit the signal, or QString() to wait for the signal
-                        coming from any remote application
-    \param path         the path that will emit the signal, or QString() to wait for the signal
-                        coming from any object path (usually associated with an empty \p service)
-    \param interface    the name of the interface to for this signal
-    \param name         the name of the signal
-    \param receiver     the object to connect to
-    \param slot         the slot that will be invoked when the signal is emitted
-    \returns            true if the connection was successful
+    Returns true if the connection was successful.
 
-    \note The signal will only be delivered to the slot if the parameters match. This verification
-          can be done only when the signal is received, not at connection time.
-
-    \bug does not allow an empty service
+    \warning The signal will only be delivered to the slot if the parameters match. This verification
+             can be done only when the signal is received, not at connection time.
 */
 bool QDBusConnection::connect(const QString &service, const QString &path, const QString& interface,
                               const QString &name, QObject *receiver, const char *slot)
@@ -423,12 +427,10 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
 
 /*!
     \overload
-    Connects the signal to the slot \p slot in object \p receiver. Unlike the other
+    Connects the signal to the slot \a slot in object \a receiver. Unlike the other
     QDBusConnection::connect overload, this function allows one to specify the parameter signature
-    to be connected. The function will then verify that this signature can be delivered to the slot
-    specified by \p slot and return false otherwise.
-
-    \bug does not validate signature vs slot yet
+    to be connected using the \a signature variable. The function will then verify that this
+    signature can be delivered to the slot specified by \a slot and return false otherwise.
 */
 bool QDBusConnection::connect(const QString &service, const QString &path, const QString& interface,
                               const QString &name, const QString &signature,
@@ -439,7 +441,7 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
 
     QString source;
     if (!service.isEmpty()) {
-        source = getNameOwner(service);
+        source = d->getNameOwner(service);
         if (source.isEmpty())
             return false;
     }
@@ -456,6 +458,7 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
     hook.obj = receiver;
 
     // avoid duplicating:
+    QWriteLocker locker(&d->lock);
     QDBusConnectionPrivate::SignalHookHash::ConstIterator it = d->signalHooks.find(source);
     for ( ; it != d->signalHooks.end() && it.key() == source; ++it) {
         const QDBusConnectionPrivate::SignalHook &entry = it.value();
@@ -475,11 +478,12 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
 }
 
 /*!
-    Registers the object \p object at path \p path and returns true if the registration was
-    successful.
+    Registers the object \a object at path \a path and returns true if the registration was
+    successful. The \a options parameter specifies how much of the object \a object will be exposed
+    through D-Bus.
 
     This function does not replace existing objects: if there is already an object registered at
-    path \p path, this function will return false. Use unregisterObject() to unregister it first.
+    path \a path, this function will return false. Use unregisterObject() to unregister it first.
 
     You cannot register an object as a child object of an object that was registered with
     QDBusConnection::ExportChildObjects.
@@ -552,8 +556,8 @@ bool QDBusConnection::registerObject(const QString &path, QObject *object, Regis
 }
 
 /*!
-    Unregisters an object that was registered with the registerObject() function and, if \p mode is
-    QDBusConnection::UnregisterTree, all of its sub-objects too.
+    Unregisters an object that was registered with the registerObject() at the object path given by
+    \a path and, if \a mode is QDBusConnection::UnregisterTree, all of its sub-objects too.
 
     Note that you cannot unregister objects that were not registered with registerObject().
 */
@@ -594,61 +598,81 @@ void QDBusConnection::unregisterObject(const QString &path, UnregisterMode mode)
 }
 
 /*!
-    Returns a QDBusInterface associated with the interface \p interface on object at path \p path on
-    service \p service.
+    Returns a dynamic QDBusInterface associated with the interface \a interface on object at path \a
+    path on service \a service.
+
+    This function creates a new object. It is your resposibility to ensure it is properly deleted
+    (you can use all normal QObject deletion mechanisms, including the QObject::deleteLater() slot
+    and QObject::setParent()).
+
+    If the searching for this interface on the remote object failed, this function returns 0.
 */
-QDBusInterface QDBusConnection::findInterface(const QString& service, const QString& path,
-                                              const QString& interface)
+QDBusInterface *QDBusConnection::findInterface(const QString& service, const QString& path,
+                                               const QString& interface)
 {
-    // create one
-    QDBusInterfacePrivate *priv = new QDBusInterfacePrivate(*this);
-
-    if (!(interface.isEmpty() || QDBusUtil::isValidInterfaceName(interface)) ||
-        !QDBusUtil::isValidObjectPath(path))
-        return QDBusInterface(priv);
-
-    // check if it's there first
-    QString owner = getNameOwner(service);
-    if (owner.isEmpty())
-        return QDBusInterface(priv);
-
-    // getNameOwner returns empty if d is 0
-    Q_ASSERT(d);
-    priv->service = owner;
-    priv->path = path;
-    priv->data = d->findInterface(interface).constData();
-
-    return QDBusInterface(priv); // will increment priv's refcount
+    if (!d)
+        return 0;
+    
+    QDBusInterfacePrivate *p = d->findInterface(service, path, interface);
+    if (!p)
+        return 0;
+    QDBusInterface *retval = new QDBusInterface(p);
+    retval->setParent(d);
+    return retval;
 }
 
 /*!
     \fn QDBusConnection::findInterface(const QString &service, const QString &path)
-    Returns an interface of type \p Interface associated with the object on path \p path at service
-    \p service.
+    Returns an interface of type \c Interface associated with the object on path \a path at service
+    \a service.
 
-    \p Interface must be a class derived from QDBusInterface.
+    \c Interface must be a class generated by \l {dbusidl2cpp.html}.
+
+    This function creates a new object. It is your resposibility to ensure it is properly deleted
+    (you can use all normal QObject deletion mechanisms, including the QObject::deleteLater() slot
+    and QObject::setParent()).
 */
 
 /*!
-    Returns a QDBusObject associated with the object on path \p path at service \p service.
+    Returns a QDBusBusService object that represents the D-Bus bus service on this connection.
+
+    This function returns 0 for peer-to-peer connections.
 */
-QDBusObject QDBusConnection::findObject(const QString& service, const QString& path)
+QDBusBusService *QDBusConnection::busService() const
 {
-    QDBusObjectPrivate* priv = 0;
-    if (d && QDBusUtil::isValidObjectPath(path)) {
-        QString owner = getNameOwner(service);
+    if (!d)
+        return 0;
+    return d->busService;
+};
 
-        if (!owner.isEmpty())
-            priv = new QDBusObjectPrivate(d, owner, path);
-    }
-    return QDBusObject(priv, *this);
+QDBusAbstractInterfacePrivate *
+QDBusConnection::findInterface_helper(const QString &service, const QString &path,
+                                      const QString &interface)
+{
+    if (!d)
+        return 0;
+    if (!interface.isEmpty() && !QDBusUtil::isValidInterfaceName(interface))
+        return 0;
+    
+    QString owner;
+    if (!service.isEmpty()) {
+        if (!QDBusUtil::isValidObjectPath(path))
+            return 0;
+
+        // check if it's there first -- FIXME: add binding mode
+        owner = d->getNameOwner(service);
+        if (owner.isEmpty())
+            return 0;
+    } else if (!path.isEmpty())
+        return 0;
+    
+    return new QDBusAbstractInterfacePrivate(*this, d, owner, path, interface);
 }
-
 
 /*!
     Returns true if this QDBusConnection object is connected.
 
-    \note If it isn't connected, calling QDBusConnection::addConnection on the same connection name
+    If it isn't connected, calling QDBusConnection::addConnection on the same connection name
     will not make be connected. You need to call the QDBusConnection constructor again.
 */
 bool QDBusConnection::isConnected( ) const
@@ -686,130 +710,55 @@ QString QDBusConnection::baseService() const
             : QString();
 }
 
-/*!
-    Sends a request to the D-Bus server daemon to request the service name \p name. The flags \p
-    mode indicate how to proceed if the name is already taken or when another D-Bus client requests
-    the same name.
+Q_GLOBAL_STATIC(QMutex, defaultBussesMutex);
+static const char sessionBusName[] = "qt_default_session_bus";
+static const char systemBusName[] = "qt_default_system_bus";
+static QDBusConnection *sessionBus = 0;
+static QDBusConnection *systemBus = 0;
 
-    Service names are used to publish well-known services on the D-Bus bus, by associating a
-    friendly name to this connection. Other D-Bus clients will then be able to contact this
-    connection and the objects registered on it by using this name instead of the unique connection
-    name (see baseService()). This also allows one application to always have the same name, while
-    its unique connection name changes.
-
-    This function has no meaning in peer-to-peer connections.
-
-    This function returns true if the name is assigned to this connection now (including the case
-    when it was already assigned).
-
-    \todo probably move to the QObject representing the bus
-    \todo update the NameRequestMode flags
-*/
-bool QDBusConnection::requestName(const QString &name, NameRequestMode mode)
+static void closeConnections()
 {
-    static const int DBusModes[] = { DBUS_NAME_FLAG_ALLOW_REPLACEMENT, 0,
-        DBUS_NAME_FLAG_REPLACE_EXISTING | DBUS_NAME_FLAG_ALLOW_REPLACEMENT};
-
-    int retval = dbus_bus_request_name(d->connection, name.toUtf8(), DBusModes[mode], &d->error);
-    d->handleError();
-    return retval == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER ||
-        retval == DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER;
+    QMutexLocker locker(defaultBussesMutex());
+    delete sessionBus;
+    delete systemBus;
+    QDBusConnection::closeConnection(QLatin1String(sessionBusName));
+    QDBusConnection::closeConnection(QLatin1String(systemBusName));
+    sessionBus = systemBus = 0;
 }
 
-/*!
-    Releases a name that had been requested using requestName(). This function returns true if the
-    name has been released, false otherwise.
-
-    This function has no meaning in peer-to-peer connections.
-
-    You cannot cause a name owned by another application to be released using releaseName(). Use
-    requestName() instead to assign it to your application.
-
-    \todo probably move to the QObject representing the bus
-*/
-bool QDBusConnection::releaseName(const QString &name)
+static QDBusConnection *openConnection(QDBusConnection::BusType type)
 {
-    int retval = dbus_bus_release_name(d->connection, name.toUtf8(), &d->error);
-    d->handleError();
-    if (lastError().isValid())
-        return false;
-    return retval == DBUS_RELEASE_NAME_REPLY_RELEASED;
+    QMutexLocker locker(defaultBussesMutex());
+    qAddPostRoutine(closeConnections);
+    
+    if (type == QDBusConnection::SystemBus) {
+        if (systemBus)
+            // maybe it got created before we locked the mutex
+            return systemBus;
+        systemBus = new QDBusConnection(QDBusConnection::addConnection(QDBusConnection::SystemBus,
+                           QLatin1String(systemBusName)));
+        return systemBus;
+    } else {
+        if (sessionBus)
+            // maybe it got created before we locked the mutex
+            return sessionBus;
+        sessionBus = new QDBusConnection(QDBusConnection::addConnection(QDBusConnection::SessionBus,
+                           QLatin1String(sessionBusName)));
+        return sessionBus;
+    }
 }
-
-/*!
-    Returns the unique connection name of the client that currently has the \p name
-    requested. Returns an empty QString in case there is no such name on the bus or if \p name is
-    not a well-formed bus name.
-
-    \todo probably move to the QObject representing the bus
-*/
-QString QDBusConnection::getNameOwner(const QString& name)
-{
-    if (QDBusUtil::isValidUniqueConnectionName(name))
-        return name;
-    if (!d || !QDBusUtil::isValidBusName(name))
-        return QString();
-
-    QDBusMessage msg = QDBusMessage::methodCall(QLatin1String(DBUS_SERVICE_DBUS),
-            QLatin1String(DBUS_PATH_DBUS), QLatin1String(DBUS_INTERFACE_DBUS),
-            QLatin1String("GetNameOwner"));
-    msg << name;
-    QDBusMessage reply = sendWithReply(msg);
-    if (!lastError().isValid() && reply.type() == QDBusMessage::ReplyMessage)
-        return reply.first().toString();
-    return QString();
-}
-
-/*!
-    \internal
-*/
-template<int type>
-struct DefaultBus
-{
-    DefaultBus()
-    {
-        QDBusConnection con = QDBusConnection::addConnection(QDBusConnection::BusType(type),
-               QLatin1String(busName));
-        bus = new QDBusConnection(con);
-        qAddPostRoutine(clear);
-    }
-
-    ~DefaultBus()
-    {
-        delete bus;
-    }
-
-    static void clear()
-    {
-        delete bus;
-        bus = 0;
-        QDBusConnection::closeConnection(QLatin1String(busName));
-    }
-
-    static QDBusConnection *bus;
-    static const char busName[];
-};
-
-Q_GLOBAL_STATIC(DefaultBus<QDBusConnection::SessionBus>, sessionBusPtr);
-Q_GLOBAL_STATIC(DefaultBus<QDBusConnection::SystemBus>, systemBusPtr);
-
-template<>
-QT_STATIC_CONST_IMPL char DefaultBus<QDBusConnection::SessionBus>::busName[] = "qt_default_session_bus";
-template<>
-QT_STATIC_CONST_IMPL char DefaultBus<QDBusConnection::SystemBus>::busName[] = "qt_default_system_bus";
-
-template<> QDBusConnection *DefaultBus<QDBusConnection::SessionBus>::bus = 0;
-template<> QDBusConnection *DefaultBus<QDBusConnection::SystemBus>::bus = 0;
 
 namespace QDBus {
     QDBusConnection &sessionBus()
     {
-        return *sessionBusPtr()->bus;
+        if (::sessionBus) return *::sessionBus;
+        return *openConnection(QDBusConnection::SessionBus);
     }
 
     QDBusConnection &systemBus()
     {
-        return *systemBusPtr()->bus;
+        if (::systemBus) return *::systemBus;
+        return *openConnection(QDBusConnection::SystemBus);
     }
 }
 

@@ -1,5 +1,6 @@
 /* 
  *
+ * Copyright (C) 2006 Thiago José Macieira <thiago@kde.org>
  * Copyright (C) 2006 Trolltech AS. All rights reserved.
  *    Author: Thiago Macieira <thiago.macieira@trolltech.com>
  *
@@ -33,37 +34,34 @@
 //
 //
 
-#ifndef QDBUSOBJECTPRIVATE_H
-#define QDBUSOBJECTPRIVATE_H
+#ifndef QDBUSABSTRACTINTERFACEPRIVATE_H
+#define QDBUSABSTRACTINTERFACEPRIVATE_H
 
-#include "QtCore/qatomic.h"
-#include "QtCore/qstringlist.h"
-#include "qdbusobject.h"
-#include "qdbusinterface.h"
-#include "qdbusconnection_p.h"
+#include "qdbusabstractinterface.h"
+#include "qdbusconnection.h"
+#include "qdbuserror.h"
 
-class QDBusObject;
-class QDBusInterface;
-class QDBusXmlParser;
+#define ANNOTATION_NO_WAIT      "org.freedesktop.DBus.Method.NoReply"
 
-class QDBusObjectPrivate: public QSharedData
+class QDBusAbstractInterfacePrivate//: public QObjectPrivate
 {
 public:
-    inline QDBusObjectPrivate(QDBusConnectionPrivate* ptr, const QString &service,
-                              const QString &path)
-        : parent(ptr),
-          data(  )
-    {
-        QDBusIntrospection::Object * d = ptr->findObject(service, path);
-        d->ref.ref();
-        data = d;
-    }
+    Q_DECLARE_PUBLIC(QDBusAbstractInterface)
+    
+    QDBusAbstractInterface *q_ptr; // remove in Qt 4.2
+    QDBusConnection conn;
+    QDBusConnectionPrivate *connp;
+    QString service;
+    QString path;
+    QString interface;
+    QDBusError lastError;
 
-    inline ~QDBusObjectPrivate()
-    { parent->disposeOf(this); }
+    inline QDBusAbstractInterfacePrivate(const QDBusConnection& con, QDBusConnectionPrivate *conp,
+                                         const QString &serv, const QString &p, const QString &iface)
+        : conn(con), connp(conp), service(serv), path(p), interface(iface)
+    { }
+    virtual ~QDBusAbstractInterfacePrivate() { }
+};
 
-    QDBusConnectionPrivate* parent;
-    const QDBusIntrospection::Object* data;
-};    
 
 #endif
