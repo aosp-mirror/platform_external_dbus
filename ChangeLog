@@ -1,8 +1,17 @@
+2006-04-10  Thiago Macieira  <thiago.macieira@trolltech.com
+
+	* qt/Makefile.am: fix the dependency for
+          qdbusconnection_p.moc. It's included in qdbusintegrator.cpp,
+	  not in qdbusconnection.cpp.
+	  Thanks to Jakub Stachowski <stachowski@hypair.net> for
+          spotting this.
+
 2006-04-10  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/examples/listnames.cpp:
 	* qt/examples/Makefile.am: Three ways to list the names on the
 	  bus.
+
 2006-04-10  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* test/qt/tst_hal.cpp: Remove the waiting, since it's not

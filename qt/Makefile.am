@@ -7,7 +7,6 @@ lib_LTLIBRARIES=libdbus-qt4-1.la
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 dbusinclude_HEADERS=    \
-        qdbus.h         \
         qdbusbus.h      \
         qdbusmacros.h   \
         qdbuserror.h    \
@@ -61,7 +60,7 @@ qdbusabstractadaptor.lo: qdbusabstractadaptor.moc qdbusabstractadaptor_p.moc
 qdbusabstractinterface.lo: qdbusabstractinterface.moc
 qdbusbus.lo: qdbusbus.moc
 qdbusserver.lo: qdbusserver.moc
-qdbusconnection.lo: qdbusconnection_p.moc
+qdbusintegrator.lo: qdbusconnection_p.moc
 
 CLEANFILES=qdbusabstractadaptor.moc qdbusserver.moc qdbusconnection.moc qdbusconnection_p.moc qdbusabstractadaptor_p.moc qdbusbus.moc qdbusabstractinterface.moc
 
