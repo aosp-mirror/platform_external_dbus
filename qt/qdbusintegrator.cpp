@@ -995,6 +995,9 @@ bool QDBusConnectionPrivate::activateInternalFilters(const ObjectTreeNode *node,
             qDBusPropertyGet(node, msg);
         else if (msg.method() == QLatin1String("Set") && msg.signature() == QLatin1String("ssv"))
             qDBusPropertySet(node, msg);
+        else
+            return false;
+            
         return true;
     }
 
@@ -1245,10 +1248,9 @@ void QDBusConnectionPrivate::messageResultReceived(DBusPendingCall *pending, voi
         qDebug() << "got message: " << msg;
         CallDeliveryEvent *e = prepareReply(call->receiver, call->methodIdx, call->metaTypes, msg);
         if (e)
-            connection->deliverCall(*e);
+            connection->postCallDeliveryEvent(e);
         else
             qDebug() << "Deliver failed!";
-        delete e;
     }
     dbus_pending_call_unref(pending);
     delete call;

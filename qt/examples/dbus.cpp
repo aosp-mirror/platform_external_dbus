@@ -213,11 +213,13 @@ void placeCall(const QString &service, const QString &path, const QString &inter
     QVariantList params;
     for (int i = 0; argc && i < types.count(); ++i) {
         int id = QVariant::nameToType(types.at(i));
-        if (id == QVariant::UserType || id == QVariant::Map) {
+        if ((id == QVariant::UserType || id == QVariant::Map) && types.at(i) != "QVariant") {
             fprintf(stderr, "Sorry, can't pass arg of type %s yet\n",
                     types.at(i).constData());
             exit(1);
         }
+        if (id == QVariant::UserType)
+            id = QMetaType::type(types.at(i));
 
         Q_ASSERT(id);
 
@@ -227,7 +229,13 @@ void placeCall(const QString &service, const QString &path, const QString &inter
         else
             p = QString::fromLocal8Bit(argv[0]);
 
-        p.convert( QVariant::Type(id) );
+        if (id < QVariant::UserType)
+            // avoid calling it for QVariant
+            p.convert( QVariant::Type(id) );
+        else if (types.at(i) == "QVariant") {
+            QVariant tmp(id, p.constData());
+            p = tmp;
+        }
         params += p;
         --argc;
         ++argv;

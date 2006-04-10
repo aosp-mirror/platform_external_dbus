@@ -152,9 +152,13 @@ static QString generateInterfaceXml(const QMetaObject *mo, int flags, int method
                    .arg(isOutput ? QLatin1String("out") : QLatin1String("in"));
         }
 
-        if (!isScriptable &&
-            !(flags & (QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals)))
-            continue;
+        if (!isScriptable) {
+            // check if this was added by other means
+            if (isSignal && (flags & QDBusConnection::ExportAllSignals) != QDBusConnection::ExportAllSignals)
+                continue;
+            if (!isSignal && (flags & QDBusConnection::ExportAllSlots) != QDBusConnection::ExportAllSlots)
+                continue;
+        }
 
         if (qDBusCheckAsyncTag(mm.tag()))
             // add the no-reply annotation
@@ -359,7 +363,7 @@ void qDBusPropertySet(const QDBusConnectionPrivate::ObjectTreeNode *node, const 
             }
     }
 
-    if (!value.isValid() && node->flags & QDBusConnection::ExportProperties) {
+    if (node->flags & QDBusConnection::ExportProperties) {
         // try the object itself
         int pidx = node->obj->metaObject()->indexOfProperty(property_name);
         if (pidx != -1) {

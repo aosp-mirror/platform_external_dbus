@@ -1,3 +1,18 @@
+2006-04-10  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	Merge from Subversion:
+	* qt/qt-dbus.qdocconf: Update Trolltech's webpage link to
+	  something that exists (r526315)
+	* qt/qdbusinternalfilters.cpp: Correctly detect non-scriptable
+	  slots/signals (r526316)
+	* qt/qdbusinternalfilters.cpp: Fix the setProperty call and
+	  also return an unknown-method error if the parameters don't
+	  match for org.freedesktop.DBus.Properties. (r526842)
+	* qt/examples/dbus.cpp: Allow passing of QVariants (r526843)
+	* qt/qdbusintegrator.cpp: Restore the proper order of
+	  delivery: don't make method returns be delivered on priority
+	  (r528150)
+
 2006-03-28  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* configure.in qt/Makefile.am: add qt/examples
