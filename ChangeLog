@@ -1,5 +1,10 @@
 2006-04-10  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* qt/examples/listnames.cpp:
+	* qt/examples/Makefile.am: Three ways to list the names on the
+	  bus.
+2006-04-10  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* test/qt/tst_hal.cpp: Remove the waiting, since it's not
           needed anymore. Requires Qt 4.1.3 to work properly. (r528148)
 

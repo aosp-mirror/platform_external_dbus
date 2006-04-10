@@ -17,9 +17,10 @@ CHAT=chat
 endif
 
 
-noinst_PROGRAMS = hello dbus ping pong complexping complexpong $(CHAT)
+noinst_PROGRAMS = hello listnames dbus ping pong complexping complexpong $(CHAT)
 hello_SOURCES = hello.cpp
 dbus_SOURCES = dbus.cpp
+listnames_SOURCES = listnames.cpp
 
 ping_SOURCES = ping.cpp
 pong_SOURCES = pong.cpp pong.h
