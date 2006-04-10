@@ -51,7 +51,7 @@ void tst_Hal::getDevices()
     QDBusMessage reply = con.sendWithReply(msg);
     QVERIFY(!reply.isEmpty());
     QVERIFY(reply.type() == QDBusMessage::ReplyMessage);
-    qDebug() << reply;
+    //qDebug() << reply;
 }
 
 void tst_Hal::lock()
@@ -70,8 +70,8 @@ void tst_Hal::lock()
     msg << "No reason...";
 
     QDBusMessage reply = con.sendWithReply(msg);
-    QTest::qWait(200);
-    qDebug() << reply;
+    //QTest::qWait(200);
+    //qDebug() << reply;
     QCOMPARE(spy.count, 3);
     QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
 }
