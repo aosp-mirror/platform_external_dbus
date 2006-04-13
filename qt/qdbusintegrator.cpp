@@ -1221,12 +1221,12 @@ void QDBusConnectionPrivate::setConnection(DBusConnection *dbc)
     //qDebug("base service: %s", service);
 }
 
-extern "C"
+extern "C"{
 static void qDBusResultReceived(DBusPendingCall *pending, void *user_data)
 {
     QDBusConnectionPrivate::messageResultReceived(pending, user_data);
 }
-
+}
 void QDBusConnectionPrivate::messageResultReceived(DBusPendingCall *pending, void *user_data)
 {
     QDBusPendingCall *call = reinterpret_cast<QDBusPendingCall *>(user_data);

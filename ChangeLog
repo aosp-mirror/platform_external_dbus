@@ -1,9 +1,14 @@
-2006-04-13  Thiago Macieira  <thiago.macieira@trolltech.com
+2006-04-13  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* qt/qdbusintegrator.cpp: Work around g++ 3.3 bug.
+	  Patch by Stefan Eilers. (r529537)
+
+2006-04-13  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/qdbusinternalfilters.cpp: Don't show the parent's
   	  contents (r528208)
 
-2006-04-10  Thiago Macieira  <thiago.macieira@trolltech.com
+2006-04-10  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/Makefile.am: fix the dependency for
           qdbusconnection_p.moc. It's included in qdbusintegrator.cpp,
