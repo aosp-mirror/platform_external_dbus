@@ -1,3 +1,9 @@
+2006-04-15  Daniel P. Berrange  <dan@berrange.com>
+
+	* INSTALL: fill out content of file providing DBus specific
+	  build installations, followed by generic Auto* INSTALL file
+	  content
+	
 2006-04-13  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/qdbusintegrator.cpp: Work around g++ 3.3 bug.
