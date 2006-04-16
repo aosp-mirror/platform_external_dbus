@@ -1,3 +1,9 @@
+2006-04-16  Daniel P. Berrange  <dan@berrange.com>
+
+	* tools/dbus-print-message.c: Added support for printing of all 
+	  remaining data types. Fixed logic for indentation of compound
+	  data types.
+	
 2006-04-15  Daniel P. Berrange  <dan@berrange.com>
 
 	* INSTALL: fill out content of file providing DBus specific
