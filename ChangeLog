@@ -1,3 +1,7 @@
+2006-04-13  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* INSTALL: fine-tune the requirements for the Qt4 binding.
+
 2006-04-16  Daniel P. Berrange  <dan@berrange.com>
 
 	* tools/dbus-print-message.c: Added support for printing of all 

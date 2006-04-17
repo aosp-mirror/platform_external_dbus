@@ -61,11 +61,16 @@ Qt Bindings
 
  Requisite:
 
-  - Qt >= 4.0
+  - QtCore and QtXml >= 4.1.3
 
  Optional:
 
-  - QtTest   (for Qt Unit tests)
+  - QtTest		(for Qt Unit tests)
+  - QtGui >= 4.1.3	(for the chat example program)
+
+Note: Qt 4.1.3 is not available in released form. You need to download
+the 4.1.3 snapshots from Trolltech. However, the Qt binding compiles
+and works in Qt 4.1.2, but not the dbusidl2cpp tool.
 
 Qt 3 Bindings
 -------------
