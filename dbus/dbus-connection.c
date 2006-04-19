@@ -2890,8 +2890,6 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
   DBusDispatchStatus dstatus;
   dbus_bool_t dispatched_disconnected;
   
-  _dbus_return_val_if_fail (connection != NULL, FALSE);
-  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
   dstatus = dbus_connection_get_dispatch_status (connection);
 
   if (dispatch && dstatus == DBUS_DISPATCH_DATA_REMAINS)
@@ -2963,6 +2961,8 @@ dbus_bool_t
 dbus_connection_read_write_dispatch (DBusConnection *connection,
                                      int             timeout_milliseconds)
 {
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
    return _dbus_connection_read_write_dispatch(connection, timeout_milliseconds, TRUE);
 }
 
@@ -2986,6 +2986,8 @@ dbus_bool_t
 dbus_connection_read_write (DBusConnection *connection, 
                             int             timeout_milliseconds) 
 { 
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, FALSE);
    return _dbus_connection_read_write_dispatch(connection, timeout_milliseconds, FALSE);
 }
 

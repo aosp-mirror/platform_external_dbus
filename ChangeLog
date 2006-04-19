@@ -1,5 +1,10 @@
 2006-04-19  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-connection.c: Fix asserts
+	Patch from Tim Moloney <t.moloney at verizon.net>
+
+2006-04-19  John (J5) Palmieri  <johnp@redhat.com>
+
 	* mono/Connection.cs, mono/Message.cs: Check Target type
 	Patch from Aaron Bockover (abockover at novell.com)
 
