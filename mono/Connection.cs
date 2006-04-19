@@ -116,7 +116,7 @@ namespace DBus
 	// Maybe we already have a Connection object associated with
 	// this rawConnection then return it
 	IntPtr rawThis = dbus_connection_get_data (rawConnection, slot);
-	if (rawThis != IntPtr.Zero) {
+	if (rawThis != IntPtr.Zero && ((GCHandle)rawThis).Target == typeof(DBus.Connection)) {
 	  return (DBus.Connection) ((GCHandle)rawThis).Target;
 	}
       }

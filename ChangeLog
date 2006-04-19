@@ -1,3 +1,8 @@
+2006-04-19  John (J5) Palmieri  <johnp@redhat.com>
+
+	* mono/Connection.cs, mono/Message.cs: Check Target type
+	Patch from Aaron Bockover (abockover at novell.com)
+
 2006-04-13  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* INSTALL: fine-tune the requirements for the Qt4 binding.
