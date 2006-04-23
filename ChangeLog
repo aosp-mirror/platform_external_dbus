@@ -1,5 +1,11 @@
 2006-04-23  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* qt/examples/dbus.cpp: Use the new merged-interface mode for
+	the dynamic meta object. No need to guess which interface to
+	call.
+
+2006-04-23  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* qt/qdbusconnection_p.h:
 	* qt/qdbusmetaobject.cpp:
 	* qt/qdbusmetaobject_p.h:

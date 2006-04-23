@@ -127,38 +127,6 @@ void listAllInterfaces(const QString &service, const QString &path)
     delete iface;
 }
 
-QDBusInterface *findMember(const QString &service, const QString &path, const QString &member)
-{
-    QDBusInterface *iface = connection->findInterface(service, path,
-                                                     "org.freedesktop.DBus.Introspectable");
-    QDBusReply<QString> xml = iface->call("Introspect");
-
-    if (xml.isError())
-        return 0;
-
-    QDomDocument doc;
-    doc.setContent(xml);
-    QDomElement node = doc.documentElement();
-    QDomElement child = node.firstChildElement("interface");
-    while (!child.isNull()) {
-        QDomElement subchild = child.firstChildElement("method");
-        while (!subchild.isNull()) {
-            if (subchild.attribute("name") == member) {
-                QDBusInterface *retval;
-                retval = connection->findInterface(service, path, child.attribute("name"));
-                delete iface;
-                return retval;
-            }
-            subchild = subchild.nextSiblingElement("method");
-        }
-
-        child = child.nextSiblingElement("interface");
-    }
-
-    delete iface;
-    return 0;
-}
-
 QStringList readList(int &argc, const char *const *&argv)
 {
     --argc;
@@ -175,10 +143,7 @@ void placeCall(const QString &service, const QString &path, const QString &inter
                const QString &member, int argc, const char *const *argv)
 {
     QDBusInterface *iface;
-    if (interface.isEmpty())
-        iface = findMember(service, path, member);
-    else
-        iface = connection->findInterface(service, path, interface);
+    iface = connection->findInterface(service, path, interface);
 
     if (!iface) {
         fprintf(stderr, "Interface '%s' not available in object %s at %s\n",
@@ -229,7 +194,7 @@ void placeCall(const QString &service, const QString &path, const QString &inter
         else
             p = QString::fromLocal8Bit(argv[0]);
 
-        if (id < QVariant::UserType)
+        if (id < int(QVariant::UserType))
             // avoid calling it for QVariant
             p.convert( QVariant::Type(id) );
         else if (types.at(i) == "QVariant") {
@@ -275,6 +240,12 @@ int main(int argc, char **argv)
     } else
         connection = &QDBus::sessionBus();
 
+    if (!connection->isConnected()) {
+        fprintf(stderr, "Could not connect to D-Bus server: %s: %s\n",
+                qPrintable(connection->lastError().name()),
+                qPrintable(connection->lastError().message()));
+        return 1;
+    }
     QDBusBusService *bus = connection->busService();
 
     if (argc == 1) {
