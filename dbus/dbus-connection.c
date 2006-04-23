@@ -2257,8 +2257,7 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
   _dbus_return_if_fail (message != NULL);
   _dbus_return_if_fail (preallocated->connection == connection);
   _dbus_return_if_fail (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_METHOD_CALL ||
-                        (dbus_message_get_interface (message) != NULL &&
-                         dbus_message_get_member (message) != NULL));
+                        dbus_message_get_member (message) != NULL);
   _dbus_return_if_fail (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_SIGNAL ||
                         (dbus_message_get_interface (message) != NULL &&
                          dbus_message_get_member (message) != NULL));

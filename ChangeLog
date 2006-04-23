@@ -1,4 +1,10 @@
-2006-04-23  Thiago Macieira  <thiago.macieira@trolltech.com
+2006-04-23  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* dbus/dbus-connection.c: Interfaces are optional in method
+        calls, so don't give up if the interface parameter is NULL.
+	Patch reviewed by Havoc Pennington.
+
+2006-04-23  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/qdbusreply.h: Add default constructor and operator=
           (r532625)
