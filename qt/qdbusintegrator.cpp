@@ -1474,27 +1474,44 @@ QDBusConnectionPrivate::findInterface(const QString &service,
                                       const QString &path,
                                       const QString &interface)
 {
-    
-    if (!connection || !QDBusUtil::isValidObjectPath(path))
-        return 0;
-    if (!interface.isEmpty() && !QDBusUtil::isValidInterfaceName(interface))
-        return 0;
-
     // check if it's there first -- FIXME: add binding mode
+    QDBusMetaObject *mo = 0;
     QString owner = getNameOwner(service);
-    if (owner.isEmpty())
-        return 0;
+    if (connection && !owner.isEmpty() && QDBusUtil::isValidObjectPath(path) &&
+        (interface.isEmpty() || QDBusUtil::isValidInterfaceName(interface)))
+        mo = findMetaObject(owner, path, interface);
 
-    QString tmp(interface);
-    QDBusMetaObject *mo = findMetaObject(owner, path, tmp);
-    if (mo)
-        return new QDBusInterfacePrivate(QDBusConnection(name), this, owner, path, tmp, mo);
-    return 0;                   // error has been set
+    QDBusInterfacePrivate *p = new QDBusInterfacePrivate(QDBusConnection(name), this, owner, path, interface, mo);
+
+    if (!mo) {
+        // invalid object
+        p->isValid = false;
+        p->lastError = lastError;
+        if (!lastError.isValid()) {
+            // try to determine why we couldn't get the data
+            if (!connection)
+                p->lastError = QDBusError(QDBusError::Disconnected,
+                                          QLatin1String("Not connected to D-Bus server"));
+            else if (owner.isEmpty())
+                p->lastError = QDBusError(QDBusError::ServiceUnknown,
+                                          QString(QLatin1String("Service %1 is unknown")).arg(service));
+            else if (!QDBusUtil::isValidObjectPath(path))
+                p->lastError = QDBusError(QDBusError::InvalidArgs,
+                                          QString(QLatin1String("Object path %1 is invalid")).arg(path));
+            else if (!interface.isEmpty() && !QDBusUtil::isValidInterfaceName(interface))
+                p->lastError = QDBusError(QDBusError::InvalidArgs,
+                                          QString(QLatin1String("Interface %1 is invalid")).arg(interface));
+            else
+                p->lastError = QDBusError(QDBusError::Other, QLatin1String("Unknown error"));
+        }
+    }
+
+    return p;
 }
 
 QDBusMetaObject *
 QDBusConnectionPrivate::findMetaObject(const QString &service, const QString &path,
-                                       QString &interface)
+                                       const QString &interface)
 {
     if (!interface.isEmpty()) {
         QReadLocker locker(&lock);

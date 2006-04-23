@@ -614,8 +614,6 @@ QDBusInterface *QDBusConnection::findInterface(const QString& service, const QSt
         return 0;
     
     QDBusInterfacePrivate *p = d->findInterface(service, path, interface);
-    if (!p)
-        return 0;
     QDBusInterface *retval = new QDBusInterface(p);
     retval->setParent(d);
     return retval;

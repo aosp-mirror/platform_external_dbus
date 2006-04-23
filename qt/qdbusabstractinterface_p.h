@@ -55,10 +55,11 @@ public:
     QString path;
     QString interface;
     QDBusError lastError;
+    bool isValid;
 
     inline QDBusAbstractInterfacePrivate(const QDBusConnection& con, QDBusConnectionPrivate *conp,
                                          const QString &serv, const QString &p, const QString &iface)
-        : conn(con), connp(conp), service(serv), path(p), interface(iface)
+        : conn(con), connp(conp), service(serv), path(p), interface(iface), isValid(true)
     { }
     virtual ~QDBusAbstractInterfacePrivate() { }
 };

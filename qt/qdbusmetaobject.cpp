@@ -437,7 +437,7 @@ void QDBusMetaObjectGenerator::writeWithoutXml(const QString &interface)
 /////////
 // class QDBusMetaObject
 
-QDBusMetaObject *QDBusMetaObject::createMetaObject(QString &interface, const QString &xml,
+QDBusMetaObject *QDBusMetaObject::createMetaObject(const QString &interface, const QString &xml,
                                                    QHash<QString, QDBusMetaObject *> &cache,
                                                    QDBusError &error)
 {
@@ -462,15 +462,9 @@ QDBusMetaObject *QDBusMetaObject::createMetaObject(QString &interface, const QSt
 
         }
 
-        if (it.key() == interface) {
+        if (it.key() == interface)
             // it's us
             we = obj;
-        } else if (interface.isEmpty() &&
-                 !it.key().startsWith(QLatin1String("org.freedesktop.DBus."))) {
-            // also us
-            we = obj;
-            interface = it.key();
-        }
     }
 
     if (we)
@@ -481,6 +475,26 @@ QDBusMetaObject *QDBusMetaObject::createMetaObject(QString &interface, const QSt
         // object didn't return introspection
         we = new QDBusMetaObject;
         QDBusMetaObjectGenerator generator(interface, 0);
+        generator.write(we);
+        we->cached = false;
+        return we;
+    } else if (interface.isEmpty()) {
+        // merge all interfaces
+        it = parsed.constBegin();
+        QDBusIntrospection::Interface merged = *it.value().constData();
+ 
+        for (++it; it != end; ++it) {
+            merged.annotations.unite(it.value()->annotations);
+            merged.methods.unite(it.value()->methods);
+            merged.signals_.unite(it.value()->signals_);
+            merged.properties.unite(it.value()->properties);
+        }
+
+        merged.name = QLatin1String("local.Merged");
+        merged.introspection.clear();
+
+        we = new QDBusMetaObject;
+        QDBusMetaObjectGenerator generator(merged.name, &merged);
         generator.write(we);
         we->cached = false;
         return we;

@@ -46,7 +46,7 @@ struct QDBUS_EXPORT QDBusMetaObject: public QMetaObject
 {
     bool cached;
 
-    static QDBusMetaObject *createMetaObject(QString &interface, const QString &xml,
+    static QDBusMetaObject *createMetaObject(const QString &interface, const QString &xml,
                                              QHash<QString, QDBusMetaObject *> &map,
                                              QDBusError &error);
     ~QDBusMetaObject()

@@ -172,7 +172,7 @@ protected:
 
 private:
     QDBusMetaObject *findMetaObject(const QString &service, const QString &path,
-                                    QString &interface);        
+                                    const QString &interface);        
 
 public slots:
     // public slots

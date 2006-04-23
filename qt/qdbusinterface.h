@@ -43,4 +43,16 @@ private:
     Q_DECLARE_PRIVATE(QDBusInterface);
 };
 
+struct QDBUS_EXPORT QDBusRef
+{
+    QDBusRef(QDBusConnection &conn, const QString &service, const QString &path,
+             const QString &interface = QString());
+    QDBusRef(const QString &service, const QString &path, const QString &interface = QString());
+    ~QDBusRef() { delete d; }
+
+    QDBusInterface* operator->() const { return d; }
+private:
+    QDBusInterface *const d;
+};
+
 #endif

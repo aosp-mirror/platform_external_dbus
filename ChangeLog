@@ -1,5 +1,20 @@
 2006-04-23  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* qt/qdbusconnection_p.h:
+	* qt/qdbusmetaobject.cpp:
+	* qt/qdbusmetaobject_p.h:
+	* qt/qdbusintegrator.cpp: Use the new merged-interface mode
+	for the dynamic meta object. No need to guess which
+	interface to call.
+	* qt/qdbusabstractinterface_p.h:
+	* qt/qdbusconnection.cpp:
+	* qt/qdbusintegrator.cpp:
+	* qt/qdbusinterface.cpp:
+	* qt/qdbusinterface.h: Make findInterface always return a non-null pointer.
+	Add a QDBusRef that looks and behaves like DCOPRef.
+
+2006-04-23  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* dbus/dbus-connection.c: Interfaces are optional in method
         calls, so don't give up if the interface parameter is NULL.
 	Patch reviewed by Havoc Pennington.

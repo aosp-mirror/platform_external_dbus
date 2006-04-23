@@ -63,7 +63,7 @@ QDBusInterface::~QDBusInterface()
 */
 const QMetaObject *QDBusInterface::metaObject() const
 {
-    return d_func()->metaObject;
+    return d_func()->isValid ? d_func()->metaObject : &QDBusAbstractInterface::staticMetaObject;
 }
 
 /*!
@@ -87,7 +87,7 @@ void *QDBusInterface::qt_metacast(const char *_clname)
 int QDBusInterface::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 {
     _id = QDBusAbstractInterface::qt_metacall(_c, _id, _a);
-    if (_id < 0)
+    if (_id < 0 || !d_func()->isValid)
         return _id;
     return d_func()->metacall(_c, _id, _a);
 }
@@ -236,5 +236,16 @@ int QDBusInterfacePrivate::metacall(QMetaObject::Call c, int id, void **argv)
         return -1;
     }
     return id;
+}
+
+QDBusRef::QDBusRef(QDBusConnection &conn, const QString &service, const QString &path,
+                   const QString &interface)
+    : d(conn.findInterface(service, path, interface))
+{
+}
+
+QDBusRef::QDBusRef(const QString &service, const QString &path, const QString &interface)
+    : d(QDBus::sessionBus().findInterface(service, path, interface))
+{
 }
 
