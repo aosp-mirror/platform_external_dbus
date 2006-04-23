@@ -45,7 +45,8 @@ public:
     enum CallMode {
         NoWaitForReply,
         UseEventLoop,
-        NoUseEventLoop
+        NoUseEventLoop,
+        AutoDetect
     };
 
 public:
@@ -60,7 +61,7 @@ public:
     QDBusError lastError() const;
 
     QDBusMessage callWithArgs(const QString &method, const QList<QVariant> &args = QList<QVariant>(),
-                              CallMode mode = UseEventLoop);
+                              CallMode mode = AutoDetect);
     bool callWithArgs(const QString &method, QObject *receiver, const char *slot,
                       const QList<QVariant> &args = QList<QVariant>());
 

@@ -146,6 +146,28 @@ QDBusMessage QDBusAbstractInterface::callWithArgs(const QString& method, const Q
         sig = method.mid(pos + 1);
     }
 
+    if (mode == AutoDetect) {
+        // determine if this a sync or async call
+        mode = UseEventLoop;
+        const QMetaObject *mo = metaObject();
+        QByteArray match = method.toLatin1() + '(';
+
+        for (int i = staticMetaObject.methodCount(); i < mo->methodCount(); ++i) {
+            QMetaMethod mm = mo->method(i);
+            if (QByteArray(mm.signature()).startsWith(match)) {
+                // found a method with the same name as what we're looking for
+                // hopefully, nobody is overloading asynchronous and synchronous methods with
+                // the same name
+
+                QList<QByteArray> tags = QByteArray(mm.tag()).split(' ');
+                if (tags.contains("async") || tags.contains("Q_ASYNC"))
+                    mode = NoWaitForReply;
+
+                break;
+            }
+        }
+    }
+
     QDBusMessage msg = QDBusMessage::methodCall(service(), path(), interface(), m);
     msg.setSignature(sig);
     msg.QList<QVariant>::operator=(args);

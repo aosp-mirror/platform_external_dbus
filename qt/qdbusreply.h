@@ -39,15 +39,37 @@ class QDBUS_EXPORT QDBusReply
     typedef T Type;
 public:
     inline QDBusReply(const QDBusMessage &reply)
-        : m_error(reply), m_data(Type())
+        : m_data(Type())
     {
+        *this = reply;
+    }
+    inline QDBusReply& operator=(const QDBusMessage& reply)
+    {
+        m_error = reply;
         if (isSuccess())
             m_data = QDBusTypeHelper<Type>::fromVariant(reply.at(0));
+        else
+            m_data = Type();
+        return *this;
     }
-    inline QDBusReply(const QDBusError &error)
+
+    inline QDBusReply(const QDBusError &error = QDBusError())
         : m_error(error), m_data(Type())
     {
-    }    
+    }
+    inline QDBusReply& operator=(const QDBusError& error)
+    {
+        m_error = error;
+        m_data = Type();
+        return *this;
+    }
+
+    inline QDBusReply& operator=(const QDBusReply& other)
+    {
+        m_error = other.m_error;
+        m_data = other.m_data;
+        return *this;
+    }
 
     inline bool isError() const { return m_error.isValid(); }
     inline bool isSuccess() const { return !m_error.isValid(); }

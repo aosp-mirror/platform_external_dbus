@@ -122,7 +122,7 @@ struct QDBusTypeHelper
     static inline QVariantList toVariantList(const List &list)
     {
         QVariantList tmp;
-        foreach (const Type &t, list)
+        Q_FOREACH (const Type &t, list)
             tmp.append(toVariant(t));
         return tmp;
     }
@@ -135,7 +135,7 @@ struct QDBusTypeHelper
     static inline List fromVariantList(const QVariantList &list)
     {
         List tmp;
-        foreach (const QVariant &v, list)
+        Q_FOREACH (const QVariant &v, list)
             tmp.append(fromVariant(v));
         return tmp;
     }

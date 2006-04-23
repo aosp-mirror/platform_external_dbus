@@ -1,3 +1,13 @@
+2006-04-23  Thiago Macieira  <thiago.macieira@trolltech.com
+
+	* qt/qdbusreply.h: Add default constructor and operator=
+          (r532625)
+	* qt/qdbustypehelper_p.h: Use a clean namespace: no foreach()
+          in public headers (r532952)
+	* qt/qdbusabstractinterface.cpp:
+	* qt/qdbusabstractinterface_p.h: Add the AutoDetect mode and
+          make it the default (r532951)
+
 2006-04-19  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-connection.c: Fix asserts
