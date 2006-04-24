@@ -19,25 +19,42 @@ Configuration flags
 These are the dbus-specific configuration flags that can be given to
 the ./configure program.
 
-  --enable-qt      enable Qt-friendly client library
-  --enable-glib    enable GLib-friendly client library
-  --enable-mono    enable mono bindings
-  --enable-mono-docs build mono documentation (requires monodoc)
-  --enable-tests   enable unit test code
-  --enable-ansi    enable -ansi -pedantic gcc flags
-  --enable-verbose-mode support verbose debug mode
-  --enable-asserts include assertion checks
-  --enable-checks  include sanity checks on public API
-  --enable-docs    build documentation (requires Doxygen and jade)
-  --enable-gcov    compile with coverage profiling instrumentation (gcc only)
-  --enable-python  build python bindings (reqires Pyrex >= 0.9)
+  --enable-qt             enable Qt-friendly client library (note: Qt4)
+  --enable-qt-debug       enable Qt-friendly client library, linked to debug
+                          Qt libraries
+  --enable-qt3            enable Qt3-friendly client library
+  --enable-glib           enable GLib-friendly client library
+  --enable-gtk            enable GTK-requiring executables
+  --enable-tests          enable unit test code
+  --enable-ansi           enable -ansi -pedantic gcc flags
+  --enable-verbose-mode   support verbose debug mode
+  --enable-asserts        include assertion checks
+  --enable-checks         include sanity checks on public API
+  --enable-xml-docs       build XML documentation (requires xmlto)
+  --enable-doxygen-docs   build DOXYGEN documentation (requires Doxygen)
+  --enable-gcov           compile with coverage profiling instrumentation (gcc only)
+  --enable-abstract-sockets
+                          use abstract socket namespace (linux only)
+  --enable-gcj            build gcj bindings
+  --enable-mono           build mono bindings
+  --enable-mono-docs      build mono docs
+  --enable-python         build python bindings
+  --enable-selinux        build with SELinux support
+  --enable-dnotify        build with dnotify support (linux only)
 
+  --with-qt-moc=<path>              moc for Qt
+  --with-qt3-moc=<path>             moc for Qt3
   --with-xml=libxml/expat           XML library to use
   --with-init-scripts=redhat        Style of init scripts to install
   --with-session-socket-dir=dirname Where to put sockets for the per-login-session message bus
   --with-test-socket-dir=dirname    Where to put sockets for make check
   --with-system-pid-file=pidfile    PID file for systemwide daemon
   --with-system-socket=filename     UNIX domain socket for systemwide daemon
+  --with-console-auth-dir=dirname   directory to check for console ownerhip
+  --with-dbus-user=<user>           User for running the DBUS daemon (messagebus)
+  --with-gnu-ld                     assume the C compiler uses GNU ld [default=no]
+  --with-tags[=TAGS]                include additional configurations [automatic]
+  --with-x                          use the X Window System
 
 
 API/ABI Policy
