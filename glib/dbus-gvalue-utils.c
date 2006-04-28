@@ -772,6 +772,31 @@ gvalue_from_ptrarray_value (GValue *value, gpointer instance)
     }
 }
 
+static void
+gvalue_take_from_ptrarray_value (GValue *value, gpointer instance)
+{
+  switch (g_type_fundamental (G_VALUE_TYPE (value)))
+    {
+    case G_TYPE_STRING:
+      g_value_take_string (value, instance);
+      break;
+    case G_TYPE_POINTER:
+      g_value_set_pointer (value, instance);
+      g_assert_not_reached ();
+      break;
+    case G_TYPE_BOXED:
+      g_value_take_boxed (value, instance);
+      break;
+    case G_TYPE_OBJECT:
+      g_value_take_object (value, instance);
+      g_object_unref (g_value_get_object (value));
+      break;
+    default:
+      g_assert_not_reached ();
+      break;
+    }
+}
+
 static gpointer
 ptrarray_value_from_gvalue (const GValue *value)
 {
@@ -796,7 +821,7 @@ ptrarray_value_from_gvalue (const GValue *value)
 }
 
 static void
-ptrarray_iterator (GType                                   hash_type,
+ptrarray_iterator (GType                                   ptrarray_type,
 		   gpointer                                instance,
 		   DBusGTypeSpecializedCollectionIterator  iterator,
 		   gpointer                                user_data)
@@ -807,7 +832,7 @@ ptrarray_iterator (GType                                   hash_type,
 
   ptrarray = instance;
 
-  elt_gtype = dbus_g_type_get_collection_specialization (hash_type);
+  elt_gtype = dbus_g_type_get_collection_specialization (ptrarray_type);
 
   for (i = 0; i < ptrarray->len; i++)
     {
@@ -822,8 +847,8 @@ static void
 ptrarray_copy_elt (const GValue *val, gpointer user_data)
 {
   GPtrArray *dest = user_data;
-  GValue val_copy = {0, }; 
-  
+  GValue val_copy = {0, };
+
   g_value_init (&val_copy, G_VALUE_TYPE (val));
   g_value_copy (val, &val_copy);
 
@@ -858,9 +883,22 @@ ptrarray_append (DBusGTypeSpecializedAppendContext *ctx, GValue *value)
 static void
 ptrarray_free (GType type, gpointer val)
 {
-  /* XXX: this function appears to leak the contents of the array */
   GPtrArray *array;
+  GValue elt_val = {0, };
+  GType elt_gtype;
+  unsigned int i;
+
   array = val;
+
+  elt_gtype = dbus_g_type_get_collection_specialization (type);
+
+  for (i = 0; i < array->len; i++)
+    {
+      g_value_init (&elt_val, elt_gtype);
+      gvalue_take_from_ptrarray_value (&elt_val, g_ptr_array_index (array, i));
+      g_value_unset (&elt_val);
+    }
+
   g_ptr_array_free (array, TRUE);
 }
 
@@ -943,9 +981,21 @@ slist_end_append (DBusGTypeSpecializedAppendContext *ctx)
 static void
 slist_free (GType type, gpointer val)
 {
-  /* XXX: this function appears to leak the contents of the list */
   GSList *list;
+  GType elt_gtype;
   list = val;
+
+  elt_gtype = dbus_g_type_get_collection_specialization (type);
+
+  while (list != NULL)
+    {
+      GValue elt_val = {0, };
+      g_value_init (&elt_val, elt_gtype);
+      gvalue_take_from_ptrarray_value (&elt_val, list->data);
+      g_value_unset (&elt_val);
+      list = g_slist_next(list); 
+    }
+  list=val;
   g_slist_free (list);
 }
 
