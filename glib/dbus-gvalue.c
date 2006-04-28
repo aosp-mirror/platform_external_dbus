@@ -392,10 +392,13 @@ _dbus_gtype_to_signature (GType gtype)
       size = dbus_g_type_get_struct_size (gtype);
       sig = g_string_sized_new (size+2); /*some sensible starting size*/
       g_string_assign (sig, DBUS_STRUCT_BEGIN_CHAR_AS_STRING);
-      for (i=0; i < size; i++)
+      for (i = 0; i < size; i++)
         {
-          g_string_append (sig, _dbus_gtype_to_signature (
-              dbus_g_type_get_struct_member_type (gtype, i)));
+          gchar *subsig;
+          subsig = _dbus_gtype_to_signature (
+              dbus_g_type_get_struct_member_type (gtype, i));
+          g_string_append (sig, subsig);
+          g_free (subsig);
         }
       g_string_append (sig, DBUS_STRUCT_END_CHAR_AS_STRING);
       ret = g_string_free (sig, FALSE);

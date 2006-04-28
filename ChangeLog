@@ -1,5 +1,10 @@
 2005-04-28  Robert McQueen  <robot101@debian.org>
 
+	* glib/dbus-gvalue.c: Patch from Jakub Stachowski to fix a leak in
+	generating struct signatures. Fixes bug #6083.
+
+2005-04-28  Robert McQueen  <robot101@debian.org>
+
 	* qt/Makefile.am: Tweak CLEANFILES from qdbusconnection.moc
 	to qdbusconnection_p.moc.
 
