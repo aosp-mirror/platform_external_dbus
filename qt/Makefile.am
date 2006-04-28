@@ -62,7 +62,7 @@ qdbusbus.lo: qdbusbus.moc
 qdbusserver.lo: qdbusserver.moc
 qdbusintegrator.lo: qdbusconnection_p.moc
 
-CLEANFILES=qdbusabstractadaptor.moc qdbusserver.moc qdbusconnection.moc qdbusconnection_p.moc qdbusabstractadaptor_p.moc qdbusbus.moc qdbusabstractinterface.moc
+CLEANFILES=qdbusabstractadaptor.moc qdbusserver.moc qdbusconnection_p.moc qdbusconnection_p.moc qdbusabstractadaptor_p.moc qdbusbus.moc qdbusabstractinterface.moc
 
 libdbus_qt4_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
 libdbus_qt4_1_la_LDFLAGS= -version-info 1:0 -no-undefined
