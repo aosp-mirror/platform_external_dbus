@@ -1301,7 +1301,8 @@ dbus_g_proxy_constructor (GType                  type,
 {
   DBusGProxy *proxy;
   DBusGProxyClass *klass;
-  GObjectClass *parent_class;  
+  GObjectClass *parent_class;
+  DBusGProxyPrivate *priv;
 
   klass = DBUS_G_PROXY_CLASS (g_type_class_peek (DBUS_TYPE_G_PROXY));
 
@@ -1309,6 +1310,22 @@ dbus_g_proxy_constructor (GType                  type,
 
   proxy = DBUS_G_PROXY (parent_class->constructor (type, n_construct_properties,
 						    construct_properties));
+
+  priv = DBUS_G_PROXY_GET_PRIVATE (proxy);
+
+  /* if these assertions fail, a deriving class has not set our required
+   * parameters - our own public constructors do return_if_fail checks
+   * on these parameters being provided. unfortunately we can't assert
+   * for manager because it's allowed to be NULL when tha mangager is
+   * setting up a bus proxy for its own calls */
+  g_assert (priv->name != NULL);
+  g_assert (priv->path != NULL);
+  g_assert (priv->interface != NULL);
+
+  if (priv->manager != NULL)
+    {
+      dbus_g_proxy_manager_register (priv->manager, proxy);
+    }
 
   return G_OBJECT (proxy);
 }
@@ -1466,12 +1483,11 @@ dbus_g_proxy_set_property (GObject *object,
       priv->interface = g_strdup (g_value_get_string (value));
       break;
     case PROP_CONNECTION:
-      connection = g_value_get_boxed(value);
-      if(connection != NULL)
-      {
+      connection = g_value_get_boxed (value);
+      if (connection != NULL)
+        {
           priv->manager = dbus_g_proxy_manager_get (DBUS_CONNECTION_FROM_G_CONNECTION (connection));
-          dbus_g_proxy_manager_register (priv->manager, proxy);
-      }
+        }
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1738,7 +1754,6 @@ manager_begin_bus_call (DBusGProxyManager    *manager,
 					 "name", DBUS_SERVICE_DBUS,
 					 "path", DBUS_PATH_DBUS,
 					 "interface", DBUS_INTERFACE_DBUS,
-                                         "connection", NULL,
 					 NULL);
       priv = DBUS_G_PROXY_GET_PRIVATE(manager->bus_proxy);
       priv->manager = manager;
