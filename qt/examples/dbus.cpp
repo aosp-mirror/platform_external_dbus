@@ -33,8 +33,15 @@ QDBusConnection *connection;
 
 void listObjects(const QString &service, const QString &path)
 {
-    QDBusInterface *iface = connection->findInterface(service, path.isEmpty() ? "/" : path,
-                                                     "org.freedesktop.DBus.Introspectable");
+    QDBusInterfacePtr iface(*connection, service, path.isEmpty() ? "/" : path,
+                   "org.freedesktop.DBus.Introspectable");
+    if (!iface->isValid()) {
+        QDBusError err(iface->lastError());
+        fprintf(stderr, "Cannot introspect object %s at %s:\n%s (%s)\n",
+                qPrintable(path.isEmpty() ? "/" : path), qPrintable(service),
+                qPrintable(err.name()), qPrintable(err.message()));
+        exit(1);
+    }
     QDBusReply<QString> xml = iface->call("Introspect");
 
     if (xml.isError())
@@ -52,13 +59,18 @@ void listObjects(const QString &service, const QString &path)
         }
         child = child.nextSiblingElement();
     }
-
-    delete iface;
 }
 
 void listInterface(const QString &service, const QString &path, const QString &interface)
 {
-    QDBusInterface *iface = connection->findInterface(service, path, interface);
+    QDBusInterfacePtr iface(*connection, service, path, interface);
+    if (!iface->isValid()) {
+        QDBusError err(iface->lastError());
+        fprintf(stderr, "Interface '%s' not available in object %s at %s:\n%s (%s)\n",
+                qPrintable(interface), qPrintable(path), qPrintable(service),
+                qPrintable(err.name()), qPrintable(err.message()));
+        exit(1);
+    }
     const QMetaObject *mo = iface->metaObject();
 
     // properties
@@ -101,13 +113,18 @@ void listInterface(const QString &service, const QString &path, const QString &i
         }
         printf(")\n");
     }
-    delete iface;
 }
 
 void listAllInterfaces(const QString &service, const QString &path)
 {
-    QDBusInterface *iface = connection->findInterface(service, path,
-                                                     "org.freedesktop.DBus.Introspectable");
+    QDBusInterfacePtr iface(*connection, service, path, "org.freedesktop.DBus.Introspectable");
+    if (!iface->isValid()) {
+        QDBusError err(iface->lastError());
+        fprintf(stderr, "Cannot introspect object %s at %s:\n%s (%s)\n",
+                qPrintable(path), qPrintable(service),
+                qPrintable(err.name()), qPrintable(err.message()));
+        exit(1);
+    }
     QDBusReply<QString> xml = iface->call("Introspect");
 
     if (xml.isError())
@@ -123,8 +140,6 @@ void listAllInterfaces(const QString &service, const QString &path)
         }
         child = child.nextSiblingElement();
     }
-
-    delete iface;
 }
 
 QStringList readList(int &argc, const char *const *&argv)
@@ -142,12 +157,12 @@ QStringList readList(int &argc, const char *const *&argv)
 void placeCall(const QString &service, const QString &path, const QString &interface,
                const QString &member, int argc, const char *const *argv)
 {
-    QDBusInterface *iface;
-    iface = connection->findInterface(service, path, interface);
-
-    if (!iface) {
-        fprintf(stderr, "Interface '%s' not available in object %s at %s\n",
-                qPrintable(interface), qPrintable(path), qPrintable(service));
+    QDBusInterfacePtr iface(*connection, service, path, interface);
+    if (!iface->isValid()) {
+        QDBusError err(iface->lastError());
+        fprintf(stderr, "Interface '%s' not available in object %s at %s:\n%s (%s)\n",
+                qPrintable(interface), qPrintable(path), qPrintable(service),
+                qPrintable(err.name()), qPrintable(err.message()));
         exit(1);
     }
 
@@ -155,7 +170,7 @@ void placeCall(const QString &service, const QString &path, const QString &inter
     QByteArray match = member.toLatin1();
     match += '(';
 
-    int midx;
+    int midx = -1;
     for (int i = mo->methodOffset(); i < mo->methodCount(); ++i) {
         QMetaMethod mm = mo->method(i);
         QByteArray signature = mm.signature();
@@ -172,7 +187,7 @@ void placeCall(const QString &service, const QString &path, const QString &inter
         exit(1);
     }
 
-    QMetaMethod mm = iface->metaObject()->method(midx);
+    QMetaMethod mm = mo->method(midx);
     QList<QByteArray> types = mm.parameterTypes();
 
     QVariantList params;
@@ -221,12 +236,16 @@ void placeCall(const QString &service, const QString &path, const QString &inter
     }
     
     foreach (QVariant v, reply) {
-        if (v.userType() == qMetaTypeId<QVariant>())
-            v = qvariant_cast<QVariant>(v);
-        printf("%s\n", qPrintable(v.toString()));
+        if (v.userType() == QVariant::StringList) {
+            foreach (QString s, v.toStringList())
+                printf("%s\n", qPrintable(s));
+        } else {
+            if (v.userType() == qMetaTypeId<QVariant>())
+                v = qvariant_cast<QVariant>(v);
+            printf("%s\n", qPrintable(v.toString()));
+        }
     }
 
-    delete iface;
     exit(0);
 }
 
