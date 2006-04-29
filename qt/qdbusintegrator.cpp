@@ -575,7 +575,6 @@ bool QDBusConnectionPrivate::activateSignal(const QDBusConnectionPrivate::Signal
     // Slots receive read-only copies of the message (i.e., pass by value or by const-ref)
     CallDeliveryEvent *call = prepareReply(hook.obj, hook.midx, hook.params, msg);
     if (call) {
-        call->conn = this;
         postCallDeliveryEvent(call);
         return true;
     }
@@ -633,7 +632,6 @@ bool QDBusConnectionPrivate::activateCall(QObject* object, int flags,
     // found the slot to be called
     // prepare for the call:
     CallDeliveryEvent *call = new CallDeliveryEvent;
-    call->conn = this;
 
     // parameters:
     call->object = object;
@@ -652,6 +650,8 @@ bool QDBusConnectionPrivate::activateCall(QObject* object, int flags,
 
 void QDBusConnectionPrivate::postCallDeliveryEvent(CallDeliveryEvent *data)
 {
+    Q_ASSERT(data);
+    data->conn = this;    
 #if USE_OUTSIDE_DISPATCH
     callDeliveryMutex.lock();
     callDeliveryState = data;

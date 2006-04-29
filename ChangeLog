@@ -1,3 +1,8 @@
+2006-04-29  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* qt/qdbusintegrator.cpp: Fix assertion failure spotted by
+	Brad Hards.
+
 2005-04-28  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-gproxy.c: Fix properties so that they can be given in
