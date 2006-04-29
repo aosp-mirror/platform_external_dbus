@@ -1,5 +1,10 @@
 2006-04-29  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* qt/dbusidl2cpp.cpp: There's no callAsync. Use the correct
+        call. (r535506)
+
+2006-04-29  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* qt/examples/dbus.cpp: Enhance error messages and use
         QDBusInterfacePtr.
 

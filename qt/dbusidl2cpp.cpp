@@ -509,7 +509,7 @@ static void writeProxy(const char *proxyFile, const QDBusIntrospection::Interfac
             else if (!isAsync)
                 hs << "        return call(QLatin1String(\"";
             else
-                hs << "        callAsync(QLatin1String(\"";
+                hs << "        call(NoWaitForReply, QLatin1String(\"";
 
             // rebuild the method input signature:
             QString signature = QChar('.');
@@ -523,7 +523,7 @@ static void writeProxy(const char *proxyFile, const QDBusIntrospection::Interfac
             for (int i = 0; i < method.inputArgs.count(); ++i)
                 hs << ", " << argNames.at(argPos++);
 
-            // close the QDBusIntrospection::call/callAsync call
+            // close the QDBusIntrospection::call call
             hs << ");" << endl;
 
             argPos++;
