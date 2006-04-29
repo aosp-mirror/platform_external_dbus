@@ -230,6 +230,7 @@ extern int qDBusNameToTypeId(const char *name);
 extern bool qDBusCheckAsyncTag(const char *tag);
 
 // in qdbusinternalfilters.cpp
+extern QString qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node);
 extern void qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node,
                                   const QDBusMessage &msg);
 extern void qDBusPropertyGet(const QDBusConnectionPrivate::ObjectTreeNode *node,

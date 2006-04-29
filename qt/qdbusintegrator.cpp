@@ -984,13 +984,14 @@ bool QDBusConnectionPrivate::activateInternalFilters(const ObjectTreeNode *node,
 {
     // object may be null
 
-    if (msg.interface() == QLatin1String(DBUS_INTERFACE_INTROSPECTABLE)) {
+    if (msg.interface().isEmpty() || msg.interface() == QLatin1String(DBUS_INTERFACE_INTROSPECTABLE)) {
         if (msg.method() == QLatin1String("Introspect") && msg.signature().isEmpty())
             qDBusIntrospectObject(node, msg);
         return true;
     }
 
-    if (node->obj && msg.interface() == QLatin1String(DBUS_INTERFACE_PROPERTIES)) {
+    if (node->obj && (msg.interface().isEmpty() ||
+                      msg.interface() == QLatin1String(DBUS_INTERFACE_PROPERTIES))) {
         if (msg.method() == QLatin1String("Get") && msg.signature() == QLatin1String("ss"))
             qDBusPropertyGet(node, msg);
         else if (msg.method() == QLatin1String("Set") && msg.signature() == QLatin1String("ssv"))
@@ -1053,25 +1054,26 @@ bool QDBusConnectionPrivate::activateObject(const ObjectTreeNode *node, const QD
     return false;
 }
 
-bool QDBusConnectionPrivate::handleObjectCall(const QDBusMessage &msg)
+template<typename Func>
+static bool applyForObject(QDBusConnectionPrivate::ObjectTreeNode *root, const QString &fullpath,
+                           Func& functor)
 {
-    QReadLocker locker(&lock);
-
     // walk the object tree
-    QStringList path = msg.path().split(QLatin1Char('/'));
+    QStringList path = fullpath.split(QLatin1Char('/'));
     if (path.last().isEmpty())
         path.removeLast();      // happens if path is "/"
     int i = 1;
-    ObjectTreeNode *node = &rootNode;
+    QDBusConnectionPrivate::ObjectTreeNode *node = root;
 
     // try our own tree first
     while (node && !(node->flags & QDBusConnection::ExportChildObjects) ) {
         if (i == path.count()) {
             // found our object
-            return activateObject(node, msg);
+            functor(node);
+            return true;
         }
 
-        QVector<ObjectTreeNode::Data>::ConstIterator it =
+        QVector<QDBusConnectionPrivate::ObjectTreeNode::Data>::ConstIterator it =
             qLowerBound(node->children.constBegin(), node->children.constEnd(), path.at(i));
         if (it != node->children.constEnd() && it->name == path.at(i))
             // match
@@ -1089,9 +1091,10 @@ bool QDBusConnectionPrivate::handleObjectCall(const QDBusMessage &msg)
         while (obj) {
             if (i == path.count()) {
                 // we're at the correct level
-                ObjectTreeNode fakenode(*node);
+                QDBusConnectionPrivate::ObjectTreeNode fakenode(*node);
                 fakenode.obj = obj;
-                return activateObject(&fakenode, msg);
+                functor(&fakenode);
+                return true;
             }
 
             const QObjectList &children = obj->children();
@@ -1111,6 +1114,31 @@ bool QDBusConnectionPrivate::handleObjectCall(const QDBusMessage &msg)
             obj = next;
         }
     }
+
+    // object not found
+    return false;
+}
+
+struct qdbus_activateObject
+{
+    QDBusConnectionPrivate *self;
+    const QDBusMessage &msg;
+    bool returnVal;
+    inline qdbus_activateObject(QDBusConnectionPrivate *s, const QDBusMessage &m)
+        : self(s), msg(m)
+    { }
+
+    inline void operator()(QDBusConnectionPrivate::ObjectTreeNode *node)
+    { returnVal = self->activateObject(node, msg); }
+};
+
+bool QDBusConnectionPrivate::handleObjectCall(const QDBusMessage &msg)
+{
+    QReadLocker locker(&lock);
+
+    qdbus_activateObject apply(this, msg);
+    if (applyForObject(&rootNode, msg.path(), apply))
+        return apply.returnVal;
 
     qDebug("Call failed: no object found at %s", qPrintable(msg.path()));
     return false;
@@ -1479,6 +1507,7 @@ QDBusConnectionPrivate::findInterface(const QString &service,
     QString owner = getNameOwner(service);
     if (connection && !owner.isEmpty() && QDBusUtil::isValidObjectPath(path) &&
         (interface.isEmpty() || QDBusUtil::isValidInterfaceName(interface)))
+        // always call here with the unique connection name
         mo = findMetaObject(owner, path, interface);
 
     QDBusInterfacePrivate *p = new QDBusInterfacePrivate(QDBusConnection(name), this, owner, path, interface, mo);
@@ -1509,24 +1538,52 @@ QDBusConnectionPrivate::findInterface(const QString &service,
     return p;
 }
 
+struct qdbus_Introspect
+{
+    QString xml;
+    inline void operator()(QDBusConnectionPrivate::ObjectTreeNode *node)
+    { xml = qDBusIntrospectObject(node); }
+};
+
 QDBusMetaObject *
 QDBusConnectionPrivate::findMetaObject(const QString &service, const QString &path,
                                        const QString &interface)
 {
+    // service must be a unique connection name
     if (!interface.isEmpty()) {
         QReadLocker locker(&lock);
         QDBusMetaObject *mo = cachedMetaObjects.value(interface, 0);
         if (mo)
             return mo;
     }
+    if (service == QString::fromUtf8(dbus_bus_get_unique_name(connection))) {
+        // it's one of our own
+        QWriteLocker locker(&lock);
+        QDBusMetaObject *mo = 0;
+        if (!interface.isEmpty())
+            mo = cachedMetaObjects.value(interface, 0);
+        if (mo)
+            // maybe it got created when we switched from read to write lock
+            return mo;
 
-    // introspect the target object:
+        qdbus_Introspect apply;
+        if (!applyForObject(&rootNode, path, apply)) {
+            lastError = QDBusError(QDBusError::InvalidArgs,
+                                   QString(QLatin1String("No object at %1")).arg(path));
+            return 0;           // no object at path
+        }
+
+        // release the lock and return
+        return QDBusMetaObject::createMetaObject(interface, apply.xml, cachedMetaObjects, lastError);
+    }
+
+    // not local: introspect the target object:
     QDBusMessage msg = QDBusMessage::methodCall(service, path,
                                                 QLatin1String(DBUS_INTERFACE_INTROSPECTABLE),
                                                 QLatin1String("Introspect"));
 
-    // we have to spin the event loop because the call could be targetting ourselves
-    QDBusMessage reply = sendWithReply(msg, QDBusConnection::UseEventLoop);
+
+    QDBusMessage reply = sendWithReply(msg, QDBusConnection::NoUseEventLoop);
 
     // it doesn't exist yet, we have to create it
     QWriteLocker locker(&lock);

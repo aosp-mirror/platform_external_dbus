@@ -148,7 +148,7 @@ QDBusMessage QDBusAbstractInterface::callWithArgs(const QString& method, const Q
 
     if (mode == AutoDetect) {
         // determine if this a sync or async call
-        mode = UseEventLoop;
+        mode = NoUseEventLoop;
         const QMetaObject *mo = metaObject();
         QByteArray match = method.toLatin1() + '(';
 

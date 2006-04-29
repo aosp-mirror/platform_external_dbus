@@ -225,8 +225,7 @@ static QString generateSubObjectXml(QObject *object)
     return retval;
 }
 
-void qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node,
-                           const QDBusMessage &msg)
+QString qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node)
 {
     // object may be null
 
@@ -281,10 +280,15 @@ void qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node,
     }
 
     xml_data += QLatin1String("</node>\n");
+    return xml_data;
+}
 
+void qDBusIntrospectObject(const QDBusConnectionPrivate::ObjectTreeNode *node,
+                           const QDBusMessage &msg)
+{
     // now send it
     QDBusMessage reply = QDBusMessage::methodReply(msg);
-    reply << xml_data;
+    reply << qDBusIntrospectObject(node);
     msg.connection().send(reply);
 }
 

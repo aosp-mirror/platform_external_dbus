@@ -55,7 +55,7 @@ public:
     }
     ~QDBusInterfacePrivate()
     {
-        if (!metaObject->cached)
+        if (metaObject && !metaObject->cached)
             delete metaObject;
     }
 

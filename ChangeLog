@@ -1,5 +1,43 @@
 2006-04-29  Thiago Macieira  <thiago.macieira@trolltech.com>
 
+	* qt/qdbusinterface.h: Rename QDBusRef to QDBusInterfacePtr
+        and disable the copy operators. (r533772, r534746)
+
+	* qt/qdbuserror.h: Remove the automatic cast to bool. (r533929)
+
+	* qt/qdbusabstractinterface.cpp:
+	* qt/qdbusabstractinterface.h: Change the default call mode to
+        not use the event loop. Add convenience call() methods that
+        take a CallMode parameter. (r534042)
+
+	* qt/qdbusconnection.h: Change the default call mode to not
+        use the event loop. (r534042)
+
+	* qt/qdbusinterface.cpp:
+	* qt/qdbusinterface.h: Add a method to tell us if the
+	interface is valid (since we don't return a null pointer
+	anymore) (r534099)
+
+	* qt/qdbusinterface_p.h: Don't crash if metaObject is 0
+        (r534101)
+
+	* qt/qdbusinternalfilters.cpp: Decouple the introspection
+        function in two so taht we get the chance to introspect
+        without having a QDBusMessage (r534102)
+
+	* qt/qdbusbus.h:
+	* qt/qdbusconnection.cpp:
+	* qt/qdbusconnection_p.h:
+	* qt/qdbusintegrator.cpp: Keep a list of our own names to
+        avoid a round-trip to the server when attempting to introspect
+        one of our own objects. Also make sure the filter functions
+        match the empty interface as well. (r534108)
+	Don't keep the connection names. Instead, trust the unique
+        connection name (r534111)
+	Remove event loop usage (r534112)
+
+2006-04-29  Thiago Macieira  <thiago.macieira@trolltech.com>
+
 	* qt/qdbusintegrator.cpp: Fix assertion failure spotted by
 	Brad Hards.
 

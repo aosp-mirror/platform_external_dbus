@@ -150,7 +150,7 @@ public slots:
 signals:
     void nameAcquired(const QString &service);
     void nameLost(const QString &service);
-    void nameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);    
+    void nameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QDBusBusService::RequestNameOptions);

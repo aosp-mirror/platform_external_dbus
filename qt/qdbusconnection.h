@@ -74,7 +74,7 @@ public:
     QDBusError lastError() const;
 
     bool send(const QDBusMessage &message) const;
-    QDBusMessage sendWithReply(const QDBusMessage &message, WaitMode mode = UseEventLoop) const;
+    QDBusMessage sendWithReply(const QDBusMessage &message, WaitMode mode = NoUseEventLoop) const;
     int sendWithReplyAsync(const QDBusMessage &message, QObject *receiver,
                            const char *slot) const;
 

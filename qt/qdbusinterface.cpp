@@ -58,6 +58,19 @@ QDBusInterface::~QDBusInterface()
 }
 
 /*!
+    Returns true if this is a valid reference to a remote object. It returns false if
+    there was an error during the creation of this interface (for instance, if the remote
+    application does not exist).
+
+    Note: when dealing with remote objects, it is not always possible to determine if it
+    exists when creating a QDBusInterface or QDBusInterfacePtr object.
+*/
+bool QDBusInterface::isValid() const
+{
+    return d_func()->isValid;
+}
+
+/*!
     \internal
     Overrides QObject::metaObject to return our own copy.
 */
@@ -238,13 +251,13 @@ int QDBusInterfacePrivate::metacall(QMetaObject::Call c, int id, void **argv)
     return id;
 }
 
-QDBusRef::QDBusRef(QDBusConnection &conn, const QString &service, const QString &path,
+QDBusInterfacePtr::QDBusInterfacePtr(QDBusConnection &conn, const QString &service, const QString &path,
                    const QString &interface)
     : d(conn.findInterface(service, path, interface))
 {
 }
 
-QDBusRef::QDBusRef(const QString &service, const QString &path, const QString &interface)
+QDBusInterfacePtr::QDBusInterfacePtr(const QString &service, const QString &path, const QString &interface)
     : d(QDBus::sessionBus().findInterface(service, path, interface))
 {
 }

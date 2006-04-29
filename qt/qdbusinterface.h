@@ -35,6 +35,8 @@ private:
     
 public:
     ~QDBusInterface();
+    bool isValid() const;
+    
     virtual const QMetaObject *metaObject() const;
     virtual void *qt_metacast(const char *);
     virtual int qt_metacall(QMetaObject::Call, int, void **);
@@ -43,16 +45,19 @@ private:
     Q_DECLARE_PRIVATE(QDBusInterface);
 };
 
-struct QDBUS_EXPORT QDBusRef
+struct QDBUS_EXPORT QDBusInterfacePtr
 {
-    QDBusRef(QDBusConnection &conn, const QString &service, const QString &path,
+    QDBusInterfacePtr(QDBusInterface *iface) : d(iface) { }
+    QDBusInterfacePtr(QDBusConnection &conn, const QString &service, const QString &path,
              const QString &interface = QString());
-    QDBusRef(const QString &service, const QString &path, const QString &interface = QString());
-    ~QDBusRef() { delete d; }
+    QDBusInterfacePtr(const QString &service, const QString &path, const QString &interface = QString());
+    ~QDBusInterfacePtr() { delete d; }
 
-    QDBusInterface* operator->() const { return d; }
+    QDBusInterface *interface() { return d; }
+    QDBusInterface *operator->() { return d; }
 private:
     QDBusInterface *const d;
+    Q_DISABLE_COPY(QDBusInterfacePtr)
 };
 
 #endif

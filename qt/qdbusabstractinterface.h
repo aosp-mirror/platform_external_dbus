@@ -69,6 +69,11 @@ public:
     {
         return callWithArgs(m);
     }
+
+    inline QDBusMessage call(CallMode mode, const QString &m)
+    {
+        return callWithArgs(m, QList<QVariant>(), mode);
+    }
     
 #ifndef Q_QDOC
 private:
@@ -151,6 +156,85 @@ public:
              << qvfv(t4) << qvfv(t5) << qvfv(t6)
              << qvfv(t7) << qvfv(t8);
         return callWithArgs(m, args);
+    }
+
+    template<typename T1>
+    inline QDBusMessage call(CallMode mode, const QString &m, const T1 &t1)
+    {
+        QList<QVariant> args;
+        args << qvfv(t1);
+        return callWithArgs(m, args, mode);
+    }
+
+    template<typename T1, typename T2>
+    inline QDBusMessage call(CallMode mode, const QString &m, const T1 &t1, const T2 &t2)
+    {
+        QList<QVariant> args;
+        args << qvfv(t1) << qvfv(t2);
+        return callWithArgs(m, args, mode);
+    }
+
+    template<typename T1, typename T2, typename T3>
+    inline QDBusMessage call(CallMode mode, const QString &m, const T1 &t1, const T2 &t2,
+                             const T3 &t3)
+    {
+        QList<QVariant> args;
+        args << qvfv(t1) << qvfv(t2) << qvfv(t3);
+        return callWithArgs(m, args, mode);
+    }
+      
+    template<typename T1, typename T2, typename T3, typename T4>
+    inline QDBusMessage call(CallMode mode, const QString &m, const T1 &t1, const T2 &t2,
+                             const T3 &t3, const T4 &t4)
+    {
+        QList<QVariant> args;
+        args << qvfv(t1) << qvfv(t2) << qvfv(t3)
+             << qvfv(t4);
+        return callWithArgs(m, args, mode);
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    inline QDBusMessage call(CallMode mode, const QString &m, const T1 &t1, const T2 &t2,
+                             const T3 &t3, const T4 &t4, const T5 &t5)
+    {
+        QList<QVariant> args;
+        args << qvfv(t1) << qvfv(t2) << qvfv(t3)
+             << qvfv(t4) << qvfv(t5);
+        return callWithArgs(m, args, mode);
+    }
+  
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
+    inline QDBusMessage call(CallMode mode, const QString &m, const T1 &t1, const T2 &t2,
+                             const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6)
+    {
+        QList<QVariant> args;
+        args << qvfv(t1) << qvfv(t2) << qvfv(t3)
+             << qvfv(t4) << qvfv(t5) << qvfv(t6);
+        return callWithArgs(m, args, mode);
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
+    inline QDBusMessage call(CallMode mode, const QString &m, const T1 &t1, const T2 &t2,
+                             const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7)
+    {
+        QList<QVariant> args;
+        args << qvfv(t1) << qvfv(t2) << qvfv(t3)
+             << qvfv(t4) << qvfv(t5) << qvfv(t6)
+             << qvfv(t7);
+        return callWithArgs(m, args, mode);
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4, typename T5,
+             typename T6, typename T7, typename T8>
+    inline QDBusMessage call(CallMode mode, const QString &m, const T1 &t1, const T2 &t2,
+                             const T3 &t3, const T4 &t4, const T5 &t5, const T6 &t6, const T7 &t7,
+                             const T8 &t8)
+    {
+        QList<QVariant> args;
+        args << qvfv(t1) << qvfv(t2) << qvfv(t3)
+             << qvfv(t4) << qvfv(t5) << qvfv(t6)
+             << qvfv(t7) << qvfv(t8);
+        return callWithArgs(m, args, mode);
     }
 #endif
 
