@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: dbus-qt4-1
+Description: Qt4 integration for the free desktop message bus
+Version: @VERSION@
+Requires: dbus-1 @QT_CORE@ @QT_XML@
+Libs: -L${libdir} -ldbus-qt4-1
+
+

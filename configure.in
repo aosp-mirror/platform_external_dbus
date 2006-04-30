@@ -1003,6 +1003,9 @@ QT_GUI=QtGui$qt_suffix
 QT_TESTLIB=QtTest$qt_suffix
 min_qt_version=4.1.3
 
+AC_SUBST(QT_CORE)
+AC_SUBST(QT_XML)
+
 PKG_CHECK_MODULES([DBUS_QT], 
                   [$QT_CORE >= $min_qt_version $QT_XML >= $min_qt_version], 
                   have_qt=yes, 
@@ -1419,6 +1422,7 @@ doc/Makefile
 dbus-1.pc
 dbus-glib-1.pc
 dbus-sharp.pc
+dbus-qt4-1.pc
 test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-config-files/debug-allow-all-sha1.conf
 test/data/valid-service-files/debug-echo.service

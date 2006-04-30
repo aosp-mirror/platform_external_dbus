@@ -1,3 +1,10 @@
+2006-04-30  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* Makefile.am:
+	* configure.in:
+	* dbus-qt4-1.pc.in: Add a pkg-config file for libdbus-qt4-1.
+	Thanks to Brad Hards for providing the patch
+
 2006-04-29  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/dbusidl2cpp.cpp: There's no callAsync. Use the correct

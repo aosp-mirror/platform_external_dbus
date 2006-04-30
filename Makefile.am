@@ -6,6 +6,7 @@ endif
 
 if HAVE_QT
    QT_SUBDIR=qt
+   QT_PC=dbus-qt4-1.pc
 endif
 
 if HAVE_QT3
@@ -41,12 +42,14 @@ pkgconfig_DATA = dbus-1.pc $(GLIB_PC) $(MONO_PC)
 DISTCLEANFILES = 		\
 	dbus-1.pc		\
 	$(GLIB_PC)		\
+	$(QT_PC)		\
 	$(MONO_PC)
 
 EXTRA_DIST =			\
 	HACKING			\
 	dbus-1.pc.in		\
 	dbus-glib-1.pc.in	\
+	dbus-qt4-1.pc.in	\
 	dbus-sharp.pc.in
 
 all-local: Doxyfile
