@@ -37,7 +37,7 @@ SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(
 DIST_SUBDIRS=dbus bus doc glib qt qt3 gcj mono python tools test
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = dbus-1.pc $(GLIB_PC) $(MONO_PC)
+pkgconfig_DATA = dbus-1.pc $(GLIB_PC) $(QT_PC) $(MONO_PC)
 
 DISTCLEANFILES = 		\
 	dbus-1.pc		\
