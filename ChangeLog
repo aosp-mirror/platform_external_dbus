@@ -1,3 +1,23 @@
+2006-05-02  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* qt/dbusidl2cpp.cpp: There's no callAsync. Use the correct
+        call (r535506)
+
+	* qt/dbusidl2cpp.cpp:
+	* qt/qdbusabstractadaptor.cpp:
+	* qt/qdbusabstractadaptor.h: Make QDBusAdaptorConnector be a
+        sibling of the QDBusAbstractAdaptor objects instead of the
+        parent. (r535848)
+
+	* qt/dbusidl2cpp.cpp:
+	* qt/qdbusabstractinterface.cpp:
+	* qt/qdbusabstractinterface.h:
+	* qt/qdbusabstractinterface_p.h:
+	* qt/qdbusinterface.cpp: Make properties in interfaces
+        actually work. The code that was generated would not compile,
+        due to moc calls to functions that did not exist. They now
+        shall. (r536571)
+
 2006-04-30  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* Makefile.am:

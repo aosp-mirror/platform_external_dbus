@@ -51,12 +51,7 @@ Q_GLOBAL_STATIC(QDBusAdaptorInit, qAdaptorInit)
 
 QDBusAdaptorConnector *qDBusFindAdaptorConnector(QObject *obj)
 {
-    qAdaptorInit();
-
-#if 0
-    if (caller->metaObject() == QDBusAdaptorConnector::staticMetaObject)
-        return 0;               // it's a QDBusAdaptorConnector
-#endif
+    (void)qAdaptorInit();
 
     if (!obj)
         return 0;
@@ -66,9 +61,14 @@ QDBusAdaptorConnector *qDBusFindAdaptorConnector(QObject *obj)
     return connector;
 }
 
+QDBusAdaptorConnector *qDBusFindAdaptorConnector(QDBusAbstractAdaptor *adaptor)
+{
+    return qDBusFindAdaptorConnector(adaptor->parent());
+}
+
 QDBusAdaptorConnector *qDBusCreateAdaptorConnector(QObject *obj)
 {
-    qAdaptorInit();
+    (void)qAdaptorInit();
 
     QDBusAdaptorConnector *connector = qDBusFindAdaptorConnector(obj);
     if (connector)
@@ -122,15 +122,11 @@ void QDBusAbstractAdaptorPrivate::saveIntrospectionXml(QDBusAbstractAdaptor *ada
 
 /*!
     Constructs a QDBusAbstractAdaptor with \a parent as the object we refer to.
-
-    \warning Use object() to retrieve the object passed as \a parent to this constructor. The real
-             parent object (as retrieved by QObject::parent()) may be something else.
 */
 QDBusAbstractAdaptor::QDBusAbstractAdaptor(QObject* parent)
-    : d(new QDBusAbstractAdaptorPrivate)
+    : QObject(parent), d(new QDBusAbstractAdaptorPrivate)
 {
     QDBusAdaptorConnector *connector = qDBusCreateAdaptorConnector(parent);
-    setParent(connector);
 
     connector->waitingForPolish = true;
     QTimer::singleShot(0, connector, SLOT(polish()));
@@ -153,7 +149,7 @@ QDBusAbstractAdaptor::~QDBusAbstractAdaptor()
 */
 QObject* QDBusAbstractAdaptor::object() const
 {
-    return parent()->parent();
+    return parent();
 }
 
 /*!
@@ -167,7 +163,7 @@ QObject* QDBusAbstractAdaptor::object() const
 void QDBusAbstractAdaptor::setAutoRelaySignals(bool enable)
 {
     const QMetaObject *us = metaObject();
-    const QMetaObject *them = object()->metaObject();
+    const QMetaObject *them = parent()->metaObject();
     for (int idx = staticMetaObject.methodCount(); idx < us->methodCount(); ++idx) {
         QMetaMethod mm = us->method(idx);
 
@@ -179,9 +175,9 @@ void QDBusAbstractAdaptor::setAutoRelaySignals(bool enable)
         if (them->indexOfSignal(sig) == -1)
             continue;
         sig.prepend(QSIGNAL_CODE + '0');
-        object()->disconnect(sig, this, sig);
+        parent()->disconnect(sig, this, sig);
         if (enable)
-            connect(object(), sig, sig);
+            connect(parent(), sig, sig);
     }
 }
 
@@ -274,7 +270,7 @@ void QDBusAdaptorConnector::relay(QObject *sender)
         qWarning("Inconsistency detected: QDBusAdaptorConnector::relay got called with unexpected sender object!");
     } else {
         QMetaMethod mm = senderMetaObject->method(lastSignalIdx);
-        QObject *object = static_cast<QDBusAbstractAdaptor *>(sender)->object();
+        QObject *object = static_cast<QDBusAbstractAdaptor *>(sender)->parent();
 
         // break down the parameter list
         QList<int> types;
@@ -316,8 +312,9 @@ void QDBusAdaptorConnector::relay(QObject *sender)
 
 void QDBusAdaptorConnector::signalBeginCallback(QObject *caller, int method_index, void **argv)
 {
-    QDBusAdaptorConnector *data = qobject_cast<QDBusAdaptorConnector *>(caller->parent());
-    if (data) {
+    QDBusAbstractAdaptor *adaptor = qobject_cast<QDBusAbstractAdaptor *>(caller);
+    if (adaptor) {
+        QDBusAdaptorConnector *data = qDBusFindAdaptorConnector(adaptor);
         data->lastSignalIdx = method_index;
         data->argv = argv;
         data->senderMetaObject = caller->metaObject();
@@ -327,8 +324,9 @@ void QDBusAdaptorConnector::signalBeginCallback(QObject *caller, int method_inde
 
 void QDBusAdaptorConnector::signalEndCallback(QObject *caller, int)
 {
-    QDBusAdaptorConnector *data = qobject_cast<QDBusAdaptorConnector *>(caller->parent());
-    if (data) {
+    QDBusAbstractAdaptor *adaptor = qobject_cast<QDBusAbstractAdaptor *>(caller);
+    if (adaptor) {
+        QDBusAdaptorConnector *data = qDBusFindAdaptorConnector(adaptor);
         data->lastSignalIdx = 0;
         data->argv = 0;
         data->senderMetaObject = 0;

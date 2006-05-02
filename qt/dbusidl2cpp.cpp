@@ -37,7 +37,7 @@
 #include "qdbusintrospection_p.h"
 
 #define PROGRAMNAME     "dbusidl2cpp"
-#define PROGRAMVERSION  "0.3"
+#define PROGRAMVERSION  "0.4"
 #define PROGRAMCOPYRIGHT "Copyright (C) 2006 Trolltech AS. All rights reserved."
 
 #define ANNOTATION_NO_WAIT      "org.freedesktop.DBus.Method.NoReply"
@@ -344,6 +344,26 @@ static void writeArgList(QTextStream &ts, const QStringList &argNames,
     }
 }
 
+static QString propertyGetter(const QDBusIntrospection::Property &property)
+{    
+    QString getter = property.annotations.value("com.trolltech.QtDBus.propertyGetter");
+    if (getter.isEmpty()) {
+        getter =  property.name;
+        getter[0] = getter[0].toLower();
+    }
+    return getter;
+}
+
+static QString propertySetter(const QDBusIntrospection::Property &property)
+{
+    QString setter = property.annotations.value("com.trolltech.QtDBus.propertySetter");
+    if (setter.isEmpty()) {
+        setter = "set" + property.name;
+        setter[3] = setter[3].toUpper();
+    }
+    return setter;
+}
+
 static QString stringify(const QString &data)
 {
     QString retval;
@@ -425,31 +445,6 @@ static void writeProxy(const char *proxyFile, const QDBusIntrospection::Interfac
            << "{" << endl
            << "    Q_OBJECT" << endl;
         
-        // properties:
-        foreach (const QDBusIntrospection::Property &property, interface->properties) {
-            QByteArray type = qtTypeName(property.type);
-            QString templateType = templateArg(type);
-            QString constRefType = constRefArg(type);
-            QString getter = property.name;
-            QString setter = "set" + property.name;
-            getter[0] = getter[0].toLower();
-            setter[3] = setter[3].toUpper();
-
-            hs << "    Q_PROPERTY(" << type << " " << property.name;
-
-            // getter:
-            if (property.access != QDBusIntrospection::Property::Write)
-                // it's readble
-                hs << " READ" << getter;
-
-            // setter
-            if (property.access != QDBusIntrospection::Property::Read)
-                // it's writeable
-                hs << " WRITE" << setter;
-
-            hs << ")" << endl;
-        }
-
         // the interface name
         hs << "public:" << endl
            << "    static inline const char *staticInterfaceName()" << endl
@@ -472,9 +467,50 @@ static void writeProxy(const char *proxyFile, const QDBusIntrospection::Interfac
            << "}" << endl
            << endl;
 
+        // properties:
+        foreach (const QDBusIntrospection::Property &property, interface->properties) {
+            QByteArray type = qtTypeName(property.type);
+            QString templateType = templateArg(type);
+            QString constRefType = constRefArg(type);
+            QString getter = propertyGetter(property);
+            QString setter = propertySetter(property);
+
+            hs << "    Q_PROPERTY(" << type << " " << property.name;
+
+            // getter:
+            if (property.access != QDBusIntrospection::Property::Write)
+                // it's readble
+                hs << " READ " << getter;
+
+            // setter
+            if (property.access != QDBusIntrospection::Property::Read)
+                // it's writeable
+                hs << " WRITE " << setter;
+
+            hs << ")" << endl;
+
+            // getter:
+            if (property.access != QDBusIntrospection::Property::Write) {
+                hs << "    inline " << type << " " << getter << "() const" << endl;
+                if (type != "QVariant")
+                    hs << "    { return qvariant_cast< " << type << " >(internalPropGet(\""
+                       << property.name << "\")); }" << endl;
+                else
+                    hs << "    { return internalPropGet(\"" << property.name << "\"); }" << endl;
+            }
+
+            // setter:
+            if (property.access != QDBusIntrospection::Property::Read) {
+                hs << "    inline void " << setter << "(" << constRefArg(type) << "value)" << endl
+                   << "    { internalPropSet(\"" << property.name
+                   << "\", qVariantFromValue(value)); }" << endl;
+            }
+
+            hs << endl;
+        }
 
         // methods:
-        hs << "public slots: // METHODS" << endl;
+        hs << "public Q_SLOTS: // METHODS" << endl;
         foreach (const QDBusIntrospection::Method &method, interface->methods) {
             bool isAsync = method.annotations.value(ANNOTATION_NO_WAIT) == "true";
             if (isAsync && !method.outputArgs.isEmpty()) {
@@ -544,7 +580,7 @@ static void writeProxy(const char *proxyFile, const QDBusIntrospection::Interfac
                << endl;
         }
 
-        hs << "signals: // SIGNALS" << endl;
+        hs << "Q_SIGNALS: // SIGNALS" << endl;
         foreach (const QDBusIntrospection::Signal &signal, interface->signals_) {
             hs << "    ";
             if (signal.annotations.value("org.freedesktop.DBus.Deprecated") == "true")
@@ -720,12 +756,10 @@ static void writeAdaptor(const char *adaptorFile, const QDBusIntrospection::Inte
         foreach (const QDBusIntrospection::Property &property, interface->properties) {
             QByteArray type = qtTypeName(property.type);
             QString constRefType = constRefArg(type);
-            QString getter = property.name;
-            QString setter = "set" + property.name;
-            getter[0] = getter[0].toLower();
-            setter[3] = setter[3].toUpper();
+            QString getter = propertyGetter(property);
+            QString setter = propertySetter(property);
             
-            hs << "   Q_PROPERTY(" << type << " " << property.name;
+            hs << "    Q_PROPERTY(" << type << " " << property.name;
             if (property.access != QDBusIntrospection::Property::Write)
                 hs << " READ " << getter;
             if (property.access != QDBusIntrospection::Property::Read)
@@ -739,7 +773,7 @@ static void writeAdaptor(const char *adaptorFile, const QDBusIntrospection::Inte
                    << className << "::" << getter << "() const" << endl
                    << "{" << endl
                    << "    // get the value of property " << property.name << endl
-                   << "    return qvariant_cast< " << type <<" >(object()->property(\"" << getter << "\"));" << endl
+                   << "    return qvariant_cast< " << type <<" >(parent()->property(\"" << property.name << "\"));" << endl
                    << "}" << endl
                    << endl;
             }
@@ -750,7 +784,7 @@ static void writeAdaptor(const char *adaptorFile, const QDBusIntrospection::Inte
                 cs << "void " << className << "::" << setter << "(" << constRefType << "value)" << endl
                    << "{" << endl
                    << "    // set the value of property " << property.name << endl
-                   << "    object()->setProperty(\"" << getter << "\", value);" << endl
+                   << "    parent()->setProperty(\"" << property.name << "\", value);" << endl
                    << "}" << endl
                    << endl;
             }
@@ -758,7 +792,7 @@ static void writeAdaptor(const char *adaptorFile, const QDBusIntrospection::Inte
             hs << endl;
         }
 
-        hs << "public slots: // METHODS" << endl;
+        hs << "public Q_SLOTS: // METHODS" << endl;
         foreach (const QDBusIntrospection::Method &method, interface->methods) {
             bool isAsync = method.annotations.value(ANNOTATION_NO_WAIT) == "true";
             if (isAsync && !method.outputArgs.isEmpty()) {
@@ -805,7 +839,7 @@ static void writeAdaptor(const char *adaptorFile, const QDBusIntrospection::Inte
             // make the call
             if (method.inputArgs.count() <= 10 && method.outputArgs.count() <= 1) {
                 // we can use QMetaObject::invokeMethod
-                static const char invoke[] = "    QMetaObject::invokeMethod(object(), \"";
+                static const char invoke[] = "    QMetaObject::invokeMethod(parent(), \"";
                 cs << invoke << name << "\"";
 
                 if (!method.outputArgs.isEmpty())
@@ -830,7 +864,7 @@ static void writeAdaptor(const char *adaptorFile, const QDBusIntrospection::Inte
                << "    //";
             if (!method.outputArgs.isEmpty())
                 cs << argNames.at(method.inputArgs.count()) << " = ";
-            cs << "static_cast<YourObjectType *>(object())->" << name << "(";
+            cs << "static_cast<YourObjectType *>(parent())->" << name << "(";
             
             int argPos = 0;
             bool first = true;
@@ -851,7 +885,7 @@ static void writeAdaptor(const char *adaptorFile, const QDBusIntrospection::Inte
                << endl;
         }
 
-        hs << "signals: // SIGNALS" << endl;
+        hs << "Q_SIGNALS: // SIGNALS" << endl;
         foreach (const QDBusIntrospection::Signal &signal, interface->signals_) {
             hs << "    ";
             if (signal.annotations.value("org.freedesktop.DBus.Deprecated") == "true")

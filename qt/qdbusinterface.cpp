@@ -180,72 +180,24 @@ int QDBusInterfacePrivate::metacall(QMetaObject::Call c, int id, void **argv)
         if (!mp.isReadable())
             return -1;          // don't read
 
-        // try to read this property
-        QDBusMessage msg = QDBusMessage::methodCall(service, path, DBUS_INTERFACE_PROPERTIES,
-                                                    QLatin1String("Get"));
-        msg << interface << QString::fromUtf8(mp.name());
+        QVariant value = property(mp);
+        if (value.type() == QVariant::Invalid)
+            // an error occurred -- property already set lastError
+            return -1;
+        else if (mp.type() == QVariant::LastType)
+            // QVariant is special in this context
+            *reinterpret_cast<QVariant *>(argv[0]) = value;
+        else
+            QDBusMetaObject::assign(argv[0], value);
 
-        QPointer<QDBusAbstractInterface> qq = q;
-        QDBusMessage reply = connp->sendWithReply(msg, QDBusConnection::UseEventLoop);
-
-        // access to "this" or to "q" below this point must check for "qq"
-        // we may have been deleted!
-
-        if (reply.type() == QDBusMessage::ReplyMessage && reply.count() == 1 &&
-            reply.signature() == QLatin1String("v")) {
-            QVariant value = QDBusTypeHelper<QVariant>::fromVariant(reply.at(0));
-
-            // make sure the type is right
-            if (strcmp(mp.typeName(), value.typeName()) == 0) {
-                if (mp.type() == QVariant::LastType)
-                    // QVariant is special in this context
-                    *reinterpret_cast<QVariant *>(argv[0]) = value;
-                else
-                    QDBusMetaObject::assign(argv[0], value);
-                return -1;
-            }
-        }
-
-        // got an error
-        if (qq.isNull())
-            return -1;          // bail out
-
-        if (reply.type() == QDBusMessage::ErrorMessage)
-            lastError = reply;
-        else if (reply.signature() != QLatin1String("v")) {
-            QString errmsg = QLatin1String("Invalid signature `%1' in return from call to "
-                                           DBUS_INTERFACE_PROPERTIES);
-            lastError = QDBusError(QDBusError::InvalidSignature, errmsg.arg(reply.signature()));
-        } else {
-            QString errmsg = QLatin1String("Unexpected type `%1' when retrieving property "
-                                           "`%2 %3.%4'");
-            lastError = QDBusError(QDBusError::InvalidSignature,
-                                   errmsg.arg(QLatin1String(reply.at(0).typeName()),
-                                              QLatin1String(mp.typeName()),
-                                              interface, QString::fromUtf8(mp.name())));
-        }
-        return -1;
+        return -1; // handled
     } else if (c == QMetaObject::WriteProperty) {
         // QMetaProperty::write has already checked that we're writable
         // it has also checked that the type is right
         QVariant value(metaObject->propertyMetaType(id), argv[0]);
         QMetaProperty mp = metaObject->property(id + metaObject->propertyOffset());
 
-        // send the value
-        QDBusMessage msg = QDBusMessage::methodCall(service, path, DBUS_INTERFACE_PROPERTIES,
-                                                    QLatin1String("Set"));
-        msg.setSignature(QLatin1String("ssv"));
-        msg << interface << QString::fromUtf8(mp.name()) << value;
-
-        QPointer<QDBusAbstractInterface> qq = q;
-        QDBusMessage reply = connp->sendWithReply(msg, QDBusConnection::UseEventLoop);
-
-        // access to "this" or to "q" below this point must check for "qq"
-        // we may have been deleted!
-
-        if (!qq.isNull() && reply.type() != QDBusMessage::ReplyMessage)
-            lastError = reply;
-
+        setProperty(mp, value);
         return -1;
     }
     return id;

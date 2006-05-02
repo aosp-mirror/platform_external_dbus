@@ -54,7 +54,7 @@ public:
     QString service;
     QString path;
     QString interface;
-    QDBusError lastError;
+    mutable QDBusError lastError;
     bool isValid;
 
     inline QDBusAbstractInterfacePrivate(const QDBusConnection& con, QDBusConnectionPrivate *conp,
@@ -62,6 +62,10 @@ public:
         : conn(con), connp(conp), service(serv), path(p), interface(iface), isValid(true)
     { }
     virtual ~QDBusAbstractInterfacePrivate() { }
+
+    // these functions do not check if the property is valid
+    QVariant property(const QMetaProperty &mp) const;
+    void setProperty(const QMetaProperty &mp, const QVariant &value);
 };
 
 

@@ -37,7 +37,7 @@ protected:
 public:
     ~QDBusAbstractAdaptor();
 
-    QObject *object() const;
+    Q_DECL_DEPRECATED QObject *object() const;
 
 protected:
     void setAutoRelaySignals(bool enable);

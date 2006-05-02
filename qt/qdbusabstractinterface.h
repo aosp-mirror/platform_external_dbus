@@ -242,6 +242,8 @@ protected:
     QDBusAbstractInterface(QDBusAbstractInterfacePrivate *);
     void connectNotify(const char *signal);
     void disconnectNotify(const char *signal);
+    QVariant internalPropGet(const char *propname) const;
+    void internalPropSet(const char *propname, const QVariant &value);
 
 private:
     friend class QDBusInterface;

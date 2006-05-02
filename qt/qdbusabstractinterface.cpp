@@ -28,6 +28,60 @@
 #include "qdbusmetaobject_p.h"
 #include "qdbusconnection_p.h"
 
+QVariant QDBusAbstractInterfacePrivate::property(const QMetaProperty &mp) const
+{
+    // try to read this property
+    QDBusMessage msg = QDBusMessage::methodCall(service, path, DBUS_INTERFACE_PROPERTIES,
+                                                QLatin1String("Get"));
+    msg << interface << QString::fromUtf8(mp.name());
+    QDBusMessage reply = connp->sendWithReply(msg, QDBusConnection::NoUseEventLoop);
+
+    if (reply.type() == QDBusMessage::ReplyMessage && reply.count() == 1 &&
+        reply.signature() == QLatin1String("v")) {
+        QVariant value = QDBusTypeHelper<QVariant>::fromVariant(reply.at(0));
+
+        // make sure the type is right
+        if (qstrcmp(mp.typeName(), value.typeName()) == 0) {
+            if (mp.type() == QVariant::LastType)
+                // QVariant is special in this context
+                return QDBusTypeHelper<QVariant>::fromVariant(value);
+
+            return value;
+        }
+    }
+
+    // there was an error...
+    if (reply.type() == QDBusMessage::ErrorMessage)
+        lastError = reply;
+    else if (reply.signature() != QLatin1String("v")) {
+        QString errmsg = QLatin1String("Invalid signature `%1' in return from call to "
+                                       DBUS_INTERFACE_PROPERTIES);
+        lastError = QDBusError(QDBusError::InvalidSignature, errmsg.arg(reply.signature()));
+    } else {
+        QString errmsg = QLatin1String("Unexpected type `%1' when retrieving property "
+                                       "`%2 %3.%4'");
+        lastError = QDBusError(QDBusError::InvalidSignature,
+                               errmsg.arg(QLatin1String(reply.at(0).typeName()),
+                                          QLatin1String(mp.typeName()),
+                                          interface, QString::fromUtf8(mp.name())));
+    }
+
+    return QVariant();
+}
+
+void QDBusAbstractInterfacePrivate::setProperty(const QMetaProperty &mp, const QVariant &value)
+{
+    // send the value
+    QDBusMessage msg = QDBusMessage::methodCall(service, path, DBUS_INTERFACE_PROPERTIES,
+                                                QLatin1String("Set"));
+    msg.setSignature(QLatin1String("ssv"));
+    msg << interface << QString::fromUtf8(mp.name()) << value;
+    QDBusMessage reply = connp->sendWithReply(msg, QDBusConnection::NoUseEventLoop);
+
+    if (reply.type() != QDBusMessage::ReplyMessage)
+        lastError = reply;
+}    
+
 /*!
     \class QDBusAbstractInterface
     \brief Base class for all D-Bus interfaces in the QtDBus binding, allowing access to remote interfaces.
@@ -244,6 +298,40 @@ void QDBusAbstractInterface::disconnectNotify(const char *signal)
     Q_D(QDBusAbstractInterface);
 
     d->connp->disconnectRelay(d->service, d->path, d->interface, this, signal);
+}
+
+/*!
+    \internal
+    Get the value of the property \a propname.
+*/
+QVariant QDBusAbstractInterface::internalPropGet(const char *propname) const
+{
+    // assume this property exists and is readable
+    // we're only called from generated code anyways
+
+    int idx = metaObject()->indexOfProperty(propname);
+    if (idx != -1)
+        return d_func()->property(metaObject()->property(idx));
+    qWarning("QDBusAbstractInterface::internalPropGet called with unknown property '%s'", propname);
+    return QVariant();          // error
+}
+
+/*!
+    \internal
+    Set the value of the property \a propname to \a value.
+*/
+void QDBusAbstractInterface::internalPropSet(const char *propname, const QVariant &value)
+{
+    Q_D(QDBusAbstractInterface);
+
+    // assume this property exists and is writeable
+    // we're only called from generated code anyways
+
+    int idx = metaObject()->indexOfProperty(propname);
+    if (idx != -1)
+        d->setProperty(metaObject()->property(idx), value);
+    else
+        qWarning("QDBusAbstractInterface::internalPropGet called with unknown property '%s'", propname);
 }
 
 /*!
