@@ -2936,6 +2936,92 @@
       <para>
         FIXME 
       </para>
+      <sect3 id="message-bus-routing-match-rules">
+        <title>Match Rules</title>
+        <para>
+	  An important part of the message bus routing protocol is match  
+	  rules. Match rules describe what messages can be sent to a client
+          based on the contents of the message.  When a message is routed
+          through the bus it is compared to clients' match rules.  If any
+          of the rules match, the message is dispatched to the client.
+          If none of the rules match the message never leaves the bus.  This
+          is an effective way to control traffic over the bus and to make sure
+          only relevant message need to be processed by the client.
+        </para>
+        <para>
+          Match rules are added using the AddMatch bus method 
+          (see xref linkend="bus-messages-add-match"/>).  Rules are 
+          specified as a string of comma separated key/value pairs. 
+          Excluding a key from the rule indicates a wildcard match.  
+          For instance excluding the the member from a match rule but 
+          adding a sender would let all messages from that sender through.
+          An example of a complete rule would be 
+          "type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',member='Foo',path='/bar/foo',destination=':452345.34',arg2='bar'"
+        </para>
+        <para>
+          The following table describes the keys that can be used to create 
+          a match rule:
+          The following table summarizes the D-BUS types.
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Key</entry>
+                  <entry>Possible Values</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry><literal>type</literal></entry>
+                  <entry>'signal', 'method_call', 'method_return', 'error'</entry>
+                  <entry>Match on the message type.  An example of a type match is type='signal'</entry>
+                </row>
+                <row>
+                  <entry><literal>sender</literal></entry>
+                  <entry>A bus or unique name (see <xref linkend="term-bus-name"/>
+                  and <xref linkend="term-unique-name"/> respectively)
+                  </entry>
+                  <entry>Match messages sent by a particular sender.  An example of a sender match
+                  is sender='org.freedesktop.Hal'</entry>
+                </row>
+                <row>
+                  <entry><literal>interface</literal></entry>
+                  <entry>An interface name (see <xref linkend="message-protocol-names-interface"/>)</entry>
+                  <entry>Match messages sent over or to a particular interface.  An example of an
+                  interface match is interface='org.freedesktop.Hal.Manager'</entry>
+                </row>
+                <row>
+                  <entry><literal>member</literal></entry>
+                  <entry>Any valid method or signal name</entry>
+                  <entry>Matches messages which have the give method or signal name. An example of
+                  a member match is member='NameOwnerChanged'</entry>
+                </row>
+                <row>
+                  <entry><literal>path</literal></entry>
+                  <entry>An object path (see <xref linkend="message-protocol-marshaling-object-path"/>)</entry>
+                  <entry>Matches messages which are sent from or to the given object. An example of a
+                  path match is path='/org/freedesktop/Hal/Manager'</entry>
+                </row>
+                <row>
+                  <entry><literal>destination</literal></entry>
+                  <entry>A unique name (see <xref linkend="term-unique-name"/>)</entry>
+                  <entry>Matches messages which are being sent to the given unique name. An
+                  example of a destination match is destination=':1.0'</entry>
+                </row>
+                <row>
+                  <entry><literal>arg[1, 2, 3, ...]</literal></entry>
+                  <entry>Any string</entry>
+                  <entry>Arg matches are special and are used for further restricting the 
+                  match based on the arguments in the body of a message.  As of this time
+                  only string arguments can be matched.  An example of an argument match 
+                  would be arg3='Foo'.</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        </para>
+      </sect3>
     </sect2>
     <sect2 id="message-bus-starting-services">
       <title>Message Bus Starting Services</title>
@@ -3521,6 +3607,69 @@
         </informaltable>
         Returns the unix uid of the process connected to the server. If unable to
 	determine it, a <literal>org.freedesktop.DBus.Error.Failed</literal>
+	error is returned.
+       </para>
+      </sect3>
+
+      <sect3 id="bus-messages-add-match">
+        <title><literal>org.freedesktop.DBus.AddMatch</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            AddMatch (in STRING rule)
+          </programlisting>
+          Message arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>STRING</entry>
+                  <entry>Match rule to add to the connection</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        Adds a match rule to match messages going through the message bus (see <xref linkend='message-bus-routing-match-rules'/>). 
+	If the bus does not have enough resources the <literal>org.freedesktop.DBus.Error.OOM</literal>
+	error is returned.
+       </para>
+      </sect3>
+      <sect3 id="bus-messages-remove-match">
+        <title><literal>org.freedesktop.DBus.RemoveMatch</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            RemoveMatch (in STRING rule)
+          </programlisting>
+          Message arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>STRING</entry>
+                  <entry>Match rule to remove from the connection</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        Removes the first rule that matches (see <xref linkend='message-bus-routing-match-rules'/>). 
+	If the rule is not found the <literal>org.freedesktop.DBus.Error.MatchRuleNotFound</literal>
 	error is returned.
        </para>
       </sect3>

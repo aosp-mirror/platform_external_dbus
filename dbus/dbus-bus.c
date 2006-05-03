@@ -1031,7 +1031,39 @@ send_no_return_values (DBusConnection *connection,
  * a boolean value indicating whether the error was set,
  * but that would require blocking always to determine
  * the return value.
- * 
+ *
+ * The AddMatch method is fully documented in the D-BUS 
+ * specification. For quick reference, the format of the 
+ * match rules is discussed here, but the specification 
+ * is the canonical version of this information.
+ *
+ * Rules are specified as a string of comma separated 
+ * key/value pairs. An example is 
+ * "type='signal',sender='org.freedesktop.DBus',
+ * interface='org.freedesktop.DBus',member='Foo',
+ * path='/bar/foo',destination=':452345.34'"
+ *
+ * Possible keys you can match on are type, sender, 
+ * interface, member, path, destination and the special
+ * arg keys.  Excluding a key from the rule indicates 
+ * a wildcard match.  For instance excluding the
+ * the member from a match rule but adding a sender would
+ * let all messages from that sender through.  
+ *
+ * Matches are inclusive not exclusive so as long as one 
+ * rule matches the message will get through.  It is important
+ * to note this because every time a message is received the 
+ * application will be paged into memory to process it.  This
+ * can cause performance problems such as draining batteries
+ * on embedded platforms.
+ *
+ * The special arg keys are used for further restricting the 
+ * match based on the parameters sent by the signal or method.
+ * For instance arg1='foo' will check the first argument, 
+ * arg2='bar' the second and so on.  For performance reasons
+ * there is a set limit on the highest number parameter that
+ * can be checked which is set in dbus-protocol.h
+ *
  * @param connection connection to the message bus
  * @param rule textual form of match rule
  * @param error location to store any errors

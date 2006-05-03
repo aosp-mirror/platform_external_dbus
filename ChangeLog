@@ -1,3 +1,12 @@
+2006-05-03  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Adding old doc patch that never got applied
+	
+	* dbus/bus.c (dbus_bus_add_match): Add documentation
+
+	* doc/dbus-specification.xml: Add documentation for the match rules
+	  and the AddMatch and RemoveMatch methods
+
 2006-05-02  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/dbusidl2cpp.cpp: There's no callAsync. Use the correct
