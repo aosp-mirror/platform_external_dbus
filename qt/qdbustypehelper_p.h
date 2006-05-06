@@ -119,7 +119,7 @@ struct QDBusTypeHelper
         return Type();
     }
 
-    static inline QVariantList toVariantList(const List &list)
+    static inline QVariantList toVariantList(const List list)
     {
         QVariantList tmp;
         Q_FOREACH (const Type &t, list)
@@ -132,7 +132,7 @@ struct QDBusTypeHelper
         return toVariantList(QDBusTypeHelper<List>::fromVariant(v));
     }
 
-    static inline List fromVariantList(const QVariantList &list)
+    static inline List fromVariantList(const QVariantList list)
     {
         List tmp;
         Q_FOREACH (const QVariant &v, list)

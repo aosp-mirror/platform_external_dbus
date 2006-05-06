@@ -1,3 +1,10 @@
+2006-05-06  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* qt/qdbusmessage.cpp:
+	* qt/qdbustypehelper_p.h:
+	* qt/qdbusintegrator.cpp: gcc 3.4 doesn't like Q_FOREACH when
+	the list is a const-reference
+
 2006-05-03  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Adding old doc patch that never got applied

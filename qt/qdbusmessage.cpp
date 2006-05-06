@@ -665,7 +665,7 @@ static void debugVariant(QDebug dbg, const QVariant &v)
     dbg.nospace() << ")";
 }    
 
-static void debugVariantList(QDebug dbg, const QVariantList &list)
+static void debugVariantList(QDebug dbg, const QVariantList list)
 {
     bool first = true;
     foreach (const QVariant &v, list) {

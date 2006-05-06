@@ -1097,7 +1097,7 @@ static bool applyForObject(QDBusConnectionPrivate::ObjectTreeNode *root, const Q
                 return true;
             }
 
-            const QObjectList &children = obj->children();
+            const QObjectList children = obj->children();
 
             // find a child with the proper name
             QObject *next = 0;
