@@ -665,13 +665,15 @@ static void debugVariant(QDebug dbg, const QVariant &v)
     dbg.nospace() << ")";
 }    
 
-static void debugVariantList(QDebug dbg, const QVariantList list)
+static void debugVariantList(QDebug dbg, const QVariantList &list)
 {
     bool first = true;
-    foreach (const QVariant &v, list) {
+    QVariantList::ConstIterator it = list.constBegin();
+    QVariantList::ConstIterator end = list.constEnd();
+    for ( ; it != end; ++it) {
         if (!first)
             dbg.nospace() << ", ";
-        debugVariant(dbg, v);
+        debugVariant(dbg, *it);
         first = false;
     }
 }
