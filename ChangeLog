@@ -1,3 +1,10 @@
+2006-05-07  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* qt/qdbusmarshall.cpp: Fix a problem of demarshalling lists
+        and arrays when they had a single element: has_next returns
+        false, even before you read the element. So, instead, check
+        the array length.
+
 2006-05-06  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/qdbusmessage.cpp:

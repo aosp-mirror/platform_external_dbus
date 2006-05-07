@@ -61,8 +61,7 @@ inline QVariant qFetchList(DBusMessageIter *arrayIt)
 
     DBusMessageIter it;
     dbus_message_iter_recurse(arrayIt, &it);
-
-    if (!dbus_message_iter_has_next(&it))
+    if (dbus_message_iter_get_array_len(&it) == 0)
         return QDBusTypeHelper<QList<QtType> >::toVariant(list);
 
     do {
@@ -78,8 +77,7 @@ static QStringList qFetchStringList(DBusMessageIter *arrayIt)
 
     DBusMessageIter it;
     dbus_message_iter_recurse(arrayIt, &it);
-
-    if (!dbus_message_iter_has_next(&it))
+    if (dbus_message_iter_get_array_len(&it) == 0)
         return list;
 
     do {
@@ -157,7 +155,7 @@ static QVariant qFetchParameter(DBusMessageIter *it)
             DBusMessageIter sub;
             
             dbus_message_iter_recurse(it, &sub);
-            if (!dbus_message_iter_has_next(&sub))
+            if (dbus_message_iter_get_array_len(&sub) == 0)
                 // empty map
                 return map;
             
@@ -179,7 +177,7 @@ static QVariant qFetchParameter(DBusMessageIter *it)
         QList<QVariant> list;
         DBusMessageIter sub;
         dbus_message_iter_recurse(it, &sub);
-        if (!dbus_message_iter_has_next(&sub))
+        if (dbus_message_iter_get_array_len(&sub) == 0)
             return list;
         do {
             list.append(qFetchParameter(&sub));
