@@ -939,6 +939,11 @@ slist_copy_elt (const GValue *val, gpointer user_data)
   g_value_init (&val_copy, G_VALUE_TYPE (val));
   g_value_copy (val, &val_copy);
 
+  /* The slist_append can't work if this fails, and
+   * I'm pretty sure it will fail too FIXME
+   */
+  g_assert(dest != NULL);
+  
   g_slist_append (dest, ptrarray_value_from_gvalue (&val_copy));
 }
 
@@ -1292,7 +1297,17 @@ _dbus_gvalue_utils_test (const char *datadir)
     g_assert (!strcmp ("bar", g_ptr_array_index (instance, 1)));
     g_assert (!strcmp ("baz", g_ptr_array_index (instance, 2)));
 
+    /* FIXME this crashes, I believe because ptrarray_append
+     * doesn't copy the incoming static string, then ptrarray_free
+     * tries to free it; looks to me like always copying appended
+     * values would be the only working approach.
+     */
     g_value_unset (&val);
+    /* FIXME make sure this test fails for everyone, since
+     * apparently people didn't see it, the bad free
+     * maybe didn't crash everywhere
+     */
+    g_assert_not_reached();
   }
 
   type = dbus_g_type_get_struct ("GValueArray", G_TYPE_STRING, G_TYPE_UINT, DBUS_TYPE_G_OBJECT_PATH, G_TYPE_INVALID);

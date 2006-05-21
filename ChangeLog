@@ -1,3 +1,17 @@
+2006-05-21  Havoc Pennington  <hp@redhat.com>
+
+	* glib/dbus-gproxy.c: Put in a pile of assertions that the proxy name
+	is not NULL when it shouldn't be. Also a couple of possible fixes
+	for #4637 though I don't understand why the bug happens, to be
+	honest... also the object constructor has an assert name != NULL
+	and the name is only currently NULL for peer-to-peer proxies that 
+	I don't think anyone uses? So it should be asserting.
+	Anyway, for now at least see if we get an earlier assertion failure.
+
+	* glib/dbus-gvalue-utils.c: Put in a couple of assertions for
+	apparently broken code to be sure the tests fail and someone 
+	will fix them...
+
 2006-05-07  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/qdbusmarshall.cpp: Fix a problem of demarshalling lists
