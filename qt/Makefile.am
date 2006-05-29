@@ -41,20 +41,25 @@ libdbus_qt4_1_la_SOURCES =      \
         qdbusmessage.cpp        \
         qdbusserver.cpp         \
         qdbustype.cpp           \
-        qdbusabstractinterface.cpp \
+        qdbusabstractinterface.cpp	\
         qdbusinterface.cpp      \
         qdbusxmlparser.cpp      \
         qdbusutil.cpp           \
         qdbusintrospection.cpp  \
-        qdbusabstractadaptor.cpp \
+        qdbusabstractadaptor.cpp	\
         qdbusthread.cpp         \
-        qdbusinternalfilters.cpp \
-        qdbusmetaobject.cpp
+        qdbusinternalfilters.cpp	\
+        qdbusmetaobject.cpp	\
+	qdbusmisc.cpp		\
+	qdbusxmlgenerator.cpp
 
-bin_PROGRAMS = dbusidl2cpp
+bin_PROGRAMS = dbusidl2cpp dbuscpp2xml
 dbusidl2cpp_SOURCES = dbusidl2cpp.cpp
 dbusidl2cpp_LDFLAGS = -no-undefined 
 dbusidl2cpp_LDADD = $(DBUS_QT_LIBS) libdbus-qt4-1.la
+dbuscpp2xml_SOURCES = dbuscpp2xml.cpp
+dbuscpp2xml_LDFLAGS = -no-undefined 
+dbuscpp2xml_LDADD = $(DBUS_QT_LIBS) libdbus-qt4-1.la
 
 qdbusabstractadaptor.lo: qdbusabstractadaptor.moc qdbusabstractadaptor_p.moc
 qdbusabstractinterface.lo: qdbusabstractinterface.moc
@@ -66,6 +71,7 @@ CLEANFILES=qdbusabstractadaptor.moc qdbusserver.moc qdbusconnection_p.moc qdbusc
 
 libdbus_qt4_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
 libdbus_qt4_1_la_LDFLAGS= -version-info 1:0 -no-undefined
+libdbus_qt4_1_la_CPPFLAGS= -DQDBUS_MAKEDLL
 
 EXTRA_DIST = qt-dbus.qdocconf
 

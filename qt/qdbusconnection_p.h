@@ -85,7 +85,7 @@ public:
     struct SignalHook
     {
         inline SignalHook() : obj(0), midx(-1) { }
-        QString interface, name, signature;
+        QString sender, path, signature;
         QObject* obj;
         int midx;
         QList<int> params;
@@ -139,7 +139,7 @@ public:
 
     QString getNameOwner(const QString &service);    
 
-    bool send(const QDBusMessage &message) const;
+    int send(const QDBusMessage &message) const;
     QDBusMessage sendWithReply(const QDBusMessage &message, int mode);
     int sendWithReplyAsync(const QDBusMessage &message, QObject *receiver,
                            const char *method);
@@ -150,7 +150,7 @@ public:
     void disconnectRelay(const QString &service, const QString &path, const QString &interface,
                          QDBusAbstractInterface *receiver, const char *signal);
     
-    bool handleSignal(const QString &path, const QDBusMessage &msg);
+    bool handleSignal(const QString &key, const QDBusMessage &msg);
     bool handleSignal(const QDBusMessage &msg);
     bool handleObjectCall(const QDBusMessage &message);
     bool handleError();
@@ -176,6 +176,7 @@ private:
 
 public slots:
     // public slots
+    void doDispatch();
     void socketRead(int);
     void socketWrite(int);
     void objectDestroyed(QObject *o);
@@ -210,7 +211,12 @@ public:
     // static methods
     static int messageMetaType;
     static int registerMessageMetaType();
-    static int findSlot(QObject *obj, const char *slotName, QList<int>& params);
+    static int findSlot(QObject *obj, const QByteArray &normalizedName, QList<int>& params);
+    static bool prepareHook(QDBusConnectionPrivate::SignalHook &hook, QString &key,
+                            const QString &service, const QString &path,
+                            const QString &interface, const QString &name,
+                            QObject *receiver, const char *signal, int minMIdx,
+                            bool buildSignature);
     static DBusHandlerResult messageFilter(DBusConnection *, DBusMessage *, void *);
     static void messageResultReceived(DBusPendingCall *, void *);
 };
@@ -225,6 +231,7 @@ public slots:
     void reply(const QDBusMessage &msg);
 };
 
+// in qdbusmisc.cpp
 extern int qDBusParametersForMethod(const QMetaMethod &mm, QList<int>& metaTypes);
 extern int qDBusNameToTypeId(const char *name);
 extern bool qDBusCheckAsyncTag(const char *tag);

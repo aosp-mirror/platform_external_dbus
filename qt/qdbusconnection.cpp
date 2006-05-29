@@ -85,6 +85,7 @@ void QDBusConnectionManager::bindToApplication()
     }
 }
 
+QDBUS_EXPORT void qDBusBindToApplication();
 void qDBusBindToApplication()
 {
     manager()->bindToApplication();
@@ -351,12 +352,6 @@ void QDBusConnection::closeConnection(const QString &name)
     manager()->removeConnection(name);
 }
 
-void QDBusConnectionPrivate::timerEvent(QTimerEvent *e)
-{
-    DBusTimeout *timeout = timeouts.value(e->timerId(), 0);
-    dbus_timeout_handle(timeout);
-}
-
 /*!
     Sends the \a message over this connection, without waiting for a reply. This is suitable for
     errors, signals, and return values as well as calls whose return values are not necessary.
@@ -367,7 +362,7 @@ bool QDBusConnection::send(const QDBusMessage &message) const
 {
     if (!d || !d->connection)
         return false;
-    return d->send(message);
+    return d->send(message) != 0;
 }
 
 /*!
@@ -445,25 +440,21 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
         if (source.isEmpty())
             return false;
     }
-    source += path;
 
     // check the slot
     QDBusConnectionPrivate::SignalHook hook;
-    if ((hook.midx = QDBusConnectionPrivate::findSlot(receiver, slot + 1, hook.params)) == -1)
-        return false;
-
-    hook.interface = interface;
-    hook.name = name;
+    QString key;
     hook.signature = signature;
-    hook.obj = receiver;
+    if (!d->prepareHook(hook, key, source, path, interface, name, receiver, slot, 0, false))
+        return false;           // don't connect
 
     // avoid duplicating:
     QWriteLocker locker(&d->lock);
-    QDBusConnectionPrivate::SignalHookHash::ConstIterator it = d->signalHooks.find(source);
-    for ( ; it != d->signalHooks.end() && it.key() == source; ++it) {
+    QDBusConnectionPrivate::SignalHookHash::ConstIterator it = d->signalHooks.find(key);
+    for ( ; it != d->signalHooks.end() && it.key() == key; ++it) {
         const QDBusConnectionPrivate::SignalHook &entry = it.value();
-        if (entry.interface == hook.interface &&
-            entry.name == hook.name &&
+        if (entry.sender == hook.sender &&
+            entry.path == hook.path &&
             entry.signature == hook.signature &&
             entry.obj == hook.obj &&
             entry.midx == hook.midx) {
@@ -473,7 +464,7 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
     }
 
 
-    d->connectSignal(source, hook);
+    d->connectSignal(key, hook);
     return true;
 }
 

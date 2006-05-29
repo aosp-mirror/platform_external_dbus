@@ -51,6 +51,7 @@ public:
 
 public:
     virtual ~QDBusAbstractInterface();
+    bool isValid() const;
 
     QDBusConnection connection() const;
 

@@ -58,19 +58,6 @@ QDBusInterface::~QDBusInterface()
 }
 
 /*!
-    Returns true if this is a valid reference to a remote object. It returns false if
-    there was an error during the creation of this interface (for instance, if the remote
-    application does not exist).
-
-    Note: when dealing with remote objects, it is not always possible to determine if it
-    exists when creating a QDBusInterface or QDBusInterfacePtr object.
-*/
-bool QDBusInterface::isValid() const
-{
-    return d_func()->isValid;
-}
-
-/*!
     \internal
     Overrides QObject::metaObject to return our own copy.
 */

@@ -1,3 +1,10 @@
+2006-05-29  Thiago Macieira  <thiago.macieira@trolltech.com>
+
+	* qt/*: Update the QtDBus bindings up to revision 546310 in
+        Subversion.
+	This adds the dbuscpp2xml tool, that parses a C++ header and
+        outputs a D-BUS Introspection XML.
+
 2006-05-21  Havoc Pennington  <hp@redhat.com>
 
 	* glib/dbus-gproxy.c: Put in a pile of assertions that the proxy name

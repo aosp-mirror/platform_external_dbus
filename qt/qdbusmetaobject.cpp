@@ -48,8 +48,8 @@ private:
         QByteArray tag;
         QByteArray inputSignature;
         QByteArray outputSignature;
-        QVarLengthArray<int, 6> inputTypes;
-        QVarLengthArray<int, 2> outputTypes;
+        QVarLengthArray<int, 4> inputTypes;
+        QVarLengthArray<int, 4> outputTypes;
         int flags;
     };
     
@@ -297,7 +297,7 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
     if (className.isEmpty())
         className = QLatin1String("QDBusInterface");
 
-    QVarLengthArray<uint> data;
+    QVarLengthArray<int> data;
     data.resize(sizeof(QDBusMetaObjectPrivate) / sizeof(int));
 
     QDBusMetaObjectPrivate *header = reinterpret_cast<QDBusMetaObjectPrivate *>(data.data());

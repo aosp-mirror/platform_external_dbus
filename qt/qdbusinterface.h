@@ -35,7 +35,6 @@ private:
     
 public:
     ~QDBusInterface();
-    bool isValid() const;
     
     virtual const QMetaObject *metaObject() const;
     virtual void *qt_metacast(const char *);
@@ -43,6 +42,7 @@ public:
 
 private:
     Q_DECLARE_PRIVATE(QDBusInterface);
+    Q_DISABLE_COPY(QDBusInterface)
 };
 
 struct QDBUS_EXPORT QDBusInterfacePtr

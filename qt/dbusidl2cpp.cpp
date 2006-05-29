@@ -375,7 +375,7 @@ static QString stringify(const QString &data)
                 retval += "\\\"";
             else
                 retval += data[i];
-        retval += "\"\n";
+        retval += "\\n\"\n";
     }
     return retval;
 }

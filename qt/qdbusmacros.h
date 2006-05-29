@@ -37,7 +37,7 @@
 # error Sorry, you need a compiler with support for template member functions to compile QtDBus.
 #endif
 
-#if defined(DBUS_COMPILATION) && defined(QDBUS_MAKEDLL)
+#if defined(QDBUS_MAKEDLL)
 # define QDBUS_EXPORT Q_DECL_EXPORT
 #else
 # define QDBUS_EXPORT Q_DECL_IMPORT
@@ -45,9 +45,6 @@
 
 #ifndef Q_MOC_RUN
 # define Q_ASYNC
-#endif
-#ifndef QT_NO_KEYWORDS
-# define async  Q_ASYNC
 #endif
 
 #endif
