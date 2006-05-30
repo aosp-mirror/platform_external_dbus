@@ -678,8 +678,8 @@ _dbus_connect_tcp_socket (const char     *host,
     {      
       dbus_set_error (error,
                        _dbus_error_from_errno (errno),
-                      "Failed to connect to socket %s: %s:%d",
-                      host, _dbus_strerror (errno), port);
+                      "Failed to connect to socket %s:%d %s",
+                      host, port, _dbus_strerror (errno));
 
       close (fd);
       fd = -1;

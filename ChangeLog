@@ -1,3 +1,13 @@
+2006-05-30  Sjoerd Simons  <sjoerd@luon.net>
+
+	* dbus/dbus-sysdeps.c: Make tcp socket connection error somewhat more
+	clear:  
+	"Failed to connect to socket <host>:<port> <error>" instead of
+	"Failed to connect to socket <host>: <error>:<port>"
+
+	* dbus/dbus-transport-unix.c: Fix crash when no host option is given
+	for a tcp transport. 
+
 2006-05-29  Thiago Macieira  <thiago.macieira@trolltech.com>
 
 	* qt/*: Update the QtDBus bindings up to revision 546310 in

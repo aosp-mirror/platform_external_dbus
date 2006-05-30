@@ -1272,16 +1272,18 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
       return NULL;
     }
   
-  if (!_dbus_string_append (&address, "tcp:host=") ||
-      !_dbus_string_append (&address, host) ||
-      !_dbus_string_append (&address, ",port=") ||
+  if (!_dbus_string_append (&address, "tcp:"))
+    goto error;
+
+  if (host != NULL && 
+       (!_dbus_string_append (&address, "host=") ||
+        !_dbus_string_append (&address, host)))
+    goto error;
+
+  if (!_dbus_string_append (&address, ",port=") ||
       !_dbus_string_append_int (&address, port))
-    {
-      _dbus_string_free (&address);
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return NULL;
-    }
-  
+    goto error;
+
   fd = _dbus_connect_tcp_socket (host, port, error);
   if (fd < 0)
     {
@@ -1307,6 +1309,11 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
   _dbus_string_free (&address);
   
   return transport;
+
+error:
+  _dbus_string_free (&address);
+  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+  return NULL;
 }
 
 /** @} */
