@@ -997,19 +997,25 @@ else
     AC_MSG_RESULT([release])
 fi
 
-QT_CORE=QtCore$qt_suffix
-QT_XML=QtXml$qt_suffix
-QT_GUI=QtGui$qt_suffix
-QT_TESTLIB=QtTest$qt_suffix
-min_qt_version=4.1.3
+if test x$enable_qt = xno; then
+   have_qt=no
+   have_qt_gui=no
+   have_qtest=no
+else
+   QT_CORE=QtCore$qt_suffix
+   QT_XML=QtXml$qt_suffix
+   QT_GUI=QtGui$qt_suffix
+   QT_TESTLIB=QtTest$qt_suffix
+   min_qt_version=4.1.3
 
-AC_SUBST(QT_CORE)
-AC_SUBST(QT_XML)
+   AC_SUBST(QT_CORE)
+   AC_SUBST(QT_XML)
 
-PKG_CHECK_MODULES([DBUS_QT], 
-                  [$QT_CORE >= $min_qt_version $QT_XML >= $min_qt_version], 
-                  have_qt=yes, 
-                  have_qt=no)
+   PKG_CHECK_MODULES([DBUS_QT], 
+                     [$QT_CORE >= $min_qt_version $QT_XML >= $min_qt_version], 
+                     have_qt=yes, 
+                     have_qt=no)
+fi
 
 dnl Check for moc too
 if test x$have_qt = xyes ; then
@@ -1400,6 +1406,8 @@ glib/examples/statemachine/Makefile
 python/Makefile
 python/examples/Makefile
 qt/Makefile
+qt/src/Makefile
+qt/tools/Makefile
 qt/examples/Makefile
 qt3/Makefile
 gcj/Makefile
