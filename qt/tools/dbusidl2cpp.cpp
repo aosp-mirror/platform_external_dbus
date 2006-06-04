@@ -33,8 +33,8 @@
 #include <QtCore/qset.h>
 
 #include <dbus/qdbus.h>
-#include "qdbusmetaobject_p.h"
-#include "qdbusintrospection_p.h"
+#include "../src/qdbusmetaobject_p.h"
+#include "../src/qdbusintrospection_p.h"
 
 #define PROGRAMNAME     "dbusidl2cpp"
 #define PROGRAMVERSION  "0.4"

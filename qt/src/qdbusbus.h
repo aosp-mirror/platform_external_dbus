@@ -153,6 +153,6 @@ signals:
     void nameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
 };
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(QDBusBusService::RequestNameOptions);
+Q_DECLARE_OPERATORS_FOR_FLAGS(QDBusBusService::RequestNameOptions)
 
 #endif

@@ -28,7 +28,7 @@ class Pong: public QDBusAbstractAdaptor
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "com.trolltech.QtDBus.ComplexPong.Pong")
-    Q_PROPERTY(QString value READ value WRITE setValue);
+    Q_PROPERTY(QString value READ value WRITE setValue)
 public:
     QString m_value;
     QString value() const;

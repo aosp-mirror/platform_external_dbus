@@ -31,9 +31,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
-#include "qdbusconnection.h"    // for the Export* flags
-#include <dbus/dbus.h>          // for the XML DOCTYPE declaration
+#include "../src/qdbusconnection.h"    // for the Export* flags
+
+// copied from dbus-protocol.h:
+static const char docTypeHeader[] =
+    "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\" "
+    "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n";
 
 // in qdbusxmlgenerator.cpp
 extern QDBUS_EXPORT QString qDBusGenerateMetaObjectXml(QString interface, const QMetaObject *mo,
@@ -43,7 +48,7 @@ extern QDBUS_EXPORT QString qDBusGenerateMetaObjectXml(QString interface, const 
 #define PROGRAMVERSION  "0.1"
 #define PROGRAMCOPYRIGHT "Copyright (C) 2006 Trolltech AS. All rights reserved."
 
-static const char cmdlineOptions[] = "psmaPSMAo:";
+static const char cmdlineOptions[] = "psmaPSMAo:hV";
 static const char *outputFile;
 static int flags;
 
@@ -336,7 +341,7 @@ int main(int argc, char **argv)
     MocParser parser;
     parseCmdLine(argc, argv);
 
-    for (int i = 1; i < argc; ++i) {
+    for (int i = optind; i < argc; ++i) {
         FILE *in = fopen(argv[i], "r");
         if (in == 0) {
             fprintf(stderr, PROGRAMNAME ": could not open '%s': %s\n",
@@ -390,7 +395,7 @@ int main(int argc, char **argv)
         }
     }
 
-    fprintf(output, "%s<node>\n", DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE);
+    fprintf(output, "%s<node>\n", docTypeHeader);
     foreach (QMetaObject mo, parser.objects) {
         QString xml = qDBusGenerateMetaObjectXml(QString(), &mo, &QObject::staticMetaObject,
                                                  flags);

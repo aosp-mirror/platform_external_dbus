@@ -41,7 +41,7 @@ public:
     virtual int qt_metacall(QMetaObject::Call, int, void **);
 
 private:
-    Q_DECLARE_PRIVATE(QDBusInterface);
+    Q_DECLARE_PRIVATE(QDBusInterface)
     Q_DISABLE_COPY(QDBusInterface)
 };
 

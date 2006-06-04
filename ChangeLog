@@ -1,3 +1,9 @@
+2006-06-04  Thiago Macieira <thiago.macieira@trolltech.com>
+
+	* qt/: Update to Subversion r548032.
+	This includes a big reorganisation of the files inside the
+	subdir.
+
 2006-05-30  Sjoerd Simons  <sjoerd@luon.net>
 
 	* dbus/dbus-sysdeps.c: Make tcp socket connection error somewhat more

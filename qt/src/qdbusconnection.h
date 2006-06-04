@@ -61,7 +61,7 @@ public:
         UnregisterTree
     };
 
-    Q_DECLARE_FLAGS(RegisterOptions, RegisterOption);
+    Q_DECLARE_FLAGS(RegisterOptions, RegisterOption)
 
     QDBusConnection(const QString &name);
     QDBusConnection(const QDBusConnection &other);

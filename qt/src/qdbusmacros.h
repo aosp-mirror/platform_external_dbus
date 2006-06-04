@@ -47,4 +47,14 @@
 # define Q_ASYNC
 #endif
 
+#ifdef Q_CC_MSVC
+#include <QtCore/qlist.h>
+#include <QtCore/qset.h>
+#include <QtCore/qhash.h>
+#include <QtCore/qvector.h>
+class QDBusType;
+inline uint qHash(const QVariant&)  { Q_ASSERT(0); return 0; }
+inline uint qHash(const QDBusType&) { Q_ASSERT(0); return 0; }
+#endif
+
 #endif

@@ -49,7 +49,7 @@ private:
     QHash<QString, QDBusConnectionPrivate *> connectionHash;
 };
 
-Q_GLOBAL_STATIC(QDBusConnectionManager, manager);
+Q_GLOBAL_STATIC(QDBusConnectionManager, manager)
 
 QDBusConnectionPrivate *QDBusConnectionManager::connection(const QString &name) const
 {
@@ -275,13 +275,13 @@ QDBusConnection QDBusConnection::addConnection(BusType type, const QString &name
     DBusConnection *c = 0;
     switch (type) {
         case SystemBus:
-            c = dbus_bus_get(DBUS_BUS_SYSTEM, &d->error);
+            c = dbus_bus_get_private(DBUS_BUS_SYSTEM, &d->error);
             break;
         case SessionBus:
-            c = dbus_bus_get(DBUS_BUS_SESSION, &d->error);
+            c = dbus_bus_get_private(DBUS_BUS_SESSION, &d->error);
             break;
         case ActivationBus:
-            c = dbus_bus_get(DBUS_BUS_STARTER, &d->error);
+            c = dbus_bus_get_private(DBUS_BUS_STARTER, &d->error);
             break;
     }
     d->setConnection(c); //setConnection does the error handling for us
@@ -632,7 +632,7 @@ QDBusBusService *QDBusConnection::busService() const
     if (!d)
         return 0;
     return d->busService;
-};
+}
 
 QDBusAbstractInterfacePrivate *
 QDBusConnection::findInterface_helper(const QString &service, const QString &path,
@@ -699,7 +699,7 @@ QString QDBusConnection::baseService() const
             : QString();
 }
 
-Q_GLOBAL_STATIC(QMutex, defaultBussesMutex);
+Q_GLOBAL_STATIC(QMutex, defaultBussesMutex)
 static const char sessionBusName[] = "qt_default_session_bus";
 static const char systemBusName[] = "qt_default_system_bus";
 static QDBusConnection *sessionBus = 0;

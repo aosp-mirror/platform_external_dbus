@@ -41,7 +41,7 @@
 
 class QDBusError;
 
-class QDBusMetaObjectPrivate;
+struct QDBusMetaObjectPrivate;
 struct QDBUS_EXPORT QDBusMetaObject: public QMetaObject
 {
     bool cached;

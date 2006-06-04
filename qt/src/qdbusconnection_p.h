@@ -60,12 +60,9 @@ class QDBusObjectPrivate;
 class CallDeliveryEvent;
 class QMetaMethod;
 class QDBusInterfacePrivate;
-class QDBusMetaObject;
+struct QDBusMetaObject;
 class QDBusAbstractInterface;
 class QDBusBusService;
-
-typedef struct DBusConnection;
-typedef struct DBusServer;
 
 class QDBusConnectionPrivate: public QObject
 {

@@ -331,7 +331,7 @@ static void qVariantToIteratorInternal(DBusMessageIter *it, const QVariant &var,
                                        const QDBusType &type);
 
 static void qListToIterator(DBusMessageIter *it, const QList<QVariant> &list,
-                            const QDBusTypeList &list);
+                            const QDBusTypeList &typelist);
 
 template<typename T>
 static void qIterAppend(DBusMessageIter *it, const QDBusType &type, T arg)

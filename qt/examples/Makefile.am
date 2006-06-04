@@ -1,6 +1,5 @@
-if HAVE_QT
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_QT_CFLAGS) -DDBUS_COMPILATION
-LDADD = ../libdbus-qt4-1.la
+INCLUDES=-I$(top_srcdir)/qt $(DBUS_CLIENT_CFLAGS) $(DBUS_QT_CFLAGS) -DDBUS_COMPILATION
+LDADD = ../src/libdbus-qt4-1.la
 
 if HAVE_QT_GUI
 chat_LDADD = $(LDADD) $(DBUS_QT_GUI_LIBS)
@@ -10,7 +9,7 @@ chat.o: chatmainwindow.h chatsetnickname.h chatinterface.h chatadaptor.h chat.mo
 chatmainwindow.h: chatmainwindow.ui
 chatsetnickname.h: chatsetnickname.ui
 chatinterface.cpp chatinterface.h: com.trolltech.ChatInterface.xml
-	../dbusidl2cpp -m -p chatinterface $?
+	../tools/dbusidl2cpp -m -p chatinterface $?
 	$(QT_MOC) -o chatinterface.moc chatinterface.h
 
 CHAT=chat
@@ -41,5 +40,4 @@ CLEANFILES = chat.moc chatadaptor.moc complexping.moc complexpong.moc pong.moc \
 	$(QT_MOC) $< > $@
 %.h: %.ui
 	$(QT_UIC) -o $@ $?
-endif
 

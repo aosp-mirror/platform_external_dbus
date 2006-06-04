@@ -46,8 +46,9 @@
 
 int QDBusConnectionPrivate::messageMetaType = 0;
 
-typedef void (*qDBusSpyHook)(const QDBusMessage&);
-static qDBusSpyHook messageSpyHook;
+typedef void (*QDBusSpyHook)(const QDBusMessage&);
+typedef QVarLengthArray<QDBusSpyHook, 4> QDBusSpyHookList;
+Q_GLOBAL_STATIC(QDBusSpyHookList, qDBusSpyHookList)
 
 struct QDBusPendingCall
 {
@@ -220,10 +221,10 @@ static void qDBusNewConnection(DBusServer *server, DBusConnection *c, void *data
     qDebug("SERVER: GOT A NEW CONNECTION"); // TODO
 }
 
-extern QDBUS_EXPORT void qDBusSetSpyHook(qDBusSpyHook);
-void qDBusSetSpyHook(qDBusSpyHook hook)
+extern QDBUS_EXPORT void qDBusAddSpyHook(QDBusSpyHook);
+void qDBusAddSpyHook(QDBusSpyHook hook)
 {
-    messageSpyHook = hook;
+    qDBusSpyHookList()->append(hook);
 }
 
 #if USE_OUTSIDE_DISPATCH
@@ -271,9 +272,10 @@ DBusHandlerResult QDBusConnectionPrivate::messageFilter(DBusConnection *connecti
     QDBusMessage amsg = QDBusMessage::fromDBusMessage(message, QDBusConnection(d->name));
     qDebug() << "got message:" << amsg;
 
-    if (messageSpyHook) {
+    const QDBusSpyHookList *list = qDBusSpyHookList();
+    for (int i = 0; i < list->size(); ++i) {
         qDebug() << "calling the message spy hook";
-        (*messageSpyHook)(amsg);
+        (*(*list)[i])(amsg);
     }
 
     bool handled = false;

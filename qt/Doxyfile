@@ -23,14 +23,14 @@ PROJECT_NAME           = QtDBus
 # This could be handy for archiving the generated documentation or 
 # if some version control system is used.
 
-PROJECT_NUMBER         = 0.60
+PROJECT_NUMBER         = 0.62
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute) 
 # base path where the generated documentation will be put. 
 # If a relative path is entered, it will be relative to the location 
 # where doxygen was started. If left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = ../doc/api
+OUTPUT_DIRECTORY       = doc/api
 
 # If the CREATE_SUBDIRS tag is set to YES, then doxygen will create 
 # 4096 sub-directories (in 2 levels) under the output directory of each output 
@@ -287,7 +287,7 @@ HIDE_IN_BODY_DOCS      = NO
 # to NO (the default) then the documentation will be excluded. 
 # Set it to YES to include the internal documentation.
 
-INTERNAL_DOCS          = NO
+INTERNAL_DOCS          = YES
 
 # If the CASE_SENSE_NAMES tag is set to NO then Doxygen will only generate 
 # file names in lower-case letters. If set to YES upper-case letters are also 
@@ -459,7 +459,7 @@ WARN_LOGFILE           =
 # directories like "/usr/src/myproject". Separate the files or directories 
 # with spaces.
 
-INPUT                  = .
+INPUT                  = src
 
 # If the value of the INPUT tag contains directories, you can use the 
 # FILE_PATTERNS tag to specify one or more wildcard pattern (like *.cpp 
@@ -512,14 +512,13 @@ EXCLUDE_PATTERNS       = Makefile.* \
                          magic \
                          NOTES \
                          TODO \
-                         THANKS \
-                         *_p.h
+                         THANKS
 
 # The EXAMPLE_PATH tag can be used to specify one or more files or 
 # directories that contain example code fragments that are included (see 
 # the \include command).
 
-EXAMPLE_PATH           = 
+EXAMPLE_PATH           = examples
 
 # If the value of the EXAMPLE_PATH tag contains directories, you can use the 
 # EXAMPLE_PATTERNS tag to specify one or more wildcard pattern (like *.cpp 
@@ -1029,7 +1028,8 @@ PREDEFINED             = DBUS_BEGIN_DECLS= \
                          DOXYGEN_SHOULD_SKIP_THIS \
                          _DBUS_DEFINE_GLOBAL_LOCK(name)= \
                          _DBUS_GNUC_PRINTF(from,to)= \
-			 Q_DECLARE_FLAGS(flags,theenum)=
+			 Q_DECLARE_FLAGS(flags,theenum)= \
+			 Q_QDOC
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then 
 # this tag can be used to specify a list of macro names that should be expanded. 
@@ -1065,7 +1065,7 @@ SKIP_FUNCTION_MACROS   = YES
 # If a tag file is not located in the directory in which doxygen 
 # is run, you must also specify the path to the tagfile here.
 
-TAGFILES               = /home/tjmaciei/troll/qt-4.1/doc/qt.tag=http://doc.trolltech.com/4.1
+TAGFILES               = ./qt.tag=http://doc.trolltech.com/4.1
 
 # When a file name is specified after GENERATE_TAGFILE, doxygen will create 
 # a tag file that is based on the input files it reads.

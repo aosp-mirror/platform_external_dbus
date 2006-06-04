@@ -187,6 +187,8 @@ QString qDBusGenerateMetaObjectXml(QString interface, const QMetaObject *mo, con
     else
         xml = generateInterfaceXml(mo, flags, base->methodCount(), base->propertyCount());
 
+    if (xml.isEmpty())
+        return QString();       // don't add an empty interface
     return QString(QLatin1String("  <interface name=\"%1\">\n%2  </interface>\n"))
         .arg(interface, xml);
 }

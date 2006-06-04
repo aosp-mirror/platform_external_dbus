@@ -34,7 +34,7 @@
 #include "qdbustypehelper_p.h"
 
 template<typename T>
-class QDBUS_EXPORT QDBusReply
+class QDBusReply
 {
     typedef T Type;
 public:
