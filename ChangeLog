@@ -1,5 +1,11 @@
 2006-06-04  Thiago Macieira <thiago.macieira@trolltech.com>
 
+	* dbus/Makefile.am:
+	* dbus/qdbus.h: Remove unnecessary file. This is mirrored into
+        qt/dbus/qdbus.h now.
+
+2006-06-04  Thiago Macieira <thiago.macieira@trolltech.com>
+
 	* configure.in: Make --disable-qt actually do
           something. Patch inspired by Zack Rusin.
 
