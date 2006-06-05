@@ -75,7 +75,7 @@ void *QDBusInterface::qt_metacast(const char *_clname)
     if (!_clname) return 0;
     if (!strcmp(_clname, "QDBusInterface"))
         return static_cast<void*>(const_cast<QDBusInterface*>(this));
-    if (d_func()->interface == _clname)
+    if (d_func()->interface.toLatin1() == _clname)
         return static_cast<void*>(const_cast<QDBusInterface*>(this));
     return QDBusAbstractInterface::qt_metacast(_clname);
 }
@@ -107,7 +107,7 @@ int QDBusInterfacePrivate::metacall(QMetaObject::Call c, int id, void **argv)
         } else if (mm.methodType() == QMetaMethod::Slot) {
             // method call relay from Qt world to D-Bus world
             // get D-Bus equivalent signature
-            QString methodName = metaObject->dbusNameForMethod(id);
+            QString methodName = QLatin1String(metaObject->dbusNameForMethod(id));
             const int *inputTypes = metaObject->inputTypesForMethod(id);
             const int *outputTypes = metaObject->outputTypesForMethod(id);
 
@@ -191,13 +191,13 @@ int QDBusInterfacePrivate::metacall(QMetaObject::Call c, int id, void **argv)
 }
 
 QDBusInterfacePtr::QDBusInterfacePtr(QDBusConnection &conn, const QString &service, const QString &path,
-                   const QString &interface)
-    : d(conn.findInterface(service, path, interface))
+                   const QString &iface)
+    : d(conn.findInterface(service, path, iface))
 {
 }
 
-QDBusInterfacePtr::QDBusInterfacePtr(const QString &service, const QString &path, const QString &interface)
-    : d(QDBus::sessionBus().findInterface(service, path, interface))
+QDBusInterfacePtr::QDBusInterfacePtr(const QString &service, const QString &path, const QString &iface)
+    : d(QDBus::sessionBus().findInterface(service, path, iface))
 {
 }
 

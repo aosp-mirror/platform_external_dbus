@@ -25,8 +25,8 @@
 #include "qdbusserver.h"
 #include "qdbusconnection_p.h"
 
-QDBusServer::QDBusServer(const QString &addr, QObject *parent)
-    : QObject(parent)
+QDBusServer::QDBusServer(const QString &addr, QObject *p)
+    : QObject(p)
 {
     d = new QDBusConnectionPrivate(this);
 

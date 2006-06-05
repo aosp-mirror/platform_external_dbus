@@ -151,21 +151,21 @@ QDBusReply<QStringList> QDBusBusService::ListNames()
 }
 
 /*!
-    \fn QDBusBusService::listQueuedOwners(const QString &service)
+    \fn QDBusBusService::listQueuedOwners(const QString &serviceName)
     Returns a list of all unique connection names in queue for the service name \a service.
 */
-QDBusReply<QStringList> QDBusBusService::ListQueuedOwners(const QString &service)
+QDBusReply<QStringList> QDBusBusService::ListQueuedOwners(const QString &serviceName)
 {
-    return call(QLatin1String("ListQueuedOwners.s"), service);
+    return call(QLatin1String("ListQueuedOwners.s"), serviceName);
 }
 
 /*!
-    \fn QDBusBusService::nameHasOwner(const QString &service)
+    \fn QDBusBusService::nameHasOwner(const QString &serviceName)
     Returns true if the service name \a service has an owner.
 */
-QDBusReply<bool> QDBusBusService::NameHasOwner(const QString &service)
+QDBusReply<bool> QDBusBusService::NameHasOwner(const QString &serviceName)
 {
-    return call(QLatin1String("NameHasOwner.s"), service);
+    return call(QLatin1String("NameHasOwner.s"), serviceName);
 }
 
 /*!
@@ -189,31 +189,31 @@ QDBusReply<void> QDBusBusService::RemoveMatch(const QString &rule)
 }
 
 /*!
-    \fn QDBusBusService::connectionSELinuxSecurityContext(const QString &service)
+    \fn QDBusBusService::connectionSELinuxSecurityContext(const QString &serviceName)
     Returns the SELinux security context of the process currently holding the bus service \a
     service.
 */
-QDBusReply<QByteArray> QDBusBusService::GetConnectionSELinuxSecurityContext(const QString &service)
+QDBusReply<QByteArray> QDBusBusService::GetConnectionSELinuxSecurityContext(const QString &serviceName)
 {
-    return call(QLatin1String("GetConnectionSELinuxSecurityContext.s"), service);
+    return call(QLatin1String("GetConnectionSELinuxSecurityContext.s"), serviceName);
 }
 
 /*!
-    \fn QDBusBusService::connectionUnixProcessID(const QString &service)
+    \fn QDBusBusService::connectionUnixProcessID(const QString &serviceName)
     Returns the Unix Process ID (PID) for the process currently holding the bus service \a service.
 */
-QDBusReply<uint> QDBusBusService::GetConnectionUnixProcessID(const QString &service)
+QDBusReply<uint> QDBusBusService::GetConnectionUnixProcessID(const QString &serviceName)
 {
-    return call(QLatin1String("GetConnectionUnixProcessID.s"), service);
+    return call(QLatin1String("GetConnectionUnixProcessID.s"), serviceName);
 }
 
 /*!
-    \fn QDBusBusService::connectionUnixUser(const QString &service)
+    \fn QDBusBusService::connectionUnixUser(const QString &serviceName)
     Returns the Unix User ID (UID) for the process currently holding the bus service \a service.
 */
-QDBusReply<uint> QDBusBusService::GetConnectionUnixUser(const QString &service)
+QDBusReply<uint> QDBusBusService::GetConnectionUnixUser(const QString &serviceName)
 {
-    return call(QLatin1String("GetConnectionUnixUser.s"), service);
+    return call(QLatin1String("GetConnectionUnixUser.s"), serviceName);
 }
 
 /*!
@@ -244,36 +244,36 @@ inline QDBUS_EXPORT int qDBusMetaTypeId(QDBusBusService::RequestNameReply *)
 { return QVariant::Int; }
 
 /*!
-    \fn QDBusBusService::requestName(const QString &service, RequestNameOptions flags)
+    \fn QDBusBusService::requestName(const QString &serviceName, RequestNameOptions flags)
     Requests the bus service name \a service from the bus. The \a flags parameter specifies how the
     bus server daemon should act when the same name is requested by two different applications.
 
     \sa releaseName()
 */
 QDBusReply<QDBusBusService::RequestNameReply>
-QDBusBusService::RequestName(const QString &service, RequestNameOptions flags)
+QDBusBusService::RequestName(const QString &serviceName, RequestNameOptions flags)
 {
-    return call(QLatin1String("RequestName.su"), service, uint(int(flags)));
+    return call(QLatin1String("RequestName.su"), serviceName, uint(int(flags)));
 }
 
 inline QDBUS_EXPORT int qDBusMetaTypeId(QDBusBusService::ReleaseNameReply *)
 { return QVariant::Int; }
 
 /*!
-    \fn QDBusBusService::releaseName(const QString &service)
+    \fn QDBusBusService::releaseName(const QString &serviceName)
     Releases the claim on the bus service name \a service, that had been previously requested with
     requestName(). If this application had ownership of the name, it will be released for other
     applications to claim. If it only had the name queued, it gives up its position in the queue.
 */
 QDBusReply<QDBusBusService::ReleaseNameReply>
-QDBusBusService::ReleaseName(const QString &service)
+QDBusBusService::ReleaseName(const QString &serviceName)
 {
-    return call(QLatin1String("ReleaseName.s"), service);
+    return call(QLatin1String("ReleaseName.s"), serviceName);
 }
 
 // signals
 /*!
-    \fn QDBusBusService::nameAcquired(const QString &service)
+    \fn QDBusBusService::nameAcquired(const QString &serviceName)
 
     This signal is emitted by the D-Bus bus server when the bus service name (unique connection name
     or well-known service name) given by \a service is acquired by this application.
@@ -282,7 +282,7 @@ QDBusBusService::ReleaseName(const QString &service)
 */
 
 /*!
-    \fn QDBusBusService::nameLost(const QString &service)
+    \fn QDBusBusService::nameLost(const QString &serviceName)
 
     This signal is emitted by the D-Bus bus server when the application loses ownership of the bus
     service name given by \a service.

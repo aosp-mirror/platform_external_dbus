@@ -88,8 +88,7 @@ void QDBusAbstractAdaptorPrivate::saveIntrospectionXml(QDBusAbstractAdaptor *ada
 }
 
 /*!
-    \page usingannotations.html
-    \title Using annotations in adaptors
+    \page usingannotations.html Using annotations in adaptors
 
     It is currently not possible to specify arbitrary annotations in adaptors.
 */
@@ -121,12 +120,12 @@ void QDBusAbstractAdaptorPrivate::saveIntrospectionXml(QDBusAbstractAdaptor *ada
 */
 
 /*!
-    Constructs a QDBusAbstractAdaptor with \a parent as the object we refer to.
+    Constructs a QDBusAbstractAdaptor with \a obj as the parent object.
 */
-QDBusAbstractAdaptor::QDBusAbstractAdaptor(QObject* parent)
-    : QObject(parent), d(new QDBusAbstractAdaptorPrivate)
+QDBusAbstractAdaptor::QDBusAbstractAdaptor(QObject* obj)
+    : QObject(obj), d(new QDBusAbstractAdaptorPrivate)
 {
-    QDBusAdaptorConnector *connector = qDBusCreateAdaptorConnector(parent);
+    QDBusAdaptorConnector *connector = qDBusCreateAdaptorConnector(obj);
 
     connector->waitingForPolish = true;
     QTimer::singleShot(0, connector, SLOT(polish()));
@@ -181,8 +180,8 @@ void QDBusAbstractAdaptor::setAutoRelaySignals(bool enable)
     }
 }
 
-QDBusAdaptorConnector::QDBusAdaptorConnector(QObject *parent)
-    : QObject(parent), waitingForPolish(false), lastSignalIdx(0), argv(0)
+QDBusAdaptorConnector::QDBusAdaptorConnector(QObject *obj)
+    : QObject(obj), waitingForPolish(false), lastSignalIdx(0), argv(0)
 {
 }
 
@@ -258,18 +257,18 @@ void QDBusAdaptorConnector::relaySlot()
     relay(sender());
 }
 
-void QDBusAdaptorConnector::relay(QObject *sender)
+void QDBusAdaptorConnector::relay(QObject *senderObj)
 {
     // we're being called because there is a signal being emitted that we must relay
     Q_ASSERT(lastSignalIdx);
     Q_ASSERT(argv);
     Q_ASSERT(senderMetaObject);
 
-    if (senderMetaObject != sender->metaObject()) {
+    if (senderMetaObject != senderObj->metaObject()) {
         qWarning("Inconsistency detected: QDBusAdaptorConnector::relay got called with unexpected sender object!");
     } else {
         QMetaMethod mm = senderMetaObject->method(lastSignalIdx);
-        QObject *object = static_cast<QDBusAbstractAdaptor *>(sender)->parent();
+        QObject *object = static_cast<QDBusAbstractAdaptor *>(senderObj)->parent();
 
         // break down the parameter list
         QList<int> types;

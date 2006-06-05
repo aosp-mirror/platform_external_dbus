@@ -154,7 +154,7 @@ void QDBusMetaObjectGenerator::parseMethods()
                 break;
             }
 
-            mm.inputSignature += arg.type;
+            mm.inputSignature += arg.type.toLatin1();
             mm.inputTypes.append(typeId);
 
             mm.parameters.append(arg.name.toLatin1());
@@ -175,7 +175,7 @@ void QDBusMetaObjectGenerator::parseMethods()
                 break;
             }
 
-            mm.outputSignature += arg.type;
+            mm.outputSignature += arg.type.toLatin1();
             mm.outputTypes.append(typeId);
 
             if (i == 0) {
@@ -230,7 +230,7 @@ void QDBusMetaObjectGenerator::parseSignals()
                 break;
             }
 
-            mm.inputSignature += arg.type;
+            mm.inputSignature += arg.type.toLatin1();
             mm.inputTypes.append(typeId);
 
             mm.parameters.append(arg.name.toLatin1());
@@ -297,16 +297,16 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
     if (className.isEmpty())
         className = QLatin1String("QDBusInterface");
 
-    QVarLengthArray<int> data;
-    data.resize(sizeof(QDBusMetaObjectPrivate) / sizeof(int));
+    QVarLengthArray<int> idata;
+    idata.resize(sizeof(QDBusMetaObjectPrivate) / sizeof(int));
 
-    QDBusMetaObjectPrivate *header = reinterpret_cast<QDBusMetaObjectPrivate *>(data.data());
+    QDBusMetaObjectPrivate *header = reinterpret_cast<QDBusMetaObjectPrivate *>(idata.data());
     header->revision = 1;
     header->className = 0;
     header->classInfoCount = 0;
     header->classInfoData = 0;
     header->methodCount = methods.count();
-    header->methodData = data.size();
+    header->methodData = idata.size();
     header->propertyCount = properties.count();
     header->propertyData = header->methodData + header->methodCount * 5;
     header->enumeratorCount = 0;
@@ -314,12 +314,12 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
     header->propertyDBusData = header->propertyData + header->propertyCount * 3;
     header->methodDBusData = header->propertyDBusData + header->propertyCount * intsPerProperty;
 
-    int data_size = data.size() +
+    int data_size = idata.size() +
                     (header->methodCount * (5+intsPerMethod)) +
                     (header->propertyCount * (3+intsPerProperty));
     foreach (const Method &mm, methods)
         data_size += 2 + mm.inputTypes.count() + mm.outputTypes.count();
-    data.resize(data_size + 1);
+    idata.resize(data_size + 1);
 
     char null('\0');
     QByteArray stringdata = className.toLatin1();
@@ -329,7 +329,7 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
     int offset = header->methodData;
     int signatureOffset = header->methodDBusData;
     int typeidOffset = header->methodDBusData + header->methodCount * intsPerMethod;
-    data[typeidOffset++] = 0;                           // eod
+    idata[typeidOffset++] = 0;                           // eod
 
     // add each method:
     for (QMap<QByteArray, Method>::ConstIterator it = methods.constBegin();
@@ -337,41 +337,41 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
         // form "prototype\0parameters\0typeName\0tag\0inputSignature\0outputSignature"
         const Method &mm = it.value();
 
-        data[offset++] = stringdata.length();
+        idata[offset++] = stringdata.length();
         stringdata += it.key();                 // prototype
         stringdata += null;
-        data[offset++] = stringdata.length();
+        idata[offset++] = stringdata.length();
         stringdata += mm.parameters;
         stringdata += null;
-        data[offset++] = stringdata.length();
+        idata[offset++] = stringdata.length();
         stringdata += mm.typeName;
         stringdata += null;
-        data[offset++] = stringdata.length();
+        idata[offset++] = stringdata.length();
         stringdata += mm.tag;
         stringdata += null;
-        data[offset++] = mm.flags;
+        idata[offset++] = mm.flags;
 
-        data[signatureOffset++] = stringdata.length();
+        idata[signatureOffset++] = stringdata.length();
         stringdata += mm.inputSignature;
         stringdata += null;
-        data[signatureOffset++] = stringdata.length();
+        idata[signatureOffset++] = stringdata.length();
         stringdata += mm.outputSignature;
         stringdata += null;
 
-        data[signatureOffset++] = typeidOffset;
-        data[typeidOffset++] = mm.inputTypes.count();
-        memcpy(data.data() + typeidOffset, mm.inputTypes.data(), mm.inputTypes.count() * sizeof(int));
+        idata[signatureOffset++] = typeidOffset;
+        idata[typeidOffset++] = mm.inputTypes.count();
+        memcpy(idata.data() + typeidOffset, mm.inputTypes.data(), mm.inputTypes.count() * sizeof(int));
         typeidOffset += mm.inputTypes.count();
 
-        data[signatureOffset++] = typeidOffset;
-        data[typeidOffset++] = mm.outputTypes.count();
-        memcpy(data.data() + typeidOffset, mm.outputTypes.data(), mm.outputTypes.count() * sizeof(int));
+        idata[signatureOffset++] = typeidOffset;
+        idata[typeidOffset++] = mm.outputTypes.count();
+        memcpy(idata.data() + typeidOffset, mm.outputTypes.data(), mm.outputTypes.count() * sizeof(int));
         typeidOffset += mm.outputTypes.count();
     }
 
     Q_ASSERT(offset == header->propertyData);
     Q_ASSERT(signatureOffset == header->methodDBusData + header->methodCount * intsPerMethod);
-    Q_ASSERT(typeidOffset == data.size());
+    Q_ASSERT(typeidOffset == idata.size());
 
     // add each property
     signatureOffset = header->propertyDBusData;
@@ -380,18 +380,18 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
         const Property &mp = it.value();
 
         // form is "name\0typeName\0signature\0"
-        data[offset++] = stringdata.length();
+        idata[offset++] = stringdata.length();
         stringdata += it.key();                 // name
         stringdata += null;
-        data[offset++] = stringdata.length();
+        idata[offset++] = stringdata.length();
         stringdata += mp.typeName;
         stringdata += null;
-        data[offset++] = mp.flags;
+        idata[offset++] = mp.flags;
 
-        data[signatureOffset++] = stringdata.length();
+        idata[signatureOffset++] = stringdata.length();
         stringdata += mp.signature;
         stringdata += null;
-        data[signatureOffset++] = mp.type;
+        idata[signatureOffset++] = mp.type;
     }
 
     Q_ASSERT(offset == header->propertyDBusData);
@@ -400,8 +400,8 @@ void QDBusMetaObjectGenerator::write(QDBusMetaObject *obj)
     char *string_data = new char[stringdata.length()];
     memcpy(string_data, stringdata, stringdata.length());
 
-    uint *uint_data = new uint[data.size()];
-    memcpy(uint_data, data.data(), data.size() * sizeof(int));
+    uint *uint_data = new uint[idata.size()];
+    memcpy(uint_data, idata.data(), idata.size() * sizeof(int));
 
     // put the metaobject together
     obj->d.data = uint_data;

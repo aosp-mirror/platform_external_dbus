@@ -55,12 +55,10 @@ QDBusMessagePrivate::~QDBusMessagePrivate()
 
     This object can represent any of four different types of messages possible on the bus
     (see MessageType)
-    \list
-      \o Method calls
-      \o Method return values
-      \o Signal emissions
-      \o Error codes
-    \endlist
+    - Method calls
+    - Method return values
+    - Signal emissions
+    - Error codes
 
     Objects of this type are created with the four static functions signal, methodCall,
     methodReply and error.
@@ -432,7 +430,7 @@ QString QDBusMessage::signature() const
 
 /*!
     Sets the signature for the output arguments of this method call to be the value of \a
-    signature. This function has no meaning in other types of messages or when dealing with received
+    sig. This function has no meaning in other types of messages or when dealing with received
     method calls.
 
     A message's signature indicate the type of the parameters to
@@ -442,10 +440,10 @@ QString QDBusMessage::signature() const
     when a variant of type QVariant::Invalid is converted to the type).
 
 */
-void QDBusMessage::setSignature(const QString &signature)
+void QDBusMessage::setSignature(const QString &sig)
 {
     qAtomicDetach(d_ptr);
-    d_ptr->signature = signature;
+    d_ptr->signature = sig;
 }
 
 /*!
@@ -569,7 +567,7 @@ QDBusMessage::MessageType QDBusMessage::type() const
     value.
 */
 
-#ifndef QT_NO_DEBUG
+#ifndef QT_NO_DEBUG_STREAM
 QDebug operator<<(QDebug dbg, QDBusMessage::MessageType t)
 {
     switch (t)

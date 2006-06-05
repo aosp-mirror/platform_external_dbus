@@ -86,7 +86,7 @@ inline bool operator!=(QDBusError::KnownErrors p1, const QDBusError &p2)
 inline bool operator!=(const QDBusError &p1, QDBusError::KnownErrors p2)
 { return !(p1 == p2); }
 
-#ifndef QT_NO_DEBUG
+#ifndef QT_NO_DEBUG_STREAM
 QDebug operator<<(QDebug, const QDBusError &);
 #endif
 

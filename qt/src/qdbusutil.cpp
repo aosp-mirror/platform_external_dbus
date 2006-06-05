@@ -42,13 +42,11 @@ namespace QDBusUtil
         Returns true if this is \a ifaceName is a valid interface name.
 
         Valid interface names must:
-        \list
-          \o not be empty
-          \o not exceed 255 characters in length
-          \o be composed of dot-separated string components that contain only ASCII letters, digits
-             and the underscore ("_") character
-          \o contain at least two such components
-        \endlist
+	- not be empty
+	- not exceed 255 characters in length
+	- be composed of dot-separated string components that contain only ASCII letters, digits
+	  and the underscore ("_") character
+        - contain at least two such components
     */
     bool isValidInterfaceName(const QString& ifaceName)
     {
@@ -96,13 +94,11 @@ namespace QDBusUtil
         Returns true if \a busName is a valid bus name.
 
         A valid bus name is either a valid unique connection name or follows the rules:
-        \list
-          \o is not empty
-          \o does not exceed 255 characters in length
-          \o be composed of dot-separated string components that contain only ASCII letters, digits,
-             hyphens or underscores ("_"), but don't start with a digit
-          \o contains at least two such elements
-        \endlist
+	- is not empty
+	- does not exceed 255 characters in length
+	- be composed of dot-separated string components that contain only ASCII letters, digits,
+	  hyphens or underscores ("_"), but don't start with a digit
+        - contains at least two such elements
 
         \sa isValidUniqueConnectionName()
     */
@@ -137,7 +133,7 @@ namespace QDBusUtil
         if (memberName.isEmpty() || memberName.length() > DBUS_MAXIMUM_NAME_LENGTH)
             return false;
 
-        QRegExp regex(QLatin1String("[a-zA-Z_][a-zA-Z0-9_]+"));
+        QRegExp regex(QLatin1String("[a-zA-Z_][a-zA-Z0-9_]*"));
         return regex.exactMatch(memberName);
     }
 
@@ -156,13 +152,11 @@ namespace QDBusUtil
         Returns true if \a path is valid object path.
 
         Valid object paths follow the rules:
-        \list
-          \o start with the slash character ("/")
-          \o do not end in a slash, unless the path is just the initial slash
-          \o do not contain any two slashes in sequence
-          \o contain slash-separated parts, each of which is composed of ASCII letters, digits and
-             underscores ("_")
-        \endlist
+	- start with the slash character ("/")
+	- do not end in a slash, unless the path is just the initial slash
+	- do not contain any two slashes in sequence
+	- contain slash-separated parts, each of which is composed of ASCII letters, digits and
+	  underscores ("_")
     */
     bool isValidObjectPath(const QString &path)
     {

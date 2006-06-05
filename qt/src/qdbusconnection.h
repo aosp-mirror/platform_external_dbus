@@ -101,17 +101,17 @@ public:
 
 private:
     QDBusAbstractInterfacePrivate *findInterface_helper(const QString &, const QString &,
-                                                        const QString&);
+                                                        const char*);
     QDBusConnectionPrivate *d;
 };
 
 template<class Interface>
 inline Interface *QDBusConnection::findInterface(const QString &service, const QString &path)
 {
-    register QDBusAbstractInterfacePrivate *d;
-    d = findInterface_helper(service, path, Interface::staticInterfaceName());
-    if (d)
-        return new Interface(d);
+    register QDBusAbstractInterfacePrivate *d_ptr;
+    d_ptr = findInterface_helper(service, path, Interface::staticInterfaceName());
+    if (d_ptr)
+        return new Interface(d_ptr);
     return 0;
 }
 

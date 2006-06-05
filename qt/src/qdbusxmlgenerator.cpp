@@ -62,7 +62,7 @@ static QString generateInterfaceXml(const QMetaObject *mo, int flags, int method
                 continue;
 
             retval += QString(QLatin1String("    <property name=\"%1\" type=\"%2\" access=\"%3\" />\n"))
-                      .arg(mp.name())
+                      .arg(QLatin1String(mp.name()))
                       .arg(QLatin1String( QDBusUtil::typeToSignature( QVariant::Type(typeId) )))
                       .arg(QLatin1String( accessvalues[access] ));
         }
@@ -165,7 +165,8 @@ QString qDBusGenerateMetaObjectXml(QString interface, const QMetaObject *mo, con
 
             if (interface.startsWith( QLatin1String("QDBus") )) {
                 interface.prepend( QLatin1String("com.trolltech.QtDBus.") );
-            } else if (interface.startsWith( QLatin1Char('Q') )) {
+            } else if (interface.startsWith( QLatin1Char('Q') ) &&
+                       interface.length() >= 2 && interface.at(1).isUpper()) {
                 // assume it's Qt
                 interface.prepend( QLatin1String("com.trolltech.Qt.") );
             } else if (!QCoreApplication::instance() ||
@@ -173,9 +174,14 @@ QString qDBusGenerateMetaObjectXml(QString interface, const QMetaObject *mo, con
                 interface.prepend( QLatin1String("local.") );
             } else {
                 interface.prepend(QLatin1Char('.')).prepend( QCoreApplication::instance()->applicationName() );
-                QStringList domainName = QCoreApplication::instance()->organizationDomain().split(QLatin1Char('.'));
-                foreach (const QString &part, domainName)
-                    interface.prepend(QLatin1Char('.')).prepend(part);
+                QStringList domainName =
+                    QCoreApplication::instance()->organizationDomain().split(QLatin1Char('.'),
+                                                                             QString::SkipEmptyParts);
+                if (domainName.isEmpty())
+                    interface.prepend("local.");
+                else
+                    foreach (const QString &part, domainName)
+                        interface.prepend(QLatin1Char('.')).prepend(part);
             }
         }
     }

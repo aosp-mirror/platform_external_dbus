@@ -53,13 +53,13 @@ public:
         return *this;
     }
 
-    inline QDBusReply(const QDBusError &error = QDBusError())
-        : m_error(error), m_data(Type())
+    inline QDBusReply(const QDBusError &dbusError = QDBusError())
+        : m_error(dbusError), m_data(Type())
     {
     }
-    inline QDBusReply& operator=(const QDBusError& error)
+    inline QDBusReply& operator=(const QDBusError& dbusError)
     {
-        m_error = error;
+        m_error = dbusError;
         m_data = Type();
         return *this;
     }
@@ -114,8 +114,8 @@ public:
         : m_error(reply)
     {
     }
-    inline QDBusReply(const QDBusError &error)
-        : m_error(error)
+    inline QDBusReply(const QDBusError &dbusError)
+        : m_error(dbusError)
     {
     }    
 

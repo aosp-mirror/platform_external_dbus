@@ -165,7 +165,7 @@ void qDBusPropertyGet(const QDBusConnectionPrivate::ObjectTreeNode *node, const 
         QDBusAdaptorConnector::AdaptorMap::ConstIterator it;
         it = qLowerBound(connector->adaptors.constBegin(), connector->adaptors.constEnd(),
                          interface_name);
-        if (it != connector->adaptors.end() && it->interface == interface_name)
+        if (it != connector->adaptors.constEnd() && it->interface == interface_name)
             value = it->adaptor->property(property_name);
     }
 

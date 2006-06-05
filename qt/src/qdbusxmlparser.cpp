@@ -47,8 +47,11 @@ parseAnnotations(const QDomElement& elem)
         QString name = ann.attribute(QLatin1String("name")),
                value = ann.attribute(QLatin1String("value"));
 
-        if (name.isEmpty())
+        if (!QDBusUtil::isValidInterfaceName(name)) {
+            qWarning("Invalid D-BUS annotation '%s' found while parsing introspection",
+                     qPrintable(name));
             continue;
+        }
 
         retval.insert(name, value);
     }
@@ -74,8 +77,11 @@ parseArgs(const QDomElement& elem, const QLatin1String& direction, bool acceptEm
             if (arg.hasAttribute(QLatin1String("name")))
                 argData.name = arg.attribute(QLatin1String("name")); // can be empty
             argData.type = arg.attribute(QLatin1String("type"));
-            if (!QDBusUtil::isValidSingleSignature(argData.type))
+            if (!QDBusUtil::isValidSingleSignature(argData.type)) {
+                qWarning("Invalid D-BUS type signature '%s' found while parsing introspection",
+                         qPrintable(argData.type));
                 continue;
+            }
 
             retval << argData;
         }
@@ -106,13 +112,18 @@ QDBusXmlParser::interfaces() const
     if (m_node.isNull())
         return retval;
 
-    QDomNodeList interfaces = m_node.elementsByTagName(QLatin1String("interface"));
-    for (int i = 0; i < interfaces.count(); ++i)
+    QDomNodeList interfaceList = m_node.elementsByTagName(QLatin1String("interface"));
+    for (int i = 0; i < interfaceList.count(); ++i)
     {
-        QDomElement iface = interfaces.item(i).toElement();
+        QDomElement iface = interfaceList.item(i).toElement();
         QString ifaceName = iface.attribute(QLatin1String("name"));
-        if (iface.isNull() || ifaceName.isEmpty())
+        if (iface.isNull())
             continue;           // for whatever reason
+        if (!QDBusUtil::isValidInterfaceName(ifaceName)) {
+            qWarning("Invalid D-BUS interface name '%s' found while parsing introspection",
+                     qPrintable(ifaceName));
+            continue;
+        }
 
         QDBusIntrospection::Interface *ifaceData = new QDBusIntrospection::Interface;
         ifaceData->name = ifaceName;
@@ -131,8 +142,13 @@ QDBusXmlParser::interfaces() const
         {
             QDomElement method = list.item(j).toElement();
             QString methodName = method.attribute(QLatin1String("name"));
-            if (method.isNull() || methodName.isEmpty())
+            if (method.isNull())
                 continue;
+            if (!QDBusUtil::isValidMemberName(methodName)) {
+                qWarning("Invalid D-BUS member name '%s' found in interface '%s' while parsing introspection",
+                         qPrintable(methodName), qPrintable(ifaceName));
+                continue;
+            }
 
             QDBusIntrospection::Method methodData;
             methodData.name = methodName;
@@ -152,8 +168,13 @@ QDBusXmlParser::interfaces() const
         {
             QDomElement signal = list.item(j).toElement();
             QString signalName = signal.attribute(QLatin1String("name"));
-            if (signal.isNull() || signalName.isEmpty())
+            if (signal.isNull())
                 continue;
+            if (!QDBusUtil::isValidMemberName(signalName)) {
+                qWarning("Invalid D-BUS member name '%s' found in interface '%s' while parsing introspection",
+                         qPrintable(signalName), qPrintable(ifaceName));
+                continue;
+            }
 
             QDBusIntrospection::Signal signalData;
             signalData.name = signalName;
@@ -172,8 +193,13 @@ QDBusXmlParser::interfaces() const
         {
             QDomElement property = list.item(j).toElement();
             QString propertyName = property.attribute(QLatin1String("name"));
-            if (property.isNull() || propertyName.isEmpty())
+            if (property.isNull())
                 continue;
+            if (!QDBusUtil::isValidMemberName(propertyName)) {
+                qWarning("Invalid D-BUS member name '%s' found in interface '%s' while parsing introspection",
+                         qPrintable(propertyName), qPrintable(ifaceName));
+                continue;
+            }
 
             QDBusIntrospection::Property propertyData;
 
@@ -182,22 +208,27 @@ QDBusXmlParser::interfaces() const
             propertyData.type = property.attribute(QLatin1String("type"));
             propertyData.annotations = parseAnnotations(property);
 
-            if (!QDBusUtil::isValidSingleSignature(propertyData.type))
+            if (!QDBusUtil::isValidSingleSignature(propertyData.type)) {
                 // cannot be!
+                qWarning("Invalid D-BUS type signature '%s' found in property '%s.%s' while parsing introspection",
+                         qPrintable(propertyData.type), qPrintable(ifaceName),
+                         qPrintable(propertyName));
                 continue;
+            }
 
             QString access = property.attribute(QLatin1String("access"));
-            if (access.isEmpty())
-                // can't be empty either!
-                continue;
-            else if (access == QLatin1String("read"))
+            if (access == QLatin1String("read"))
                 propertyData.access = QDBusIntrospection::Property::Read;
             else if (access == QLatin1String("write"))
                 propertyData.access = QDBusIntrospection::Property::Write;
             else if (access == QLatin1String("readwrite"))
                 propertyData.access = QDBusIntrospection::Property::ReadWrite;
-            else
+            else {
+                qWarning("Invalid D-BUS property access '%s' found in property '%s.%s' while parsing introspection",
+                         qPrintable(access), qPrintable(ifaceName),
+                         qPrintable(propertyName));
                 continue;       // invalid one!
+            }
 
             // add it
             ifaceData->properties.insert(propertyName, propertyData);
@@ -231,18 +262,28 @@ QDBusXmlParser::object() const
         for (int i = 0; i < objects.count(); ++i) {
             QDomElement obj = objects.item(i).toElement();
             QString objName = obj.attribute(QLatin1String("name"));
-            if (obj.isNull() || objName.isEmpty())
+            if (obj.isNull())
                 continue;           // for whatever reason
+            if (!QDBusUtil::isValidObjectPath(m_path + QLatin1Char('/') + objName)) {
+                qWarning("Invalid D-BUS object path '%s/%s' found while parsing introspection",
+                         qPrintable(m_path), qPrintable(objName));
+                continue;
+            }
 
             objData->childObjects.append(objName);
         }
 
-        QDomNodeList interfaces = m_node.elementsByTagName(QLatin1String("interface"));
-        for (int i = 0; i < interfaces.count(); ++i) {
-            QDomElement iface = interfaces.item(i).toElement();
+        QDomNodeList interfaceList = m_node.elementsByTagName(QLatin1String("interface"));
+        for (int i = 0; i < interfaceList.count(); ++i) {
+            QDomElement iface = interfaceList.item(i).toElement();
             QString ifaceName = iface.attribute(QLatin1String("name"));
-            if (iface.isNull() || ifaceName.isEmpty())
+            if (iface.isNull())
                 continue;
+            if (!QDBusUtil::isValidInterfaceName(ifaceName)) {
+                qWarning("Invalid D-BUS interface name '%s' found while parsing introspection",
+                         qPrintable(ifaceName));
+                continue;
+            }
 
             objData->interfaces.append(ifaceName);
         }
@@ -287,8 +328,8 @@ QDBusXmlParser::objectTree() const
         if (!obj.firstChild().isNull()) {
             // yes, introspect this object
             QString xml;
-            QTextStream ts(&xml);
-            obj.save(ts,0);
+            QTextStream ts2(&xml);
+            obj.save(ts2,0);
 
             // parse it
             QString objAbsName = m_path;

@@ -294,7 +294,7 @@ QDBusConnection QDBusConnection::addConnection(BusType type, const QString &name
     QDBusAbstractInterfacePrivate *p;
     p = retval.findInterface_helper(QLatin1String(DBUS_SERVICE_DBUS),
                                     QLatin1String(DBUS_PATH_DBUS),
-                                    QLatin1String(DBUS_INTERFACE_DBUS));
+                                    DBUS_INTERFACE_DBUS);
     if (p) {
         d->busService = new QDBusBusService(p);
         d->busService->setParent(d); // auto-deletion
@@ -330,7 +330,7 @@ QDBusConnection QDBusConnection::addConnection(const QString &address,
     QDBusAbstractInterfacePrivate *p;
     p = retval.findInterface_helper(QLatin1String(DBUS_SERVICE_DBUS),
                                     QLatin1String(DBUS_PATH_DBUS),
-                                    QLatin1String(DBUS_INTERFACE_DBUS));
+                                    DBUS_INTERFACE_DBUS);
     if (p) {
         d->busService = new QDBusBusService(p);
         d->busService->setParent(d); // auto-deletion
@@ -451,7 +451,7 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
     // avoid duplicating:
     QWriteLocker locker(&d->lock);
     QDBusConnectionPrivate::SignalHookHash::ConstIterator it = d->signalHooks.find(key);
-    for ( ; it != d->signalHooks.end() && it.key() == key; ++it) {
+    for ( ; it != d->signalHooks.constEnd() && it.key() == key; ++it) {
         const QDBusConnectionPrivate::SignalHook &entry = it.value();
         if (entry.sender == hook.sender &&
             entry.path == hook.path &&
@@ -481,6 +481,8 @@ bool QDBusConnection::connect(const QString &service, const QString &path, const
 */
 bool QDBusConnection::registerObject(const QString &path, QObject *object, RegisterOptions options)
 {
+    Q_ASSERT_X(QDBusUtil::isValidObjectPath(path), "QDBusConnection::registerObject",
+               "Invalid object path given");
     if (!d || !d->connection || !object || !options || !QDBusUtil::isValidObjectPath(path))
         return false;
 
@@ -601,6 +603,12 @@ void QDBusConnection::unregisterObject(const QString &path, UnregisterMode mode)
 QDBusInterface *QDBusConnection::findInterface(const QString& service, const QString& path,
                                                const QString& interface)
 {
+    Q_ASSERT_X(QDBusUtil::isValidBusName(service),
+               "QDBusConnection::findInterface", "Invalid service name");
+    Q_ASSERT_X(QDBusUtil::isValidObjectPath(path),
+               "QDBusConnection::findInterface", "Invalid object path given");
+    Q_ASSERT_X(interface.isEmpty() || QDBusUtil::isValidInterfaceName(interface),
+               "QDBusConnection::findInterface", "Invalid interface name");
     if (!d)
         return 0;
     
@@ -636,24 +644,31 @@ QDBusBusService *QDBusConnection::busService() const
 
 QDBusAbstractInterfacePrivate *
 QDBusConnection::findInterface_helper(const QString &service, const QString &path,
-                                      const QString &interface)
+                                      const char *iface)
 {
+    QString interface = QLatin1String(iface);
+    // service and path can be empty here, but interface can't
+    Q_ASSERT_X(service.isEmpty() || QDBusUtil::isValidBusName(service),
+               "QDBusConnection::findInterface", "Invalid service name");
+    Q_ASSERT_X(path.isEmpty() || QDBusUtil::isValidObjectPath(path),
+               "QDBusConnection::findInterface", "Invalid object path given");
+    Q_ASSERT_X(QDBusUtil::isValidInterfaceName(interface),
+               "QDBusConnection::findInterface", "Invalid interface class!");
     if (!d)
         return 0;
-    if (!interface.isEmpty() && !QDBusUtil::isValidInterfaceName(interface))
-        return 0;
-    
+
     QString owner;
     if (!service.isEmpty()) {
-        if (!QDBusUtil::isValidObjectPath(path))
-            return 0;
-
         // check if it's there first -- FIXME: add binding mode
         owner = d->getNameOwner(service);
-        if (owner.isEmpty())
-            return 0;
-    } else if (!path.isEmpty())
-        return 0;
+        if (owner.isEmpty()) {
+            QDBusAbstractInterfacePrivate *p;
+            p = new QDBusAbstractInterfacePrivate(*this, d, service, path, interface);
+            p->isValid = false;
+            p->lastError = d->lastError;
+            return p;
+        }
+    }
     
     return new QDBusAbstractInterfacePrivate(*this, d, owner, path, interface);
 }

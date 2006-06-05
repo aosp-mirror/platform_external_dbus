@@ -135,11 +135,11 @@ Q_GLOBAL_STATIC(ErrorMessageMapping, errorMessages)
                                 pre-defined values (\c org.freedesktop.DBus.Error.LimitsExceeded)
     \value AccessDenied         The call/operation tried to access a resource it isn't allowed to
                                 (\c org.freedesktop.DBus.Error.AccessDenied)
-    \value NoServer             \i{Documentation doesn't say what this is for}
+    \value NoServer             \e {Documentation doesn't say what this is for}
                                 (\c org.freedesktop.DBus.Error.NoServer)
-    \value Timeout              \i{Documentation doesn't say what this is for or how it's used}
+    \value Timeout              \e {Documentation doesn't say what this is for or how it's used}
                                 (\c org.freedesktop.DBus.Error.Timeout)
-    \value NoNetwork            \i{Documentation doesn't say what this is for}
+    \value NoNetwork            \e {Documentation doesn't say what this is for}
                                 (\c org.freedesktop.DBus.Error.NoNetwork)
     \value AddressInUse         QDBusServer tried to bind to an address that is already in use
                                 (\c org.freedesktop.DBus.Error.AddressInUse)
@@ -149,7 +149,7 @@ Q_GLOBAL_STATIC(ErrorMessageMapping, errorMessages)
                                 (\c org.freedesktop.DBus.Error.InvalidArgs)
     \value UnknownMethod        The method called was not found in this object/interface with the
                                 given parameters (\c org.freedesktop.DBus.Error.UnknownMethod)
-    \value TimedOut             \i{Documentation doesn't say...}
+    \value TimedOut             \e {Documentation doesn't say...}
                                 (\c org.freedesktop.DBus.Error.TimedOut)
     \value InvalidSignature     The type signature is not valid or compatible
                                 (\c org.freedesktop.DBus.Error.InvalidSignature)
@@ -194,11 +194,11 @@ QDBusError::QDBusError(const QDBusMessage &qdmsg)
     \internal
     Constructs a QDBusError from a well-known error code
 */
-QDBusError::QDBusError(KnownErrors error, const QString &message)
+QDBusError::QDBusError(KnownErrors error, const QString &mess)
     : code(error)
 {
-    nm = errorMessages()->get(error);
-    msg = message;
+    nm = QLatin1String(errorMessages()->get(error));
+    msg = mess;
 }
 
 /*!
@@ -233,7 +233,7 @@ QDBusError::QDBusError(KnownErrors error, const QString &message)
     match.
 */
 
-#ifndef QT_NO_DEBUG
+#ifndef QT_NO_DEBUG_STREAM
 QDebug operator<<(QDebug dbg, const QDBusError &msg)
 {
     dbg.nospace() << "QDBusError(" << msg.name() << ", " << msg.message() << ")";

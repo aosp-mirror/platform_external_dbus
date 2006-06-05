@@ -29,6 +29,7 @@
 #include <QRegExp>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
@@ -76,7 +77,7 @@ class MocParser
 
     QIODevice *input;
     const char *filename;
-    int line;
+    int lineNumber;
 public:
     ~MocParser();
     void parse(const char *filename, QIODevice *input, int lineNumber = 0);
@@ -86,13 +87,13 @@ public:
     
 void MocParser::parseError()
 {
-    fprintf(stderr, PROGRAMNAME ": error parsing input file '%s' line %d \n", filename, line);
+    fprintf(stderr, PROGRAMNAME ": error parsing input file '%s' line %d \n", filename, lineNumber);
     exit(1);
 }
 
 QByteArray MocParser::readLine()
 {
-    ++line;
+    ++lineNumber;
     return input->readLine();
 }
 
@@ -100,15 +101,15 @@ void MocParser::loadIntData(uint *&data)
 {
     data = 0;                   // initialise
     QVarLengthArray<uint> array;
-    QRegExp rx("(\\d+|0x[0-9abcdef]+)", Qt::CaseInsensitive);
+    QRegExp rx(QLatin1String("(\\d+|0x[0-9abcdef]+)"), Qt::CaseInsensitive);
 
     while (!input->atEnd()) {
         QString line = QLatin1String(readLine());
-        int pos = line.indexOf("//");
+        int pos = line.indexOf(QLatin1String("//"));
         if (pos != -1)
             line.truncate(pos); // drop comments
 
-        if (line == "};\n") {
+        if (line == QLatin1String("};\n")) {
             // end of data
             data = new uint[array.count()];
             memcpy(data, array.data(), array.count() * sizeof(*data));
@@ -118,7 +119,7 @@ void MocParser::loadIntData(uint *&data)
         pos = 0;
         while ((pos = rx.indexIn(line, pos)) != -1) {
             QString num = rx.cap(1);
-            if (num.startsWith("0x"))
+            if (num.startsWith(QLatin1String("0x")))
                 array.append(num.mid(2).toUInt(0, 16));
             else
                 array.append(num.toUInt());
@@ -205,7 +206,7 @@ void MocParser::loadStringData(char *&stringdata)
                     }
                 } else {
                     // octal
-                    QRegExp octal("([0-7]+)");
+                    QRegExp octal(QLatin1String("([0-7]+)"));
                     if (octal.indexIn(QLatin1String(line), start) == -1)
                         parseError();
                     array.append(char(octal.cap(1).toInt(0, 8)));
@@ -218,11 +219,11 @@ void MocParser::loadStringData(char *&stringdata)
     parseError();
 }                    
 
-void MocParser::parse(const char *fname, QIODevice *io, int lineNumber)
+void MocParser::parse(const char *fname, QIODevice *io, int lineNum)
 {
     filename = fname;
     input = io;
-    line = lineNumber;
+    lineNumber = lineNum;
 
     while (!input->atEnd()) {
         QByteArray line = readLine();
@@ -360,7 +361,7 @@ int main(int argc, char **argv)
         else {
             // run moc on this file
             QProcess proc;
-            proc.start("moc", QStringList() << QFile::encodeName(argv[i]));
+            proc.start(QLatin1String("moc"), QStringList() << QFile::decodeName(argv[i]));
             
             if (!proc.waitForStarted()) {
                 fprintf(stderr, PROGRAMNAME ": could not execute moc! Aborting.\n");

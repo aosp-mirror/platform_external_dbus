@@ -1,3 +1,30 @@
+2006-06-05  Thiago Macieira <thiago.macieira@trolltech.com>
+
+	* qt/dbus: Add directory. I had forgotten to add this
+	yesterday after the move...
+
+	* qt/examples/Makefile.am:
+	* qt/examples/dbus.cpp: Moved to qt/tools/dbus.cpp.
+
+	* qt/tools/Makefile.am:
+	* qt/tools/dbus.cpp: Moved from qt/examples/dbus.cpp.
+	Added feature to get and set properties.
+	Added validation of service, object path and interface names.
+
+	* qt/tools/dbusidl2cpp.cpp: Two new features:
+	1) Allow specifying both the header and the source file names,
+	by separating them with a colon.
+	2) Don't write an interface output if the -p switch wasn't
+	given, but the -a was.
+
+	* qt/src/*: Fix usage of Iterators and ConstIterators.
+	Fix shadowing of variables by other variables (-Wshadow).
+	Fix keyword-cleanliness in headers.
+	Fix ASCII-cast (QLatin1String, QLatin1Char).
+	Fix validation of member names.
+	Add extra checking of introspection data during XML parsing.
+	Various bug fixes.
+
 2006-06-04  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* dbus/Makefile.am:

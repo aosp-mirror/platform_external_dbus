@@ -31,7 +31,8 @@
 QVariant QDBusAbstractInterfacePrivate::property(const QMetaProperty &mp) const
 {
     // try to read this property
-    QDBusMessage msg = QDBusMessage::methodCall(service, path, DBUS_INTERFACE_PROPERTIES,
+    QDBusMessage msg = QDBusMessage::methodCall(service, path,
+                                                QLatin1String(DBUS_INTERFACE_PROPERTIES),
                                                 QLatin1String("Get"));
     msg << interface << QString::fromUtf8(mp.name());
     QDBusMessage reply = connp->sendWithReply(msg, QDBusConnection::NoUseEventLoop);
@@ -72,7 +73,8 @@ QVariant QDBusAbstractInterfacePrivate::property(const QMetaProperty &mp) const
 void QDBusAbstractInterfacePrivate::setProperty(const QMetaProperty &mp, const QVariant &value)
 {
     // send the value
-    QDBusMessage msg = QDBusMessage::methodCall(service, path, DBUS_INTERFACE_PROPERTIES,
+    QDBusMessage msg = QDBusMessage::methodCall(service, path,
+                                                QLatin1String(DBUS_INTERFACE_PROPERTIES),
                                                 QLatin1String("Set"));
     msg.setSignature(QLatin1String("ssv"));
     msg << interface << QString::fromUtf8(mp.name()) << value;
@@ -185,7 +187,6 @@ QDBusError QDBusAbstractInterface::lastError() const
 }
 
 /*!
-    \threadsafe
     Places a call to the remote method specified by \a method on this interface, using \a args as
     arguments. This function returns the message that was received as a reply, which can be a normal
     QDBusMessage::ReplyMessage (indicating success) or QDBusMessage::ErrorMessage (if the call
@@ -199,6 +200,8 @@ QDBusError QDBusAbstractInterface::lastError() const
     \warning If you use \c UseEventLoop, your code must be prepared to deal with any reentrancy:
              other method calls and signals may be delivered before this function returns, as well
              as other Qt queued signals and events.
+
+    \threadsafe
 */
 QDBusMessage QDBusAbstractInterface::callWithArgs(const QString& method, const QList<QVariant>& args,
                                           CallMode mode)

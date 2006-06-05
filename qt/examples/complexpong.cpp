@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <dbus/qdbus.h>
 #include <QtCore/QCoreApplication>

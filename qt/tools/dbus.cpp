@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <dbus/qdbus.h>
 #include <QtCore/QCoreApplication>
@@ -136,7 +137,13 @@ void listAllInterfaces(const QString &service, const QString &path)
     QDomElement child = node.firstChildElement();
     while (!child.isNull()) {
         if (child.tagName() == QLatin1String("interface")) {
-            listInterface(service, path, child.attribute("name"));
+            QString ifaceName = child.attribute("name");
+            if (QDBusUtil::isValidInterfaceName(ifaceName))
+                listInterface(service, path, ifaceName);
+            else {
+                qWarning("Invalid D-BUS interface name '%s' found while parsing introspection",
+                         qPrintable(ifaceName));
+            }
         }
         child = child.nextSiblingElement();
     }
@@ -209,10 +216,15 @@ void placeCall(const QString &service, const QString &path, const QString &inter
         else
             p = QString::fromLocal8Bit(argv[0]);
 
-        if (id < int(QVariant::UserType))
+        if (id < int(QVariant::UserType)) {
             // avoid calling it for QVariant
             p.convert( QVariant::Type(id) );
-        else if (types.at(i) == "QVariant") {
+            if (p.type() == QVariant::Invalid) {
+                fprintf(stderr, "Could not convert '%s' to type '%s'.\n",
+                        argv[0], types.at(i).constData());
+                exit(1);
+            }
+        } else if (types.at(i) == "QVariant") {
             QVariant tmp(id, p.constData());
             p = tmp;
         }
@@ -247,6 +259,58 @@ void placeCall(const QString &service, const QString &path, const QString &inter
     }
 
     exit(0);
+}
+
+bool splitInterfaceAndName(const QString &interfaceAndName, const char *type,
+                           QString &interface, QString &member)
+{
+    interface = interfaceAndName;
+    int pos = interface.lastIndexOf(QLatin1Char('.'));
+    if (pos != -1) {
+        member = interface.mid(pos + 1);
+        interface.truncate(pos);
+    }
+
+    if (!QDBusUtil::isValidInterfaceName(interface)) {
+        fprintf(stderr, "Interface '%s' is not a valid interface name.\n", qPrintable(interface));
+        return false;
+    } else if (!QDBusUtil::isValidMemberName(member)) {
+        fprintf(stderr, "%s name '%s' is not a valid member name.\n", type, qPrintable(member));
+        return false;
+    }
+    return true;
+}
+
+void getProperty(const QString &service, const QString &path, const QString &interfaceAndName)
+{
+    QString property;
+    QString interface;
+    if (!splitInterfaceAndName(interfaceAndName, "Property", interface, property))
+        exit(1);
+    
+    QDBusInterfacePtr iface(*connection, service, path, interface);
+    QVariant reply = iface->property(property.toLatin1());
+    if (reply.isNull()) {
+        QDBusError error = iface->lastError();
+        fprintf(stderr, "Could not get property '%s' on interface '%s': %s (%s)\n",
+                qPrintable(property), qPrintable(interface), qPrintable(error.name()),
+                qPrintable(error.message()));
+        exit(1);
+    }
+
+    printf("%s\n", qPrintable(reply.toString()));
+}
+
+void setProperty(const QString &service, const QString &path, const QString &interfaceAndName,
+                 const QString &valueStr)
+{
+    QString property;
+    QString interface;
+    if (!splitInterfaceAndName(interfaceAndName, "Property", interface, property))
+        exit(1);
+
+    QDBusInterfacePtr iface(*connection, service, path, interface);
+    iface->setProperty(property.toLatin1(), valueStr);
 }
 
 int main(int argc, char **argv)
@@ -310,7 +374,24 @@ int main(int argc, char **argv)
         member = interface.mid(pos + 1);
         interface.truncate(pos);
     }
+    if (!interface.isEmpty() && !QDBusUtil::isValidInterfaceName(interface)) {
+        fprintf(stderr, "Interface '%s' is not a valid interface name.\n", qPrintable(interface));
+        exit(1);
+    }
+    if (!QDBusUtil::isValidMemberName(member)) {
+        fprintf(stderr, "Method name '%s' is not a valid member name.\n", qPrintable(member));
+        exit(1);
+    }
 
+    if (interface.isEmpty()) {
+        if (member.toLower() == QLatin1String("get") && argc == 5) {
+            getProperty(service, path, QLatin1String(argv[4]));
+            return 0;
+        } else if (member.toLower() == QLatin1String("set") && argc == 6) {
+            setProperty(service, path, QLatin1String(argv[4]), QLatin1String(argv[5]));
+            return 0;
+        }
+    }    
     placeCall(service, path, interface, member, argc - 4, argv + 4);
 }
 

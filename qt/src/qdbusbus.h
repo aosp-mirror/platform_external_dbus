@@ -105,14 +105,14 @@ public: // METHODS
 
     QDBusReply<StartServiceReply> StartServiceByName(const QString &name, uint flags);
 
-signals: // SIGNALS
+Q_SIGNALS: // SIGNALS
     void NameAcquired(const QString &service);
     void NameLost(const QString &service);
     void NameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
 #endif
 
     // Qt-style naming    
-public slots:
+public Q_SLOTS:
     QDBusReply<QString> hello()
     { return Hello(); }
     QDBusReply<void> reloadConfig()
@@ -121,33 +121,33 @@ public slots:
     QDBusReply<QStringList> listNames()
     { return ListNames(); }
         
-    QDBusReply<bool> nameHasOwner(const QString &service)
-    { return NameHasOwner(service); }
+    QDBusReply<bool> nameHasOwner(const QString &serviceName)
+    { return NameHasOwner(serviceName); }
     QDBusReply<QString> nameOwner(const QString &name)
     { return GetNameOwner(name); }
-    QDBusReply<ReleaseNameReply> releaseName(const QString &service)
-    { return ReleaseName(service); }
-    QDBusReply<RequestNameReply> requestName(const QString &service, RequestNameOptions flags)
-    { return RequestName(service, flags); }
-    QDBusReply<QStringList> listQueuedOwners(const QString &service)
-    { return ListQueuedOwners(service); }
+    QDBusReply<ReleaseNameReply> releaseName(const QString &serviceName)
+    { return ReleaseName(serviceName); }
+    QDBusReply<RequestNameReply> requestName(const QString &serviceName, RequestNameOptions flags)
+    { return RequestName(serviceName, flags); }
+    QDBusReply<QStringList> listQueuedOwners(const QString &serviceName)
+    { return ListQueuedOwners(serviceName); }
 
     QDBusReply<void> addMatch(const QString &rule)
     { return AddMatch(rule); }
     QDBusReply<void> removeMatch(const QString &rule)
     { return RemoveMatch(rule); }
 
-    QDBusReply<QByteArray> connectionSELinuxSecurityContext(const QString &service)
-    { return GetConnectionSELinuxSecurityContext(service); }
-    QDBusReply<uint> connectionUnixProcessID(const QString &service)
-    { return GetConnectionUnixProcessID(service); }
-    QDBusReply<uint> connectionUnixUser(const QString &service)
-    { return GetConnectionUnixUser(service); }
+    QDBusReply<QByteArray> connectionSELinuxSecurityContext(const QString &serviceName)
+    { return GetConnectionSELinuxSecurityContext(serviceName); }
+    QDBusReply<uint> connectionUnixProcessID(const QString &serviceName)
+    { return GetConnectionUnixProcessID(serviceName); }
+    QDBusReply<uint> connectionUnixUser(const QString &serviceName)
+    { return GetConnectionUnixUser(serviceName); }
 
     QDBusReply<StartServiceReply> startServiceByName(const QString &name, uint flags)
     { return StartServiceByName(name, flags); }
 
-signals:
+Q_SIGNALS:
     void nameAcquired(const QString &service);
     void nameLost(const QString &service);
     void nameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);

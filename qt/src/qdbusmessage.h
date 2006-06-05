@@ -91,7 +91,7 @@ private:
     QDBusMessagePrivate *d_ptr;
 };
 
-#ifndef QT_NO_DEBUG
+#ifndef QT_NO_DEBUG_STREAM
 QDebug operator<<(QDebug, const QDBusMessage &);
 #endif
 
