@@ -113,9 +113,6 @@ _dbus_gvalue_store (GValue          *value,
     case G_TYPE_STRING:
       *((gchar **) storage) = (char*) g_value_get_string (value);
       return TRUE;
-    case G_TYPE_POINTER:
-      *((gpointer *) storage) = g_value_get_pointer (value);
-      return TRUE;
     case G_TYPE_OBJECT:
       *((gpointer *) storage) = g_value_get_object (value);
       return TRUE;
@@ -166,9 +163,6 @@ _dbus_gvalue_set_from_pointer (GValue          *value,
       return TRUE;
     case G_TYPE_STRING:
       g_value_set_string (value, *((gchar **) storage));
-      return TRUE;
-    case G_TYPE_POINTER:
-      g_value_set_pointer (value, *((gpointer *) storage));
       return TRUE;
     case G_TYPE_OBJECT:
       g_value_set_object (value, *((gpointer *) storage));
@@ -403,8 +397,10 @@ _dbus_g_hash_free_from_gtype (GType gtype)
   return func;
 }
 
+static void gvalue_take_ptrarray_value (GValue *value, gpointer instance);
+
 static void
-gvalue_from_hash_value (GValue *value, gpointer instance)
+gvalue_take_hash_value (GValue *value, gpointer instance)
 {
   switch (g_type_fundamental (G_VALUE_TYPE (value)))
     {
@@ -426,24 +422,13 @@ gvalue_from_hash_value (GValue *value, gpointer instance)
     case G_TYPE_DOUBLE:
       g_value_set_double (value, *(gdouble *) instance);
       break;
-    case G_TYPE_STRING:
-      g_value_set_static_string (value, instance);
-      break;
-    case G_TYPE_POINTER:
-      g_value_set_pointer (value, instance);
-      break;
-    case G_TYPE_BOXED:
-      g_value_set_static_boxed (value, instance);
-      break;
-    case G_TYPE_OBJECT:
-      g_value_set_object (value, instance);
-      g_object_unref (g_value_get_object (value));
-      break;
     default:
-      g_assert_not_reached ();
+      gvalue_take_ptrarray_value (value, instance);
       break;
     }
 }
+
+static gpointer ptrarray_value_from_gvalue (const GValue *value);
 
 static gpointer
 hash_value_from_gvalue (GValue *value)
@@ -472,21 +457,9 @@ hash_value_from_gvalue (GValue *value)
         return (gpointer) p;
       }
       break;
-    case G_TYPE_STRING:
-      return (gpointer) g_value_get_string (value);
-      break;
-    case G_TYPE_POINTER:
-      return g_value_get_pointer (value);
-      break;
-    case G_TYPE_BOXED:
-      return g_value_get_boxed (value);
-      break;
-    case G_TYPE_OBJECT:
-      return g_value_get_object (value);
-      break;
     default:
-      g_assert_not_reached ();
-      return NULL;
+      return ptrarray_value_from_gvalue (value);
+      break;
     }
 }
 
@@ -507,8 +480,8 @@ hashtable_foreach_with_values (gpointer key, gpointer value, gpointer user_data)
   
   g_value_init (&key_val, data->key_type);
   g_value_init (&value_val, data->value_type);
-  gvalue_from_hash_value (&key_val, key);
-  gvalue_from_hash_value (&value_val, value);
+  gvalue_take_hash_value (&key_val, key);
+  gvalue_take_hash_value (&value_val, value);
 
   data->func (&key_val, &value_val, data->data);
 }
@@ -749,47 +722,18 @@ ptrarray_constructor (GType type)
 }
 
 static void
-gvalue_from_ptrarray_value (GValue *value, gpointer instance)
-{
-  switch (g_type_fundamental (G_VALUE_TYPE (value)))
-    {
-    case G_TYPE_STRING:
-      g_value_set_string (value, instance);
-      break;
-    case G_TYPE_POINTER:
-      g_value_set_pointer (value, instance);
-      break;
-    case G_TYPE_BOXED:
-      g_value_set_static_boxed (value, instance);
-      break;
-    case G_TYPE_OBJECT:
-      g_value_set_object (value, instance);
-      g_object_unref (g_value_get_object (value));
-      break;
-    default:
-      g_assert_not_reached ();
-      break;
-    }
-}
-
-static void
-gvalue_take_from_ptrarray_value (GValue *value, gpointer instance)
+gvalue_take_ptrarray_value (GValue *value, gpointer instance)
 {
   switch (g_type_fundamental (G_VALUE_TYPE (value)))
     {
     case G_TYPE_STRING:
       g_value_take_string (value, instance);
       break;
-    case G_TYPE_POINTER:
-      g_value_set_pointer (value, instance);
-      g_assert_not_reached ();
-      break;
     case G_TYPE_BOXED:
       g_value_take_boxed (value, instance);
       break;
     case G_TYPE_OBJECT:
       g_value_take_object (value, instance);
-      g_object_unref (g_value_get_object (value));
       break;
     default:
       g_assert_not_reached ();
@@ -804,9 +748,6 @@ ptrarray_value_from_gvalue (const GValue *value)
     {
     case G_TYPE_STRING:
       return (gpointer) g_value_get_string (value);
-      break;
-    case G_TYPE_POINTER:
-      return g_value_get_pointer (value);
       break;
     case G_TYPE_BOXED:
       return g_value_get_boxed (value);
@@ -838,7 +779,7 @@ ptrarray_iterator (GType                                   ptrarray_type,
     {
       GValue val = {0, };
       g_value_init (&val, elt_gtype);
-      gvalue_from_ptrarray_value (&val, g_ptr_array_index (ptrarray, i));
+      gvalue_take_ptrarray_value (&val, g_ptr_array_index (ptrarray, i));
       iterator (&val, user_data);
     }
 }
@@ -895,7 +836,7 @@ ptrarray_free (GType type, gpointer val)
   for (i = 0; i < array->len; i++)
     {
       g_value_init (&elt_val, elt_gtype);
-      gvalue_take_from_ptrarray_value (&elt_val, g_ptr_array_index (array, i));
+      gvalue_take_ptrarray_value (&elt_val, g_ptr_array_index (array, i));
       g_value_unset (&elt_val);
     }
 
@@ -925,7 +866,7 @@ slist_iterator (GType                                   list_type,
     {
       GValue val = {0, };
       g_value_init (&val, elt_gtype);
-      gvalue_from_ptrarray_value (&val, slist->data);
+      gvalue_take_ptrarray_value (&val, slist->data);
       iterator (&val, user_data);
     }
 }
@@ -996,9 +937,9 @@ slist_free (GType type, gpointer val)
     {
       GValue elt_val = {0, };
       g_value_init (&elt_val, elt_gtype);
-      gvalue_take_from_ptrarray_value (&elt_val, list->data);
+      gvalue_take_ptrarray_value (&elt_val, list->data);
       g_value_unset (&elt_val);
-      list = g_slist_next(list); 
+      list = g_slist_next(list);
     }
   list=val;
   g_slist_free (list);

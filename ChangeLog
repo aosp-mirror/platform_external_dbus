@@ -1,3 +1,13 @@
+2005-05-06  Robert McQueen  <robot101@debian.org>
+
+	* glib/dbus-gvalue-utils.c: Remove duplicated code by having all of
+	  the iterators use gvalue_take_ptrarray_value (the GValues themselves
+	  are discarded without unsetting, so it makes no difference whether
+	  we take or set_static). Remove cases for G_TYPE_POINTER because
+	  there really is nothing useful we can do with them in our
+	  specialised types - we *need* boxed copy/free functions at the very
+	  least.
+
 2006-06-05  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* qt/dbus: Add directory. I had forgotten to add this
