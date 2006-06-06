@@ -862,7 +862,7 @@ slist_iterator (GType                                   list_type,
 
   elt_gtype = dbus_g_type_get_collection_specialization (list_type);
 
-  while (slist != NULL)
+  for (slist = instance; slist != NULL; slist = slist->next)
     {
       GValue val = {0, };
       g_value_init (&val, elt_gtype);
@@ -874,18 +874,13 @@ slist_iterator (GType                                   list_type,
 static void
 slist_copy_elt (const GValue *val, gpointer user_data)
 {
-  GSList *dest = user_data;
-  GValue val_copy = {0, }; 
-  
+  GSList **dest = user_data;
+  GValue val_copy = {0, };
+
   g_value_init (&val_copy, G_VALUE_TYPE (val));
   g_value_copy (val, &val_copy);
 
-  /* The slist_append can't work if this fails, and
-   * I'm pretty sure it will fail too FIXME
-   */
-  g_assert(dest != NULL);
-  
-  g_slist_append (dest, ptrarray_value_from_gvalue (&val_copy));
+  *dest = g_slist_append (*dest, ptrarray_value_from_gvalue (&val_copy));
 }
 
 static gpointer
@@ -898,7 +893,7 @@ slist_copy (GType type, gpointer src)
   g_value_set_static_boxed (&slist_val, src);
 
   new = slist_constructor (type);
-  dbus_g_type_collection_value_iterate (&slist_val, slist_copy_elt, new);
+  dbus_g_type_collection_value_iterate (&slist_val, slist_copy_elt, &new);
 
   return new;
 }
@@ -918,10 +913,12 @@ slist_end_append (DBusGTypeSpecializedAppendContext *ctx)
 {
   GSList *list;
 
+  /* if you append multiple times to the slist, this will reverse the existing
+   * elements... we need an init_append function */
   list = g_value_get_boxed (ctx->val);
   list = g_slist_reverse (list);
 
-  g_value_set_static_boxed (ctx->val, list);
+  g_value_take_boxed (ctx->val, list);
 }
 
 static void
@@ -1198,6 +1195,86 @@ _dbus_gvalue_utils_test (const char *datadir)
     g_assert (hashdata.seen_baz);
 
     g_value_unset (&val);
+  }
+
+  type = dbus_g_type_get_collection ("GSList", G_TYPE_OBJECT);
+  g_assert (dbus_g_type_is_collection (type));
+  g_assert (dbus_g_type_get_collection_specialization (type) == G_TYPE_OBJECT);
+  {
+    GSList *instance, *tmp, *copy;
+    GValue val = {0, };
+    GValue copyval = {0, };
+    DBusGTypeSpecializedAppendContext ctx;
+    GObject *objects[3];
+    int i;
+
+    instance = dbus_g_type_specialized_construct (type);
+    g_assert (instance == NULL);
+
+    g_value_init (&val, type);
+    g_value_take_boxed (&val, instance);
+
+    dbus_g_type_specialized_init_append (&val, &ctx);
+
+    for (i = 0; i < 3; i++)
+      {
+        GValue eltval = { 0, };
+        GObject *obj = g_object_new (G_TYPE_OBJECT, NULL);
+
+        g_assert (obj != NULL);
+        objects[i] = obj;
+        g_object_add_weak_pointer (obj, (gpointer) (objects + i));
+
+        g_value_init (&eltval, G_TYPE_OBJECT);
+        g_value_take_object (&eltval, obj);
+        dbus_g_type_specialized_collection_append (&ctx, &eltval);
+      }
+
+    dbus_g_type_specialized_collection_end_append (&ctx);
+
+    instance = g_value_get_boxed (&val);
+    g_assert (g_slist_length (instance) == 3);
+
+    for (tmp = instance; tmp; tmp = tmp->next)
+      {
+        GObject *obj = tmp->data;
+        g_assert (G_IS_OBJECT (obj));
+        g_assert (obj->ref_count == 1);
+      }
+
+    g_value_init (&copyval, type);
+    g_value_copy (&val, &copyval);
+
+    copy = g_value_get_boxed (&copyval);
+    g_assert (g_slist_length (copy) == 3);
+
+    for (tmp = copy; tmp; tmp = tmp->next)
+      {
+        GObject *obj = tmp->data;
+        g_assert (G_IS_OBJECT (obj));
+        g_assert (obj->ref_count == 2);
+      }
+
+    g_value_unset (&copyval);
+
+    for (i = 0; i < 3; i++)
+      {
+        g_assert (objects[i] != NULL);
+      }
+
+    for (tmp = instance; tmp; tmp = tmp->next)
+      {
+        GObject *obj = tmp->data;
+        g_assert (G_IS_OBJECT (obj));
+        g_assert (obj->ref_count == 1);
+      }
+
+    g_value_unset (&val);
+
+    for (i = 0; i < 3; i++)
+      {
+        g_assert (objects[i] == NULL);
+      }
   }
 
   type = dbus_g_type_get_collection ("GPtrArray", G_TYPE_STRING);

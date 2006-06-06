@@ -1,5 +1,13 @@
 2005-05-06  Robert McQueen  <robot101@debian.org>
 
+	* glib/dbus-gvalue-utils.c: Spotted a warning about the return value
+	  of g_slist_prepend not being used. Fixed copying of slist-based
+	  specialised collections, then wrote a test case and found that it was
+	  all broken. Went on to fix iterating and appending too. Good thing
+	  nobody uses this code yet.
+
+2005-05-06  Robert McQueen  <robot101@debian.org>
+
 	* glib/dbus-gvalue-utils.c: Remove duplicated code by having all of
 	  the iterators use gvalue_take_ptrarray_value (the GValues themselves
 	  are discarded without unsetting, so it makes no difference whether
