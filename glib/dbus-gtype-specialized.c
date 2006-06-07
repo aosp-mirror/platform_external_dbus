@@ -392,7 +392,7 @@ dbus_g_type_get_struct (const char *container,
                         ...)
 {
   GArray *types;
-  GType curtype;
+  GType curtype, ret;
   va_list args;
   va_start (args, first_type);
 
@@ -404,8 +404,13 @@ dbus_g_type_get_struct (const char *container,
       curtype = va_arg (args, GType);
     }
   va_end (args);
-  return lookup_or_register_specialized (container, types->len, (GType*)types->data);
 
+  ret = lookup_or_register_specialized (container, types->len,
+      (GType *) types->data);
+
+  g_array_free (types, TRUE);
+
+  return ret;
 }
 
 

@@ -1,5 +1,10 @@
 2005-05-06  Robert McQueen  <robot101@debian.org>
 
+	* glib/dbus-gtype-specialized.c: Fix obvious leak of GArray in every
+	  call to dbus_g_type_get_struct.
+
+2005-05-06  Robert McQueen  <robot101@debian.org>
+
 	* glib/dbus-gvalue-utils.c: Fix the failing test where static string
 	  pointers were put into a GPtrArray-based specialised collection, and
 	  then freed along with the array. GValues which you add into
