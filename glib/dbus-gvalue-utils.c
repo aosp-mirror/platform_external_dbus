@@ -744,6 +744,20 @@ gvalue_take_ptrarray_value (GValue *value, gpointer instance)
 static gpointer
 ptrarray_value_from_gvalue (const GValue *value)
 {
+  GValue tmp = {0, };
+
+  /* if the NOCOPY flag is set, then value was created via set_static and hence
+   * is not owned by us. in order to preserve the "take" semantics that the API
+   * has in general (which avoids copying in the common case), we must copy any
+   * static values so that we can indiscriminately free the entire collection
+   * later. */
+  if (value->data[1].v_uint & G_VALUE_NOCOPY_CONTENTS)
+    {
+      g_value_init (&tmp, G_VALUE_TYPE (value));
+      g_value_copy (value, &tmp);
+      value = &tmp;
+    }
+
   switch (g_type_fundamental (G_VALUE_TYPE (value)))
     {
     case G_TYPE_STRING:
@@ -1315,17 +1329,7 @@ _dbus_gvalue_utils_test (const char *datadir)
     g_assert (!strcmp ("bar", g_ptr_array_index (instance, 1)));
     g_assert (!strcmp ("baz", g_ptr_array_index (instance, 2)));
 
-    /* FIXME this crashes, I believe because ptrarray_append
-     * doesn't copy the incoming static string, then ptrarray_free
-     * tries to free it; looks to me like always copying appended
-     * values would be the only working approach.
-     */
     g_value_unset (&val);
-    /* FIXME make sure this test fails for everyone, since
-     * apparently people didn't see it, the bad free
-     * maybe didn't crash everywhere
-     */
-    g_assert_not_reached();
   }
 
   type = dbus_g_type_get_struct ("GValueArray", G_TYPE_STRING, G_TYPE_UINT, DBUS_TYPE_G_OBJECT_PATH, G_TYPE_INVALID);

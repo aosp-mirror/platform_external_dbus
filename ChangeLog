@@ -1,5 +1,16 @@
 2005-05-06  Robert McQueen  <robot101@debian.org>
 
+	* glib/dbus-gvalue-utils.c: Fix the failing test where static string
+	  pointers were put into a GPtrArray-based specialised collection, and
+	  then freed along with the array. GValues which you add into
+	  collections or maps which have the NOCOPY flag set are assumed to not
+	  belong to the caller, so rather than the existing pointer-stealing
+	  semantics, they are copied instead. Given that the main consumers of
+	  this abstraction are the bindings themselves, I don't think this is
+	  too bad, but others should watch their choice of take vs set_static.
+
+2005-05-06  Robert McQueen  <robot101@debian.org>
+
 	* glib/dbus-gvalue-utils.c: Spotted a warning about the return value
 	  of g_slist_prepend not being used. Fixed copying of slist-based
 	  specialised collections, then wrote a test case and found that it was
