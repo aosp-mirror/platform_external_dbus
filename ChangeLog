@@ -216,23 +216,23 @@
 	* qt/qdbusintegrator.cpp: Fix assertion failure spotted by
 	Brad Hards.
 
-2005-04-28  Robert McQueen  <robot101@debian.org>
+2006-04-28  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-gproxy.c: Fix properties so that they can be given in
 	any order, making it easier for people who inherit from this
 	object.
 
-2005-04-28  Robert McQueen  <robot101@debian.org>
+2006-04-28  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-gvalue-utils.c: Patch from Jakub Stachowski to fix leaking
 	of memory from within pointer arrays and lists. Fixes bug #6300.
 
-2005-04-28  Robert McQueen  <robot101@debian.org>
+2006-04-28  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-gvalue.c: Patch from Jakub Stachowski to fix a leak in
 	generating struct signatures. Fixes bug #6083.
 
-2005-04-28  Robert McQueen  <robot101@debian.org>
+2006-04-28  Robert McQueen  <robot101@debian.org>
 
 	* qt/Makefile.am: Tweak CLEANFILES from qdbusconnection.moc
 	to qdbusconnection_p.moc.
