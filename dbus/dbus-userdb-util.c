@@ -48,6 +48,34 @@ _dbus_is_console_user (dbus_uid_t uid,
   const DBusUserInfo *info;
   dbus_bool_t result = FALSE; 
 
+#ifdef HAVE_CONSOLE_OWNER_FILE
+
+  DBusString f;
+  DBusStat st;
+
+  if (!_dbus_string_init (&f))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (!_dbus_string_append(&f, DBUS_CONSOLE_OWNER_FILE))
+    {
+      _dbus_string_free(&f);
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (_dbus_stat(&f, &st, NULL) && (st.uid == uid))
+    {
+      _dbus_string_free(&f);
+      return TRUE;
+    }
+
+  _dbus_string_free(&f);
+
+#endif /* HAVE_CONSOLE_OWNER_FILE */
+
   _dbus_user_database_lock_system ();
 
   db = _dbus_user_database_get_system ();

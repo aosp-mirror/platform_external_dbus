@@ -68,6 +68,7 @@ AC_ARG_ENABLE(mono_docs, AS_HELP_STRING([--enable-mono-docs],[build mono docs]),
 AC_ARG_ENABLE(python, AS_HELP_STRING([--enable-python],[build python bindings]),enable_python=$enableval,enable_python=auto)
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
 AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
+AC_ARG_ENABLE(console-owner-file, AS_HELP_STRING([--enable-console-owner-file],[enable console owner file]),enable_console_owner_file=$enableval,enable_console_owner_file=auto)
 
 AC_ARG_WITH(xml, AS_HELP_STRING([--with-xml=[libxml/expat]],[XML library to use]))
 AC_ARG_WITH(init-scripts, AS_HELP_STRING([--with-init-scripts=[redhat]],[Style of init scripts to install]))
@@ -76,6 +77,7 @@ AC_ARG_WITH(test-socket-dir, AS_HELP_STRING([--with-test-socket-dir=[dirname]],[
 AC_ARG_WITH(system-pid-file, AS_HELP_STRING([--with-system-pid-file=[pidfile]],[PID file for systemwide daemon]))
 AC_ARG_WITH(system-socket, AS_HELP_STRING([--with-system-socket=[filename]],[UNIX domain socket for systemwide daemon]))
 AC_ARG_WITH(console-auth-dir, AS_HELP_STRING([--with-console-auth-dir=[dirname]],[directory to check for console ownerhip]))
+AC_ARG_WITH(console-owner-file, AS_HELP_STRING([--with-console-owner-file=[filename]],[file whose owner determines current console owner]))
 AC_ARG_WITH(dbus_user, AS_HELP_STRING([--with-dbus-user=<user>],[User for running the DBUS daemon (messagebus)]))
 
 
@@ -851,6 +853,22 @@ if test x$have_dnotify = xyes; then
    AC_DEFINE(DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX,1,[Use dnotify on Linux])
 fi
 
+dnl console owner file
+if test x$enable_console_owner_file = xno ; then
+    have_console_owner_file=no;
+else
+    case $target_os in
+    solaris*)
+        have_console_owner_file=yes;
+        AC_DEFINE(HAVE_CONSOLE_OWNER_FILE,1,[Have console owner file])
+        ;;
+    *)
+        have_console_owner_file=no;;
+    esac
+fi
+
+AM_CONDITIONAL(HAVE_CONSOLE_OWNER_FILE, test x$have_console_owner_file = xyes)
+
 #### Set up final flags
 DBUS_CLIENT_CFLAGS=
 DBUS_CLIENT_LIBS=
@@ -1289,6 +1307,20 @@ fi
 AC_SUBST(DBUS_CONSOLE_AUTH_DIR)
 AC_DEFINE_UNQUOTED(DBUS_CONSOLE_AUTH_DIR, "$DBUS_CONSOLE_AUTH_DIR", [Directory to check for console ownerhip])
 
+#### File to check for console ownership
+if test x$have_console_owner_file = xyes; then
+   if ! test -z "$with_console_owner_file"; then
+      DBUS_CONSOLE_OWNER_FILE=$with_console_owner_file
+   else
+      DBUS_CONSOLE_OWNER_FILE=/dev/console
+   fi
+else
+  DBUS_CONSOLE_OWNER_FILE=
+fi
+
+AC_SUBST(DBUS_CONSOLE_OWNER_FILE)
+AC_DEFINE_UNQUOTED(DBUS_CONSOLE_OWNER_FILE, "$DBUS_CONSOLE_OWNER_FILE", [File to check for console ownerhip])
+
 #### User to start the system bus as
 if test -z "$with_dbus_user" ; then
     DBUS_USER=messagebus
@@ -1517,6 +1549,8 @@ echo "
         System bus PID file:      ${DBUS_SYSTEM_PID_FILE}
         Session bus socket dir:   ${DBUS_SESSION_SOCKET_DIR}
         Console auth dir:         ${DBUS_CONSOLE_AUTH_DIR}
+        Console owner file:       ${have_console_owner_file}
+        Console owner file path:  ${DBUS_CONSOLE_OWNER_FILE}
 	System bus user:          ${DBUS_USER}
 	Session bus services dir: ${EXPANDED_DATADIR}/dbus-1/services
         'make check' socket dir:  ${TEST_SOCKET_DIR}

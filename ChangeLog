@@ -1,3 +1,9 @@
+2006-06-07  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in:
+	* dbus/dbus-userdb-util.c:
+	Add Solaris console owner patch from Artem Kachitchkine
+
 2006-06-07  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* qt/Makfile.am:
