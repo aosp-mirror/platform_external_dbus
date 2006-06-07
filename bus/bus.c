@@ -1355,21 +1355,21 @@ bus_context_check_security_policy (BusContext     *context,
       return FALSE;
     }
 
-  if (type == DBUS_MESSAGE_TYPE_METHOD_CALL)
+  /* Record that we will allow a reply here in the future (don't
+   * bother if the recipient is the bus or this is an eavesdropping
+   * connection). Only the addressed recipient may reply.
+   */
+  if (type == DBUS_MESSAGE_TYPE_METHOD_CALL &&
+      sender && 
+      addressed_recipient &&
+      addressed_recipient == proposed_recipient && /* not eavesdropping */
+      !bus_connections_expect_reply (bus_connection_get_connections (sender),
+                                     transaction,
+                                     sender, addressed_recipient,
+                                     message, error))
     {
-      /* Record that we will allow a reply here in the future (don't
-       * bother if the recipient is the bus). Only the addressed recipient
-       * may reply.
-       */
-      if (sender && addressed_recipient &&
-          !bus_connections_expect_reply (bus_connection_get_connections (sender),
-                                         transaction,
-                                         sender, addressed_recipient,
-                                         message, error))
-        {
-          _dbus_verbose ("Failed to record reply expectation or problem with the message expecting a reply\n");
-          return FALSE;
-        }
+      _dbus_verbose ("Failed to record reply expectation or problem with the message expecting a reply\n");
+      return FALSE;
     }
   
   _dbus_verbose ("security policy allowing message\n");

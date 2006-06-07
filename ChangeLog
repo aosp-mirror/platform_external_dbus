@@ -1,5 +1,9 @@
 2006-06-07  John (J5) Palmieri  <johnp@redhat.com>
 
+	* bus/bus.c: Fix eavesdropping on method calls
+
+2006-06-07  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in:
 	* dbus/dbus-userdb-util.c:
 	Add Solaris console owner patch from Artem Kachitchkine
