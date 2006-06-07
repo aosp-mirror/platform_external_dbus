@@ -64,7 +64,5 @@ libdbus_qt4_1_la_LIBADD= $(DBUS_QT_LIBS) $(top_builddir)/dbus/libdbus-1.la
 libdbus_qt4_1_la_LDFLAGS= -version-info 1:0 -no-undefined
 libdbus_qt4_1_la_CPPFLAGS= -DQDBUS_MAKEDLL
 
-EXTRA_DIST = qt-dbus.qdocconf
-
 %.moc: %.h
 	$(QT_MOC) $< > $@

@@ -1,9 +1,15 @@
-2005-05-06  Robert McQueen  <robot101@debian.org>
+2006-06-07  Thiago Macieira <thiago.macieira@trolltech.com>
+
+	* qt/Makfile.am:
+	* qt/src/Makefile.am: Fix the EXTRA_DIST after the
+	reorganisation. Thanks to Timo Hoenig for pointing this out.
+
+2006-06-06  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-gtype-specialized.c: Fix obvious leak of GArray in every
 	  call to dbus_g_type_get_struct.
 
-2005-05-06  Robert McQueen  <robot101@debian.org>
+2006-06-06  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-gvalue-utils.c: Fix the failing test where static string
 	  pointers were put into a GPtrArray-based specialised collection, and
@@ -14,7 +20,7 @@
 	  this abstraction are the bindings themselves, I don't think this is
 	  too bad, but others should watch their choice of take vs set_static.
 
-2005-05-06  Robert McQueen  <robot101@debian.org>
+2006-06-06  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-gvalue-utils.c: Spotted a warning about the return value
 	  of g_slist_prepend not being used. Fixed copying of slist-based
@@ -22,7 +28,7 @@
 	  all broken. Went on to fix iterating and appending too. Good thing
 	  nobody uses this code yet.
 
-2005-05-06  Robert McQueen  <robot101@debian.org>
+2006-06-06  Robert McQueen  <robot101@debian.org>
 
 	* glib/dbus-gvalue-utils.c: Remove duplicated code by having all of
 	  the iterators use gvalue_take_ptrarray_value (the GValues themselves

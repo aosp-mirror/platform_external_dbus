@@ -5,3 +5,5 @@ QT_SUBDIRS = src tools examples
 endif
 
 SUBDIRS = $(QT_SUBDIRS)
+
+EXTRA_DIST = qt-dbus.qdocconf
