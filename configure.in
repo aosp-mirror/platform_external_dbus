@@ -1438,6 +1438,7 @@ glib/examples/statemachine/Makefile
 python/Makefile
 python/examples/Makefile
 qt/Makefile
+qt/dbus/Makefile
 qt/src/Makefile
 qt/tools/Makefile
 qt/examples/Makefile

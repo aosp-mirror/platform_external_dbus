@@ -1,4 +1,4 @@
-DIST_SUBDIRS = src tools examples
+DIST_SUBDIRS = dbus src tools examples
 
 if HAVE_QT
 QT_SUBDIRS = src tools examples

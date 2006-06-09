@@ -1,3 +1,14 @@
+2006-06-09  Thiago Macieira <thiago.macieira@trolltech.com>
+
+	Patch from Timo Hoenig <thoenig@suse.de>.
+
+	* qt/dbus/Makefile.am: New file.  Fix "make dist", add all headers
+	required during build to EXTRA_DIST.
+	* qt/src/Makefile.am: Fix "make dist", add 'qdbus.h' to EXTRA_DIST.
+	* qt/Makefile.am: Fix "make dist", add 'dbus' to DIST_SUBDIRS.
+	* configure.in: Fix "make dist", take care that the Makefile for
+	qt/dbus is being generated.
+
 2006-06-07  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/bus.c: Fix eavesdropping on method calls
