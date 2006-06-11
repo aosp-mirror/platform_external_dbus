@@ -33,7 +33,7 @@ EXTRA_DIST = ping-common.h chatmainwindow.ui chatsetnickname.ui com.trolltech.Ch
 
 CLEANFILES = chat.moc chatadaptor.moc complexping.moc complexpong.moc pong.moc \
 	chatinterface.cpp chatinterface.h chatinterface.moc \
-	chatmainwindow.h chatsetnickname.h
+	ui_chatmainwindow.h ui_chatsetnickname.h
 
 %.moc: %.h
 	$(QT_MOC) $< > $@
