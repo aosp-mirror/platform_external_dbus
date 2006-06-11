@@ -1,6 +1,5 @@
 #include <QtCore/QtCore>
 #include <dbus/qdbus.h>
-#include <dbus/dbus.h>
 
 class Pong: public QObject
 {
@@ -22,13 +21,10 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
 
     QDBusConnection &con = QDBus::sessionBus();
-    QDBusMessage msg = QDBusMessage::methodCall(DBUS_SERVICE_DBUS,
-                                                DBUS_PATH_DBUS,
-                                                DBUS_INTERFACE_DBUS,
-                                                "RequestName");
-    msg << "org.kde.selftest" << 0U;
-    msg = con.sendWithReply(msg);
-    if (msg.type() != QDBusMessage::ReplyMessage)
+    if (!con.isConnected())
+        exit(1);
+
+    if (con.busService()->requestName("org.kde.selftest", QDBusBusService::DoNotQueueName).isError())
         exit(2);
 
     Pong pong;

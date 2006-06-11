@@ -2,7 +2,6 @@
 #include <qdebug.h>
 
 #include <QtTest/QtTest>
-#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/qdbus.h>
 
 class tst_Hal: public QObject

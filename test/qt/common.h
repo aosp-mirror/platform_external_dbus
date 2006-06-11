@@ -9,8 +9,8 @@ Q_DECLARE_METATYPE(QList<uint>)
 Q_DECLARE_METATYPE(QList<qlonglong>)
 Q_DECLARE_METATYPE(QList<qulonglong>)
 Q_DECLARE_METATYPE(QList<double>)
-#if 0
-#include "../qdbusintrospection_p.h"
+#ifdef USE_PRIVATE_CODE
+#include "../../qt/src/qdbusintrospection_p.h"
 
 // just to make it easier:
 typedef QDBusIntrospection::Interfaces InterfaceMap;
@@ -157,6 +157,20 @@ bool compare(const QList<double> &l1, const QList<double> &l2)
     return true;
 }
 
+bool compare(const QString &s1, const QString &s2)
+{
+    if (s1.isEmpty() && s2.isEmpty())
+        return true;            // regardless of whether one of them is null
+    return s1 == s2;
+}
+
+bool compare(const QByteArray &ba1, const QByteArray &ba2)
+{
+    if (ba1.isEmpty() && ba2.isEmpty())
+        return true;            // regardless of whether one of them is null
+    return ba1 == ba2;
+}
+
 bool compare(const QVariant &v1, const QVariant &v2)
 {
     if (v1.userType() != v2.userType())
@@ -168,6 +182,12 @@ bool compare(const QVariant &v1, const QVariant &v2)
 
     else if (id == QVariant::Map)
         return compare(v1.toMap(), v2.toMap());
+
+    else if (id == QVariant::String)
+        return compare(v1.toString(), v2.toString());
+
+    else if (id == QVariant::ByteArray)
+        return compare(v1.toByteArray(), v2.toByteArray());
 
     else if (id < int(QVariant::UserType)) // yes, v1.type()
         // QVariant can compare

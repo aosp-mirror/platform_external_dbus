@@ -1,5 +1,12 @@
 2006-06-11  Thiago Macieira <thiago.macieira@trolltech.com>
 
+	* test/qt/*: Update the testcases, including testing the new
+        functionality of sending null QByteArray and QString over the
+        bus. Add new headertest test and restore the old
+        qdbusxmlparser test.
+
+2006-06-11  Thiago Macieira <thiago.macieira@trolltech.com>
+
 	* qt/tools/dbuscpp2xml.cpp: Compile on Windows.
 	* qt/tools/dbusidl2cpp.cpp: Add missing newline.
 

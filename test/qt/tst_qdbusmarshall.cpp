@@ -3,8 +3,9 @@
 #include <dbus/qdbus.h>
 
 #include "common.h"
+#include <limits>
 
-class Ping: public QObject
+class tst_QDBusMarshall: public QObject
 {
     Q_OBJECT
 
@@ -35,19 +36,20 @@ private:
     QProcess proc;
 };
 
-void Ping::initTestCase()
+void tst_QDBusMarshall::initTestCase()
 {
     proc.start("./qpong");
     QVERIFY(proc.waitForStarted());
     QTest::qWait(2000);
 }
 
-void Ping::cleanupTestCase()
+void tst_QDBusMarshall::cleanupTestCase()
 {
     proc.close();
+    proc.kill();
 }
 
-void Ping::sendBasic_data()
+void tst_QDBusMarshall::sendBasic_data()
 {
     QTest::addColumn<QVariant>("value");
     QTest::addColumn<QString>("sig");
@@ -65,9 +67,10 @@ void Ping::sendBasic_data()
     QTest::newRow("double") << QVariant(42.5) << "d";
     QTest::newRow("string") << QVariant("ping") << "s";
     QTest::newRow("emptystring") << QVariant("") << "s";
+    QTest::newRow("nullstring") << QVariant(QString()) << "s";
 }
 
-void Ping::sendVariant_data()
+void tst_QDBusMarshall::sendVariant_data()
 {
     sendBasic_data();
 
@@ -80,7 +83,7 @@ void Ping::sendVariant_data()
     QTest::newRow("variant-variant") << nested2 << "v";
 }
 
-void Ping::sendArrays_data()
+void tst_QDBusMarshall::sendArrays_data()
 {
     QTest::addColumn<QVariant>("value");
     QTest::addColumn<QString>("sig");
@@ -91,10 +94,24 @@ void Ping::sendArrays_data()
     strings << "hello" << "world";
     QTest::newRow("stringlist") << QVariant(strings) << "as";
 
-    QByteArray bytearray("");   // empty, not null
+    strings.clear();
+    strings << "" << "" << "";
+    QTest::newRow("list-of-emptystrings") << QVariant(strings) << "as";
+
+    strings.clear();
+    strings << QString() << QString() << QString() << QString();
+    QTest::newRow("list-of-nullstrings") << QVariant(strings) << "as";
+
+    QByteArray bytearray;
+    QTest::newRow("nullbytearray") << QVariant(bytearray) << "ay";
+    bytearray = "";             // empty, not null
     QTest::newRow("emptybytearray") << QVariant(bytearray) << "ay";
     bytearray = "foo";
     QTest::newRow("bytearray") << QVariant(bytearray) << "ay";
+    bytearray.clear();
+    for (int i = 0; i < 4096; ++i)
+        bytearray += QByteArray(1024, char(i));
+    QTest::newRow("hugebytearray") << QVariant(bytearray) << "ay";
 
     QList<bool> bools; 
     QTest::newRow("emptyboollist") << qVariantFromValue(bools) << "ab";
@@ -152,12 +169,12 @@ void Ping::sendArrays_data()
     QTest::newRow("variantlist") << QVariant(variants) << "av";
 }
 
-void Ping::sendArrayOfArrays_data()
+void tst_QDBusMarshall::sendArrayOfArrays_data()
 {
     sendArrays_data();
 }
 
-void Ping::sendStringMap_data()
+void tst_QDBusMarshall::sendStringMap_data()
 {
     sendBasic_data();
 
@@ -172,12 +189,12 @@ void Ping::sendStringMap_data()
     sendArrays_data();
 }
 
-void Ping::sendStringMapOfMap_data()
+void tst_QDBusMarshall::sendStringMapOfMap_data()
 {
     sendStringMap_data();
 }
 
-void Ping::sendBasic()
+void tst_QDBusMarshall::sendBasic()
 {
     QFETCH(QVariant, value);
 
@@ -198,7 +215,7 @@ void Ping::sendBasic()
         QVERIFY(compare(reply.at(i), msg.at(i)));
 }
 
-void Ping::sendVariant()
+void tst_QDBusMarshall::sendVariant()
 {
     QFETCH(QVariant, value);
     QVariant tmp = value;
@@ -221,7 +238,7 @@ void Ping::sendVariant()
         QVERIFY(compare(reply.at(i), msg.at(i)));
 }
 
-void Ping::sendArrays()
+void tst_QDBusMarshall::sendArrays()
 {
     QFETCH(QVariant, value);
 
@@ -242,7 +259,7 @@ void Ping::sendArrays()
         QVERIFY(compare(reply.at(i), msg.at(i)));
 }
 
-void Ping::sendArrayOfArrays()
+void tst_QDBusMarshall::sendArrayOfArrays()
 {
     QFETCH(QVariant, value);
 
@@ -264,7 +281,7 @@ void Ping::sendArrayOfArrays()
         QVERIFY(compare(reply.at(i), msg.at(i)));
 }
 
-void Ping::sendStringMap()
+void tst_QDBusMarshall::sendStringMap()
 {
     QFETCH(QVariant, value);
 
@@ -290,7 +307,7 @@ void Ping::sendStringMap()
         QVERIFY(compare(reply.at(i), msg.at(i)));
 }
 
-void Ping::sendStringMapOfMap()
+void tst_QDBusMarshall::sendStringMapOfMap()
 {
     QFETCH(QVariant, value);
 
@@ -316,11 +333,10 @@ void Ping::sendStringMapOfMap()
     QFETCH(QString, sig);
     QCOMPARE(reply.signature(), "a{sa{s" + sig + "}}");
 
-    QEXPECT_FAIL("", "libdbus returns an empty set for un unknown reason", Abort);
     for (int i = 0; i < reply.count(); ++i)
         QVERIFY(compare(reply.at(i), msg.at(i)));
 }
 
 
-QTEST_MAIN(Ping)
-#include "ping.moc"
+QTEST_MAIN(tst_QDBusMarshall)
+#include "tst_qdbusmarshall.moc"

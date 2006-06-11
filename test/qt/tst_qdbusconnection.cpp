@@ -246,7 +246,7 @@ void tst_QDBusConnection::registerObject()
 bool tst_QDBusConnection::callMethod(const QDBusConnection &conn, const QString &path)
 {
     QDBusMessage msg = QDBusMessage::methodCall(conn.baseService(), path, "local.any", "method");
-    QDBusMessage reply = conn.sendWithReply(msg);
+    QDBusMessage reply = conn.sendWithReply(msg, QDBusConnection::UseEventLoop);
 
     return reply.type() == QDBusMessage::ReplyMessage;
 }    

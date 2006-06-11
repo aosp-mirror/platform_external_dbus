@@ -34,63 +34,33 @@ Q_DECLARE_METATYPE(QVariantList)
 #define TEST_INTERFACE_NAME "com.trolltech.QtDBus.MyObject"
 #define TEST_SIGNAL_NAME "somethingHappened"
 
-const char introspectionData[] =
-    "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n"
-    "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
-    "<node>"
-
-    "<interface name=\"org.freedesktop.DBus.Introspectable\">"
-    "<method name=\"Introspect\">"
-    "<arg name=\"data\" direction=\"out\" type=\"s\"/>"
-    "</method>"
-    "</interface>"
-
-    "<interface name=\"" TEST_INTERFACE_NAME "\">"
-    "<method name=\"ping\">"
-    "<arg name=\"ping\" direction=\"in\"  type=\"v\"/>"
-    "<arg name=\"pong\" direction=\"out\" type=\"v\"/>"
-    "</method>"
-    "<method name=\"ping\">"
-    "<arg name=\"ping1\" direction=\"in\"  type=\"v\"/>"
-    "<arg name=\"ping2\" direction=\"in\"  type=\"v\"/>"
-    "<arg name=\"pong1\" direction=\"out\" type=\"v\"/>"
-    "<arg name=\"pong2\" direction=\"out\" type=\"v\"/>"
-    "</method>"
-    "<signal name=\"" TEST_SIGNAL_NAME "\">"
-    "<arg type=\"s\"/>"
-    "</signal>"
-    "<property name=\"prop1\" access=\"readwrite\" type=\"i\" />"
-    "</interface>"
-    "<node name=\"subObject\"/>"
-    "</node>";
-
-class IntrospectionAdaptor: public QDBusAbstractAdaptor
-{
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.DBus.Introspectable")
-public:
-    IntrospectionAdaptor(QObject *parent)
-        : QDBusAbstractAdaptor(parent)
-    { }
-        
-public slots:
-
-    void Introspect(const QDBusMessage &msg)
-    {
-        QDBusMessage reply = QDBusMessage::methodReply(msg);
-        reply << ::introspectionData;
-        if (!msg.connection().send(reply))
-            exit(1);
-    }
-};    
-
 class MyObject: public QObject
 {
     Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "com.trolltech.QtDBus.MyObject")
+    Q_CLASSINFO("D-Bus Introspection", ""
+"  <interface name=\"com.trolltech.QtDBus.MyObject\" >\n"
+"    <property access=\"readwrite\" type=\"i\" name=\"prop1\" />\n"
+"    <signal name=\"somethingHappened\" >\n"
+"      <arg direction=\"out\" type=\"s\" />\n"
+"    </signal>\n"
+"    <method name=\"ping\" >\n"
+"      <arg direction=\"in\" type=\"v\" name=\"ping\" />\n"
+"      <arg direction=\"out\" type=\"v\" name=\"ping\" />\n"
+"    </method>\n"
+"    <method name=\"ping\" >\n"
+"      <arg direction=\"in\" type=\"v\" name=\"ping1\" />\n"
+"      <arg direction=\"in\" type=\"v\" name=\"ping2\" />\n"
+"      <arg direction=\"out\" type=\"v\" name=\"pong1\" />\n"
+"      <arg direction=\"out\" type=\"v\" name=\"pong2\" />\n"
+"    </method>\n"
+"  </interface>\n"
+        "")
 public:
     MyObject()
     {
-        new IntrospectionAdaptor(this);
+        QObject *subObject = new QObject(this);
+        subObject->setObjectName("subObject");
     }
 
 public slots:
@@ -152,7 +122,8 @@ void tst_QDBusInterface::initTestCase()
     QDBusConnection &con = QDBus::sessionBus();
     QVERIFY(con.isConnected());
 
-    con.registerObject("/", &obj, QDBusConnection::ExportAdaptors | QDBusConnection::ExportSlots);
+    con.registerObject("/", &obj, QDBusConnection::ExportAdaptors | QDBusConnection::ExportSlots |
+                       QDBusConnection::ExportChildObjects);
 }
 
 void tst_QDBusInterface::call_data()
@@ -241,7 +212,7 @@ void tst_QDBusInterface::call()
     
     QDBusMessage reply;
     // try first callWithArgs:
-    reply = iface->callWithArgs(method, input);
+    reply = iface->callWithArgs(method, input, QDBusInterface::UseEventLoop);
 
     QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
     if (!output.isEmpty()) {
@@ -251,20 +222,20 @@ void tst_QDBusInterface::call()
 
     // try the template methods
     if (input.isEmpty())
-        reply = iface->call(method);
+        reply = iface->call(QDBusInterface::UseEventLoop, method);
     else if (input.count() == 1)
         switch (input.at(0).type())
         {
         case QVariant::Int:
-            reply = iface->call(method, input.at(0).toInt());
+            reply = iface->call(QDBusInterface::UseEventLoop, method, input.at(0).toInt());
             break;
 
         case QVariant::UInt:
-            reply = iface->call(method, input.at(0).toUInt());
+            reply = iface->call(QDBusInterface::UseEventLoop, method, input.at(0).toUInt());
             break;
 
         case QVariant::String:
-            reply = iface->call(method, input.at(0).toString());
+            reply = iface->call(QDBusInterface::UseEventLoop, method, input.at(0).toString());
             break;
 
         default:
@@ -272,7 +243,7 @@ void tst_QDBusInterface::call()
             break;
         }
     else
-        reply = iface->call(method, input.at(0).toString(), input.at(1).toString());
+        reply = iface->call(QDBusInterface::UseEventLoop, method, input.at(0).toString(), input.at(1).toString());
 
     QCOMPARE(reply.type(), QDBusMessage::ReplyMessage);
     if (!output.isEmpty()) {
