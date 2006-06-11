@@ -213,7 +213,7 @@ static bool checkType(QVariant &var, QDBusType &type)
     if (!type.isValid()) {
         // guess it from the variant
         type = QDBusType::guessFromVariant(var);
-        return true;
+        return type.isValid();
     }
 
     int id = var.userType(); 
@@ -327,10 +327,10 @@ static bool checkType(QVariant &var, QDBusType &type)
     return false;
 }
 
-static void qVariantToIteratorInternal(DBusMessageIter *it, const QVariant &var,
+static bool qVariantToIteratorInternal(DBusMessageIter *it, const QVariant &var,
                                        const QDBusType &type);
 
-static void qListToIterator(DBusMessageIter *it, const QList<QVariant> &list,
+static bool qListToIterator(DBusMessageIter *it, const QList<QVariant> &list,
                             const QDBusTypeList &typelist);
 
 template<typename T>
@@ -348,9 +348,10 @@ static void qAppendListToMessage(DBusMessageIter *it, const QDBusType &subType,
         qIterAppend(it, subType, static_cast<DBusType>(item));
 }
 
-static void qAppendArrayToMessage(DBusMessageIter *it, const QDBusType &subType,
+static bool qAppendArrayToMessage(DBusMessageIter *it, const QDBusType &subType,
                                   const QVariant &var)
 {
+    bool ok = false;
     DBusMessageIter sub;
     dbus_message_iter_open_container(it, DBUS_TYPE_ARRAY, subType.dbusSignature(), &sub);
 
@@ -360,6 +361,7 @@ static void qAppendArrayToMessage(DBusMessageIter *it, const QDBusType &subType,
         const QStringList list = var.toStringList();
         foreach (QString str, list)
             qIterAppend(&sub, subType, str.toUtf8().constData());
+        ok = true;
         break;
     }
 
@@ -367,20 +369,25 @@ static void qAppendArrayToMessage(DBusMessageIter *it, const QDBusType &subType,
 	const QByteArray array = var.toByteArray();
 	const char* cdata = array.constData();
 	dbus_message_iter_append_fixed_array(&sub, DBUS_TYPE_BYTE, &cdata, array.length());
+        ok = true;
         break;
     }
 
     case QVariant::Map: {
         const QVariantMap map = var.toMap();
         const QDBusTypeList& subTypes = subType.subTypes();
+
+        ok = true;
         for (QMap<QString, QVariant>::const_iterator mit = map.constBegin();
-             mit != map.constEnd(); ++mit) {
+             ok && mit != map.constEnd(); ++mit) {
             DBusMessageIter itemIterator;
             dbus_message_iter_open_container(&sub, DBUS_TYPE_DICT_ENTRY, 0, &itemIterator);
             
             // let the string be converted to QVariant
-            qVariantToIteratorInternal(&itemIterator, mit.key(), subTypes[0]);
-            qVariantToIteratorInternal(&itemIterator, mit.value(), subTypes[1]);
+            if (!qVariantToIteratorInternal(&itemIterator, mit.key(), subTypes[0]))
+                ok = false;
+            else if (!qVariantToIteratorInternal(&itemIterator, mit.value(), subTypes[1]))
+                ok = false;
             
             dbus_message_iter_close_container(&sub, &itemIterator);
         }
@@ -389,13 +396,18 @@ static void qAppendArrayToMessage(DBusMessageIter *it, const QDBusType &subType,
 
     case QVariant::List: {
         const QVariantList list = var.toList();
+        ok = true;
         foreach (QVariant v, list)
-            qVariantToIteratorInternal(&sub, v, subType);
+            if (!qVariantToIteratorInternal(&sub, v, subType)) {
+                ok = false;
+                break;
+            }
         break;        
     }
 
     default: {
         int id = var.userType();
+        ok = true;
         if (id == QDBusTypeHelper<bool>::listId())
             qAppendListToMessage<dbus_bool_t,bool>(&sub, subType, var);
         else if (id == QDBusTypeHelper<short>::listId())
@@ -416,25 +428,29 @@ static void qAppendArrayToMessage(DBusMessageIter *it, const QDBusType &subType,
         else if (id == QDBusTypeHelper<QVariant>::listId())
             qAppendListToMessage<QVariant,QVariant>(&sub, subType, var);
 #endif
-        else
+        else {
             qFatal("qAppendArrayToMessage got unknown type!");
+            ok = false;
+        }
         break;
     }
     }
     
     dbus_message_iter_close_container(it, &sub);
+    return ok;
 }
 
-static void qAppendStructToMessage(DBusMessageIter *it, const QDBusTypeList &typeList,
+static bool qAppendStructToMessage(DBusMessageIter *it, const QDBusTypeList &typeList,
                                    const QVariantList &list)
 {
     DBusMessageIter sub;
     dbus_message_iter_open_container(it, DBUS_TYPE_STRUCT, NULL, &sub);
-    qListToIterator(&sub, list, typeList);
+    bool ok = qListToIterator(&sub, list, typeList);
     dbus_message_iter_close_container(it, &sub);
+    return ok;
 }
 
-static void qAppendVariantToMessage(DBusMessageIter *it, const QDBusType &type,
+static bool qAppendVariantToMessage(DBusMessageIter *it, const QDBusType &type,
                                     const QVariant &var)
 {
     Q_UNUSED(type);             // type is 'v'
@@ -444,25 +460,32 @@ static void qAppendVariantToMessage(DBusMessageIter *it, const QDBusType &type,
         arg = QDBusTypeHelper<QVariant>::fromVariant(var); // extract the inner variant
     
     QDBusType t = QDBusType::guessFromVariant(arg);
+    if (!t.isValid())
+        return false;
     
     // now add this variant
     DBusMessageIter sub;
     dbus_message_iter_open_container(it, DBUS_TYPE_VARIANT, t.dbusSignature(), &sub);
     qVariantToIteratorInternal(&sub, arg, t);
     dbus_message_iter_close_container(it, &sub);
+
+    return true;                // success
 }
 
-static void qVariantToIterator(DBusMessageIter *it, QVariant var, QDBusType type)
+static bool qVariantToIterator(DBusMessageIter *it, QVariant var, QDBusType type)
 {
-    if (var.isNull() && !type.isValid())
-        return;                 // cannot add a null like this
+    if (!var.isValid()) {
+        qWarning("QDBusMarshall: invalid QVariant entry found");
+        return false;
+    }
     if (!checkType(var, type))
-        return;                 // type checking failed
+        // warning has been printed
+        return false;           // type checking failed
 
-    qVariantToIteratorInternal(it, var, type);
+    return qVariantToIteratorInternal(it, var, type);
 }
 
-static void qVariantToIteratorInternal(DBusMessageIter *it, const QVariant &var,
+static bool qVariantToIteratorInternal(DBusMessageIter *it, const QVariant &var,
                                        const QDBusType &type)
 {
     switch (type.dbusType()) {
@@ -502,42 +525,47 @@ static void qVariantToIteratorInternal(DBusMessageIter *it, const QVariant &var,
     // compound types:
     case DBUS_TYPE_ARRAY:
         // could be many things
-        qAppendArrayToMessage( it, type.arrayElement(), var );
-        break;
+        return qAppendArrayToMessage( it, type.arrayElement(), var );
 
     case DBUS_TYPE_VARIANT:
-        qAppendVariantToMessage( it, type, var );
-        break;
+        return qAppendVariantToMessage( it, type, var );
 
     case DBUS_TYPE_STRUCT:
-        qAppendStructToMessage( it, type.subTypes(), var.toList() );
-        break;
+        return qAppendStructToMessage( it, type.subTypes(), var.toList() );
 
     case DBUS_TYPE_DICT_ENTRY:
         qFatal("qVariantToIterator got a DICT_ENTRY!");
-        break;
+        return false;
 
     default:
         qWarning("Found unknown DBus type '%s'", type.dbusSignature().constData());
-        break;
+        return false;
     }
+
+    return true;
 }
 
-void qListToIterator(DBusMessageIter *it, const QList<QVariant> &list)
+bool qListToIterator(DBusMessageIter *it, const QList<QVariant> &list)
 {
     for (int i = 0; i < list.count(); ++i)
-        qVariantToIterator(it, list.at(i), QDBusType());
+        if (!qVariantToIterator(it, list.at(i), QDBusType()))
+            return false;
+
+    return true;
 }
 
-void qListToIterator(DBusMessageIter *it, const QList<QVariant> &list, const QDBusTypeList &types)
+bool qListToIterator(DBusMessageIter *it, const QList<QVariant> &list, const QDBusTypeList &types)
 {
-    int min = qMin(list.count(), types.count());
-    for (int i = 0; i < min; ++i)
-        qVariantToIterator(it, list.at(i), types.at(i));
+    if (list.count() < types.count()) {
+        qWarning("QDBusMarshall: too few parameters");
+        return false;
+    }
 
-    for (int i = min; i < types.count(); ++i)
-        // we're missing a few arguments, so add default parameters
-        qVariantToIterator(it, QVariant(), types.at(i));
+    for (int i = 0; i < types.count(); ++i)
+        if (!qVariantToIterator(it, list.at(i), types.at(i)))
+            return false;
+
+    return true;
 }
     
 void QDBusMarshall::listToMessage(const QList<QVariant> &list, DBusMessage *msg,
@@ -548,7 +576,7 @@ void QDBusMarshall::listToMessage(const QList<QVariant> &list, DBusMessage *msg,
     dbus_message_iter_init_append(msg, &it);
 
     if (signature.isEmpty())
-        qListToIterator(&it, list);
+        (void) qListToIterator(&it, list);
     else
-        qListToIterator(&it, list, QDBusTypeList(signature.toUtf8()));
+        (void) qListToIterator(&it, list, QDBusTypeList(signature.toUtf8()));
 }

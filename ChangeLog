@@ -1,3 +1,18 @@
+2006-06-11  Thiago Macieira <thiago.macieira@trolltech.com>
+
+	* qt/tools/dbuscpp2xml.cpp: Compile on Windows.
+	* qt/tools/dbusidl2cpp.cpp: Add missing newline.
+
+	* qt/examples/Makefile.am:
+	* qt/examples/chat.h: Use UI-generated files with the ui_*.h
+	form.
+
+	* qt/src/qdbusmarshall.cpp: Allow sending of QString() and
+	QByteArray() (nulls) over the bus.
+	* qt/src/qdbusabstractinterface.cpp: Use the correct variable,
+	the one that has the signature suffix stripped.
+	* qt/src/qdbusreply.h: Make some methods const.
+
 2006-06-09  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	Patch from Timo Hoenig <thoenig@suse.de>.

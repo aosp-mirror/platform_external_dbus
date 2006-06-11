@@ -24,8 +24,8 @@
 
 #include <QtCore/QStringList>
 #include <dbus/qdbus.h>
-#include "chatmainwindow.h"
-#include "chatsetnickname.h"
+#include "ui_chatmainwindow.h"
+#include "ui_chatsetnickname.h"
 
 class ChatMainWindow: public QMainWindow, Ui::ChatMainWindow
 {

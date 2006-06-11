@@ -76,12 +76,12 @@ public:
 
     inline const QDBusError& error() { return m_error; }
 
-    inline Type value()
+    inline Type value() const
     {
         return m_data;
     }
 
-    inline operator Type ()
+    inline operator Type () const
     {
         return m_data;
     }
@@ -117,7 +117,7 @@ public:
     inline QDBusReply(const QDBusError &dbusError)
         : m_error(dbusError)
     {
-    }    
+    }
 
     inline bool isError() const { return m_error.isValid(); }
     inline bool isSuccess() const { return !m_error.isValid(); }

@@ -70,7 +70,7 @@ static const char help[] =
     "If the file name given to the options -a and -p does not end in .cpp or .h, the\n"
     "program will automatically append the suffixes and produce both files.\n"
     "You can also use a colon (:) to separate the header name from the source file\n"
-    "name, as in '-a filename_p.h:filename.cpp'.";
+    "name, as in '-a filename_p.h:filename.cpp'.\n";
 
 static const char includeList[] =
     "#include <QtCore/QByteArray>\n"

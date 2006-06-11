@@ -220,7 +220,7 @@ QDBusMessage QDBusAbstractInterface::callWithArgs(const QString& method, const Q
         // determine if this a sync or async call
         mode = NoUseEventLoop;
         const QMetaObject *mo = metaObject();
-        QByteArray match = method.toLatin1() + '(';
+        QByteArray match = m.toLatin1() + '(';
 
         for (int i = staticMetaObject.methodCount(); i < mo->methodCount(); ++i) {
             QMetaMethod mm = mo->method(i);

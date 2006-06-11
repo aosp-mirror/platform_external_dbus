@@ -5,9 +5,9 @@ if HAVE_QT_GUI
 chat_LDADD = $(LDADD) $(DBUS_QT_GUI_LIBS)
 dist_chat_SOURCES = chat.cpp chat.h chatadaptor.cpp
 nodist_chat_SOURCES = chatinterface.cpp
-chat.o: chatmainwindow.h chatsetnickname.h chatinterface.h chatadaptor.h chat.moc chatadaptor.moc
-chatmainwindow.h: chatmainwindow.ui
-chatsetnickname.h: chatsetnickname.ui
+chat.o: ui_chatmainwindow.h ui_chatsetnickname.h chatinterface.h chatadaptor.h chat.moc chatadaptor.moc
+ui_chatmainwindow.h: chatmainwindow.ui
+ui_chatsetnickname.h: chatsetnickname.ui
 chatinterface.cpp chatinterface.h: com.trolltech.ChatInterface.xml
 	../tools/dbusidl2cpp -m -p chatinterface $?
 	$(QT_MOC) -o chatinterface.moc chatinterface.h
@@ -37,6 +37,6 @@ CLEANFILES = chat.moc chatadaptor.moc complexping.moc complexpong.moc pong.moc \
 
 %.moc: %.h
 	$(QT_MOC) $< > $@
-%.h: %.ui
+ui_%.h: %.ui
 	$(QT_UIC) -o $@ $?
 
