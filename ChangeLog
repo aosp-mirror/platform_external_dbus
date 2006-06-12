@@ -1,5 +1,9 @@
 2006-06-12  Thiago Macieira <thiago.macieira@trolltech.com>
 
+	* Released 0.62
+
+2006-06-12  Thiago Macieira <thiago.macieira@trolltech.com>
+
 	* dbus/dbus-arch-deps.h.in: Remove spurious semi-colons that
         break pedantic builds. Closes bug 6043 (patch approved by
         Havoc back in February).

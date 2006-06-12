@@ -1,3 +1,33 @@
+D-BUS 0.62 (12 June 2006)
+==
+- Doc fixes
+- Added support for all data-types for the dbus tools
+- Fixed eavesdropping on method calls (dbus-monitor)
+- Fixed silent dropping of method calls with interface=NULL
+- Fixed console ownership problems in Solaris
+- Fixed installation of dbus-signature.h and #include it in dbus/dbus.h
+- Flush the user database cache on config reload
+- GLib bindings:
+  - Fix memory leaks
+  - Fix properties in DBusGProxy so that they can be given in any
+    order
+  - Added lots of assertions to ensure correct use
+  - Remove duplicated code
+  - Fix static string pointer uses in GPtrArray-based collections
+- Python bindings:
+  - Remove reference to sys/cdefs.h
+- Qt4 bindings:
+  - Code reorganized
+  - Added the dbusidl2cpp, dbuscpp2xml and dbus tools
+  - Added example programs (ping-pong, complex ping-pong, listnames, chat)
+  - Updated selftests
+  - Fixed compilation and .moc- and .ui-file processing and cleaning
+  - Made central classes derive from QObject
+  - Enhance error reporting
+  - Many bugfixes
+- Mono bindings:
+  - Minor bugfixes
+
 D-BUS 0.61 (24 Febuary 2006)
 ==
 - Documentation all around
