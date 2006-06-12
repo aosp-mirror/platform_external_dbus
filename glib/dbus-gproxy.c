@@ -1625,6 +1625,7 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
   char *name;
   GQuark q;
   DBusGProxyPrivate *priv = DBUS_G_PROXY_GET_PRIVATE(proxy);
+  GArray *msg_gsignature = NULL;
 
   g_return_if_fail (!DBUS_G_PROXY_DESTROYED (proxy));
 
@@ -1645,7 +1646,6 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
   if (q != 0)
     {
       GArray *gsignature;
-      GArray *msg_gsignature;
       guint i;
       
       gsignature = g_datalist_id_get_data (&priv->signal_signatures, q);
@@ -1672,6 +1672,8 @@ dbus_g_proxy_emit_remote_signal (DBusGProxy  *proxy,
 
  out:
   g_free (name);
+  if (msg_gsignature)
+    g_array_free (msg_gsignature, TRUE);
   return;
  mismatch:
 #if 0

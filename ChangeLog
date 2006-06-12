@@ -1,3 +1,8 @@
+2006-06-12  Ross Burton  <ross@openedhand.com>
+
+	* glib/dbus-gproxy.c:
+	Don't leak a GArray when firing signals (thank Rob Taylor for review).
+
 2006-06-12  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* Released 0.62
