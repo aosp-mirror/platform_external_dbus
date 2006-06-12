@@ -1,5 +1,13 @@
 2006-06-11  Thiago Macieira <thiago.macieira@trolltech.com>
 
+	* qt/src/qdbusintegrator.cpp: Fix bug in parsing async methods
+        that took a QDBusMessage parameter.
+	* qt/src/qdbusbus.h: Add a default flag for RequestName.
+	* qt/tools/dbus.cpp: Don't use automatic call because we might
+        be calling an async method: request a reply.
+
+2006-06-11  Thiago Macieira <thiago.macieira@trolltech.com>
+
 	* test/qt/*: Update the testcases, including testing the new
         functionality of sending null QByteArray and QString over the
         bus. Add new headertest test and restore the old

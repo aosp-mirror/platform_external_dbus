@@ -58,6 +58,7 @@ public:
     // taken out of http://dbus.freedesktop.org/doc/dbus-specification.html
     // update if the standard updates
     enum RequestNameOption {
+        QueueName = 0x0,
         AllowReplacingName = 0x1,
         ReplaceExistingName = 0x2,
         DoNotQueueName = 0x4
@@ -127,7 +128,7 @@ public Q_SLOTS:
     { return GetNameOwner(name); }
     QDBusReply<ReleaseNameReply> releaseName(const QString &serviceName)
     { return ReleaseName(serviceName); }
-    QDBusReply<RequestNameReply> requestName(const QString &serviceName, RequestNameOptions flags)
+    QDBusReply<RequestNameReply> requestName(const QString &serviceName, RequestNameOptions flags = QueueName)
     { return RequestName(serviceName, flags); }
     QDBusReply<QStringList> listQueuedOwners(const QString &serviceName)
     { return ListQueuedOwners(serviceName); }

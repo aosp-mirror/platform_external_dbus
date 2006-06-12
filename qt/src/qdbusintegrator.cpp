@@ -413,7 +413,7 @@ static int findSlot(const QMetaObject *mo, const QByteArray &name, int flags,
             continue;           // we didn't match them all
 
         // consistency check:
-        if (isAsync && metaTypes.count() > i + 1)
+        if (isAsync && metaTypes.count() > i + 1 + (hasMessage ? 1 : 0))
             continue;
 
         if (hasMessage && (mm.attributes() & attributeMask) != attributeMask)

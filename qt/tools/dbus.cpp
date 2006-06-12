@@ -237,7 +237,7 @@ void placeCall(const QString &service, const QString &path, const QString &inter
         exit(1);
     }
 
-    QDBusMessage reply = iface->callWithArgs(member, params);
+    QDBusMessage reply = iface->callWithArgs(member, params, QDBusInterface::NoUseEventLoop);
     if (reply.type() == QDBusMessage::ErrorMessage) {
         QDBusError err = reply;
         printf("Error: %s\n%s\n", qPrintable(err.name()), qPrintable(err.message()));
