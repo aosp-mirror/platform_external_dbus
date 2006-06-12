@@ -29,7 +29,7 @@
 
 #include <dbus/dbus-macros.h>
 
-DBUS_BEGIN_DECLS;
+DBUS_BEGIN_DECLS
 
 #if @DBUS_HAVE_INT64@
 #define DBUS_HAVE_INT64 1
@@ -51,6 +51,6 @@ typedef unsigned @DBUS_INT32_TYPE@ dbus_uint32_t;
 typedef @DBUS_INT16_TYPE@ dbus_int16_t;
 typedef unsigned @DBUS_INT16_TYPE@ dbus_uint16_t;
 
-DBUS_END_DECLS;
+DBUS_END_DECLS
 
 #endif /* DBUS_ARCH_DEPS_H */

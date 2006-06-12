@@ -1,4 +1,10 @@
-2006-06-11  Thiago Macieira <thiago.macieira@trolltech.com>
+2006-06-12  Thiago Macieira <thiago.macieira@trolltech.com>
+
+	* dbus/dbus-arch-deps.h.in: Remove spurious semi-colons that
+        break pedantic builds. Closes bug 6043 (patch approved by
+        Havoc back in February).
+
+2006-06-12  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* qt/src/qdbusintegrator.cpp: Fix bug in parsing async methods
         that took a QDBusMessage parameter.
