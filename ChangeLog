@@ -1,3 +1,8 @@
+2006-06-13  Thiago Macieira <thiago.macieira@trolltech.com>
+
+	* qt/src/Makefile.am: install the qdbus.h header.
+	This allows people to actually use the installed code.
+
 2006-06-12  Ross Burton  <ross@openedhand.com>
 
 	* glib/dbus-gproxy.c:

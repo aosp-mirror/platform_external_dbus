@@ -15,7 +15,8 @@ dbusinclude_HEADERS=    \
         qdbusutil.h     \
         qdbusabstractadaptor.h \
         qdbusreply.h    \
-        qdbustypehelper_p.h
+        qdbustypehelper_p.h \
+	qdbus.h
 
 noinst_HEADERS=		\
 	qdbusabstractadaptor_p.h \
