@@ -1,3 +1,8 @@
+2006-06-14  Ross Burton  <ross@openedhand.com>
+
+	* tools/dbus-print-message.c:
+	Also print the object path when outputting signals or method calls.
+
 2006-06-13  Thiago Macieira <thiago.macieira@trolltech.com>
 
 	* qt/src/Makefile.am: install the qdbus.h header.
