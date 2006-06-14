@@ -1981,6 +1981,7 @@ dbus_g_method_return (DBusGMethodInvocation *context, ...)
   dbus_g_message_unref (context->message);
   g_free (context);
   g_free (out_sig);
+  g_array_free (argsig, TRUE);
 }
 
 /**

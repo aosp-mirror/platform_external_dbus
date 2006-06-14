@@ -1,5 +1,10 @@
 2006-06-14  Ross Burton  <ross@openedhand.com>
 
+	* glib/dbus-gobject.c:
+	Free a leaking GArray (surely not!) in dbus_g_method_return.
+
+2006-06-14  Ross Burton  <ross@openedhand.com>
+
 	* tools/Makefile.am:
 	* tools/dbus-monitor.c:
 	Don't use the GLib bindings in dbus-monitor (patch from Ralf
