@@ -23,8 +23,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
 #include "dbus-print-message.h"
 
 static DBusHandlerResult
@@ -59,7 +57,7 @@ main (int argc, char *argv[])
   DBusConnection *connection;
   DBusError error;
   DBusBusType type = DBUS_BUS_SESSION;
-  GMainLoop *loop;
+
   int i = 0, j = 0, numFilters = 0;
   char **filters = NULL;
   for (i = 1; i < argc; i++)
@@ -85,8 +83,6 @@ main (int argc, char *argv[])
       }
     }
 
-  loop = g_main_loop_new (NULL, FALSE);
-
   dbus_error_init (&error);
   connection = dbus_bus_get (type, &error);
   if (connection == NULL)
@@ -97,8 +93,6 @@ main (int argc, char *argv[])
       dbus_error_free (&error);
       exit (1);
     }
-
-  dbus_connection_setup_with_g_main (connection, NULL);
 
   if (numFilters)
     {
@@ -143,9 +137,8 @@ main (int argc, char *argv[])
     fprintf (stderr, "Couldn't add filter!\n");
     exit (1);
   }
-
-  g_main_loop_run (loop);
-
+  while (dbus_connection_read_write_dispatch(connection, -1))
+    ;
   exit (0);
  lose:
   fprintf (stderr, "Error: %s\n", error.message);

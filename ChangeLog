@@ -1,5 +1,12 @@
 2006-06-14  Ross Burton  <ross@openedhand.com>
 
+	* tools/Makefile.am:
+	* tools/dbus-monitor.c:
+	Don't use the GLib bindings in dbus-monitor (patch from Ralf
+	Habacker).
+	
+2006-06-14  Ross Burton  <ross@openedhand.com>
+
 	* tools/dbus-print-message.c:
 	Also print the object path when outputting signals or method calls.
 
