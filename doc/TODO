@@ -21,7 +21,12 @@ Important for 1.0
 
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
 
- - dbus-pending-call.c has some API and thread safety issues to review
+ - dbus-pending-call.c has some API and thread safety issues to review.
+   DBusPendingCall is used from multiple threads with no locks.
+   Either DBusConnection's lock has to protect all associated pending
+   call (means pending->connection can't ever be set to null) or 
+   or DBusPendingCall needs its own lock
+   http://lists.freedesktop.org/archives/dbus/2006-June/004945.html
 
  - Add test harness for selinux allow/deny cf. this message
    http://lists.freedesktop.org/archives/dbus/2005-April/002506.html
@@ -34,6 +39,11 @@ Important for 1.0
    http://lists.freedesktop.org/archives/dbus/2005-August/003207.html
 
    Kind of a major API change, but seems high-value.
+
+ - dbus_bus_get() should hold a strong reference associated with the "connected" 
+   state (i.e. libdbus drops its reference when the connection disconnects,
+   and sets its internal connection variable to null).
+   See http://lists.freedesktop.org/archives/dbus/2006-May/004806.html
 
 Important for 1.0 GLib Bindings
 ===
