@@ -302,6 +302,23 @@ ensure_bus_data (DBusConnection *connection)
   return bd;
 }
 
+/* internal function that checks to see if this
+   is a shared bus connection and if it is unref it */
+void
+_dbus_bus_check_connection_and_unref (DBusConnection *connection)
+{
+  if (bus_connections[DBUS_BUS_SYSTEM] == connection)
+    {
+      bus_connections[DBUS_BUS_SYSTEM] = NULL;
+      dbus_connection_unref (connection);
+    }
+  else if (bus_connections[DBUS_BUS_SESSION] == connection)
+    {
+      bus_connections[DBUS_BUS_SESSION] = NULL;
+      dbus_connection_unref (connection);
+    }
+}
+
 static DBusConnection *
 internal_bus_get (DBusBusType  type,
 	      DBusError   *error, dbus_bool_t private)
@@ -385,7 +402,11 @@ internal_bus_get (DBusBusType  type,
     }
 
   if (!private)
-    bus_connections[type] = connection;
+    {
+      /* get a hard ref to the connection */
+      bus_connections[type] = connection;
+      dbus_connection_ref (bus_connections[type]);
+    }
   
   bd = ensure_bus_data (connection);
   _dbus_assert (bd != NULL);

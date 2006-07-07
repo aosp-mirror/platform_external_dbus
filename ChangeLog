@@ -1,3 +1,17 @@
+2006-07-07  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-connection.c (dbus_connection_close): removed deprecated
+	function
+	(dbus_connection_dispatch): On disconnect unref any shared connections
+
+	* dbus/dbus-bus.c (_dbus_bus_check_connection_and_unref): new function
+	for cleaning up shared connections on disconnect
+	(internal_bus_get): get a hard refrence to shared connections when
+	they are created
+	
+	* doc/TODO: Remove items which are no longer relevent or have been fixed
+	Split 1.0 todo items with a 0.90 freeze todo list
+ 
 2006-06-14  Ross Burton  <ross@openedhand.com>
 
 	* glib/dbus-gobject.c:

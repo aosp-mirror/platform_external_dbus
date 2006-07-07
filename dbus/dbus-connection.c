@@ -1947,18 +1947,6 @@ dbus_connection_close (DBusConnection *connection)
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 }
 
-/** Alias for dbus_connection_close(). This method is DEPRECATED and will be
- *  removed for 1.0. Change your code to use dbus_connection_close() instead.
- *
- * @param connection the connection.
- * @deprecated
- */
-void
-dbus_connection_disconnect (DBusConnection *connection)
-{
-  dbus_connection_close (connection);
-}
-
 static dbus_bool_t
 _dbus_connection_get_is_connected_unlocked (DBusConnection *connection)
 {
@@ -3780,15 +3768,21 @@ dbus_connection_dispatch (DBusConnection *connection)
     {
       _dbus_verbose (" ... done dispatching in %s\n", _DBUS_FUNCTION_NAME);
       
-      if (connection->exit_on_disconnect &&
-          dbus_message_is_signal (message,
+      if (dbus_message_is_signal (message,
                                   DBUS_INTERFACE_LOCAL,
                                   "Disconnected"))
         {
-          _dbus_verbose ("Exiting on Disconnected signal\n");
-          CONNECTION_UNLOCK (connection);
-          _dbus_exit (1);
-          _dbus_assert_not_reached ("Call to exit() returned");
+          int i;
+
+          
+          _dbus_bus_check_connection_and_unref (connection);
+          if (connection->exit_on_disconnect)
+            {
+              _dbus_verbose ("Exiting on Disconnected signal\n");
+              CONNECTION_UNLOCK (connection);
+              _dbus_exit (1);
+              _dbus_assert_not_reached ("Call to exit() returned");
+            }
         }
       
       _dbus_list_free_link (message_link);
