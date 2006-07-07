@@ -93,7 +93,7 @@ DBusConnection*    dbus_connection_open_private                 (const char     
                                                                  DBusError                  *error);
 DBusConnection*    dbus_connection_ref                          (DBusConnection             *connection);
 void               dbus_connection_unref                        (DBusConnection             *connection);
-void               dbus_connection_disconnect                   (DBusConnection             *connection);
+void               dbus_connection_close                        (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_connected             (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_authenticated         (DBusConnection             *connection);
 void               dbus_connection_set_exit_on_disconnect       (DBusConnection             *connection,

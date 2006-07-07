@@ -39,6 +39,7 @@
 #include "dbus-pending-call.h"
 #include "dbus-object-tree.h"
 #include "dbus-threads-internal.h"
+#include "dbus-bus.h"
 
 #ifdef DBUS_DISABLE_CHECKS
 #define TOOK_LOCK_CHECK(connection)
@@ -2869,7 +2870,7 @@ dbus_connection_flush (DBusConnection *connection)
  * @param dispatch dispatch new messages or leave them on the incoming queue
  * @returns #TRUE if the disconnect message has not been processed
  */
-dbus_bool_t
+static dbus_bool_t
 _dbus_connection_read_write_dispatch (DBusConnection *connection,
                                      int             timeout_milliseconds, 
                                      dbus_bool_t     dispatch)

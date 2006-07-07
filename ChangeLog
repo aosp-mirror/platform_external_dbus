@@ -1,5 +1,13 @@
 2006-07-07  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-connection.h: remove connection_disconnect and replace with
+	connection_close
+
+	* dbus/dbus-connection.c: include dbus-bus.h
+	(_dbus_connection_read_write_dispatch): make static
+
+2006-07-07  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-connection.c (dbus_connection_close): removed deprecated
 	function
 	(dbus_connection_dispatch): On disconnect unref any shared connections
