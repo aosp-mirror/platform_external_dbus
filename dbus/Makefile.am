@@ -70,6 +70,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-object-tree.c			\
 	dbus-object-tree.h			\
 	dbus-pending-call.c			\
+	dbus-pending-call-internal.h		\
 	dbus-resources.c			\
 	dbus-resources.h			\
 	dbus-server.c				\

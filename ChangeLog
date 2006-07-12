@@ -1,4 +1,8 @@
 2006-07-12  John (J5) Palmieri  <johnp@redhat.com>
+	* dbus/Makefile.am: add dbus-pending-call-internal.h to the list of
+	source files
+
+2006-07-12  John (J5) Palmieri  <johnp@redhat.com>
 	* dbus/dbus-message-factory.c:
 	Fix index into an array (patch by Peter Kümmel <syntheticpp at gmx.net>)
 
