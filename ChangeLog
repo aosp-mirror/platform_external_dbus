@@ -1,3 +1,10 @@
+2006-07-12  John (J5) Palmieri  <johnp@redhat.com>
+	* dbus/dbus-connection-internal.h:
+	* dbus/dbus-connection.c:
+	* file dbus/dbus-pending-call.c:
+	* dbus/dbus-pending-call.h:
+	Make DBusPendingCall an opaque type even to D-Bus internals
+
 2006-07-07  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-connection.h: remove connection_disconnect and replace with

@@ -91,37 +91,8 @@ dbus_bool_t       _dbus_connection_send_and_unlock             (DBusConnection  
                                                                 DBusMessage        *message,
                                                                 dbus_uint32_t      *client_serial);
 
-/**
- * @addtogroup DBusPendingCallInternals DBusPendingCall implementation details
- * @{
- */
-/**
- * @brief Internals of DBusPendingCall
- *
- * Object representing a reply message that we're waiting for.
- */
-struct DBusPendingCall
-{
-  DBusAtomic refcount;                            /**< reference count */
-
-  DBusDataSlotList slot_list;                     /**< Data stored by allocated integer ID */
-  
-  DBusPendingCallNotifyFunction function;         /**< Notifier when reply arrives. */
-
-  DBusConnection *connection;                     /**< Connections we're associated with */
-  DBusMessage *reply;                             /**< Reply (after we've received it) */
-  DBusTimeout *timeout;                           /**< Timeout */
-
-  DBusList *timeout_link;                         /**< Preallocated timeout response */
-  
-  dbus_uint32_t reply_serial;                     /**< Expected serial of reply */
-
-  unsigned int completed : 1;                     /**< TRUE if completed */
-  unsigned int timeout_added : 1;                 /**< Have added the timeout */
-};
-
-/** @} End of DBusPendingCallInternals */
-
+void              _dbus_connection_queue_synthesized_message_link (DBusConnection *connection,
+						                   DBusList *link);
 
 DBUS_END_DECLS
 

@@ -52,7 +52,6 @@ dbus_bool_t dbus_pending_call_set_data           (DBusPendingCall  *pending,
                                                   DBusFreeFunction  free_data_func);
 void*       dbus_pending_call_get_data           (DBusPendingCall  *pending,
                                                   dbus_int32_t      slot);
-
 DBUS_END_DECLS
 
 #endif /* DBUS_PENDING_CALL_H */
