@@ -623,7 +623,7 @@ generate_special (DBusMessageDataIter   *iter,
     }
   else if (item_seq == 16)
     {
-      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*4+8];
+      char long_sig[DBUS_MAXIMUM_TYPE_RECURSION_DEPTH*4+10];
       const char *v_STRING;
       int i;
       int n_begins;
