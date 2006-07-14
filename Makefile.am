@@ -1,56 +1,15 @@
-
-if HAVE_GLIB
-    GLIB_SUBDIR=glib
-    GLIB_PC=dbus-glib-1.pc
-endif
-
-if HAVE_QT
-   QT_SUBDIR=qt
-   QT_PC=dbus-qt4-1.pc
-endif
-
-if HAVE_QT3
-   QT3_SUBDIR=qt3
-endif
-
-if DBUS_USE_GCJ
-   GCJ_SUBDIR=gcj
-endif
-
-if DBUS_USE_CSC
-   MONO_SUBDIR=mono
-   MONO_PC=dbus-sharp.pc
-endif
-
-if HAVE_PYTHON
-   PYTHON_SUBDIR=python
-endif
-
-## really we should require gcj/mcs/python also but since they are 
-## annoying to install, we don't for now
-dist-local:
-	if test -z "$(QT_SUBDIR)" || test -z "$(GLIB_SUBDIR)" ; then		\
-		echo "You have to build with Qt and GLib to make dist" ;	\
-	fi 
-
-SUBDIRS=dbus bus doc $(GLIB_SUBDIR) $(GCJ_SUBDIR) $(MONO_SUBDIR) $(QT_SUBDIR) $(QT3_SUBDIR) $(PYTHON_SUBDIR) tools test
-DIST_SUBDIRS=dbus bus doc glib qt qt3 gcj mono python tools test
+SUBDIRS=dbus bus doc tools test
+DIST_SUBDIRS=dbus bus doc tools test
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = dbus-1.pc $(GLIB_PC) $(QT_PC) $(MONO_PC)
+pkgconfig_DATA = dbus-1.pc 
 
 DISTCLEANFILES = 		\
-	dbus-1.pc		\
-	$(GLIB_PC)		\
-	$(QT_PC)		\
-	$(MONO_PC)
+	dbus-1.pc
 
 EXTRA_DIST =			\
 	HACKING			\
-	dbus-1.pc.in		\
-	dbus-glib-1.pc.in	\
-	dbus-qt4-1.pc.in	\
-	dbus-sharp.pc.in
+	dbus-1.pc.in
 
 all-local: Doxyfile
 
@@ -61,7 +20,7 @@ clean-gcov:
 clean-bbg:
 	find -name "*.bbg" -o -name "*.bb" | xargs rm || true
 
-GCOV_DIRS=dbus bus $(GLIB_SUBDIR) $(QT_SUBDIR)
+GCOV_DIRS=dbus bus
 
 ## .PHONY so it always rebuilds it
 .PHONY: coverage-report.txt

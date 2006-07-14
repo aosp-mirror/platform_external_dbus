@@ -1,16 +1,5 @@
-
-if HAVE_GLIB
-    GLIB_SUBDIR=glib
-endif
-if HAVE_PYTHON
-    PYTHON_SUBDIR=python
-endif
-if HAVE_QTESTLIB
-    QT_SUBDIR=qt
-endif
-
-SUBDIRS=name-test $(GLIB_SUBDIR) $(PYTHON_SUBDIR) $(QT_SUBDIR)
-DIST_SUBDIRS=glib python qt name-test
+SUBDIRS=name-test 
+DIST_SUBDIRS=name-test
 
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 

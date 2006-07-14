@@ -1,3 +1,0 @@
-[D-BUS Service]
-Name=org.freedesktop.DBus.TestSuitePythonService
-Exec=@TEST_PYTHON_SERVICE_BINARY@

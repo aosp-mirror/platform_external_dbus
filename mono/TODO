@@ -1,8 +1,0 @@
-- Clean up memory leakages. Call _unref functions etc.
-
-- Convert strings to/from UTF-8
-
-- Implement own main loop. The current implementation depends on the
-  GLib mainloop.
-
-- Get test working. Probably a threading issue.

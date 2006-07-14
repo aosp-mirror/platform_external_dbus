@@ -46,13 +46,6 @@ AC_PROG_CXX
 AC_ISC_POSIX
 AC_HEADER_STDC
 
-AC_ARG_ENABLE(qt, AS_HELP_STRING([--enable-qt],[enable Qt-friendly client library]),enable_qt=$enableval,enable_qt=auto)
-AC_ARG_ENABLE(qt-debug, AS_HELP_STRING([--enable-qt-debug],[enable Qt-friendly client library, linked to debug Qt libraries]),enable_qt_debug=$enableval,enable_qt_debug=no)
-AC_ARG_WITH(qt_moc, AS_HELP_STRING([--with-qt-moc=<path>],[moc for Qt]))
-AC_ARG_ENABLE(qt3, AS_HELP_STRING([--enable-qt3],[enable Qt3-friendly client library]),enable_qt3=$enableval,enable_qt3=auto)
-AC_ARG_WITH(qt3_moc, AS_HELP_STRING([--with-qt3-moc=<path>],[moc for Qt3]))
-AC_ARG_ENABLE(glib, AS_HELP_STRING([--enable-glib],[enable GLib-friendly client library]),enable_glib=$enableval,enable_glib=auto)
-AC_ARG_ENABLE(gtk, AS_HELP_STRING([--enable-gtk],[enable GTK-requiring executables]),enable_gtk=$enableval,enable_gtk=auto)
 AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[enable unit test code]),enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
 AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
 AC_ARG_ENABLE(verbose-mode, AS_HELP_STRING([--enable-verbose-mode],[support verbose debug mode]),enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
@@ -62,10 +55,6 @@ AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentat
 AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
 AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
 AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
-AC_ARG_ENABLE(gcj, AS_HELP_STRING([--enable-gcj],[build gcj bindings]),enable_gcj=$enableval,enable_gcj=no)
-AC_ARG_ENABLE(mono, AS_HELP_STRING([--enable-mono],[build mono bindings]),enable_mono=$enableval,enable_mono=no)
-AC_ARG_ENABLE(mono_docs, AS_HELP_STRING([--enable-mono-docs],[build mono docs]),enable_mono_docs=$enableval,enable_mono_docs=no)
-AC_ARG_ENABLE(python, AS_HELP_STRING([--enable-python],[build python bindings]),enable_python=$enableval,enable_python=auto)
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
 AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
 AC_ARG_ENABLE(console-owner-file, AS_HELP_STRING([--enable-console-owner-file],[enable console owner file]),enable_console_owner_file=$enableval,enable_console_owner_file=auto)
@@ -190,141 +179,7 @@ else
   fi
 fi
 
-#### can't use AM_PROG_GCJ since it fails fatally if no gcj found
-AC_CHECK_PROGS(GCJ, gcj, gcj)
-if test -z "$GCJ" ; then
-     have_gcj=no
-else
-     # Needs to be here so libtool wont get confused
-     AM_PROG_GCJ
-
-     have_gcj=yes
-     if test "x${GCJFLAGS-unset}" = xunset; then
-        GCJFLAGS="-g -O2 -Wall"
-     fi
-     AC_SUBST(GCJFLAGS)
-fi
-
-if test x$enable_gcj = xauto ; then
-    if test x$have_gcj = xno ; then
-        enable_gcj=no
-    else
-        enable_gcj=yes
-    fi
-fi
-
-if test x$enable_gcj = xyes; then
-    if test x$have_gcj = xno ; then
-	AC_MSG_ERROR([Building gcj explicitly required, but gcj not found])
-    else 
-        AC_CHECK_PROGS(JAR, gcj-jar fastjar jar)
-    fi
-fi
-
-AM_CONDITIONAL(DBUS_USE_GCJ, test x$enable_gcj = xyes)
-
 AM_PROG_LIBTOOL
-
-#### Look for mono
-MONO_REQUIRED_VERSION=0.95
-AC_SUBST(MONO_REQUIRED_VERSION)
-PKG_CHECK_MODULES(MONO_DEPENDENCY, mono >= $MONO_REQUIRED_VERSION, have_mono=true, have_mono=false)
-
-if test "x$enable_mono" = "xyes"; then
-	if test "x$have_mono" = "xfalse"; then
-		AC_MSG_ERROR([Mono was not found])
-	fi
-fi
-
-if test "x$have_mono" = "xtrue"; then
-	if test `uname -s` = "Darwin"; then
-		AC_PATH_PROG(RUNTIME, mint, no)
-		AC_PATH_PROG(CSC, mcs, no)
-		LIB_PREFIX=
-		LIB_SUFFIX=.dylib
-	else
-		AC_PATH_PROG(RUNTIME, mono, no)
-		AC_PATH_PROG(CSC, mcs, no)
-		LIB_PREFIX=.so
-		LIB_SUFFIX=
-	fi
-else
-	AC_PATH_PROG(CSC, csc.exe, no)
-	RUNTIME=
-	LIB_PREFIX=
-	LIB_SUFFIX=.dylib
-fi
-
-if test x$enable_mono = xyes; then
-    if test x$have_mcs = xno ; then
-	AC_MSG_ERROR([Building Mono bindings explicitly required, but mcs compiler not found])
-    fi
-
-    ### Test for GACUTIL
-    AC_PATH_PROG(GACUTIL, gacutil, no)
-    if test "x$GACUTIL" = "xno" ; then
-        AC_MSG_ERROR([No gacutil tool found])
-    fi
-
-    AC_SUBST(GACUTIL)
-fi
-
-if test x$enable_mono = xauto ; then
-    if test x$CSC = xno ; then
-        enable_mono=no
-    else
-    	### Test for GACUTIL
-    	AC_PATH_PROG(GACUTIL, gacutil, no)
-    	if test "x$GACUTIL" = "xno" ; then
-	   enable_mono=no
-  	else
-	   enable_mono=yes
-    	fi
-    fi
-fi
-
-AC_SUBST(RUNTIME)
-AC_SUBST(CSC)
-AC_SUBST(GACUTIL)
-AC_SUBST(LIB_PREFIX)
-AC_SUBST(LIB_SUFFIX)
-
-AM_CONDITIONAL(DBUS_USE_CSC, test x$enable_mono = xyes)
-
-#### Look for monodoc
-MONODOC_REQUIRED_VERSION=0.16
-AC_SUBST(MONODOC_REQUIRED_VERSION)
-PKG_CHECK_MODULES(MONODOC_DEPENDENCY, monodoc >= $MONODOC_REQUIRED_VERSION, have_monodoc=yes, have_monodoc=no)
-
-if test x$enable_mono_docs = xyes; then
-    if test x$have_monodoc = xno ; then
-	AC_MSG_ERROR([Building Mono docs explicitly required, but monodoc not found])
-    else
-        AC_PATH_PROG(MONODOC, monodoc, no)
-        if test x$MONODOC = xno; then
-           AC_MSG_ERROR([Building Mono docs explicitly required, but monodoc not found])	
-	fi
-    fi
-fi
-
-if test x$enable_mono_docs = xauto ; then
-    if test x$have_monodoc = xno ; then
-        enable_mono_docs=no
-	MONODOC=
-    else
-        AC_PATH_PROG(MONODOC, monodoc, no)
-        if test x$MONODOC = xno; then
-           enable_mono_docs=no
-           MONODOC=
-	else
-	   enable_mono_docs=yes
-        fi
-    fi
-fi
-
-AC_SUBST(MONODOC)
-
-AM_CONDITIONAL(ENABLE_MONODOC, test "x$enable_mono_docs" = "xyes")
 
 changequote(,)dnl
 # let ourselves use our own unstable API
@@ -885,230 +740,6 @@ DBUS_TEST_LIBS=
 AC_SUBST(DBUS_TEST_CFLAGS)
 AC_SUBST(DBUS_TEST_LIBS)
 
-# Glib detection
-PKG_CHECK_MODULES(DBUS_GLIB, gobject-2.0 >= 2.4, have_glib=yes, have_glib=no)
-PKG_CHECK_MODULES(DBUS_GLIB_THREADS, gthread-2.0 >= 2.4, have_glib_threads=yes, have_glib_threads=no)
-
-if test x$have_glib = xno ; then
-    AC_MSG_WARN([GLib development libraries not found])
-fi
-
-if test x$enable_glib = xyes; then
-    if test x$have_glib = xno; then
-	AC_MSG_ERROR([GLib explicitly required, and GLib development libraries not found])
-    fi
-fi
-
-if test x$enable_glib = xno; then
-   have_glib=no;
-fi
-
-AM_CONDITIONAL(HAVE_GLIB, test x$have_glib = xyes)
-AM_CONDITIONAL(HAVE_GLIB_THREADS, test x$have_glib_threads = xyes)
-
-if test x$have_glib = xyes; then
-   GLIB_GENMARSHAL=`$PKG_CONFIG --variable=glib_genmarshal glib-2.0`
-else
-   GLIB_GENMARSHAL=glib-not-enabled-so-there-is-no-genmarshal
-fi
-AC_SUBST(GLIB_GENMARSHAL)
-
-dnl GLib flags
-AC_SUBST(DBUS_GLIB_CFLAGS)
-AC_SUBST(DBUS_GLIB_LIBS)
-AC_SUBST(DBUS_GLIB_THREADS_LIBS)
-
-DBUS_GLIB_TOOL_CFLAGS=$XML_CFLAGS
-DBUS_GLIB_TOOL_LIBS="$XML_LIBS $INTLLIBS"
-AC_SUBST(DBUS_GLIB_TOOL_CFLAGS)
-AC_SUBST(DBUS_GLIB_TOOL_LIBS)
-
-# GTK detection
-if test x$have_glib = xno ; then
-    AC_MSG_WARN([Can't use GTK+ since GLib not enabled])
-    have_gtk=no
-else
-    PKG_CHECK_MODULES(DBUS_GTK, gtk+-2.0 >= 2.4, have_gtk=yes, have_gtk=no)
-    PKG_CHECK_MODULES(DBUS_GTK_THREADS, gtk+-2.0 >= 2.4 gthread-2.0, have_gtk_threads=yes, have_gtk_threads=no)
-fi
-
-if test x$have_gtk = xno ; then
-    AC_MSG_WARN([GTK+ development libraries not found])
-fi
-
-if test x$enable_gtk = xyes; then
-    if test x$have_gtk = xno; then
-	AC_MSG_ERROR([GTK+ explicitly required, and GTK+ development libraries not found])
-    fi
-fi
-
-if test x$enable_gtk = xno; then
-   have_gtk=no;
-fi
-
-AM_CONDITIONAL(HAVE_GTK, test x$have_gtk = xyes)
-
-dnl Gtk flags
-AC_SUBST(DBUS_GTK_CFLAGS)
-AC_SUBST(DBUS_GTK_LIBS)
-AC_SUBST(DBUS_GTK_THREADS_CFLAGS)
-AC_SUBST(DBUS_GTK_THREADS_LIBS)
-
-
-dnl Qt3 detection
-if test -z "$with_qt3_moc" ; then
-  AC_PATH_PROG(QT3_MOC, moc, no)
-else
-  QT3_MOC=$with_qt3_moc
-  AC_SUBST(QT3_MOC)
-fi
-
-have_qt3=no
-AC_MSG_CHECKING([for qglobal.h])
-if test -n "$QTDIR" -a -f "$QTDIR/include/qglobal.h"; then
-    have_qt3=yes
-    DBUS_QT3_CXXFLAGS="-I$QTDIR/include"
-else
-    for dir in "${prefix}/include/qt" "/usr/include/qt-3.1" "/usr/include/qt3" "/usr/include/qt" "/usr/lib/qt/include" "/usr/lib/qt-3.1/include"; do
-        if test -f "$dir/qglobal.h"; then
-            have_qt3=yes
-            DBUS_QT3_CXXFLAGS="-I$dir"
-            DBUS_QT3_LIBS="-L$QTDIR/lib -lqt-mt"
-       fi
-    done
-fi
-if test x$have_qt3 = xyes; then
-   AC_MSG_RESULT([found])
-else
-   AC_MSG_RESULT([not found])
-fi
-
-if test x$have_qt3 = xno; then
-    AC_MSG_WARN([Qt3 development libraries not found])
-fi
-
-if test x$enable_qt3 = xyes; then
-    if test x$have_qt3 = xno; then
-	AC_MSG_ERROR([Qt3 integration explicitly required, and Qt3 libraries not found])
-    fi
-fi
-
-if test x$enable_qt3 = xno; then
-   have_qt3=no;
-fi
-
-AM_CONDITIONAL(HAVE_QT3, test x$have_qt3 = xyes)
-
-dnl Qt3 flags
-AC_SUBST(DBUS_QT3_CXXFLAGS)
-AC_SUBST(DBUS_QT3_LIBS)
-
-
-dnl Qt4 detection
-
-AC_MSG_CHECKING([if we want to link to Qt debugging libraries])
-qt_suffix=
-if test x$enable_qt_debug = xyes; then
-    qt_suffix=_debug
-    AC_MSG_RESULT([debug])
-else
-    AC_MSG_RESULT([release])
-fi
-
-if test x$enable_qt = xno; then
-   have_qt=no
-   have_qt_gui=no
-   have_qtest=no
-else
-   QT_CORE=QtCore$qt_suffix
-   QT_XML=QtXml$qt_suffix
-   QT_GUI=QtGui$qt_suffix
-   QT_TESTLIB=QtTest$qt_suffix
-   min_qt_version=4.1.3
-
-   AC_SUBST(QT_CORE)
-   AC_SUBST(QT_XML)
-
-   PKG_CHECK_MODULES([DBUS_QT], 
-                     [$QT_CORE >= $min_qt_version $QT_XML >= $min_qt_version], 
-                     have_qt=yes, 
-                     have_qt=no)
-fi
-
-dnl Check for moc too
-if test x$have_qt = xyes ; then
-    AC_MSG_CHECKING([for moc])
-
-    if test -z "$with_qt_moc" ; then
-        QT_MOC=`$PKG_CONFIG --variable=exec_prefix $QT_CORE`
-        QT_MOC=${QT_MOC}/bin/moc
-    else
-        QT_MOC=$with_qt_moc
-    fi
-
-    if test -x "$QT_MOC"; then
-        AC_MSG_RESULT([found, $QT_MOC])
-    else
-        AC_MSG_RESULT([not found])
-        AC_MSG_WARN([moc not found; disabling Qt])
-        have_qt=no
-    fi
-fi
-
-if test x$have_qt = xno ; then
-    if test x$enable_qt = xyes; then
-	    AC_MSG_ERROR([Qt integration explicitly required, and Qt libraries not found])
-    fi
-    have_qt=no
-else
-    dnl Qt4 flags
-    AC_SUBST(DBUS_QT_CFLAGS)
-    AC_SUBST(DBUS_QT_LIBS)
-    AC_SUBST(QT_MOC)
-
-    dnl QTestLib detection
-    PKG_CHECK_MODULES([DBUS_QTESTLIB], 
-    	              [$QT_TESTLIB >= 4.1.0], 
-                      have_qtest=yes, 
-                      have_qtest=no)
-
-    if test x$have_qtest = xno ; then
-        AC_MSG_WARN([Qt Unit Test library not found])
-    fi
-
-    if test x$have_qt = xno; then
-        have_qtest=no
-    fi
-
-    AC_SUBST(DBUS_QTESTLIB_CFLAGS)
-    AC_SUBST(DBUS_QTESTLIB_LIBS)
-
-    dnl QtGui detection
-    PKG_CHECK_MODULES([DBUS_QT_GUI], [$QT_GUI >= $min_qt_version],
-    		      have_qt_gui=yes,
-		      have_qt_gui=no)
-
-    if test x$have_qt_gui = xyes ; then
-        AC_MSG_CHECKING([for uic])
-	QT_UIC=`$PKG_CONFIG --variable=exec_prefix $QT_GUI`/bin/uic
-
-	if test -x "$QT_UIC" ; then
-	    AC_MSG_RESULT([found, $QT_UIC])
-	else
-	    AC_MSG_RESULT([not found, disabling Qt Gui])
-	    have_qt_gui=no
-	fi
-    fi
-
-    AC_SUBST(DBUS_QT_GUI_CFLAGS)
-    AC_SUBST(DBUS_QT_GUI_LIBS)
-    AC_SUBST(QT_UIC)
-fi
-
-AM_CONDITIONAL(HAVE_QT, test x$have_qt = xyes)
-AM_CONDITIONAL(HAVE_QT_GUI, test x$have_qt_gui = xyes)
-AM_CONDITIONAL(HAVE_QTESTLIB, test x$have_qtest = xyes)
-
 ### X11 detection
 AC_PATH_XTRA
 
@@ -1343,8 +974,6 @@ AC_SUBST(TEST_$1)
 TEST_PATH(SERVICE_DIR, data/valid-service-files)
 TEST_PATH(SERVICE_BINARY, test-service)
 TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
-TEST_PATH(GLIB_SERVICE_BINARY, glib/test-service-glib)
-TEST_PATH(PYTHON_SERVICE_BINARY, python/test-service.py)
 TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
 TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
@@ -1377,51 +1006,6 @@ fi
 AC_DEFINE_UNQUOTED(DBUS_SESSION_SOCKET_DIR, "$DBUS_SESSION_SOCKET_DIR", [Where per-session bus puts its sockets])
 AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 
-# Detect if we can build Python bindings (need python, python headers, and pyrex)
-if test x$enable_python = xno; then
-    have_python=no
-else
-    have_python_version=2.4
-    AC_MSG_NOTICE([Checking to see if we can build Python bindings])
-    have_python=no
-    AM_PATH_PYTHON()
-
-    if test -z "$PYTHON" ; then
-        AC_MSG_WARN([Python not found])
-    else
-        AC_MSG_CHECKING([whether $PYTHON version >= $have_python_version])
-        AM_PYTHON_CHECK_VERSION([$PYTHON], [$have_python_version],
-                              [have_python_version="yes"],
-                              [have_python_version="too old"])
-    
-        AC_MSG_RESULT($have_python_version)
-    
-        AC_CHECK_PROGS(PYREX, pyrexc)
-
-        if test -z "$PYREX" ; then
-            have_pyrex=no
-        else
-            have_pyrex=yes
-        fi
-
-        AM_CHECK_PYTHON_HEADERS(have_python_headers=yes,have_python_headers=no)
-
-	if test x$have_pyrex = xyes -a x$have_python_headers = xyes -a "x$have_python_version" = xyes ; then
-	    have_python=yes
-        fi
-    fi
-
-    if test x$have_python = xno ; then
-        if test x$enable_python = xyes ; then
-            AC_MSG_ERROR([Building python explicitly requested, but can't build python bindings because either Pyrex, Python headers or a suitable Python version was not found])
-        else
-            AC_MSG_WARN([Couldn't find either Pyrex, the Python headers or a suitable version of Python, not building Python bindings])
-        fi
-    fi               
-fi
-
-AM_CONDITIONAL(HAVE_PYTHON, test x$have_python = xyes)
-
 AC_OUTPUT([
 Doxyfile
 dbus/dbus-arch-deps.h
@@ -1432,49 +1016,21 @@ bus/rc.messagebus
 bus/dbus-daemon.1
 Makefile
 dbus/Makefile
-glib/Makefile
-glib/examples/Makefile
-glib/examples/statemachine/Makefile
-python/Makefile
-python/examples/Makefile
-qt/Makefile
-qt/dbus/Makefile
-qt/src/Makefile
-qt/tools/Makefile
-qt/examples/Makefile
-qt3/Makefile
-gcj/Makefile
-gcj/org/Makefile
-gcj/org/freedesktop/Makefile
-gcj/org/freedesktop/dbus/Makefile
-mono/Makefile
-mono/AssemblyInfo.cs
-mono/dbus-sharp.dll.config
-mono/example/Makefile
-mono/doc/Makefile
 bus/Makefile
 tools/Makefile
 test/Makefile
-test/glib/Makefile
-test/python/Makefile
-test/qt/Makefile
 test/name-test/Makefile
 doc/Makefile
 dbus-1.pc
-dbus-glib-1.pc
-dbus-sharp.pc
-dbus-qt4-1.pc
 test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-config-files/debug-allow-all-sha1.conf
 test/data/valid-service-files/debug-echo.service
 test/data/valid-service-files/debug-segfault.service
-test/data/valid-service-files/debug-glib.service
 test/data/valid-service-files/debug-shell-echo-success.service
 test/data/valid-service-files/debug-shell-echo-fail.service
-test/data/valid-service-files/debug-python.service
 ])
 
-### FIXME it's bizarre that have_qt and have_glib are used
+### FIXME it's bizarre that have_qt 
 ### instead of enable_ - should fix things so that enable 
 ### is always whether it's enabled, and have is always whether 
 ### it was found.
@@ -1502,26 +1058,6 @@ echo "
         Doxygen:                  ${DOXYGEN}
         xmlto:                    ${XMLTO}"
 
-if test x$enable_gcj = xyes ; then
-echo \
-"        gcj:            	  ${GCJ}
-	gcjflags:	          ${GCJFLAGS}
-	jar:                      ${JAR}"
-else
-echo \
-"        gcj:                      (not enabled)"
-fi
-
-if test x$enable_mono = xyes ; then
-echo \
-"        csc:            	  ${CSC}
-"
-else
-echo \
-"        csc:                      (not enabled)
-"
-fi
-
 echo "
         Maintainer mode:          ${USE_MAINTAINER_MODE}
         gcc coverage profiling:   ${enable_gcov}
@@ -1529,14 +1065,8 @@ echo "
         Building verbose mode:    ${enable_verbose_mode}
         Building assertions:      ${enable_asserts}
         Building checks:          ${enable_checks}
-        Building Qt4 bindings:    ${have_qt}
-        Building Qt3 bindings:    ${have_qt3}
-        Building GLib bindings:   ${have_glib}
-        Building Python bindings: ${have_python}
         Building SELinux support: ${have_selinux}
         Building dnotify support: ${have_dnotify}
-	Building Mono bindings:	  ${enable_mono}
-	Building Mono docs:	  ${enable_mono_docs}
         Building GTK+ tools:      ${have_gtk}
         Building X11 code:        ${enable_x11}
         Building Doxygen docs:    ${enable_doxygen_docs}
