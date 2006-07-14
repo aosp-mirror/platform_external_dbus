@@ -1,3 +1,7 @@
+2006-07-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Remove all bindings
+
 2006-07-13  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus-connection.c (dbus_connection_send_with_reply): return TRUE
