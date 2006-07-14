@@ -39,8 +39,6 @@ dbus_uint32_t   _dbus_pending_call_get_reply_serial  (DBusPendingCall  *pending)
 void            _dbus_pending_call_set_reply_serial  (DBusPendingCall *pending,
                                                       dbus_uint32_t serial);
 DBusConnection *_dbus_pending_call_get_connection    (DBusPendingCall *pending);
-void            _dbus_pending_call_set_connection    (DBusPendingCall *pending,
-                                                     DBusConnection *connection);
 
 void              _dbus_pending_call_complete                  (DBusPendingCall    *pending);
 void              _dbus_pending_call_set_reply                 (DBusPendingCall    *pending,

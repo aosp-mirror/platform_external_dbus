@@ -83,7 +83,7 @@ _dbus_pending_call_new (DBusConnection    *connection,
   DBusTimeout *timeout;
 
   _dbus_assert (timeout_milliseconds >= 0 || timeout_milliseconds == -1);
-  
+ 
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
 
@@ -119,7 +119,10 @@ _dbus_pending_call_new (DBusConnection    *connection,
   
   pending->refcount.value = 1;
   pending->connection = connection;
+  dbus_connection_ref (pending->connection);
+
   pending->timeout = timeout;
+
 
   _dbus_data_slot_list_init (&pending->slot_list);
   
@@ -285,34 +288,6 @@ _dbus_pending_call_get_connection (DBusPendingCall *pending)
 }
 
 /**
- * Sets the connection associated with the pending call
- *
- * @param pending the pending_call
- * @param connection the connection which is associated with the pending call
- */
-void
-_dbus_pending_call_set_connection (DBusPendingCall *pending,
-                                   DBusConnection *connection)
-{
-  _dbus_assert (pending != NULL);  
-
-  pending->connection = connection;
-}
-
-/**
- * NULLs out the connection
- *
- * @param pending the pending_call 
- */
-void 
-_dbus_pending_call_clear_connection (DBusPendingCall *pending)
-{
-  _dbus_assert (pending != NULL);  
-
-  pending->connection = NULL;
-}
-
-/**
  * Sets the reply message associated with the pending call to a timeout error
  *
  * @param pending the pending_call
@@ -403,12 +378,13 @@ dbus_pending_call_unref (DBusPendingCall *pending)
       /* If we get here, we should be already detached
        * from the connection, or never attached.
        */
-      _dbus_assert (pending->connection == NULL);
       _dbus_assert (!pending->timeout_added);  
+     
+      dbus_connection_unref (pending->connection);
 
       /* this assumes we aren't holding connection lock... */
       _dbus_data_slot_list_free (&pending->slot_list);
-      
+
       if (pending->timeout != NULL)
         _dbus_timeout_unref (pending->timeout);
       

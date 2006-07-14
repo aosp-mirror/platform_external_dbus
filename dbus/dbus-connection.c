@@ -386,6 +386,8 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
 	}
     }
   
+  
+
   connection->n_incoming += 1;
 
   _dbus_connection_wakeup_mainloop (connection);
@@ -832,7 +834,6 @@ free_pending_call_on_hash_removal (void *data)
           _dbus_pending_call_set_timeout_added (pending, FALSE);
         }
      
-      _dbus_pending_call_clear_connection (pending);
       dbus_pending_call_unref (pending);
     }
 }
@@ -2359,9 +2360,9 @@ reply_handler_timeout (void *data)
  * 
  * @param connection the connection
  * @param message the message to send
- * @param pending_return return location for a #DBusPendingCall object, or #NULL
+ * @param pending_return return location for a #DBusPendingCall object, or #NULLif connection is disconnected
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
- * @returns #TRUE if the message is successfully queued, #FALSE if no memory.
+ * @returns #FALSE if no memory, #TRUE otherwise.
  *
  */
 dbus_bool_t
@@ -2380,16 +2381,28 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
 
   if (pending_return)
     *pending_return = NULL;
-  
+
+  CONNECTION_LOCK (connection);
+
+   if (!_dbus_connection_get_is_connected_unlocked (connection))
+    {
+      CONNECTION_UNLOCK (connection);
+
+      *pending_return = NULL;
+
+      return TRUE;
+    }
+
   pending = _dbus_pending_call_new (connection,
                                     timeout_milliseconds,
                                     reply_handler_timeout);
 
   if (pending == NULL)
-    return FALSE;
+    {
+      CONNECTION_UNLOCK (connection);
+      return FALSE;
+    }
 
-  CONNECTION_LOCK (connection);
-  
   /* Assign a serial to the message */
   serial = dbus_message_get_serial (message);
   if (serial == 0)
@@ -2466,6 +2479,33 @@ check_for_reply_unlocked (DBusConnection *connection,
     }
 
   return NULL;
+}
+
+static void
+connection_timeout_and_complete_all_pending_calls_unlocked (DBusConnection *connection)
+{
+  DBusHashIter iter;
+
+  _dbus_hash_iter_init (connection->pending_replies, &iter);
+
+  /* create list while we remove the iters from the hash
+     because we need to go over it a couple of times */
+  while (_dbus_hash_iter_next (&iter))
+    {
+      DBusPendingCall *pending;
+ 
+      pending = (DBusPendingCall *) _dbus_hash_iter_get_value (&iter);
+      dbus_pending_call_ref (pending);
+     
+      _dbus_pending_call_queue_timeout_error (pending, 
+                                              connection);
+      _dbus_connection_remove_timeout_unlocked (connection,
+                                                _dbus_pending_call_get_timeout (pending));
+   
+      _dbus_hash_iter_remove_entry (&iter);
+
+      dbus_pending_call_unref (pending);
+    }
 }
 
 static void
@@ -3300,7 +3340,10 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
                              _DBUS_FUNCTION_NAME);
 
               connection_forget_shared_unlocked (connection);
-              
+             
+              /* If we have pending calls queued timeouts on disconnect */
+              connection_timeout_and_complete_all_pending_calls_unlocked (connection);
+ 
               /* We haven't sent the disconnect message already,
                * and all real messages have been queued up.
                */
@@ -3734,10 +3777,12 @@ dbus_connection_dispatch (DBusConnection *connection)
                                   "Disconnected"))
         {
           _dbus_bus_check_connection_and_unref (connection);
+
           if (connection->exit_on_disconnect)
             {
+              CONNECTION_UNLOCK (connection);            
+ 
               _dbus_verbose ("Exiting on Disconnected signal\n");
-              CONNECTION_UNLOCK (connection);
               _dbus_exit (1);
               _dbus_assert_not_reached ("Call to exit() returned");
             }

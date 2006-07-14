@@ -1,3 +1,15 @@
+2006-07-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus-connection.c (dbus_connection_send_with_reply): return TRUE
+	and set pending_reply out arg to NULL is connection is disconnected
+	(connection_timeout_and_complete_all_pending_calls_unlocked): New
+	static method for cleaning up pending calls on disconnect
+	(_dbus_connection_get_dispatch_status_unlocked): If we have pending 
+	calls queued timeouts on disconnect 
+
+	 * dbus/dbus-pending-call.ci (_dbus_pending_call_set_connection):
+	Remove 
+
 2006-07-13  Carlos Garcia Campos  <carlosgc@gnome.org>
 
 	* bus/activation.[ch] (bus_activation_list_services): new function to 
