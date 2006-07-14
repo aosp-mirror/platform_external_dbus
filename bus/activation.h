@@ -45,6 +45,9 @@ dbus_bool_t    bus_activation_service_created  (BusActivation     *activation,
 						const char        *service_name,
 						BusTransaction    *transaction,
 						DBusError         *error);
+dbus_bool_t    bus_activation_list_services    (BusActivation     *registry,
+						char            ***listp,
+						int               *array_len);
 
 dbus_bool_t    bus_activation_send_pending_auto_activation_messages (BusActivation     *activation,
 								     BusService        *service,

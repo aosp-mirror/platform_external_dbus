@@ -436,16 +436,108 @@ bus_driver_handle_list_services (DBusConnection *connection,
       ++i;
     }
 
+  dbus_free_string_array (services);
+
   if (!dbus_message_iter_close_container (&iter, &sub))
+    {
+      dbus_message_unref (reply);
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+  
+  if (!bus_transaction_send_from_driver (transaction, connection, reply))
+    {
+      dbus_message_unref (reply);
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+  else
+    {
+      dbus_message_unref (reply);
+      return TRUE;
+    }
+}
+
+static dbus_bool_t
+bus_driver_handle_list_activatable_services (DBusConnection *connection,
+					     BusTransaction *transaction,
+					     DBusMessage    *message,
+					     DBusError      *error)
+{
+  DBusMessage *reply;
+  int len;
+  char **services;
+  BusActivation *activation;
+  int i;
+  DBusMessageIter iter;
+  DBusMessageIter sub;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  activation = bus_connection_get_activation (connection);
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (!bus_activation_list_services (activation, &services, &len))
+    {
+      dbus_message_unref (reply);
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  dbus_message_iter_init_append (reply, &iter);
+
+  if (!dbus_message_iter_open_container (&iter, DBUS_TYPE_ARRAY,
+					 DBUS_TYPE_STRING_AS_STRING,
+					 &sub))
     {
       dbus_free_string_array (services);
       dbus_message_unref (reply);
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
+  {
+    /* Include the bus driver in the list */
+    const char *v_STRING = DBUS_SERVICE_DBUS;
+    if (!dbus_message_iter_append_basic (&sub, DBUS_TYPE_STRING,
+					 &v_STRING))
+      {
+	dbus_free_string_array (services);
+	dbus_message_unref (reply);
+	BUS_SET_OOM (error);
+	return FALSE;
+      }
+  }
+
+  i = 0;
+  while (i < len)
+    {
+      if (!dbus_message_iter_append_basic (&sub, DBUS_TYPE_STRING,
+					   &services[i]))
+	{
+	  dbus_free_string_array (services);
+	  dbus_message_unref (reply);
+	  BUS_SET_OOM (error);
+	  return FALSE;
+	}
+      ++i;
+    }
+
   dbus_free_string_array (services);
-  
+
+  if (!dbus_message_iter_close_container (&iter, &sub))
+    {
+      dbus_message_unref (reply);
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
   if (!bus_transaction_send_from_driver (transaction, connection, reply))
     {
       dbus_message_unref (reply);
@@ -1328,6 +1420,10 @@ struct
     "",
     DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_STRING_AS_STRING,
     bus_driver_handle_list_services },
+  { "ListActivatableNames",
+    "",
+    DBUS_TYPE_ARRAY_AS_STRING DBUS_TYPE_STRING_AS_STRING,
+    bus_driver_handle_list_activatable_services },
   { "AddMatch",
     DBUS_TYPE_STRING_AS_STRING,
     "",

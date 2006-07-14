@@ -2590,9 +2590,9 @@ check_existent_service_no_auto_start (BusContext     *context,
               goto out;
             }
 
-          if (!check_send_exit_to_service (context, connection,
+	  if (!check_send_exit_to_service (context, connection,
                                            EXISTENT_SERVICE_NAME, base_service))
-            goto out;
+	    goto out;
 
           break;
         }
@@ -3512,6 +3512,348 @@ check1_try_iterations (BusContext *context,
     _dbus_assert_not_reached ("test failed");
 }
 
+static dbus_bool_t
+check_get_services (BusContext     *context,
+		    DBusConnection *connection,
+		    const char     *method,
+		    char         ***services,
+		    int            *len)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+  DBusError error;
+  char **srvs;
+  int l;
+
+  retval = FALSE;
+  dbus_error_init (&error);
+  message = NULL;
+
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+					  DBUS_PATH_DBUS,
+					  DBUS_INTERFACE_DBUS,
+					  method);
+
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  /* send our message */
+  bus_test_run_clients_loop (SEND_PENDING (connection));
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  dbus_connection_ref (connection); /* because we may get disconnected */
+  block_connection_until_message_from_bus (context, connection, "reply to ListActivatableNames/ListNames");
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+
+      dbus_connection_unref (connection);
+
+      return TRUE;
+    }
+
+  dbus_connection_unref (connection);
+
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+		  method, serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (dbus_message_is_error (message, DBUS_ERROR_NO_MEMORY))
+	{
+	  ; /* good, this is a valid response */
+	}
+      else
+	{
+	  warn_unexpected (connection, message, "not this error");
+
+	  goto out;
+	}
+    }
+  else
+    {
+      if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+	{
+	  ; /* good, expected */
+	}
+      else
+	{
+	  warn_unexpected (connection, message,
+			   "method_return for ListActivatableNames/ListNames");
+
+	  goto out;
+	}
+
+    retry_get_property:
+
+      if (!dbus_message_get_args (message, &error,
+				  DBUS_TYPE_ARRAY,
+				  DBUS_TYPE_STRING,
+				  &srvs, &l,
+				  DBUS_TYPE_INVALID))
+	{
+	  if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
+	    {
+	      _dbus_verbose ("no memory to list services by %s\n", method);
+	      dbus_error_free (&error);
+	      _dbus_wait_for_memory ();
+	      goto retry_get_property;
+	    }
+	  else
+	    {
+	      _dbus_assert (dbus_error_is_set (&error));
+	      _dbus_warn ("Did not get the expected DBUS_TYPE_ARRAY from %s\n", method);
+	      goto out;
+	    }
+	} else {
+	  *services = srvs;
+	  *len = l;
+	}
+    }
+  
+  if (!check_no_leftovers (context))
+    goto out;
+  
+  retval = TRUE;
+  
+ out:
+  dbus_error_free (&error);
+  
+  if (message)
+    dbus_message_unref (message);
+
+  return retval;
+}
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_list_services (BusContext     *context,
+		     DBusConnection *connection)
+{
+  DBusMessage  *message;
+  DBusMessage  *base_service_message;
+  const char   *base_service;
+  dbus_uint32_t serial;
+  dbus_bool_t   retval;
+  const char   *existent = EXISTENT_SERVICE_NAME;
+  dbus_uint32_t flags;
+  char        **services;
+  int           len;
+
+  _dbus_verbose ("check_list_services for %p\n", connection);
+
+  if (!check_get_services (context, connection, "ListActivatableNames", &services, &len))
+    {
+      return TRUE;
+    }
+
+  if (!_dbus_string_array_contains ((const char **)services, existent))
+    {
+      _dbus_warn ("Did not get the expected %s from ListActivatableNames\n", existent);
+      return FALSE;
+    }
+
+  dbus_free_string_array (services);
+
+  base_service_message = NULL;
+
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+					  DBUS_PATH_DBUS,
+					  DBUS_INTERFACE_DBUS,
+					  "StartServiceByName");
+
+  if (message == NULL)
+    return TRUE;
+
+  dbus_message_set_auto_start (message, FALSE);
+
+  flags = 0;
+  if (!dbus_message_append_args (message,
+				 DBUS_TYPE_STRING, &existent,
+				 DBUS_TYPE_UINT32, &flags,
+				 DBUS_TYPE_INVALID))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+
+  /* now wait for the message bus to hear back from the activated
+   * service.
+   */
+  block_connection_until_message_from_bus (context, connection, "activated service to connect");
+
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      return TRUE;
+    }
+
+  retval = FALSE;
+
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive any messages after %s %d on %p\n",
+		  "StartServiceByName", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+  _dbus_verbose ("  (after sending %s)\n", "StartServiceByName");
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+	{
+	  _dbus_warn ("Message has wrong sender %s\n",
+		      dbus_message_get_sender (message) ?
+		      dbus_message_get_sender (message) : "(none)");
+	  goto out;
+	}
+
+      if (dbus_message_is_error (message,
+				 DBUS_ERROR_NO_MEMORY))
+	{
+	  ; /* good, this is a valid response */
+	}
+      else if (dbus_message_is_error (message,
+				      DBUS_ERROR_SPAWN_CHILD_EXITED) ||
+	       dbus_message_is_error (message,
+				      DBUS_ERROR_SPAWN_CHILD_SIGNALED) ||
+	       dbus_message_is_error (message,
+				      DBUS_ERROR_SPAWN_EXEC_FAILED))
+	{
+	  ; /* good, this is expected also */
+	}
+      else
+	{
+	  _dbus_warn ("Did not expect error %s\n",
+		      dbus_message_get_error_name (message));
+	  goto out;
+	}
+    }
+  else
+    {
+      GotServiceInfo message_kind;
+
+      if (!check_base_service_activated (context, connection,
+					 message, &base_service))
+	goto out;
+
+      base_service_message = message;
+      message = NULL;
+
+      /* We may need to block here for the test service to exit or finish up */
+      block_connection_until_message_from_bus (context, connection, "test service to exit or finish up");
+
+      message = dbus_connection_borrow_message (connection);
+      if (message == NULL)
+	{
+	  _dbus_warn ("Did not receive any messages after base service creation notification\n");
+	  goto out;
+	}
+
+      message_kind = check_got_service_info (message);
+
+      dbus_connection_return_message (connection, message);
+      message = NULL;
+
+      switch (message_kind)
+	{
+	case GOT_SOMETHING_ELSE:
+	case GOT_ERROR:
+	case GOT_SERVICE_DELETED:
+	  _dbus_warn ("Unexpected message after ActivateService "
+		      "(should be an error or a service announcement");
+	  goto out;
+
+	case GOT_SERVICE_CREATED:
+	  message = pop_message_waiting_for_memory (connection);
+	  if (message == NULL)
+	    {
+	      _dbus_warn ("Failed to pop message we just put back! "
+			  "should have been a NameOwnerChanged (creation)\n");
+	      goto out;
+	    }
+	  
+	  if (!check_service_activated (context, connection, EXISTENT_SERVICE_NAME,
+					base_service, message))
+	    goto out;
+
+	  dbus_message_unref (message);
+	  message = NULL;
+
+	  if (!check_no_leftovers (context))
+	    {
+	      _dbus_warn ("Messages were left over after successful activation\n");
+	      goto out;
+	    }
+
+	  break;
+	}
+    }
+  
+  if (!check_get_services (context, connection, "ListNames", &services, &len))
+    {
+      return TRUE;
+    }
+
+  if (!_dbus_string_array_contains ((const char **)services, existent))
+    {
+      _dbus_warn ("Did not get the expected %s from ListNames\n", existent);
+      goto out;
+    }
+
+  dbus_free_string_array (services);
+
+  if (!check_send_exit_to_service (context, connection,
+				   EXISTENT_SERVICE_NAME, base_service))
+    goto out;
+
+  retval = TRUE;
+
+ out:
+  if (message)
+    dbus_message_unref (message);
+
+  if (base_service_message)
+    dbus_message_unref (base_service_message);
+
+  return retval;
+}
+
 typedef struct
 {
   Check2Func func;
@@ -3625,6 +3967,9 @@ bus_dispatch_test (const DBusString *test_data_dir)
 
   if (!check_get_connection_unix_process_id (context, baz))
     _dbus_assert_not_reached ("GetConnectionUnixProcessID message failed");
+
+  if (!check_list_services (context, baz))
+    _dbus_assert_not_reached ("ListActivatableNames message failed");
   
   if (!check_no_leftovers (context))
     {

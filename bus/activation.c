@@ -1565,6 +1565,51 @@ bus_activation_activate_service (BusActivation  *activation,
   return TRUE;
 }
 
+dbus_bool_t
+bus_activation_list_services (BusActivation *activation,
+			      char        ***listp,
+			      int           *array_len)
+{
+  int i, j, len;
+  char **retval;
+  DBusHashIter iter;
+
+  len = _dbus_hash_table_get_n_entries (activation->entries);
+  retval = dbus_new (char *, len + 1);
+
+  if (retval == NULL)
+    return FALSE;
+
+  _dbus_hash_iter_init (activation->entries, &iter);
+  i = 0;
+  while (_dbus_hash_iter_next (&iter))
+    {
+      BusActivationEntry *entry = _dbus_hash_iter_get_value (&iter);
+
+      retval[i] = _dbus_strdup (entry->name);
+      if (retval[i] == NULL)
+	goto error;
+
+      i++;
+    }
+
+  retval[i] = NULL;
+
+  if (array_len)
+    *array_len = len;
+
+  *listp = retval;
+  return TRUE;
+
+ error:
+  for (j = 0; j < i; j++)
+    dbus_free (retval[i]);
+  dbus_free (retval);
+
+  return FALSE;
+}
+  
+
 #ifdef DBUS_BUILD_TESTS
 
 #include <stdio.h>

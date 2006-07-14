@@ -3267,6 +3267,37 @@
           Returns a list of all currently-owned names on the bus.
         </para>
       </sect3>
+      <sect3 id="bus-messages-list-activatable-names">
+        <title><literal>org.freedesktop.DBus.ListActivatableNames</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            ARRAY of STRING ListActivatableNames ()
+          </programlisting>
+          Reply arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>ARRAY of STRING</entry>
+                  <entry>Array of strings where each string is a bus name</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        </para>
+        <para>
+          Returns a list of all names that can be activated on the bus.
+        </para>
+      </sect3>
       <sect3 id="bus-messages-name-exists">
         <title><literal>org.freedesktop.DBus.NameHasOwner</literal></title>
         <para>
