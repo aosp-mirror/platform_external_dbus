@@ -304,7 +304,11 @@ _dbus_pending_call_set_timeout_error (DBusPendingCall *pending,
   DBusMessage *reply;
 
   reply = dbus_message_new_error (message, DBUS_ERROR_NO_REPLY,
-                                  "No reply within specified time");
+                                  "Did not receive a reply. Possible causes include: "
+                                  "the remote application did not send a reply, "
+                                  "the message bus security policy blocked the reply, "
+                                  "the reply timeout expired, or "
+                                  "the network connection was broken.");
   if (reply == NULL)
     return FALSE;
 
