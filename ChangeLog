@@ -1,3 +1,8 @@
+2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus-qt4-1.pc.in, dbus-sharp.pc.in:
+	Remove stray files from the stripped bindings
+
 2006-07-16  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-pending-call.c (_dbus_pending_call_set_timeout_error):
