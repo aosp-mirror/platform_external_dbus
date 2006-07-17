@@ -1,3 +1,8 @@
+2006-07-17  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-marshal-basic.c (_dbus_type_to_string): support 64-bit
+	ints, reported by Owen Taylor
+
 2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
 
 	* doc/TODO:

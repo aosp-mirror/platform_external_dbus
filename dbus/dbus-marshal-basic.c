@@ -1323,6 +1323,10 @@ _dbus_type_to_string (int typecode)
       return "int32";
     case DBUS_TYPE_UINT32:
       return "uint32";
+    case DBUS_TYPE_INT64:
+      return "int64";
+    case DBUS_TYPE_UINT64:
+      return "uint64";      
     case DBUS_TYPE_DOUBLE:
       return "double";
     case DBUS_TYPE_STRING:
