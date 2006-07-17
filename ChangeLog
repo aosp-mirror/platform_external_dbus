@@ -1,3 +1,7 @@
+2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Released 0.90
+
 2006-07-17  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-marshal-basic.c (_dbus_type_to_string): support 64-bit
@@ -34,7 +38,7 @@
 	(_dbus_connection_get_dispatch_status_unlocked): If we have pending 
 	calls queued timeouts on disconnect 
 
-	 * dbus/dbus-pending-call.ci (_dbus_pending_call_set_connection):
+	 * dbus/dbus-pending-call.c (_dbus_pending_call_set_connection):
 	Remove 
 
 2006-07-13  Carlos Garcia Campos  <carlosgc@gnome.org>

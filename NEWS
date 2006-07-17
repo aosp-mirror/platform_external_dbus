@@ -1,3 +1,17 @@
+D-Bus 0.90 (17 July 2006)
+- API/ABI freeze for 1.0
+- Bindings are now split out into seperate packages
+- ListActivatableNames added as a method on the bus
+- Removed deprecated dbus_connection_disconnect (use dbus_connection_close)
+- Shared connections are now unreffed on disconnect
+- Fixed pending calls for threaded enviornments
+- Pending calls get timed out on connection disconnect
+- dbus_connection_send_with_reply returns TRUE and a NULL pending call
+  if you call it on a connection object which has been disconnected already
+  (it returns FALSE on Out of Memory errors only)
+- dbus-monitor now correctly catches methods, not just signals
+- dbus-monitor now prints object paths 
+
 D-BUS 0.62 (12 June 2006)
 ==
 - Doc fixes
