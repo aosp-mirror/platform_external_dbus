@@ -430,8 +430,6 @@ internal_bus_get (DBusBusType  type,
  * connection to the bus already exists, then that connection is
  * returned.  Caller owns a reference to the bus.
  *
- * @todo alex thinks we should nullify the connection when we get a disconnect-message.
- *
  * @param type bus type
  * @param error address where an error can be returned.
  * @returns a DBusConnection with new ref
@@ -721,10 +719,6 @@ dbus_bus_get_unix_user (DBusConnection *connection,
  * specify #DBUS_NAME_FLAG_REPLACE_EXISTING to either take over
  * (last-started-wins) or be queued up (first-started-wins) according
  * to whether #DBUS_NAME_FLAG_ALLOW_REPLACEMENT was given.
- * 
- * @todo this all seems sort of broken. Shouldn't the flags be a property
- * of the name, not the app requesting the name? What are the use-cases
- * other than the "text editor" thing and how are we supporting them?
  * 
  * @param connection the connection
  * @param name the name to request

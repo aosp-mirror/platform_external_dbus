@@ -194,8 +194,6 @@ dbus_error_free (DBusError *error)
  * message will be deduced from the name. If the error name is unknown
  * to D-BUS the default message will be totally useless, though.
  *
- * @todo should be called dbus_error_set_const() 
- * 
  * @param error the error.
  * @param name the error name (not copied!!!)
  * @param message the error message (not copied!!!)
@@ -305,8 +303,6 @@ dbus_error_is_set (const DBusError *error)
  *
  * If no memory can be allocated for the error message, 
  * an out-of-memory error message will be set instead.
- *
- * @todo should be called dbus_error_set()
  *
  * @param error the error.
  * @param name the error name

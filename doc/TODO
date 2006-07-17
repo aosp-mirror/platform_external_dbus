@@ -1,15 +1,3 @@
-Important for 0.90 freeze
-===
-
-- Audit @todo and FIXME for security issues that require API/ABI changes
-
-- dbus-pending-call.c has some API and thread safety issues to review.
-   DBusPendingCall is used from multiple threads with no locks.
-   Either DBusConnection's lock has to protect all associated pending
-   call (means pending->connection can't ever be set to null) or
-   or DBusPendingCall needs its own lock
-   http://lists.freedesktop.org/archives/dbus/2006-June/004945.html
-
 Important for 1.0
 ===
 

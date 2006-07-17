@@ -41,10 +41,6 @@
  * The range passed in should NOT include the terminating
  * nul/DBUS_TYPE_INVALID.
  *
- * @todo verify that dict entries have exactly two fields
- * 
- * @todo require that dict entries are in an array
- *
  * @param type_str the string
  * @param type_pos where the typecodes start
  * @param len length of typecodes

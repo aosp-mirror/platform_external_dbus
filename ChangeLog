@@ -1,5 +1,13 @@
 2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
 
+	* doc/TODO:
+	* dbus/dbus-bus.c:
+	* dbus-errors.c:
+	* dbus/dbus-marshal-validate.c:
+	  Removed TODO items which were fixed or are no longer relevent
+
+2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus-qt4-1.pc.in, dbus-sharp.pc.in:
 	Remove stray files from the stripped bindings
 
