@@ -119,7 +119,7 @@ _dbus_pending_call_new (DBusConnection    *connection,
   
   pending->refcount.value = 1;
   pending->connection = connection;
-  dbus_connection_ref (pending->connection);
+  _dbus_connection_ref_unlocked (pending->connection);
 
   pending->timeout = timeout;
 

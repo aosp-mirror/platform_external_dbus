@@ -585,24 +585,6 @@ fi
 # unix:path=/foo or unix:abstract=/foo 
 AC_SUBST(DBUS_PATH_OR_ABSTRACT)
 
-#### Sort out gettext
-
-# this makes us require GLib to run autoconf, but not at runtime
-ALL_LINGUAS=""
-AM_GLIB_GNU_GETTEXT
-
-# INTLLIBS is now set
-
-# (if someone wants to go through and make internationalization 
-#  conditional with #ifdef ENABLE_NLS then go crazy and send us a patch, 
-#  but right now we won't build without gettext)
-if test "$gt_cv_have_gettext" != "yes" ; then
-  AC_MSG_ERROR([
-*** You must have either have gettext support in your C library, or use the 
-*** GNU gettext library. (http://www.gnu.org/software/gettext/gettext.html
-])
-fi
-
 #### Sort out XML library
 
 # see what we have
@@ -1030,11 +1012,6 @@ test/data/valid-service-files/debug-shell-echo-success.service
 test/data/valid-service-files/debug-shell-echo-fail.service
 ])
 
-### FIXME it's bizarre that have_qt 
-### instead of enable_ - should fix things so that enable 
-### is always whether it's enabled, and have is always whether 
-### it was found.
-
 dnl ==========================================================================
 echo "
                     D-BUS $VERSION
@@ -1067,7 +1044,6 @@ echo "
         Building checks:          ${enable_checks}
         Building SELinux support: ${have_selinux}
         Building dnotify support: ${have_dnotify}
-        Building GTK+ tools:      ${have_gtk}
         Building X11 code:        ${enable_x11}
         Building Doxygen docs:    ${enable_doxygen_docs}
         Building XML docs:        ${enable_xml_docs}

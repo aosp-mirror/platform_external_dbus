@@ -1,3 +1,10 @@
+2006-07-21  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Removed some extra bindings stuff lingering around (thanks timo)
+	* dbus-pendingcall.c (_dbus_pending_call_new): 
+	s/dbus_connection_ref/_dbus_connection_ref_unlocked fixes assertion
+	when we tried to take a lock on an already locked connection
+
 2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Released 0.90

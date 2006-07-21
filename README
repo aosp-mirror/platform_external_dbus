@@ -19,12 +19,6 @@ Configuration flags
 These are the dbus-specific configuration flags that can be given to
 the ./configure program.
 
-  --enable-qt             enable Qt-friendly client library (note: Qt4)
-  --enable-qt-debug       enable Qt-friendly client library, linked to debug
-                          Qt libraries
-  --enable-qt3            enable Qt3-friendly client library
-  --enable-glib           enable GLib-friendly client library
-  --enable-gtk            enable GTK-requiring executables
   --enable-tests          enable unit test code
   --enable-ansi           enable -ansi -pedantic gcc flags
   --enable-verbose-mode   support verbose debug mode
@@ -35,15 +29,9 @@ the ./configure program.
   --enable-gcov           compile with coverage profiling instrumentation (gcc only)
   --enable-abstract-sockets
                           use abstract socket namespace (linux only)
-  --enable-gcj            build gcj bindings
-  --enable-mono           build mono bindings
-  --enable-mono-docs      build mono docs
-  --enable-python         build python bindings
   --enable-selinux        build with SELinux support
   --enable-dnotify        build with dnotify support (linux only)
 
-  --with-qt-moc=<path>              moc for Qt
-  --with-qt3-moc=<path>             moc for Qt3
   --with-xml=libxml/expat           XML library to use
   --with-init-scripts=redhat        Style of init scripts to install
   --with-session-socket-dir=dirname Where to put sockets for the per-login-session message bus
