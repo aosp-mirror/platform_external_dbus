@@ -798,6 +798,7 @@ _dbus_connection_attach_pending_call_unlocked (DBusConnection  *connection,
     {
       _dbus_connection_remove_timeout_unlocked (connection, timeout);
 
+      _dbus_pending_call_set_timeout_added (pending, FALSE);
       HAVE_LOCK_CHECK (connection);
       return FALSE;
     }
@@ -2501,7 +2502,8 @@ connection_timeout_and_complete_all_pending_calls_unlocked (DBusConnection *conn
                                               connection);
       _dbus_connection_remove_timeout_unlocked (connection,
                                                 _dbus_pending_call_get_timeout (pending));
-   
+
+      _dbus_pending_call_set_timeout_added (pending, FALSE); 
       _dbus_hash_iter_remove_entry (&iter);
 
       dbus_pending_call_unref (pending);

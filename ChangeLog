@@ -1,3 +1,11 @@
+2006-07-22  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-connection.c:
+	(_dbus_connection_attach_pending_call_unlocked):
+	(connection_timeout_and_complete_all_pending_calls_unlocked):
+	Make sure we set timeout_added on pending calls to FALSE when
+	we remove the timeout from the connection
+
 2006-07-21  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Removed some extra bindings stuff lingering around (thanks timo)
