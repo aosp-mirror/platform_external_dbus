@@ -1,3 +1,7 @@
+2006-07-24  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Released 0.91
+
 2006-07-22  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-connection.c:

@@ -1,4 +1,11 @@
+D-Bus 0.91 (24 July 2006)
+==
+- Remove some lingering bits left over from the bindings split
+- Fix assertion causing D-Bus applications to crash when checks are enabled
+- Fix a timeout bug which would block applications from being auto started
+
 D-Bus 0.90 (17 July 2006)
+==
 - API/ABI freeze for 1.0
 - Bindings are now split out into seperate packages
 - ListActivatableNames added as a method on the bus
