@@ -935,7 +935,7 @@ allocate_subtree_object (const char *name)
 
   len = strlen (name);
 
-  subtree = dbus_malloc (front_padding + (len + 1));
+  subtree = dbus_malloc (MAX (front_padding + (len + 1), sizeof (DBusObjectSubtree)));
 
   if (subtree == NULL)
     return NULL;
