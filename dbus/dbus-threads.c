@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-threads.h  D-BUS threads handling
+/* dbus-threads.h  D-Bus threads handling
  *
  * Copyright (C) 2002, 2003 Red Hat Inc.
  *
@@ -289,10 +289,10 @@ init_global_locks (void)
 /**
  * 
  * Initializes threads. If this function is not called,
- * the D-BUS library will not lock any data structures.
- * If it is called, D-BUS will do locking, at some cost
+ * the D-Bus library will not lock any data structures.
+ * If it is called, D-Bus will do locking, at some cost
  * in efficiency. Note that this function must be called
- * BEFORE using any other D-BUS functions.
+ * BEFORE using any other D-Bus functions.
  *
  * This function may be called more than once, as long
  * as you pass in the same functions each time. If it's

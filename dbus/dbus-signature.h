@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-signatures.h utility functions for D-BUS types
+/* dbus-signatures.h utility functions for D-Bus types
  *
  * Copyright (C) 2005 Red Hat Inc.
  *

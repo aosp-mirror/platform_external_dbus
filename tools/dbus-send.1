@@ -13,7 +13,7 @@ dbus-send \- Send a message to a message bus
 
 .SH DESCRIPTION
 
-The \fIdbus-send\fP command is used to send a message to a D-BUS message
+The \fIdbus-send\fP command is used to send a message to a D-Bus message
 bus. See http://www.freedesktop.org/software/dbus/ for more 
 information about the big picture.
 
@@ -35,7 +35,7 @@ The object path and the name of the message to send must always be
 specified. Following arguments, if any, are the message contents
 (message arguments).  These are given as a type name, a colon, and
 then the value of the argument. The possible type names are: string,
-int32, uint32, double, byte, boolean.  (D-BUS supports more types than
+int32, uint32, double, byte, boolean.  (D-Bus supports more types than
 these, but \fIdbus-send\fP currently does not.)
 
 .PP
@@ -75,5 +75,5 @@ Specify "method_call" or "signal" (defaults to "signal").
 dbus-send was written by Philip Blundell.
 
 .SH BUGS
-Please send bug reports to the D-BUS mailing list or bug tracker,
+Please send bug reports to the D-Bus mailing list or bug tracker,
 see http://www.freedesktop.org/software/dbus/

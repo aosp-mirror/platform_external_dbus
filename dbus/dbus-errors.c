@@ -111,7 +111,7 @@ message_from_error (const char *error)
  * Types and functions related to reporting errors.
  *
  *
- * In essence D-BUS error reporting works as follows:
+ * In essence D-Bus error reporting works as follows:
  *
  * @code
  * DBusError error;
@@ -124,7 +124,7 @@ message_from_error (const char *error)
  *   }
  * @endcode
  *
- * There are some rules. An error passed to a D-BUS function must
+ * There are some rules. An error passed to a D-Bus function must
  * always be unset; you can't pass in an error that's already set.  If
  * a function has a return code indicating whether an error occurred,
  * and also a #DBusError parameter, then the error will always be set
@@ -192,7 +192,7 @@ dbus_error_free (DBusError *error)
  * Assigns an error name and message to a DBusError.  Does nothing if
  * error is #NULL. The message may be NULL, which means a default
  * message will be deduced from the name. If the error name is unknown
- * to D-BUS the default message will be totally useless, though.
+ * to D-Bus the default message will be totally useless, though.
  *
  * @param error the error.
  * @param name the error name (not copied!!!)
@@ -298,7 +298,7 @@ dbus_error_is_set (const DBusError *error)
  * Does nothing if error is #NULL.
  *
  * The format may be NULL, which means a default message will be
- * deduced from the name. If the error name is unknown to D-BUS the
+ * deduced from the name. If the error name is unknown to D-Bus the
  * default message will be totally useless, though.
  *
  * If no memory can be allocated for the error message, 

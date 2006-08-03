@@ -670,7 +670,7 @@ dbus_bus_get_unix_user (DBusConnection *connection,
 /**
  * Asks the bus to assign the given name to this connection by invoking
  * the RequestName method on the bus. This method is fully documented
- * in the D-BUS specification. For quick reference, the flags and
+ * in the D-Bus specification. For quick reference, the flags and
  * result codes are discussed here, but the specification is the
  * canonical version of this information.
  *
@@ -797,7 +797,7 @@ dbus_bus_request_name (DBusConnection *connection,
 /**
  * Asks the bus to unassign the given name to this connection by invoking
  * the ReleaseName method on the bus. This method is fully documented
- * in the D-BUS specification.
+ * in the D-Bus specification.
  *
  * @param connection the connection
  * @param name the name to remove 
@@ -1047,7 +1047,7 @@ send_no_return_values (DBusConnection *connection,
  * but that would require blocking always to determine
  * the return value.
  *
- * The AddMatch method is fully documented in the D-BUS 
+ * The AddMatch method is fully documented in the D-Bus 
  * specification. For quick reference, the format of the 
  * match rules is discussed here, but the specification 
  * is the canonical version of this information.

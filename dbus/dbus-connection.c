@@ -105,7 +105,7 @@
  * dbus_connection_set_dispatch_status_function() allows
  * you to set a function to be used to monitor the dispatch status.
  *
- * If you're using GLib or Qt add-on libraries for D-BUS, there are
+ * If you're using GLib or Qt add-on libraries for D-Bus, there are
  * special convenience APIs in those libraries that hide
  * all the details of dispatch and watch/timeout monitoring.
  * For example, dbus_connection_setup_with_g_main().

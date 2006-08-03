@@ -339,7 +339,7 @@ main (int argc, char *argv[])
 
   if (message == NULL)
     {
-      fprintf (stderr, "Couldn't allocate D-BUS message\n");
+      fprintf (stderr, "Couldn't allocate D-Bus message\n");
       exit (1);
     }
 

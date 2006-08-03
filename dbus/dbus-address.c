@@ -32,7 +32,7 @@
 /**
  * @defgroup DBusAddressInternals Address parsing
  * @ingroup  DBusInternals
- * @brief Implementation of parsing addresses of D-BUS servers.
+ * @brief Implementation of parsing addresses of D-Bus servers.
  *
  * @{
  */
@@ -83,7 +83,7 @@ dbus_address_entry_free (DBusAddressEntry *entry)
 /**
  * @defgroup DBusAddress Address parsing
  * @ingroup  DBus
- * @brief Parsing addresses of D-BUS servers.
+ * @brief Parsing addresses of D-Bus servers.
  *
  * @{
  */
@@ -177,7 +177,7 @@ dbus_address_entry_get_value (DBusAddressEntry *entry,
 
 /**
  * Appends an escaped version of one string to another string,
- * using the D-BUS address escaping mechanism
+ * using the D-Bus address escaping mechanism
  *
  * @param escaped the string to append to
  * @param unescaped the string to escape
@@ -257,7 +257,7 @@ append_unescaped_value (DBusString       *unescaped,
           if ((p + 2) > end)
             {
               dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                              "In D-BUS address, percent character was not followed by two hex digits");
+                              "In D-Bus address, percent character was not followed by two hex digits");
               goto out;
             }
             
@@ -276,7 +276,7 @@ append_unescaped_value (DBusString       *unescaped,
           if (hex_end != 2)
             {
               dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                              "In D-BUS address, percent character was followed by characters other than hex digits");
+                              "In D-Bus address, percent character was followed by characters other than hex digits");
               goto out;
             }
         }
@@ -284,7 +284,7 @@ append_unescaped_value (DBusString       *unescaped,
         {
           /* Error, should have been escaped */
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                          "In D-BUS address, character '%c' should have been escaped\n",
+                          "In D-Bus address, character '%c' should have been escaped\n",
                           *p);
           goto out;
         }
@@ -308,7 +308,7 @@ append_unescaped_value (DBusString       *unescaped,
  *
  * method:key=value,key=value;method:key=value
  *
- * See the D-BUS specification for complete docs on the format.
+ * See the D-Bus specification for complete docs on the format.
  * 
  * @param address the address.
  * @param entry return location to an array of entries.
@@ -524,7 +524,7 @@ dbus_parse_address (const char         *address,
 
 /**
  * Escapes the given string as a value in a key=value pair
- * for a D-BUS address.
+ * for a D-Bus address.
  *
  * @param value the unescaped value
  * @returns newly-allocated escaped value or #NULL if no memory
@@ -556,7 +556,7 @@ dbus_address_escape_value (const char *value)
 
 /**
  * Unescapes the given string as a value in a key=value pair
- * for a D-BUS address.
+ * for a D-Bus address.
  *
  * @param value the escaped value
  * @param error error to set if the unescaping fails

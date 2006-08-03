@@ -566,7 +566,7 @@ dbus_watch_get_enabled (DBusWatch *watch)
 
 
 /**
- * Called to notify the D-BUS library when a previously-added watch is
+ * Called to notify the D-Bus library when a previously-added watch is
  * ready for reading or writing, or has an exception such as a hangup.
  * 
  * If this function returns #FALSE, then the file descriptor may still

@@ -364,7 +364,7 @@ usage (int ecode)
 static void
 version (void)
 {
-  printf ("D-BUS Socket Cleanup Utility %s\n"
+  printf ("D-Bus Socket Cleanup Utility %s\n"
           "Copyright (C) 2003 Red Hat, Inc.\n"
           "Copyright (C) 2002 Michael Meeks\n"
           "This is free software; see the source for copying conditions.\n"

@@ -3,7 +3,7 @@
 #---------------------------------------------------------------------------
 # General configuration options
 #---------------------------------------------------------------------------
-PROJECT_NAME           = D-BUS
+PROJECT_NAME           = D-Bus
 PROJECT_NUMBER         = @VERSION@
 OUTPUT_DIRECTORY       = doc/api
 OUTPUT_LANGUAGE        = English

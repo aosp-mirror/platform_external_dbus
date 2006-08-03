@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-threads-internal.h  D-BUS thread primitives
+/* dbus-threads-internal.h  D-Bus thread primitives
  *
  * Copyright (C) 2002, 2005 Red Hat Inc.
  *

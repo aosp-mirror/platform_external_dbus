@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-memory.h  D-BUS memory handling
+/* dbus-memory.h  D-Bus memory handling
  *
  * Copyright (C) 2002  Red Hat Inc.
  *

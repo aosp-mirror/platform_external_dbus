@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-list.c Generic linked list utility (internal to D-BUS implementation)
+/* dbus-list.c Generic linked list utility (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002  Red Hat, Inc.
  *

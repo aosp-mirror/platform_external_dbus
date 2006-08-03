@@ -37,7 +37,7 @@ typedef struct
 /**
  * @defgroup DBusSignature Type signature parsing
  * @ingroup  DBus
- * @brief Parsing D-BUS type signatures
+ * @brief Parsing D-Bus type signatures
  * @{
  */
 

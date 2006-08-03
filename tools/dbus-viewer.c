@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-viewer.c Graphical D-BUS frontend utility
+/* dbus-viewer.c Graphical D-Bus frontend utility
  *
  * Copyright (C) 2003 Red Hat, Inc.
  *
@@ -408,7 +408,7 @@ tree_window_new (DBusGConnection *connection,
   w = g_new0 (TreeWindow, 1);
   w->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 
-  gtk_window_set_title (GTK_WINDOW (w->window), "D-BUS Viewer");
+  gtk_window_set_title (GTK_WINDOW (w->window), "D-Bus Viewer");
   gtk_window_set_default_size (GTK_WINDOW (w->window), 400, 500);
 
   g_signal_connect (w->window, "destroy", G_CALLBACK (window_closed_callback),
@@ -473,7 +473,7 @@ usage (int ecode)
 static void
 version (void)
 {
-  printf ("D-BUS Message Bus Viewer %s\n"
+  printf ("D-Bus Message Bus Viewer %s\n"
           "Copyright (C) 2003 Red Hat, Inc.\n"
           "This is free software; see the source for copying conditions.\n"
           "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",

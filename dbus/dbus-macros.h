@@ -64,14 +64,14 @@
 /**
  * @def DBUS_BEGIN_DECLS
  *
- * Macro used prior to declaring functions in the D-BUS header
+ * Macro used prior to declaring functions in the D-Bus header
  * files. Expands to "extern "C"" when using a C++ compiler,
  * and expands to nothing when using a C compiler.
  */
 /**
  * @def DBUS_END_DECLS
  *
- * Macro used after declaring functions in the D-BUS header
+ * Macro used after declaring functions in the D-Bus header
  * files. Expands to "}" when using a C++ compiler,
  * and expands to nothing when using a C compiler.
  */

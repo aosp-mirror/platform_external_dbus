@@ -142,7 +142,7 @@ _dbus_timeout_set_interval (DBusTimeout *timeout,
  * Changes the timeout's enabled-ness. Note that you should use
  * _dbus_connection_toggle_timeout_unlocked() etc. instead, if
  * the timeout is passed out to an application main loop.
- * i.e. you can't use this function in the D-BUS library, it's
+ * i.e. you can't use this function in the D-Bus library, it's
  * only used in the message bus daemon implementation.
  *
  * @param timeout the timeout

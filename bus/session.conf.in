@@ -2,7 +2,7 @@
      Add a session-local.conf and edit that rather than changing this 
      file directly. -->
 
-<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
   <!-- Our well-known bus type, don't change this -->

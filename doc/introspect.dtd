@@ -1,8 +1,8 @@
-<!-- DTD for D-BUS Introspection data -->
-<!-- (C) 2005-02-02 David A. Wheeler; released under the D-BUS licenses,
+<!-- DTD for D-Bus Introspection data -->
+<!-- (C) 2005-02-02 David A. Wheeler; released under the D-Bus licenses,
          GNU GPL version 2 (or greater) and AFL 1.1 (or greater) -->
 
-<!-- see D-BUS specification for documentation -->
+<!-- see D-Bus specification for documentation -->
 
 <!ELEMENT node (node|interface)*>
 <!ATTLIST node name CDATA #IMPLIED>

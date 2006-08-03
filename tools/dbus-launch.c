@@ -87,7 +87,7 @@ usage (int ecode)
 static void
 version (void)
 {
-  printf ("D-BUS Message Bus Launcher %s\n"
+  printf ("D-Bus Message Bus Launcher %s\n"
           "Copyright (C) 2003 Red Hat, Inc.\n"
           "This is free software; see the source for copying conditions.\n"
           "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",

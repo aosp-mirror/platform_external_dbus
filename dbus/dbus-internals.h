@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-internals.h  random utility stuff (internal to D-BUS implementation)
+/* dbus-internals.h  random utility stuff (internal to D-Bus implementation)
  *
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  *

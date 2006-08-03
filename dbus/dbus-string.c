@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-string.c String utility class (internal to D-BUS implementation)
+/* dbus-string.c String utility class (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003, 2004, 2005 Red Hat, Inc.
  *
@@ -2549,7 +2549,7 @@ _dbus_string_validate_utf8  (const DBusString *str,
   _dbus_assert (len >= 0);
 
   /* we are doing _DBUS_UNLIKELY() here which might be
-   * dubious in a generic library like GLib, but in D-BUS
+   * dubious in a generic library like GLib, but in D-Bus
    * we know we're validating messages and that it would
    * only be evil/broken apps that would have invalid
    * UTF-8. Also, this function seems to be a performance
@@ -2572,7 +2572,7 @@ _dbus_string_validate_utf8  (const DBusString *str,
         break;
       
       /* Special-case ASCII; this makes us go a lot faster in
-       * D-BUS profiles where we are typically validating
+       * D-Bus profiles where we are typically validating
        * function names and such. We have to know that
        * all following checks will pass for ASCII though,
        * comments follow ...

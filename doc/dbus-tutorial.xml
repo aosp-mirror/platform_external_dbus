@@ -6,7 +6,7 @@
 
 <article id="index">
   <articleinfo>
-    <title>D-BUS Tutorial</title>
+    <title>D-Bus Tutorial</title>
     <releaseinfo>Version 0.4.1</releaseinfo>
     <date>15 July 2005</date>
     <authorgroup>
@@ -42,9 +42,9 @@
   </articleinfo>
 
   <sect1 id="whatis">
-    <title>What is D-BUS?</title>
+    <title>What is D-Bus?</title>
     <para>
-      D-BUS is a system for <firstterm>interprocess communication</firstterm>
+      D-Bus is a system for <firstterm>interprocess communication</firstterm>
       (IPC). Architecturally, it has several layers:
 
       <itemizedlist>
@@ -68,7 +68,7 @@
             application frameworks.  For example, libdbus-glib and
             libdbus-qt. There are also bindings to languages such as
             Python. These wrapper libraries are the API most people should use,
-            as they simplify the details of D-BUS programming. libdbus is 
+            as they simplify the details of D-Bus programming. libdbus is 
             intended to be a low-level backend for the higher level bindings.
             Much of the libdbus API is only useful for binding implementation.
           </para>
@@ -77,7 +77,7 @@
     </para>
 
     <para>
-      If you just want to use D-BUS and don't care how it works, jump directly
+      If you just want to use D-Bus and don't care how it works, jump directly
       to <xref linkend="concepts"/>.
       Otherwise, read on.
     </para>
@@ -115,7 +115,7 @@
     </para>
 
     <sect2 id="uses">
-      <title>D-BUS applications</title>
+      <title>D-Bus applications</title>
       <para>
         There are many, many technologies in the world that have "Inter-process
         communication" or "networking" in their stated purpose: <ulink
@@ -129,7 +129,7 @@
         url="http://www.zeroc.com/ice.html">Internet Communications Engine (ICE)</ulink>,
         and probably hundreds more.
         Each of these is tailored for particular kinds of application.
-        D-BUS is designed for two specific cases:
+        D-Bus is designed for two specific cases:
         <itemizedlist>
           <listitem>
             <para>
@@ -151,9 +151,9 @@
       <para>
         For the within-desktop-session use case, the GNOME and KDE desktops 
         have significant previous experience with different IPC solutions
-        such as CORBA and DCOP. D-BUS is built on that experience and 
+        such as CORBA and DCOP. D-Bus is built on that experience and 
         carefully tailored to meet the needs of these desktop projects 
-        in particular. D-BUS may or may not be appropriate for other 
+        in particular. D-Bus may or may not be appropriate for other 
         applications; the FAQ has some comparisons to other IPC systems.
       </para>
       <para>
@@ -186,7 +186,7 @@
         </blockquote>
       </para>
       <para>
-        D-BUS may happen to be useful for purposes other than the one it was
+        D-Bus may happen to be useful for purposes other than the one it was
         designed for. Its general properties that distinguish it from 
         other forms of IPC are:
         <itemizedlist>
@@ -233,7 +233,7 @@
     <title>Concepts</title>
     <para>
       Some basic concepts apply no matter what application framework you're
-      using to write a D-BUS application. The exact code you write will be
+      using to write a D-Bus application. The exact code you write will be
       different for GLib vs. Qt vs. Python applications, however.
     </para>
     
@@ -246,10 +246,10 @@
     <sect2 id="objects">
       <title>Objects and Object Paths</title>
       <para>
-        Each application using D-BUS contains <firstterm>objects</firstterm>,
+        Each application using D-Bus contains <firstterm>objects</firstterm>,
         which generally map to GObject, QObject, C++ objects, or Python objects
         (but need not).  An object is an <emphasis>instance</emphasis> rather
-        than a type.  When messages are received over a D-BUS connection, they
+        than a type.  When messages are received over a D-Bus connection, they
         are sent to a specific object, not to the application as a whole.
       </para>
       <para>
@@ -261,7 +261,7 @@
         application, and thus can't be passed from one application to another.
       </para>
       <para>
-        To solve this, D-BUS introduces a name for each object. The name 
+        To solve this, D-Bus introduces a name for each object. The name 
         looks like a filesystem path, for example an object could be 
         named <literal>/org/kde/kspread/sheets/3/cells/4/5</literal>. 
         Human-readable paths are nice, but you are free to create an 
@@ -289,7 +289,7 @@
     <sect2 id="messages">
       <title>Message Types</title>
       <para>
-        Messages are not all the same; in particular, D-BUS has 
+        Messages are not all the same; in particular, D-Bus has 
         4 built-in message types:
         <itemizedlist>
           <listitem>
@@ -331,7 +331,7 @@
       
       <para>
         Object paths, interfaces, and messages exist on the level of 
-        libdbus and the D-BUS protocol; they are used even in the 
+        libdbus and the D-Bus protocol; they are used even in the 
         1-to-1 case with no message bus involved.
       </para>
 
@@ -395,7 +395,7 @@
       <title>Addresses</title>
 
       <para>
-        Applications using D-BUS are either servers or clients.  A server
+        Applications using D-Bus are either servers or clients.  A server
         listens for incoming connections; a client connects to a server. Once
         the connection is established, it is a symmetric flow of messages; the
         client-server distinction only matters when setting up the 
@@ -403,17 +403,17 @@
       </para>
 
       <para>
-        A D-BUS <firstterm>address</firstterm> specifies where a server will
+        A D-Bus <firstterm>address</firstterm> specifies where a server will
         listen, and where a client will connect.  For example, the address
         <literal>unix:path=/tmp/abcdef</literal> specifies that the server will
         listen on a UNIX domain socket at the path
         <literal>/tmp/abcdef</literal> and the client will connect to that
         socket. An address can also specify TCP/IP sockets, or any other
-        transport defined in future iterations of the D-BUS specification.
+        transport defined in future iterations of the D-Bus specification.
       </para>
 
       <para>
-        When using D-BUS with a message bus, the bus daemon is a server 
+        When using D-Bus with a message bus, the bus daemon is a server 
         and all other applications are clients of the bus daemon.
         libdbus automatically discovers the address of the per-session bus 
         daemon by reading an environment variable. It discovers the 
@@ -422,7 +422,7 @@
       </para>
 
       <para>
-        If you're using D-BUS without a bus daemon, it's up to you to 
+        If you're using D-Bus without a bus daemon, it's up to you to 
         define which application will be the server and which will be 
         the client, and specify a mechanism for them to agree on 
         the server's address.
@@ -450,7 +450,7 @@
         The interface is also optional, primarily for historical 
         reasons; DCOP does not require specifying the interface, 
         instead simply forbidding duplicate method names 
-        on the same object instance. D-BUS will thus let you 
+        on the same object instance. D-Bus will thus let you 
         omit the interface, but if your method name is ambiguous 
         it is undefined which method will be invoked.
       </para>
@@ -468,11 +468,11 @@
     </para>
 
     <sect2 id="glib-typemappings">
-      <title>D-BUS - GLib type mappings</title>
+      <title>D-Bus - GLib type mappings</title>
       <para>
-	The heart of the GLib bindings for D-BUS is the mapping it
-	provides between D-BUS "type signatures" and GLib types
-	(<literal>GType</literal>). The D-BUS type system is composed of
+	The heart of the GLib bindings for D-Bus is the mapping it
+	provides between D-Bus "type signatures" and GLib types
+	(<literal>GType</literal>). The D-Bus type system is composed of
 	a number of "basic" types, along with several "container" types.
       </para>
       <sect3 id="glib-basic-typemappings">
@@ -484,7 +484,7 @@
 	    <tgroup cols="4">
 	      <thead>
 		<row>
-		  <entry>D-BUS basic type</entry>
+		  <entry>D-Bus basic type</entry>
 		  <entry>GType</entry>
 		  <entry>Free function</entry>
 		  <entry>Notes</entry>
@@ -556,9 +556,9 @@
       <sect3 id="glib-container-typemappings">
 	<title>Container type mappings</title>
 	<para>
-	  The D-BUS type system also has a number of "container"
+	  The D-Bus type system also has a number of "container"
 	  types, such as <literal>DBUS_TYPE_ARRAY</literal> and
-	  <literal>DBUS_TYPE_STRUCT</literal>.  The D-BUS type system
+	  <literal>DBUS_TYPE_STRUCT</literal>.  The D-Bus type system
 	  is fully recursive, so one can for example have an array of
 	  array of strings (i.e. type signature
 	  <literal>aas</literal>).
@@ -574,13 +574,13 @@
 	  "natural".
 	</para>
 	<para>
-	  First, D-BUS type signatures which have an "obvious"
+	  First, D-Bus type signatures which have an "obvious"
 	  corresponding built-in GLib type are mapped using that type:
 	  <informaltable>
 	    <tgroup cols="6">
 	      <thead>
 		<row>
-		  <entry>D-BUS type signature</entry>
+		  <entry>D-Bus type signature</entry>
 		  <entry>Description</entry>
 		  <entry>GType</entry>
 		  <entry>C typedef</entry>
@@ -618,15 +618,15 @@
 	  contained type.  Why we need this we will see below.
 	</para>
 	<para>
-	  The approach taken is to create these types in the D-BUS GLib
-	  bindings; however, there is nothing D-BUS specific about them.
+	  The approach taken is to create these types in the D-Bus GLib
+	  bindings; however, there is nothing D-Bus specific about them.
 	  In the future, we hope to include such "fundamental" types in GLib
 	  itself.
 	  <informaltable>
 	    <tgroup cols="6">
 	      <thead>
 		<row>
-		  <entry>D-BUS type signature</entry>
+		  <entry>D-Bus type signature</entry>
 		  <entry>Description</entry>
 		  <entry>GType</entry>
 		  <entry>C typedef</entry>
@@ -696,7 +696,7 @@
 	  </informaltable>
 	</para>
 	<para>
-	  D-BUS also includes a special type DBUS_TYPE_DICT_ENTRY which
+	  D-Bus also includes a special type DBUS_TYPE_DICT_ENTRY which
 	  is only valid in arrays.  It's intended to be mapped to a "dictionary"
 	  type by bindings.  The obvious GLib mapping here is GHashTable.  Again,
 	  however, there is no builtin <literal>GType</literal> for a GHashTable.
@@ -710,7 +710,7 @@
 	    <tgroup cols="6">
 	      <thead>
 		<row>
-		  <entry>D-BUS type signature</entry>
+		  <entry>D-Bus type signature</entry>
 		  <entry>Description</entry>
 		  <entry>GType</entry>
 		  <entry>C typedef</entry>
@@ -735,7 +735,7 @@
       <sect3 id="glib-generic-typemappings">
 	<title>Arbitrarily recursive type mappings</title>
 	<para>
-	  Finally, it is possible users will want to write or invoke D-BUS
+	  Finally, it is possible users will want to write or invoke D-Bus
 	  methods which have arbitrarily complex type signatures not
 	  directly supported by these bindings.  For this case, we have a
 	  <literal>DBusGValue</literal> which acts as a kind of special
@@ -750,7 +750,7 @@
     </sect2>
     <sect2 id="sample-program-1">
       <title>A sample program</title>
-      <para>Here is a D-BUS program using the GLib bindings.
+      <para>Here is a D-Bus program using the GLib bindings.
 <programlisting>      
 int
 main (int argc, char **argv)
@@ -872,9 +872,9 @@ main (int argc, char **argv)
       <itemizedlist>
 	<listitem>
 	  <para>
-	    An internal D-BUS error, such as an out-of-memory
+	    An internal D-Bus error, such as an out-of-memory
 	    condition, an I/O error, or a network timeout.  Errors
-	    generated by the D-BUS library itself have the domain
+	    generated by the D-Bus library itself have the domain
 	    <literal>DBUS_GERROR</literal>, and a corresponding code
 	    such as <literal>DBUS_GERROR_NO_MEMORY</literal>.  It will
 	    not be typical for applications to handle these errors
@@ -883,8 +883,8 @@ main (int argc, char **argv)
 	</listitem>
 	<listitem>
 	  <para>
-	    A remote D-BUS exception, thrown by the peer, bus, or
-	    service.  D-BUS remote exceptions have both a textual
+	    A remote D-Bus exception, thrown by the peer, bus, or
+	    service.  D-Bus remote exceptions have both a textual
 	    "name" and a "message".  The GLib bindings store this
 	    information in the <literal>GError</literal>, but some
 	    special rules apply.
@@ -1149,7 +1149,7 @@ typedef void
   <sect1 id="glib-server">
     <title>GLib API: Implementing Objects</title>
     <para>
-      At the moment, to expose a GObject via D-BUS, you must
+      At the moment, to expose a GObject via D-Bus, you must
       write XML by hand which describes the methods exported
       by the object.  In the future, this manual step will
       be obviated by the upcoming GLib introspection support.
@@ -1178,7 +1178,7 @@ typedef void
 </programlisting>
     </para>
     <para>
-      This XML is in the same format as the D-BUS introspection XML
+      This XML is in the same format as the D-Bus introspection XML
       format. Except we must include an "annotation" which give the C
       symbols corresponding to the object implementation prefix
       (<literal>my_object</literal>).  In addition, if particular
@@ -1398,14 +1398,14 @@ my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error)
   <sect1 id="python-client">
     <title>Python API: Using Remote Objects</title>
     <para>
-      The Python bindings provide a simple to use interface for talking over D-BUS.
-      Where possible much of the inner-workings of D-BUS are hidden behind what looks
+      The Python bindings provide a simple to use interface for talking over D-Bus.
+      Where possible much of the inner-workings of D-Bus are hidden behind what looks
       like normal Python objects.
     </para>
     <sect2 id="python-typemappings">
-      <title>D-BUS - Python type mappings</title>
+      <title>D-Bus - Python type mappings</title>
       <para>
-        While python itself is a largely untyped language D-BUS provides a simple type system
+        While python itself is a largely untyped language D-Bus provides a simple type system
         for talking with other languages which may be strongly typed.  Python for the most part
         tries automatically map python objects to types on the bus.  It is none the less good to 
         know what the type mappings are so one can better utilize services over the bus.
@@ -1419,7 +1419,7 @@ my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error)
 	    <tgroup cols="3">
 	      <thead>
 		<row>
-		  <entry>D-BUS basic type</entry>
+		  <entry>D-Bus basic type</entry>
 		  <entry>Python wrapper</entry>
 		  <entry>Notes</entry>
 		</row>
@@ -1478,21 +1478,21 @@ my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error)
       <sect3 id="python-container-typemappings">
 	<title>Container type mappings</title>
 	<para>
-	  The D-BUS type system also has a number of "container"
+	  The D-Bus type system also has a number of "container"
 	  types, such as <literal>DBUS_TYPE_ARRAY</literal> and
-	  <literal>DBUS_TYPE_STRUCT</literal>.  The D-BUS type system
+	  <literal>DBUS_TYPE_STRUCT</literal>.  The D-Bus type system
 	  is fully recursive, so one can for example have an array of
 	  array of strings (i.e. type signature
 	  <literal>aas</literal>).
 	</para>
 	<para>
-	  D-BUS container types have native corresponding built-in Python types
+	  D-Bus container types have native corresponding built-in Python types
 	  so it is easy to use them.
 	  <informaltable>
 	    <tgroup cols="3">
 	      <thead>
 		<row>
-		  <entry>D-BUS type</entry>
+		  <entry>D-Bus type</entry>
 		  <entry>Python type</entry>
                   <entry>Python wrapper</entry>
 		  <entry>Notes</entry>
@@ -1505,7 +1505,7 @@ my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error)
                   <entry><literal>dbus.Array</literal></entry>
 		  <entry>Python lists, denoted by square brackets [], are converted into arrays and visa versa.
 		  The one restriction is that when sending a Python list each element of the list must be of the same
-		  type.  This is because D-BUS arrays can contain only one element type.  Use Python tuples for mixed types.
+		  type.  This is because D-Bus arrays can contain only one element type.  Use Python tuples for mixed types.
                   
                   When using the wrapper you may also specify a type or signature of the elements contained in the Array.
                   This is manditory when passing an empty Array to a method on the bus because Python can not guess at the 
@@ -1532,7 +1532,7 @@ my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error)
 		  <entry><literal>DICTIONARY</literal></entry>
 		  <entry><literal>Python dictionary</literal></entry>
                   <entry><literal>dbus.Dictionary</literal></entry>
-		  <entry>D-BUS doesn't have an explicit dictionary type.  Instead it uses LISTS of DICT_ENTRIES to
+		  <entry>D-Bus doesn't have an explicit dictionary type.  Instead it uses LISTS of DICT_ENTRIES to
 		  represent a dictionary.  A DICT_ENTRY is simply a two element struct containing a key/value pair.
 		  Python dictionaries are automatically converted to a LIST of DICT_ENTRIES and visa versa.
                   
@@ -1569,7 +1569,7 @@ my_object_increment_retval_error (MyObject *obj, gint32 x, GError **error)
     </sect2>
     <sect2 id="python-invoking-methods">
       <title>Invoking Methods</title>
-      <para>Here is a D-BUS program using the Python bindings to get a listing of all names on the session bus.
+      <para>Here is a D-Bus program using the Python bindings to get a listing of all names on the session bus.
 <programlisting>      
 import dbus
 
@@ -1597,7 +1597,7 @@ proxy_obj.ListNames(dbus_interface = 'org.freedesktop.DBus')
         This is all fine and good if all you want to do is call methods on the bus and then exit.  In order to 
         do more complex things such as use a GUI or make asynchronous calls you will need a mainloop.  You would use
 	asynchronous calls because in GUI applications it is very bad to block for any long period of time.  This cause
-	the GUI to seem to freeze.  Since replies to D-BUS messages can take an indeterminate amount of time using async 
+	the GUI to seem to freeze.  Since replies to D-Bus messages can take an indeterminate amount of time using async 
 	calls allows you to return control to the GUI while you wait for the reply.  This is exceedingly easy to do in
 	Python.  Here is an example using the GLib/GTK+ mainloop.
 <programlisting>
@@ -1631,8 +1631,8 @@ mainloop.run()
       <para>
         You will also notice that I check the version of the dbus bindings before importing dbus.glib.  In older versions
 	glib was the only available mainloop.  As of version 0.41.0 we split out the glib dependency to allow for other mainloops
-	to be implemented.  Notice also the python binding version does not match up with the D-BUS version.  Once we reach 1.0
-	this should change with Python changes simply tracking the D-BUS changes.
+	to be implemented.  Notice also the python binding version does not match up with the D-Bus version.  Once we reach 1.0
+	this should change with Python changes simply tracking the D-Bus changes.
         While the glib mainloop is the only mainloop currently implemented, integrating other mainloops should
 	be very easy to do.  There are plans for creating a a generic mainloop to be the default for non gui programs.
       </para>
@@ -1747,7 +1747,7 @@ bus.add_signal_receiver(myname_changed,
     <sidebar>
       <title>Version Alert</title>
       <para>
-        The Python D-BUS bindings require version 2.4 or greater of Python when creating D-BUS objects.
+        The Python D-Bus bindings require version 2.4 or greater of Python when creating D-Bus objects.
       </para>
     </sidebar>
 
@@ -1815,7 +1815,7 @@ mainloop.run()
 	  Notice the @ symbol on the line before the hello method.  This is a new directive introduced in
 	  Python 2.4.  It is called a decorator and it "decorates" methods.  All you have to know is that
 	  it provides metadata that can then be used to alter the behavior of the method being decorated.
-	  In this case we are telling the bindings that the hello method should be exported as a D-BUS method
+	  In this case we are telling the bindings that the hello method should be exported as a D-Bus method
 	  over the bus.
 	</para>
       </sidebar>
@@ -1900,7 +1900,7 @@ mainloop.run()
     <sect2 id="python-inheriting-and-overriding">
       <title>Inheriting from HelloWorldObject</title>
       <para>
-        One of the cool things you can do in Python is inherit from another D-BUS object.  We use this trick in
+        One of the cool things you can do in Python is inherit from another D-Bus object.  We use this trick in
 	the bindings to provide a default implementation for the org.freedesktop.DBus.Introspectable interface.
 	Let's inherit from the HelloWorldObject example above and overide the hello method to say goodbye.
 <programlisting>
@@ -1934,7 +1934,7 @@ print proxy_obj.hello(dbus_interface='org.freedesktop.HelloWorldGoodbyeIFace')
     <sect2 id="python-conclusion">
       <title>Conclusion</title>
       <para>
-        As you can see, using D-BUS from Python is an extremely easy proposition.  Hopefully
+        As you can see, using D-Bus from Python is an extremely easy proposition.  Hopefully
 	the tutorial has been helpful in getting you started.  If you need anymore help please
 	feel free to post on the <ulink url="http://lists.freedesktop.org/mailman/listinfo/dbus/">mailing list</ulink>.
 	The Python bindings are still in a state of flux and there may be API changes in the future.

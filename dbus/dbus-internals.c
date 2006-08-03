@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-internals.c  random utility stuff (internal to D-BUS implementation)
+/* dbus-internals.c  random utility stuff (internal to D-Bus implementation)
  *
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  *
@@ -33,8 +33,8 @@
 #include <stdlib.h>
 
 /**
- * @defgroup DBusInternals D-BUS internal implementation details
- * @brief Documentation useful when developing or debugging D-BUS itself.
+ * @defgroup DBusInternals D-Bus internal implementation details
+ * @brief Documentation useful when developing or debugging D-Bus itself.
  * 
  */
 
@@ -447,7 +447,7 @@ _dbus_header_field_to_string (int header_field)
 /** String used in _dbus_return_if_fail macro */
 const char _dbus_return_if_fail_warning_format[] =
 "%lu: arguments to %s() were incorrect, assertion \"%s\" failed in file %s line %d.\n"
-"This is normally a bug in some application using the D-BUS library.\n";
+"This is normally a bug in some application using the D-Bus library.\n";
 #endif
 
 #ifndef DBUS_DISABLE_ASSERT

@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-auth-script.h Test DBusAuth using a special script file (internal to D-BUS implementation)
+/* dbus-auth-script.h Test DBusAuth using a special script file (internal to D-Bus implementation)
  * 
  * Copyright (C) 2003 Red Hat, Inc.
  *

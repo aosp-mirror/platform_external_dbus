@@ -27,7 +27,7 @@
 #define DBUS_INSIDE_DBUS_H 1
 
 #ifndef DBUS_API_SUBJECT_TO_CHANGE
-#error "Please define DBUS_API_SUBJECT_TO_CHANGE to acknowledge your understanding that D-BUS hasn't reached 1.0 and is subject to protocol and API churn. See the README for a full explanation."
+#error "Please define DBUS_API_SUBJECT_TO_CHANGE to acknowledge your understanding that D-Bus hasn't reached 1.0 and is subject to protocol and API churn. See the README for a full explanation."
 #endif
 
 #include <dbus/dbus-arch-deps.h>
@@ -48,11 +48,11 @@
 #undef DBUS_INSIDE_DBUS_H
 
 /**
- * @defgroup DBus D-BUS low-level public API
- * @brief The low-level public API of the D-BUS library
+ * @defgroup DBus D-Bus low-level public API
+ * @brief The low-level public API of the D-Bus library
  *
  * libdbus provides a low-level API intended primarily for use by
- * bindings to specific object systems and languages.  D-BUS is most
+ * bindings to specific object systems and languages.  D-Bus is most
  * convenient when used with the GLib bindings, Python bindings, Qt
  * bindings, Mono bindings, and so forth.  This low-level API has a
  * lot of complexity useful only for bindings.

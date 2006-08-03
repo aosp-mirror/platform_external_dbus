@@ -1,5 +1,9 @@
 2006-08-03  John (J5) Palmieri  <johnp@redhat.com>
 
+	* s/D-BUS/D-Bus/g
+
+2006-08-03  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-object-tree.c: Patch by Benjamin Otte 
 	<in7y118 at public.uni-hamburg dot de> - fix invalid
 	read/write reported by valgrind

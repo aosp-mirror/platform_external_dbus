@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-transport-protected.h Used by subclasses of DBusTransport object (internal to D-BUS implementation)
+/* dbus-transport-protected.h Used by subclasses of DBusTransport object (internal to D-Bus implementation)
  *
  * Copyright (C) 2002, 2004  Red Hat Inc.
  *

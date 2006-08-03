@@ -40,7 +40,7 @@ know which shell your script is written in.
 
 .PP
 See http://www.freedesktop.org/software/dbus/ for more information
-about D-BUS. See also the man page for \fIdbus-daemon\fP.
+about D-Bus. See also the man page for \fIdbus-daemon\fP.
 
 .PP
 Here is an example of how to use \fIdbus-launch\fP with an 
@@ -51,7 +51,7 @@ sh-compatible shell to start the per-session bus daemon:
   if test -z "$DBUS_SESSION_BUS_ADDRESS" ; then
       ## if not found, launch a new one
       eval `dbus-launch --sh-syntax --exit-with-session`
-      echo "D-BUS per-session daemon address is: $DBUS_SESSION_BUS_ADDRESS"
+      echo "D-Bus per-session daemon address is: $DBUS_SESSION_BUS_ADDRESS"
   fi
 
 .fi
@@ -101,5 +101,5 @@ Print the version of dbus-launch
 See http://www.freedesktop.org/software/dbus/doc/AUTHORS
 
 .SH BUGS
-Please send bug reports to the D-BUS mailing list or bug tracker,
+Please send bug reports to the D-Bus mailing list or bug tracker,
 see http://www.freedesktop.org/software/dbus/

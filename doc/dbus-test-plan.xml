@@ -6,7 +6,7 @@
 
 <article id="index">
   <articleinfo>
-    <title>D-BUS Test Plan</title>
+    <title>D-Bus Test Plan</title>
     <date>14 February 2003</date>
     <authorgroup>
       <author>
@@ -22,7 +22,7 @@
   <sect1 id="introduction">
     <title>Introduction</title>
     <para>
-      This document tries to explain the details of the test plan for D-BUS
+      This document tries to explain the details of the test plan for D-Bus
     </para>
     <sect2 id="importance-of-testing">
       <title>The importance of testing</title>
@@ -32,21 +32,21 @@
         overall. 
       </para>
       <para>
-        D-BUS is a large and complex piece of software (about 25,000
+        D-Bus is a large and complex piece of software (about 25,000
         lines of code for the client library, and 2,500 lines of code
         for the bus daemon) and it's therefore important to try to make sure
         that all parts of the software is functioning correctly.
       </para>
       <para>
-        D-BUS can be built with support for testing by passing
+        D-Bus can be built with support for testing by passing
         <literal>--enable-tests</literal>. to the configure script. It
         is recommended that production systems build without testing
-        since that reduces the D-BUS client library size.
+        since that reduces the D-Bus client library size.
       </para>
     </sect2>
   </sect1>
   <sect1 id="client-library">
-    <title>Testing the D-BUS client library</title>
+    <title>Testing the D-Bus client library</title>
     <para>
       The tests for the client library consist of the dbus-test
       program which is a unit test for all aspects of the client
@@ -56,7 +56,7 @@
     <sect2 id="data-structures">
       <title>Data Structures</title>
       <para>
-      The D-BUS client library consists of some data structures that
+      The D-Bus client library consists of some data structures that
       are used internally; a linked list class, a hashtable class and
       a string class. All aspects of those are tested by dbus-test.
       </para>
@@ -64,15 +64,15 @@
     <sect2 id="message-loader">
       <title>Message loader</title>
       <para>
-        The message loader is the part of D-BUS that takes messages in
+        The message loader is the part of D-Bus that takes messages in
         raw character form and parses them, turning them into DBusMessages.
       </para>
       <para>
-        This is one of the parts of D-BUS that
+        This is one of the parts of D-Bus that
         <emphasis>must</emphasis> be absolutely bug-free and
         robust. The message loader should be able to handle invalid
         and incomplete messages without crashing. Not doing so is a
-        serious issue and can easily result in D-BUS being exploitable
+        serious issue and can easily result in D-Bus being exploitable
         to DoS attacks.
       </para>
       <para>
@@ -101,7 +101,7 @@
       </figure>
       <para>
         The file format of messages in string form is documented in
-        the D-BUS Reference Manual.
+        the D-Bus Reference Manual.
       </para>
       <para>
         The message test part of dbus-test is using the message
@@ -145,9 +145,9 @@
     </sect2>
   </sect1>
   <sect1 id="daemon">
-    <title>Testing the D-BUS bus daemon</title>
+    <title>Testing the D-Bus bus daemon</title>
     <para>
-      Since the D-BUS bus daemon is using the D-BUS client library it
+      Since the D-Bus bus daemon is using the D-Bus client library it
       will benefit from all tests done on the client library, but
       there is still the issue of testing client-server communication.
       This is more complicated since it it may require another process
@@ -156,15 +156,15 @@
     <sect2 id="debug-transport">
       <title>The debug transport</title>
       <para>
-        In D-BUS, a <emphasis>transport</emphasis> is a class that
+        In D-Bus, a <emphasis>transport</emphasis> is a class that
         handles sending and receiving raw data over a certain
-        medium. The transport that is used most in D-BUS is the UNIX
+        medium. The transport that is used most in D-Bus is the UNIX
         transport with sends and recevies data over a UNIX socket. A
         transport that tunnels data through X11 client messages is
         also under development.
       </para>
       <para>
-        The D-BUS debug transport is a specialized transport that
+        The D-Bus debug transport is a specialized transport that
         works in-process. This means that a client and server that
         exists in the same process can talk to eachother without using
         a socket.
@@ -174,7 +174,7 @@
       <title>The bus-test program</title>
       <para>
         The bus-test program is a program that is used to test various
-        parts of the D-BUS bus daemon; robustness and that it conforms
+        parts of the D-Bus bus daemon; robustness and that it conforms
         to the specifications.
       </para>
       <para>
@@ -197,7 +197,7 @@
     <sect2 id="oom-robustness">
       <title>Out-Of-Memory robustness</title>
       <para>
-        Since D-BUS should be able to be used in embedded devices, and
+        Since D-Bus should be able to be used in embedded devices, and
         also as a system service, it should be able to cope with
         low-memory situations without exiting or crashing.
       </para>

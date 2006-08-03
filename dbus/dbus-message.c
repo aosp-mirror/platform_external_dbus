@@ -769,7 +769,7 @@ dbus_message_new (int message_type)
  * Constructs a new message to invoke a method on a remote
  * object. Returns #NULL if memory can't be allocated for the
  * message. The destination may be #NULL in which case no destination
- * is set; this is appropriate when using D-BUS in a peer-to-peer
+ * is set; this is appropriate when using D-Bus in a peer-to-peer
  * context (no message bus). The interface may be #NULL, which means
  * that if multiple methods with the given name exist it is undefined
  * which one will be invoked.
@@ -2871,7 +2871,7 @@ _dbus_message_has_type_interface_member (DBusMessage *message,
  * interface and member fields.  If the message is not
  * #DBUS_MESSAGE_TYPE_METHOD_CALL, or has a different interface or
  * member field, returns #FALSE. If the interface field is missing,
- * then it will be assumed equal to the provided interface.  The D-BUS
+ * then it will be assumed equal to the provided interface.  The D-Bus
  * protocol allows method callers to leave out the interface name.
  *
  * @param message the message
@@ -3684,7 +3684,7 @@ dbus_message_get_data (DBusMessage   *message,
 
 /**
  * Utility function to convert a machine-readable (not translated)
- * string into a D-BUS message type.
+ * string into a D-Bus message type.
  *
  * @code
  *   "method_call"    -> DBUS_MESSAGE_TYPE_METHOD_CALL
@@ -3711,7 +3711,7 @@ dbus_message_type_from_string (const char *type_str)
 }
 
 /**
- * Utility function to convert a D-BUS message type into a
+ * Utility function to convert a D-Bus message type into a
  * machine-readable string (not translated).
  *
  * @code

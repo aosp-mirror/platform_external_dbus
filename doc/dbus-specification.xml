@@ -6,7 +6,7 @@
 
 <article id="index">
   <articleinfo>
-    <title>D-BUS Specification</title>
+    <title>D-Bus Specification</title>
     <releaseinfo>Version 0.11</releaseinfo>
     <date>6 February 2005</date>
     <authorgroup>
@@ -46,30 +46,30 @@
   <sect1 id="introduction">
     <title>Introduction</title>
     <para>
-      D-BUS is a system for low-latency, low-overhead, easy to use
+      D-Bus is a system for low-latency, low-overhead, easy to use
       interprocess communication (IPC). In more detail:
       <itemizedlist>
         <listitem>
           <para>
-            D-BUS is <emphasis>low-latency</emphasis> because it is designed 
+            D-Bus is <emphasis>low-latency</emphasis> because it is designed 
             to avoid round trips and allow asynchronous operation, much like 
             the X protocol.
           </para>
         </listitem>
         <listitem>
           <para>
-            D-BUS is <emphasis>low-overhead</emphasis> because it uses a
+            D-Bus is <emphasis>low-overhead</emphasis> because it uses a
             binary protocol, and does not have to convert to and from a text
-            format such as XML. Because D-BUS is intended for potentially
+            format such as XML. Because D-Bus is intended for potentially
             high-resolution same-machine IPC, not primarily for Internet IPC,
             this is an interesting optimization.
           </para>
         </listitem>
         <listitem>
           <para>
-            D-BUS is <emphasis>easy to use</emphasis> because it works in terms
+            D-Bus is <emphasis>easy to use</emphasis> because it works in terms
             of <firstterm>messages</firstterm> rather than byte streams, and
-            automatically handles a lot of the hard IPC issues. Also, the D-BUS
+            automatically handles a lot of the hard IPC issues. Also, the D-Bus
             library is designed to be wrapped in a way that lets developers use
             their framework's existing object/type system, rather than learning
             a new one specifically for IPC.
@@ -79,25 +79,25 @@
     </para>
 
     <para>
-      The base D-BUS protocol is a one-to-one (peer-to-peer or client-server)
+      The base D-Bus protocol is a one-to-one (peer-to-peer or client-server)
       protocol, specified in <xref linkend="message-protocol"/>. That is, it is
       a system for one application to talk to a single other
       application. However, the primary intended application of the protocol is the
-      D-BUS <firstterm>message bus</firstterm>, specified in <xref
+      D-Bus <firstterm>message bus</firstterm>, specified in <xref
       linkend="message-bus"/>. The message bus is a special application that
       accepts connections from multiple other applications, and forwards
       messages among them.
     </para>
 
     <para>
-      Uses of D-BUS include notification of system changes (notification of when
+      Uses of D-Bus include notification of system changes (notification of when
       a camera is plugged in to a computer, or a new version of some software
       has been installed), or desktop interoperability, for example a file
       monitoring service or a configuration service.
     </para>
 
     <para>
-      D-BUS is designed for two specific use cases:
+      D-Bus is designed for two specific use cases:
       <itemizedlist>
         <listitem>
           <para>
@@ -112,9 +112,9 @@
           </para>
         </listitem>
       </itemizedlist>
-      D-BUS is not intended to be a generic IPC system for any possible 
+      D-Bus is not intended to be a generic IPC system for any possible 
       application, and intentionally omits many features found in other 
-      IPC systems for this reason. D-BUS may turn out to be useful 
+      IPC systems for this reason. D-Bus may turn out to be useful 
       in unanticipated applications, but future versions of this 
       spec and the reference implementation probably will not 
       incorporate features that interfere with the core use cases.
@@ -160,7 +160,7 @@
       <title>Type Signatures</title>
 
       <para>
-        The D-BUS protocol does not include type tags in the marshaled data; a
+        The D-Bus protocol does not include type tags in the marshaled data; a
         block of marshaled values must have a known <firstterm>type
         signature</firstterm>.  The type signature is made up of <firstterm>type
         codes</firstterm>. A type code is an ASCII character representing the
@@ -212,7 +212,7 @@
       </para>
 
       <para>
-        The <literal>STRUCT</literal> type code 'r' is not currently used in the D-BUS protocol,
+        The <literal>STRUCT</literal> type code 'r' is not currently used in the D-Bus protocol,
         but is useful in code that implements the protocol. This type code 
         is specified to allow such code to interoperate in non-protocol contexts.
       </para>
@@ -296,7 +296,7 @@
       </para>
 
       <para>
-        The following table summarizes the D-BUS types.
+        The following table summarizes the D-Bus types.
         <informaltable>
           <tgroup cols="3">
             <thead>
@@ -389,12 +389,12 @@
       <para>
         Given a type signature, a block of bytes can be converted into typed
         values. This section describes the format of the block of bytes.  Byte
-        order and alignment issues are handled uniformly for all D-BUS types.
+        order and alignment issues are handled uniformly for all D-Bus types.
       </para>
 
       <para>
         A block of bytes has an associated byte order. The byte order 
-        has to be discovered in some way; for D-BUS messages, the 
+        has to be discovered in some way; for D-Bus messages, the 
         byte order is part of the message header as described in 
         <xref linkend="message-protocol-messages"/>. For now, assume 
         that the byte order is known to be either little endian or big 
@@ -550,7 +550,7 @@
         
         <para>
           An object path is a name used to refer to an object instance.
-          Conceptually, each participant in a D-BUS message exchange may have
+          Conceptually, each participant in a D-Bus message exchange may have
           any number of object instances (think of C++ or Java objects) and each
           such instance will have a path. Like a filesystem, the object
           instances in an application form a hierarchical tree.
@@ -721,7 +721,7 @@
                 <entry>Major protocol version of the sending application.  If
                 the major protocol version of the receiving application does not
                 match, the applications will not be able to communicate and the
-                D-BUS connection must be disconnected. The major protocol
+                D-Bus connection must be disconnected. The major protocol
                 version for this version of the specification is 0.
                   FIXME this field is stupid and pointless to put in 
                   every message.
@@ -960,7 +960,7 @@
     <sect2 id="message-protocol-names">
       <title>Valid Names</title>
       <para>
-        The various names in D-BUS messages have some restrictions.
+        The various names in D-Bus messages have some restrictions.
       </para>
       <para>
         There is a <firstterm>maximum name length</firstterm> 
@@ -1129,16 +1129,16 @@
         <sect4 id="message-protocol-types-method-apis">
           <title>Mapping method calls to native APIs</title>
           <para>
-            APIs for D-BUS may map method calls to a method call in a specific
+            APIs for D-Bus may map method calls to a method call in a specific
             programming language, such as C++, or may map a method call written
-            in an IDL to a D-BUS message.
+            in an IDL to a D-Bus message.
           </para>
           <para>
             In APIs of this nature, arguments to a method are often termed "in"
             (which implies sent in the <literal>METHOD_CALL</literal>), or "out" (which implies
             returned in the <literal>METHOD_RETURN</literal>). Some APIs such as CORBA also have
             "inout" arguments, which are both sent and received, i.e. the caller
-            passes in a value which is modified. Mapped to D-BUS, an "inout"
+            passes in a value which is modified. Mapped to D-Bus, an "inout"
             argument is equivalent to an "in" argument, followed by an "out"
             argument. You can't pass things "by reference" over the wire, so
             "inout" is purely an illusion of the in-process API.
@@ -1159,14 +1159,14 @@
             exceptions.
           </para>
           <para>
-            In converting from native APIs to D-BUS, it is perhaps nice to 
-            map D-BUS naming conventions ("FooBar") to native conventions 
+            In converting from native APIs to D-Bus, it is perhaps nice to 
+            map D-Bus naming conventions ("FooBar") to native conventions 
             such as "fooBar" or "foo_bar" automatically. This is OK 
             as long as you can say that the native API is one that 
-            was specifically written for D-BUS. It makes the most sense
+            was specifically written for D-Bus. It makes the most sense
             when writing object implementations that will be exported 
-            over the bus. Object proxies used to invoke remote D-BUS 
-            objects probably need the ability to call any D-BUS method,
+            over the bus. Object proxies used to invoke remote D-Bus 
+            objects probably need the ability to call any D-Bus method,
             and thus a magic name mapping like this could be a problem.
           </para>
           <para>
@@ -1256,7 +1256,7 @@
       <title>Invalid Protocol and Spec Extensions</title>
       
       <para>
-        For security reasons, the D-BUS protocol should be strictly parsed and
+        For security reasons, the D-Bus protocol should be strictly parsed and
         validated, with the exception of defined extension points. Any invalid
         protocol or spec violations should result in immediately dropping the
         connection without notice to the other end. Exceptions should be
@@ -1275,10 +1275,10 @@
       </para>
 
       <para>
-        The following extension points are built in to D-BUS on purpose and must
+        The following extension points are built in to D-Bus on purpose and must
         not be treated as invalid protocol. The extension points are intended
         for use by future versions of this spec, they are not intended for third
-        parties.  At the moment, the only way a third party could extend D-BUS
+        parties.  At the moment, the only way a third party could extend D-Bus
         without breaking interoperability would be to introduce a way to negotiate new
         feature support as part of the auth protocol, using EXTENSION_-prefixed
         commands. There is not yet a standard way to negotiate features.
@@ -1432,12 +1432,12 @@
       <para>
         The first octet received by the client after the \r\n of the OK
         command must be the first octet of the authenticated/encrypted 
-        stream of D-BUS messages.
+        stream of D-Bus messages.
       </para>
       <para>
         The first octet received by the server after the \r\n of the BEGIN
         command from the client must be the first octet of the
-        authenticated/encrypted stream of D-BUS messages.
+        authenticated/encrypted stream of D-Bus messages.
       </para>
     </sect2>
     <sect2 id="auth-command-cancel">
@@ -1471,7 +1471,7 @@
       <para>
         The first octet received by the server after the \r\n of the BEGIN
         command from the client must be the first octet of the
-        authenticated/encrypted stream of D-BUS messages.
+        authenticated/encrypted stream of D-Bus messages.
       </para>
     </sect2>
     <sect2 id="auth-command-rejected">
@@ -1493,13 +1493,13 @@
       <title>OK Command</title>
       <para>
         The OK command indicates that the client has been authenticated,
-        and that further communication will be a stream of D-BUS messages
+        and that further communication will be a stream of D-Bus messages
         (optionally encrypted, as negotiated) rather than this protocol.
       </para>
       <para>
         The first octet received by the client after the \r\n of the OK
         command must be the first octet of the authenticated/encrypted 
-        stream of D-BUS messages.
+        stream of D-Bus messages.
       </para>
       <para>
         The client must respond to the OK command by sending a BEGIN
@@ -1531,12 +1531,12 @@
         if only canceling/rejecting the authentication.
       </para>
       <para>
-        If the D-BUS protocol changes incompatibly at some future time,
+        If the D-Bus protocol changes incompatibly at some future time,
         applications implementing the new protocol would probably be able to
         check for support of the new protocol by sending a new command and
         receiving an ERROR from applications that don't understand it. Thus the
         ERROR feature of the auth protocol is an escape hatch that lets us
-        negotiate extensions or changes to the D-BUS protocol in the future.
+        negotiate extensions or changes to the D-Bus protocol in the future.
       </para>
     </sect2>
     <sect2 id="auth-examples">
@@ -2016,7 +2016,7 @@
       <title>Authentication mechanisms</title>
       <para>
         This section describes some new authentication mechanisms.
-        D-BUS also allows any standard SASL mechanism of course.
+        D-Bus also allows any standard SASL mechanism of course.
       </para>
       <sect3 id="auth-mechanisms-sha">
         <title>DBUS_COOKIE_SHA1</title>
@@ -2266,7 +2266,7 @@
     <title>Naming Conventions</title>
     
     <para>
-      D-BUS namespaces are all lowercase and correspond to reversed domain
+      D-Bus namespaces are all lowercase and correspond to reversed domain
       names, as with Java. e.g. "org.freedesktop"
     </para>
     <para>
@@ -2284,7 +2284,7 @@
     <para>
       See <xref linkend="message-protocol-types-notation"/> for details on 
        the notation used in this section. There are some standard interfaces
-      that may be useful across various D-BUS applications.
+      that may be useful across various D-Bus applications.
     </para>
     <sect2 id="standard-interfaces-peer">
       <title><literal>org.freedesktop.DBus.Peer</literal></title>
@@ -2961,7 +2961,7 @@
         <para>
           The following table describes the keys that can be used to create 
           a match rule:
-          The following table summarizes the D-BUS types.
+          The following table summarizes the D-Bus types.
           <informaltable>
             <tgroup cols="3">
               <thead>
@@ -3032,7 +3032,7 @@
         <firstterm>service</firstterm>.
       </para>
       <para>
-        With D-BUS, starting a service is normally done by name. That is,
+        With D-Bus, starting a service is normally done by name. That is,
         applications ask the message bus to start some program that will own a
         well-known name, such as <literal>org.freedesktop.TextEditor</literal>.
         This implies a contract documented along with the name 
@@ -3175,7 +3175,7 @@
           <literal>unix:path=/var/run/dbus/system_bus_socket</literal>.
           <footnote>
             <para>
-              The D-BUS reference implementation actually honors the 
+              The D-Bus reference implementation actually honors the 
               <literal>$(localstatedir)</literal> configure option 
               for this address, on both client and server side.
             </para>
@@ -3747,7 +3747,7 @@
     <glossentry id="term-message"><glossterm>Message</glossterm>
       <glossdef>
         <para>
-          A message is the atomic unit of communication via the D-BUS
+          A message is the atomic unit of communication via the D-Bus
           protocol. It consists of a <firstterm>header</firstterm> and a
           <firstterm>body</firstterm>; the body is made up of
           <firstterm>arguments</firstterm>.
@@ -3772,7 +3772,7 @@
         <para>
           See <xref linkend="term-bus-name"/>. "Name" may 
             also be used to refer to some of the other names
-            in D-BUS, such as interface names.
+            in D-Bus, such as interface names.
         </para>
       </glossdef>
     </glossentry>
@@ -3803,7 +3803,7 @@
 	<para>
           An application talking directly to another application, without going
           through a message bus. One-to-one connections may be "peer to peer" or
-          "client to server." The D-BUS protocol has no concept of client
+          "client to server." The D-Bus protocol has no concept of client
           vs. server after a connection has authenticated; the flow of messages
           is symmetrical (full duplex).
         </para>
@@ -3813,7 +3813,7 @@
     <glossentry id="term-path"><glossterm>Path</glossterm>
       <glossdef>
         <para>
-          Object references (object names) in D-BUS are organized into a
+          Object references (object names) in D-Bus are organized into a
           filesystem-style hierarchy, so each object is named by a path. As in
           LDAP, there's no difference between "files" and "directories"; a path
           can refer to an object, while still having child objects below it.

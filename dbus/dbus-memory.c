@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-memory.c  D-BUS memory handling
+/* dbus-memory.c  D-Bus memory handling
  *
  * Copyright (C) 2002, 2003  Red Hat Inc.
  *
@@ -741,14 +741,14 @@ _dbus_register_shutdown_func (DBusShutdownFunction  func,
  */
 
 /**
- * The D-BUS library keeps some internal global variables, for example
+ * The D-Bus library keeps some internal global variables, for example
  * to cache the username of the current process.  This function is
  * used to free these global variables.  It is really useful only for
  * leak-checking cleanliness and the like. WARNING: this function is
  * NOT thread safe, it must be called while NO other threads are using
- * D-BUS. You cannot continue using D-BUS after calling this function,
+ * D-Bus. You cannot continue using D-Bus after calling this function,
  * as it does things like free global mutexes created by
- * dbus_threads_init(). To use a D-BUS function after calling
+ * dbus_threads_init(). To use a D-Bus function after calling
  * dbus_shutdown(), you have to start over from scratch, e.g. calling
  * dbus_threads_init() again.
  */

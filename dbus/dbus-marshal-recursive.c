@@ -1441,7 +1441,7 @@ reader_set_basic_fixed_length (DBusTypeReader *reader,
  * type and value strings and set_basic would be a method on that
  * object... this would also make DBusTypeReader the same thing as
  * DBusTypeMark. But since DBusMessage is effectively that object for
- * D-BUS it doesn't seem worth creating some random object.)
+ * D-Bus it doesn't seem worth creating some random object.)
  *
  * @todo optimize this by only rewriting until the old and new values
  * are at the same alignment. Frequently this should result in only
@@ -1564,7 +1564,7 @@ _dbus_type_reader_greater_than (const DBusTypeReader  *lhs,
 
 /**
  * Initialize a write iterator, which is used to write out values in
- * serialized D-BUS format.
+ * serialized D-Bus format.
  *
  * The type_pos passed in is expected to be inside an already-valid,
  * though potentially empty, type signature. This means that the byte

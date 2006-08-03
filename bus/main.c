@@ -73,7 +73,7 @@ usage (void)
 static void
 version (void)
 {
-  printf ("D-BUS Message Bus Daemon %s\n"
+  printf ("D-Bus Message Bus Daemon %s\n"
           "Copyright (C) 2002, 2003 Red Hat, Inc., CodeFactory AB, and others\n"
           "This is free software; see the source for copying conditions.\n"
           "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",

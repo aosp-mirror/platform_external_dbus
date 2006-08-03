@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-transport.c DBusTransport object (internal to D-BUS implementation)
+/* dbus-transport.c DBusTransport object (internal to D-Bus implementation)
  *
  * Copyright (C) 2002, 2003  Red Hat Inc.
  *

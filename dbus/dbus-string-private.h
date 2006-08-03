@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-string-private.h String utility class (internal to D-BUS implementation)
+/* dbus-string-private.h String utility class (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  *

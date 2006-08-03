@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-sysdeps.c Wrappers around system/libc features (internal to D-BUS implementation)
+/* dbus-sysdeps.c Wrappers around system/libc features (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB
@@ -2653,7 +2653,7 @@ _dbus_disable_sigpipe (void)
 /**
  * Sets the file descriptor to be close
  * on exec. Should be called for all file
- * descriptors in D-BUS code.
+ * descriptors in D-Bus code.
  *
  * @param fd the file descriptor
  */
@@ -2876,7 +2876,7 @@ _dbus_print_backtrace (void)
 
   free (syms);
 #else
-  _dbus_verbose ("  D-BUS not compiled with backtrace support\n");
+  _dbus_verbose ("  D-Bus not compiled with backtrace support\n");
 #endif
 }
 #endif /* asserts or tests enabled */

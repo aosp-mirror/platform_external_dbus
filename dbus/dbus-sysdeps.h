@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-sysdeps.h Wrappers around system/libc features (internal to D-BUS implementation)
+/* dbus-sysdeps.h Wrappers around system/libc features (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB

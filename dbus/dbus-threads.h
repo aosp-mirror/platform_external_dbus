@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-threads.h  D-BUS threads handling
+/* dbus-threads.h  D-Bus threads handling
  *
  * Copyright (C) 2002  Red Hat Inc.
  *
@@ -67,7 +67,7 @@ typedef enum
 } DBusThreadFunctionsMask;
 
 /**
- * Functions that must be implemented to make the D-BUS
+ * Functions that must be implemented to make the D-Bus
  * library thread-aware. 
  */
 typedef struct

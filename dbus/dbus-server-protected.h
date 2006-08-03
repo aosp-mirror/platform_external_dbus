@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-server-protected.h Used by subclasses of DBusServer object (internal to D-BUS implementation)
+/* dbus-server-protected.h Used by subclasses of DBusServer object (internal to D-Bus implementation)
  *
  * Copyright (C) 2002  Red Hat Inc.
  *

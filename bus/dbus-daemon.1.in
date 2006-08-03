@@ -13,9 +13,9 @@ dbus-daemon [\-\-version] [\-\-session] [\-\-system] [\-\-config-file=FILE]
 
 .SH DESCRIPTION
 
-\fIdbus-daemon\fP is the D-BUS message bus daemon. See
+\fIdbus-daemon\fP is the D-Bus message bus daemon. See
 http://www.freedesktop.org/software/dbus/ for more information about
-the big picture. D-BUS is first a library that provides one-to-one
+the big picture. D-Bus is first a library that provides one-to-one
 communication between any two applications; \fIdbus-daemon\fP is an
 application that uses this library to implement a message bus
 daemon. Multiple programs connect to the message bus daemon and can
@@ -50,7 +50,7 @@ among desktop applications (however, it is not tied to X or the GUI
 in any way).
 
 .PP
-SIGHUP will cause the D-BUS daemon to PARTIALLY reload its
+SIGHUP will cause the D-Bus daemon to PARTIALLY reload its
 configuration file and to flush its user/group information caches. Some
 configuration changes would require kicking all apps off the bus; so they will
 only take effect if you restart the daemon. Policy changes should take effect
@@ -117,7 +117,7 @@ The configuration file is an XML document. It must have the following
 doctype declaration:
 .nf
 
-   <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+   <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
     "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 
 .fi
@@ -137,7 +137,7 @@ Root element.
 .PP
 The well-known type of the message bus. Currently known values are
 "system" and "session"; if other values are set, they should be
-either added to the D-BUS specification, or namespaced.  The last
+either added to the D-Bus specification, or namespaced.  The last
 <type> element "wins" (previous values are ignored).
 
 .PP
@@ -204,7 +204,7 @@ rather than the \-\-fork command line option.
 
 .PP
 Add an address that the bus should listen on. The 
-address is in the standard D-BUS format that contains 
+address is in the standard D-Bus format that contains 
 a transport name plus possible parameters/options.
 
 .PP
@@ -545,7 +545,7 @@ associated permissions defined to control operations on objects with
 that class.
 
 .PP
-D-BUS performs SELinux security checks in two places.
+D-Bus performs SELinux security checks in two places.
 
 .PP
 First, any time a message is routed from one connection to another
@@ -580,5 +580,5 @@ itself will be used.
 See http://www.freedesktop.org/software/dbus/doc/AUTHORS
 
 .SH BUGS
-Please send bug reports to the D-BUS mailing list or bug tracker,
+Please send bug reports to the D-Bus mailing list or bug tracker,
 see http://www.freedesktop.org/software/dbus/

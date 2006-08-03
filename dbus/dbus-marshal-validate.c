@@ -693,7 +693,7 @@ _dbus_validate_body_with_reason (const DBusString *expected_signature,
 
 /**
  * Checks that the given range of the string is a valid object path
- * name in the D-BUS protocol. Part of the validation ensures that
+ * name in the D-Bus protocol. Part of the validation ensures that
  * the object path contains only ASCII.
  *
  * @todo this is inconsistent with most of DBusString in that
@@ -761,7 +761,7 @@ _dbus_validate_path (const DBusString  *str,
 
 /**
  * Checks that the given range of the string is a valid interface name
- * in the D-BUS protocol. This includes a length restriction and an
+ * in the D-Bus protocol. This includes a length restriction and an
  * ASCII subset, see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
@@ -837,7 +837,7 @@ _dbus_validate_interface (const DBusString  *str,
 
 /**
  * Checks that the given range of the string is a valid member name
- * in the D-BUS protocol. This includes a length restriction, etc.,
+ * in the D-Bus protocol. This includes a length restriction, etc.,
  * see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
@@ -898,7 +898,7 @@ _dbus_validate_member (const DBusString  *str,
 
 /**
  * Checks that the given range of the string is a valid error name
- * in the D-BUS protocol. This includes a length restriction, etc.,
+ * in the D-Bus protocol. This includes a length restriction, etc.,
  * see the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
@@ -939,7 +939,7 @@ _dbus_validate_error_name (const DBusString  *str,
 
 /**
  * Checks that the given range of the string is a valid bus name in
- * the D-BUS protocol. This includes a length restriction, etc., see
+ * the D-Bus protocol. This includes a length restriction, etc., see
  * the specification.
  *
  * @todo this is inconsistent with most of DBusString in that
@@ -1039,7 +1039,7 @@ _dbus_validate_bus_name (const DBusString  *str,
 
 /**
  * Checks that the given range of the string is a valid message type
- * signature in the D-BUS protocol.
+ * signature in the D-Bus protocol.
  *
  * @todo this is inconsistent with most of DBusString in that
  * it allows a start,len range that extends past the string end.

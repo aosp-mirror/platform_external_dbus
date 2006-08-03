@@ -54,7 +54,7 @@
  * The implementation of MD5 (see http://www.ietf.org/rfc/rfc1321.txt).
  * This MD5 implementation was written by L. Peter Deutsch and
  * is not derived from the RSA reference implementation in the
- * RFC. The version included in D-BUS comes from the Ghostscript
+ * RFC. The version included in D-Bus comes from the Ghostscript
  * 7.05 distribution.
  *
  * @{

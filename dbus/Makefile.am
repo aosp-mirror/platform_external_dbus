@@ -110,7 +110,7 @@ DBUS_SHARED_SOURCES=				\
 
 ### source code that is generic utility functionality used
 ### by the bus daemon or test apps, but is NOT included
-### in the D-BUS client library (all symbols in here 
+### in the D-Bus client library (all symbols in here 
 ### should be underscore-prefixed but don't really need 
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 DBUS_UTIL_SOURCES=				\
