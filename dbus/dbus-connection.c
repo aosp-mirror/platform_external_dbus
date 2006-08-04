@@ -260,6 +260,7 @@ static void               _dbus_connection_update_dispatch_status_and_unlock (DB
 static void               _dbus_connection_last_unref                        (DBusConnection     *connection);
 static void               _dbus_connection_acquire_dispatch                  (DBusConnection     *connection);
 static void               _dbus_connection_release_dispatch                  (DBusConnection     *connection);
+static DBusDispatchStatus _dbus_connection_flush_unlocked                    (DBusConnection     *connection);
 
 static DBusMessageFilter *
 _dbus_message_filter_ref (DBusMessageFilter *filter)
@@ -378,11 +379,11 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
                                              reply_serial);
       if (pending != NULL)
 	{
-	  if (_dbus_pending_call_is_timeout_added (pending))
+	  if (_dbus_pending_call_is_timeout_added_unlocked (pending))
             _dbus_connection_remove_timeout_unlocked (connection,
-                                                      _dbus_pending_call_get_timeout (pending));
+                                                      _dbus_pending_call_get_timeout_unlocked (pending));
 
-	  _dbus_pending_call_set_timeout_added (pending, FALSE);
+	  _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
 	}
     }
   
@@ -783,11 +784,11 @@ _dbus_connection_attach_pending_call_unlocked (DBusConnection  *connection,
 
   HAVE_LOCK_CHECK (connection);
 
-  reply_serial = _dbus_pending_call_get_reply_serial (pending);
+  reply_serial = _dbus_pending_call_get_reply_serial_unlocked (pending);
 
   _dbus_assert (reply_serial != 0);
 
-  timeout = _dbus_pending_call_get_timeout (pending);
+  timeout = _dbus_pending_call_get_timeout_unlocked (pending);
 
   if (!_dbus_connection_add_timeout_unlocked (connection, timeout))
     return FALSE;
@@ -798,14 +799,14 @@ _dbus_connection_attach_pending_call_unlocked (DBusConnection  *connection,
     {
       _dbus_connection_remove_timeout_unlocked (connection, timeout);
 
-      _dbus_pending_call_set_timeout_added (pending, FALSE);
+      _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
       HAVE_LOCK_CHECK (connection);
       return FALSE;
     }
   
-  _dbus_pending_call_set_timeout_added (pending, TRUE);
+  _dbus_pending_call_set_timeout_added_unlocked (pending, TRUE);
 
-  dbus_pending_call_ref (pending);
+  _dbus_pending_call_ref_unlocked (pending);
 
   HAVE_LOCK_CHECK (connection);
   
@@ -816,39 +817,44 @@ static void
 free_pending_call_on_hash_removal (void *data)
 {
   DBusPendingCall *pending;
-  DBusConnection  *connection; 
- 
+  DBusConnection  *connection;
+  
   if (data == NULL)
     return;
 
   pending = data;
 
-  connection = _dbus_pending_call_get_connection (pending);
+  connection = _dbus_pending_call_get_connection_unlocked (pending);
 
-  if (connection)
+  HAVE_LOCK_CHECK (connection);
+  
+  if (_dbus_pending_call_is_timeout_added_unlocked (pending))
     {
-      if (_dbus_pending_call_is_timeout_added (pending))
-        {
-          _dbus_connection_remove_timeout_unlocked (connection,
-                                                    _dbus_pending_call_get_timeout (pending));
+      _dbus_connection_remove_timeout_unlocked (connection,
+                                                _dbus_pending_call_get_timeout_unlocked (pending));
       
-          _dbus_pending_call_set_timeout_added (pending, FALSE);
-        }
-     
-      dbus_pending_call_unref (pending);
+      _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
     }
+
+  /* FIXME this is sort of dangerous and undesirable to drop the lock here, but
+   * the pending call finalizer could in principle call out to application code
+   * so we pretty much have to... some larger code reorg might be needed.
+   */
+  _dbus_connection_ref_unlocked (connection);
+  _dbus_pending_call_unref_and_unlock (pending);
+  CONNECTION_LOCK (connection);
+  _dbus_connection_unref_unlocked (connection);
 }
 
 static void
 _dbus_connection_detach_pending_call_unlocked (DBusConnection  *connection,
                                                DBusPendingCall *pending)
 {
-  /* Can't have a destroy notifier on the pending call if we're going to do this */
-
-  dbus_pending_call_ref (pending);
+  /* This ends up unlocking to call the pending call finalizer, which is unexpected to
+   * say the least.
+   */
   _dbus_hash_table_remove_int (connection->pending_replies,
-                               _dbus_pending_call_get_reply_serial (pending));
-  dbus_pending_call_unref (pending);
+                               _dbus_pending_call_get_reply_serial_unlocked (pending));
 }
 
 static void
@@ -858,12 +864,14 @@ _dbus_connection_detach_pending_call_and_unlock (DBusConnection  *connection,
   /* The idea here is to avoid finalizing the pending call
    * with the lock held, since there's a destroy notifier
    * in pending call that goes out to application code.
+   *
+   * There's an extra unlock inside the hash table
+   * "free pending call" function FIXME...
    */
-  dbus_pending_call_ref (pending);
+  _dbus_pending_call_ref_unlocked (pending);
   _dbus_hash_table_remove_int (connection->pending_replies,
-                               _dbus_pending_call_get_reply_serial (pending));
-  CONNECTION_UNLOCK (connection);
-  dbus_pending_call_unref (pending);
+                               _dbus_pending_call_get_reply_serial_unlocked (pending));
+  _dbus_pending_call_unref_and_unlock (pending);
 }
 
 /**
@@ -2311,14 +2319,13 @@ reply_handler_timeout (void *data)
   DBusDispatchStatus status;
   DBusPendingCall *pending = data;
 
-  connection = _dbus_pending_call_get_connection (pending);
-  
-  CONNECTION_LOCK (connection);
-  _dbus_pending_call_queue_timeout_error (pending, 
-                                          connection);
+  connection = _dbus_pending_call_get_connection_and_lock (pending);
+
+  _dbus_pending_call_queue_timeout_error_unlocked (pending, 
+                                                   connection);
   _dbus_connection_remove_timeout_unlocked (connection,
-				            _dbus_pending_call_get_timeout (pending));
-  _dbus_pending_call_set_timeout_added (pending, FALSE);
+				            _dbus_pending_call_get_timeout_unlocked (pending));
+  _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
 
   _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
@@ -2394,9 +2401,9 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
       return TRUE;
     }
 
-  pending = _dbus_pending_call_new (connection,
-                                    timeout_milliseconds,
-                                    reply_handler_timeout);
+  pending = _dbus_pending_call_new_unlocked (connection,
+                                             timeout_milliseconds,
+                                             reply_handler_timeout);
 
   if (pending == NULL)
     {
@@ -2412,7 +2419,7 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
       _dbus_message_set_serial (message, serial);
     }
 
-  if (!_dbus_pending_call_set_timeout_error (pending, message, serial))
+  if (!_dbus_pending_call_set_timeout_error_unlocked (pending, message, serial))
     goto error;
     
   /* Insert the serial in the pending replies hash;
@@ -2431,19 +2438,23 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
     }
 
   if (pending_return)
-    *pending_return = pending;
+    *pending_return = pending; /* hand off refcount */
   else
     {
       _dbus_connection_detach_pending_call_unlocked (connection, pending);
-      dbus_pending_call_unref (pending);
+      /* we still have a ref to the pending call in this case, we unref
+       * after unlocking, below
+       */
     }
 
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
   /* this calls out to user code */
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 
+  if (pending_return == NULL)
+    dbus_pending_call_unref (pending);
+  
   return TRUE;
 
  error:
@@ -2485,62 +2496,65 @@ check_for_reply_unlocked (DBusConnection *connection,
 static void
 connection_timeout_and_complete_all_pending_calls_unlocked (DBusConnection *connection)
 {
-  DBusHashIter iter;
-
-  _dbus_hash_iter_init (connection->pending_replies, &iter);
-
-  /* create list while we remove the iters from the hash
-     because we need to go over it a couple of times */
-  while (_dbus_hash_iter_next (&iter))
+   /* We can't iterate over the hash in the normal way since we'll be
+    * dropping the lock for each item. So we restart the
+    * iter each time as we drain the hash table.
+    */
+   
+   while (_dbus_hash_table_get_n_entries (connection->pending_replies) > 0)
     {
       DBusPendingCall *pending;
- 
+      DBusHashIter iter;
+      
+      _dbus_hash_iter_init (connection->pending_replies, &iter);
+      _dbus_hash_iter_next (&iter);
+       
       pending = (DBusPendingCall *) _dbus_hash_iter_get_value (&iter);
-      dbus_pending_call_ref (pending);
-     
-      _dbus_pending_call_queue_timeout_error (pending, 
-                                              connection);
+      _dbus_pending_call_ref_unlocked (pending);
+       
+      _dbus_pending_call_queue_timeout_error_unlocked (pending, 
+                                                       connection);
       _dbus_connection_remove_timeout_unlocked (connection,
-                                                _dbus_pending_call_get_timeout (pending));
-
-      _dbus_pending_call_set_timeout_added (pending, FALSE); 
+                                                _dbus_pending_call_get_timeout_unlocked (pending));
+      _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);       
       _dbus_hash_iter_remove_entry (&iter);
 
-      dbus_pending_call_unref (pending);
+      _dbus_pending_call_unref_and_unlock (pending);
+      CONNECTION_LOCK (connection);
     }
+  HAVE_LOCK_CHECK (connection);
 }
 
 static void
-complete_pending_call_and_unlock (DBusPendingCall *pending,
+complete_pending_call_and_unlock (DBusConnection  *connection,
+                                  DBusPendingCall *pending,
                                   DBusMessage     *message)
 {
-  _dbus_pending_call_set_reply (pending, message);
-  dbus_pending_call_ref (pending); /* in case there's no app with a ref held */
-  _dbus_connection_detach_pending_call_and_unlock (_dbus_pending_call_get_connection (pending), pending);
-  
+  _dbus_pending_call_set_reply_unlocked (pending, message);
+  _dbus_pending_call_ref_unlocked (pending); /* in case there's no app with a ref held */
+  _dbus_connection_detach_pending_call_and_unlock (connection, pending);
+ 
   /* Must be called unlocked since it invokes app callback */
   _dbus_pending_call_complete (pending);
   dbus_pending_call_unref (pending);
 }
 
 static dbus_bool_t
-check_for_reply_and_update_dispatch_unlocked (DBusPendingCall *pending)
+check_for_reply_and_update_dispatch_unlocked (DBusConnection  *connection,
+                                              DBusPendingCall *pending)
 {
   DBusMessage *reply;
   DBusDispatchStatus status;
-  DBusConnection *connection;
-
-  connection = _dbus_pending_call_get_connection (pending);
 
   reply = check_for_reply_unlocked (connection, 
-                                    _dbus_pending_call_get_reply_serial (pending));
+                                    _dbus_pending_call_get_reply_serial_unlocked (pending));
   if (reply != NULL)
     {
       _dbus_verbose ("%s checked for reply\n", _DBUS_FUNCTION_NAME);
 
       _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply\n");
 
-      complete_pending_call_and_unlock (pending, reply);
+      complete_pending_call_and_unlock (connection, pending, reply);
       dbus_message_unref (reply);
 
       CONNECTION_LOCK (connection);
@@ -2606,24 +2620,21 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   if (dbus_pending_call_get_completed (pending))
     return;
 
-  connection = _dbus_pending_call_get_connection (pending);
-  if (connection == NULL)
-    return; /* call already detached */
-
   dbus_pending_call_ref (pending); /* necessary because the call could be canceled */
-  client_serial = _dbus_pending_call_get_reply_serial (pending);
+
+  connection = _dbus_pending_call_get_connection_and_lock (pending);
+  
+  /* Flush message queue - note, can affect dispatch status */
+  _dbus_connection_flush_unlocked (connection);
+
+  client_serial = _dbus_pending_call_get_reply_serial_unlocked (pending);
 
   /* note that timeout_milliseconds is limited to a smallish value
    * in _dbus_pending_call_new() so overflows aren't possible
    * below
    */
-  timeout_milliseconds = dbus_timeout_get_interval (_dbus_pending_call_get_timeout (pending));
-
-  /* Flush message queue */
-  dbus_connection_flush (connection);
-
-  CONNECTION_LOCK (connection);
-
+  timeout_milliseconds = dbus_timeout_get_interval (_dbus_pending_call_get_timeout_unlocked (pending));
+  
   _dbus_get_current_time (&start_tv_sec, &start_tv_usec);
   end_tv_sec = start_tv_sec + timeout_milliseconds / 1000;
   end_tv_usec = start_tv_usec + (timeout_milliseconds % 1000) * 1000;
@@ -2638,7 +2649,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
 
   /* check to see if we already got the data off the socket */
   /* from another blocked pending call */
-  if (check_for_reply_and_update_dispatch_unlocked (pending))
+  if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
     return;
 
   /* Now we wait... */
@@ -2661,7 +2672,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   /* the get_completed() is in case a dispatch() while we were blocking
    * got the reply instead of us.
    */
-  if (dbus_pending_call_get_completed (pending))
+  if (_dbus_pending_call_get_completed_unlocked (pending))
     {
       _dbus_verbose ("Pending call completed by dispatch in %s\n", _DBUS_FUNCTION_NAME);
       _dbus_connection_update_dispatch_status_and_unlock (connection, status);
@@ -2669,9 +2680,10 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
       return;
     }
   
-  if (status == DBUS_DISPATCH_DATA_REMAINS)
-    if (check_for_reply_and_update_dispatch_unlocked (pending))
-      return;  
+  if (status == DBUS_DISPATCH_DATA_REMAINS) {
+    if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
+      return;
+  }
   
   _dbus_get_current_time (&tv_sec, &tv_usec);
   
@@ -2682,7 +2694,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
        * confusing
        */
       
-      complete_pending_call_and_unlock (pending, NULL);
+      complete_pending_call_and_unlock (connection, pending, NULL);
       dbus_pending_call_unref (pending);
       return;
     }
@@ -2723,10 +2735,10 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %ld milliseconds and got no reply\n",
                  (tv_sec - start_tv_sec) * 1000 + (tv_usec - start_tv_usec) / 1000);
 
-  _dbus_assert (!dbus_pending_call_get_completed (pending));
+  _dbus_assert (!_dbus_pending_call_get_completed_unlocked (pending));
   
   /* unlock and call user code */
-  complete_pending_call_and_unlock (pending, NULL);
+  complete_pending_call_and_unlock (connection, pending, NULL);
 
   /* update user code on dispatch status */
   CONNECTION_LOCK (connection);
@@ -2801,11 +2813,14 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
 
 /**
  * Blocks until the outgoing message queue is empty.
+ * Assumes connection lock already held.
  *
+ * If you call this, you MUST call update_dispatch_status afterword...
+ * 
  * @param connection the connection.
  */
-void
-dbus_connection_flush (DBusConnection *connection)
+DBusDispatchStatus
+_dbus_connection_flush_unlocked (DBusConnection *connection)
 {
   /* We have to specify DBUS_ITERATION_DO_READING here because
    * otherwise we could have two apps deadlock if they are both doing
@@ -2814,9 +2829,8 @@ dbus_connection_flush (DBusConnection *connection)
    */
   DBusDispatchStatus status;
 
-  _dbus_return_if_fail (connection != NULL);
+  HAVE_LOCK_CHECK (connection);
   
-  CONNECTION_LOCK (connection);
   while (connection->n_outgoing > 0 &&
          _dbus_connection_get_is_connected_unlocked (connection))
     {
@@ -2833,6 +2847,31 @@ dbus_connection_flush (DBusConnection *connection)
   _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
+  HAVE_LOCK_CHECK (connection);
+  return status;
+}
+
+/**
+ * Blocks until the outgoing message queue is empty.
+ *
+ * @param connection the connection.
+ */
+void
+dbus_connection_flush (DBusConnection *connection)
+{
+  /* We have to specify DBUS_ITERATION_DO_READING here because
+   * otherwise we could have two apps deadlock if they are both doing
+   * a flush(), and the kernel buffers fill up. This could change the
+   * dispatch status.
+   */
+  DBusDispatchStatus status;
+
+  _dbus_return_if_fail (connection != NULL);
+  
+  CONNECTION_LOCK (connection);
+
+  status = _dbus_connection_flush_unlocked (connection);
+  
   HAVE_LOCK_CHECK (connection);
   /* Unlocks and calls out to user code */
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
@@ -3590,7 +3629,7 @@ dbus_connection_dispatch (DBusConnection *connection)
   if (pending)
     {
       _dbus_verbose ("Dispatching a pending reply\n");
-      complete_pending_call_and_unlock (pending, message);
+      complete_pending_call_and_unlock (connection, pending, message);
       pending = NULL; /* it's probably unref'd */
       
       CONNECTION_LOCK (connection);

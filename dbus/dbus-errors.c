@@ -40,7 +40,7 @@
  */
 typedef struct
 {
-  const char *name; /**< error name */
+  char *name; /**< error name */
   char *message; /**< error message */
 
   unsigned int const_message : 1; /**< Message is not owned by DBusError */
@@ -219,7 +219,7 @@ dbus_set_error_const (DBusError  *error,
   
   real = (DBusRealError *)error;
   
-  real->name = name;
+  real->name = (char*) name;
   real->message = (char *)message;
   real->const_message = TRUE;
 }

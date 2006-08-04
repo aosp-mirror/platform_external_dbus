@@ -1,3 +1,16 @@
+2006-08-04  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: add -Wdeclaration-after-statement
+
+	* dbus/dbus-connection.c: change all the pending call stuff to
+	reflect the fact that pending call operations use the connection
+	lock
+
+	* dbus/dbus-pending-call.c: add locking here
+
+	* dbus/dbus-errors.c (struct DBusRealError): don't make the name
+	field const consistent with how message field is done
+
 2006-08-03  John (J5) Palmieri  <johnp@redhat.com>
 
 	* s/D-BUS/D-Bus/g
