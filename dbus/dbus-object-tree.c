@@ -981,11 +981,6 @@ _dbus_object_subtree_new (const char                  *name,
   return subtree;
 
  oom:
-  if (subtree)
-    {
-      dbus_free (subtree);
-    }
-
   return NULL;
 }
 
