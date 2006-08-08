@@ -2983,6 +2983,21 @@ _dbus_full_duplex_pipe (int        *fd1,
 #endif
 }
 
+
+#ifndef DBUS_WIN
+/**
+ * Measure the message length without terminating nul
+ */
+int _dbus_printf_length (const char *format,
+                         va_list args)
+{
+  char c;
+  return vsnprintf (&c, 1, format, args);
+}
+#endif
+
+
+
 /** @} end of sysdeps */
 
 /* tests in dbus-sysdeps-util.c */

@@ -1,9 +1,16 @@
 2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-sysdeps.h:
+	* dbus/dbus-sysdeps.c: 
+	  add _dbus_printf_length (patch from Peter Kümmel 
+	  <syntheticpp at gmx dot net>)
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-internals.c: unistd.h is not used 
 	(_dbus_verbose_real): only enable verbose printing 
 	if DBUS_VERBOSE environment var is set to '1'
-	(patch from Peter Kümmel <syntheticpp at gmx dot net>
+	(patch from Peter Kümmel <syntheticpp at gmx dot net>)
 
 2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
 

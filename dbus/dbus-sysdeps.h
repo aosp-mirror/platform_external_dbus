@@ -272,6 +272,10 @@ void _dbus_fd_set_close_on_exec (int fd);
 
 void _dbus_exit (int code) _DBUS_GNUC_NORETURN;
 
+int _dbus_printf_length (const char *format,
+                         va_list args);
+
+
 /**
  * Portable struct with stat() results
  */

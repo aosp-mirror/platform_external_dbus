@@ -1193,7 +1193,6 @@ _dbus_string_append_printf_valist  (DBusString        *str,
                                     va_list            args)
 {
   int len;
-  char c;
   va_list args_copy;
 
   DBUS_STRING_PREAMBLE (str);
@@ -1201,7 +1200,7 @@ _dbus_string_append_printf_valist  (DBusString        *str,
   DBUS_VA_COPY (args_copy, args);
 
   /* Measure the message length without terminating nul */
-  len = vsnprintf (&c, 1, format, args);
+  len = _dbus_printf_length (format, args);
 
   if (!_dbus_string_lengthen (str, len))
     {
