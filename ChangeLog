@@ -1,5 +1,11 @@
 2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
 
+	* Doxyfile.in: fix the INPUT line so we can generate docs 
+	when sourcedir != builddir (patch from Cygwin Ports maintainer
+	<yselkowitz at users dot sourceforge dot net>
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-sysdeps.h:
 	* dbus/dbus-sysdeps.c: 
 	* dbus/dbus-string.c: 
