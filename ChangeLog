@@ -1,3 +1,9 @@
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* confifure.in: add a GCC flag check for -Wdeclaration-after-statement
+	so we still compile on older gcc (patch from Frederic Peters 
+	<fpeters at 0d dot be>
+
 2006-08-04  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: add -Wdeclaration-after-statement

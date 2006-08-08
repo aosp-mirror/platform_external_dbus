@@ -91,6 +91,20 @@ fi
 
 #### gcc warning flags
 
+cc_supports_flag() {
+  AC_MSG_CHECKING(whether $CC supports "$@")
+  Cfile=/tmp/foo${$}
+  touch ${Cfile}.c
+  $CC -c "$@" ${Cfile}.c -o ${Cfile}.o >/dev/null 2>&1
+  rc=$?
+  rm -f ${Cfile}.c ${Cfile}.o
+  case $rc in
+    0) AC_MSG_RESULT(yes);;
+    *) AC_MSG_RESULT(no);;
+  esac
+  return $rc
+}
+
 if test "x$GCC" = "xyes"; then
   changequote(,)dnl
   case " $CFLAGS " in
@@ -140,7 +154,10 @@ if test "x$GCC" = "xyes"; then
 
   case " $CFLAGS " in
   *[\ \	]-Wdeclaration-after-statement[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wdeclaration-after-statement" ;;
+  *) if cc_supports_flag -Wdeclaration-after-statement; then
+        CFLAGS="$CFLAGS -Wdeclaration-after-statement"
+     fi
+     ;;
   esac
 
   if test "x$enable_ansi" = "xyes"; then
