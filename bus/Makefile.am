@@ -92,9 +92,9 @@ clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov || true
 
 install-data-hook:
-	$(mkinstalldirs) $(DESTDIR)/$(localstatedir)/run/dbus
-	$(mkinstalldirs) $(DESTDIR)/$(configdir)/system.d
-	$(mkinstalldirs) $(DESTDIR)/$(datadir)/dbus-1/services
+	$(mkinstalldirs) $(DESTDIR)$(localstatedir)/run/dbus
+	$(mkinstalldirs) $(DESTDIR)$(configdir)/system.d
+	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/services
 
 #### Init scripts fun
 SCRIPT_IN_FILES=messagebus.in \
