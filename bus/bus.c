@@ -492,7 +492,7 @@ process_config_every_time (BusContext      *context,
   _dbus_string_free (&full_address);
   
   if (addr)
-    dbus_free (addr)
+    dbus_free (addr);
 
   return retval;
 }
