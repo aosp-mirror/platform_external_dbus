@@ -1,6 +1,13 @@
 2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
 
-	* confifure.in: add a GCC flag check for -Wdeclaration-after-statement
+	* dbus/dbus-internals.c: unistd.h is not used 
+	(_dbus_verbose_real): only enable verbose printing 
+	if DBUS_VERBOSE environment var is set to '1'
+	(patch from Peter Kümmel <syntheticpp at gmx dot net>
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: add a GCC flag check for -Wdeclaration-after-statement
 	so we still compile on older gcc (patch from Frederic Peters 
 	<fpeters at 0d dot be>
 
