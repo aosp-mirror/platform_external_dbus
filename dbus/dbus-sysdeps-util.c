@@ -219,6 +219,8 @@ _dbus_write_pid_file (const DBusString *filename,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to write to \"%s\": %s", cfilename,
                       _dbus_strerror (errno));
+      
+      fclose (f);
       return FALSE;
     }
 

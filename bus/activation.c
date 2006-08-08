@@ -633,8 +633,6 @@ update_directory (BusActivation       *activation,
   
   if (iter != NULL)
     _dbus_directory_close (iter);
-  if (desktop_file)
-    bus_desktop_file_free (desktop_file);
   _dbus_string_free (&filename);
   _dbus_string_free (&full_path);
   

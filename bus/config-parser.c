@@ -248,27 +248,42 @@ merge_service_context_hash (DBusHashTable *dest,
 			    DBusHashTable *from)
 {
   DBusHashIter iter;
-  
+  char *service_copy;
+  char *context_copy;
+
+  service_copy = NULL;
+  context_copy = NULL;
+
   _dbus_hash_iter_init (from, &iter);
   while (_dbus_hash_iter_next (&iter))
     {
       const char *service = _dbus_hash_iter_get_string_key (&iter);
       const char *context = _dbus_hash_iter_get_value (&iter);
-      char *service_copy;
-      char *context_copy;
 
       service_copy = _dbus_strdup (service);
       if (service_copy == NULL)
-        return FALSE;
+        goto fail;
       context_copy = _dbus_strdup (context);
       if (context_copy == NULL)
-        return FALSE;
+        goto fail; 
       
       if (!_dbus_hash_table_insert_string (dest, service_copy, context_copy))
-	return FALSE;
+        goto fail;
+
+      service_copy = NULL;
+      context_copy = NULL;    
     }
 
   return TRUE;
+
+ fail:
+  if (service_copy)
+    dbus_free (service_copy);
+
+  if (context_copy)
+    dbus_free (context_copy);
+
+  return FALSE;
 }
 
 static dbus_bool_t
@@ -1542,12 +1557,16 @@ start_selinux_child (BusConfigParser   *parser,
                      const char       **attribute_values,
                      DBusError         *error)
 {
+  char *own_copy;
+  char *context_copy;
+
+  own_copy = NULL;
+  context_copy = NULL;
+
   if (strcmp (element_name, "associate") == 0)
     {
       const char *own;
       const char *context;
-      char *own_copy;
-      char *context_copy;
       
       if (!locate_attributes (parser, "associate",
                               attribute_names,
@@ -1573,18 +1592,15 @@ start_selinux_child (BusConfigParser   *parser,
 
       own_copy = _dbus_strdup (own);
       if (own_copy == NULL)
-        return FALSE;
+        goto oom;
       context_copy = _dbus_strdup (context);
       if (context_copy == NULL)
-        return FALSE;
+        goto oom;
 
       if (!_dbus_hash_table_insert_string (parser->service_context_table,
 					   own_copy, context_copy))
-        {
-          BUS_SET_OOM (error);
-          return FALSE;
-        }
-      
+        goto oom;
+
       return TRUE;
     }
   else
@@ -1594,6 +1610,16 @@ start_selinux_child (BusConfigParser   *parser,
                       element_name, "selinux");
       return FALSE;
     }
+
+ oom:
+  if (own_copy)
+    dbus_free (own_copy);
+
+  if (context_copy)  
+    dbus_free (context_copy);
+
+  BUS_SET_OOM (error);
+  return FALSE;
 }
 
 dbus_bool_t

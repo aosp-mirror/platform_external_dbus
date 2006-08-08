@@ -248,7 +248,9 @@ bus_expire_list_test (const DBusString *test_data_dir)
   long tv_sec_past, tv_usec_past;
   TestExpireItem *item;
   int next_interval;
-  
+  dbus_bool_t result = FALSE;
+
+
   loop = _dbus_loop_new ();
   _dbus_assert (loop != NULL);
 
@@ -275,6 +277,9 @@ bus_expire_list_test (const DBusString *test_data_dir)
   tv_usec_past = tv_usec;
 
   item = dbus_new0 (TestExpireItem, 1);
+
+  if (item == NULL)
+    goto oom;
 
   item->item.added_tv_sec = tv_sec;
   item->item.added_tv_usec = tv_usec;
@@ -308,7 +313,10 @@ bus_expire_list_test (const DBusString *test_data_dir)
   bus_expire_list_free (list);
   _dbus_loop_unref (loop);
   
-  return TRUE;
+  result = TRUE;
+
+ oom:
+  return result;
 }
 
 #endif /* DBUS_BUILD_TESTS */

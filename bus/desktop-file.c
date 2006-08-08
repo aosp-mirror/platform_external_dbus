@@ -525,12 +525,14 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
   line = new_line (parser);
   if (line == NULL)
     {
+      dbus_free (value);
       parser_free (parser);
       return FALSE;
     }
   
   if (!_dbus_string_init (&key))
     {
+      dbus_free (value);
       parser_free (parser);
       return FALSE;
     }
@@ -538,12 +540,14 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
   if (!_dbus_string_copy_len (&parser->data, key_start, key_end - key_start,
                               &key, 0))
     {
+      dbus_free (value);
       parser_free (parser);
       return FALSE;
     }
   
   if (!_dbus_string_steal_data (&key, &tmp))
     {
+      dbus_free (value);
       parser_free (parser);
       return FALSE;
     }

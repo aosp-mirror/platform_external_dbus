@@ -756,7 +756,11 @@ bus_selinux_id_table_insert (DBusHashTable *service_table,
   if (avc_context_to_sid ((char *) service_context, &sid) < 0)
     {
       if (errno == ENOMEM)
-        return FALSE;
+        {
+	  dbus_free (key);
+          return FALSE;
+	}
+
       _dbus_warn ("Error getting SID from context \"%s\": %s\n",
 		  (char *) service_context,
                   _dbus_strerror (errno));

@@ -402,11 +402,13 @@ process_config_every_time (BusContext      *context,
 {
   DBusString full_address;
   DBusList *link;
-  
+  char *addr;
+
   dbus_bool_t retval;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
+  addr = NULL;
   retval = FALSE;
 
   if (!_dbus_string_init (&full_address))
@@ -427,8 +429,6 @@ process_config_every_time (BusContext      *context,
   link = _dbus_list_get_last_link (&context->servers);
   while (link != NULL)
     {
-      char *addr;
-      
       addr = dbus_server_get_address (link->data);
       if (addr == NULL)
         {
@@ -452,6 +452,7 @@ process_config_every_time (BusContext      *context,
         }
 
       dbus_free (addr);
+      addr = NULL;
 
       link = _dbus_list_get_prev_link (&context->servers, link);
     }
@@ -489,6 +490,10 @@ process_config_every_time (BusContext      *context,
 
  failed:
   _dbus_string_free (&full_address);
+  
+  if (addr)
+    dbus_free (addr)
+
   return retval;
 }
 

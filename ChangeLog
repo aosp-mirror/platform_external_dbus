@@ -1,5 +1,31 @@
 2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
 
+	These are all patches from Kjartan Maraas <kmaraas at gnome dot org>
+	with cleanups of bugs found from Coverity reports:
+
+	* dbus/dbus-sysdeps-util.c (_dbus_write_pid_file):
+	close the file on error to avoid a leak
+
+	* bus/expirelist.c (bus_expire_list_test):
+	Check for NULL on dbus_new0
+
+	* bus/activation.c (update_directory):
+	remove dead code
+
+	* bus/config-parser.c (merge_service_context_hash, start_selinux_child):
+	Fix some leaks
+
+	* bus/bus.c (process_config_every_time):
+	Fixed a leak
+
+	* bus/desktop-file.c (parse_key_value):
+	Fixed leak
+
+	* bus/selinux.c (bus_selinux_id_table_insert):
+	Fixed leak
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-object-tree.c (_dbus_object_subtree_new):
 	remove dead code
 
