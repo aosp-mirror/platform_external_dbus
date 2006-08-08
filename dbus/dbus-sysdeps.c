@@ -2988,8 +2988,8 @@ _dbus_full_duplex_pipe (int        *fd1,
 /**
  * Measure the message length without terminating nul
  */
-int _dbus_printf_length (const char *format,
-                         va_list args)
+int _dbus_printf_string_upper_bound (const char *format,
+                                     va_list args)
 {
   char c;
   return vsnprintf (&c, 1, format, args);

@@ -37,6 +37,8 @@
 /* and it would just be annoying to abstract this */
 #include <errno.h>
 
+#include <stdarg.h>
+
 DBUS_BEGIN_DECLS
 
 /* The idea of this file is to encapsulate everywhere that we're
@@ -272,8 +274,8 @@ void _dbus_fd_set_close_on_exec (int fd);
 
 void _dbus_exit (int code) _DBUS_GNUC_NORETURN;
 
-int _dbus_printf_length (const char *format,
-                         va_list args);
+int _dbus_printf_string_upper_bound (const char *format,
+                                     va_list args);
 
 
 /**

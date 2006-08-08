@@ -1200,7 +1200,7 @@ _dbus_string_append_printf_valist  (DBusString        *str,
   DBUS_VA_COPY (args_copy, args);
 
   /* Measure the message length without terminating nul */
-  len = _dbus_printf_length (format, args);
+  len = _dbus_printf_string_upper_bound (format, args);
 
   if (!_dbus_string_lengthen (str, len))
     {

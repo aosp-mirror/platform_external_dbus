@@ -23,6 +23,16 @@ if DBUS_USE_EXPAT
 XML_SOURCES=config-loader-expat.c
 endif
 
+if DBUS_BUS_ENABLE_KQUEUE_ON_FREEBSD
+DIR_WATCH_SOURCE=dir-watch-kqueue.c
+else
+if DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX
+DIR_WATCH_SOURCE=dir-watch-dnotify.c
+else
+DIR_WATCH_SOURCE=dir-watch-default.c
+endif
+endif
+
 BUS_SOURCES=					\
 	activation.c				\
 	activation.h				\
@@ -34,7 +44,7 @@ BUS_SOURCES=					\
 	connection.h				\
 	desktop-file.c				\
 	desktop-file.h				\
-	dir-watch.c				\
+	$(DIR_WATCH_SOURCE)			\
 	dir-watch.h				\
 	dispatch.c				\
 	dispatch.h				\

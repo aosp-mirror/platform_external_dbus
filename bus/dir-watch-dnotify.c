@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dir-watch.c  OS specific directory change notification for message bus
+/* dir-watch-dnotify.c  OS specific directory change notification for message bus
  *
  * Copyright (C) 2003 Red Hat, Inc.
  *
@@ -23,19 +23,13 @@
 
 #include <config.h>
 
-#ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX */
 
 #include <dbus/dbus-internals.h>
 #include "dir-watch.h"
-
-
-/* D_NOTIFY is available on Linux 2.4 or greater - the actual SIGIO signal is handled in main.c:signal_handler() */
-#ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
 
 #define MAX_DIRS_TO_WATCH 128
 
@@ -94,17 +88,3 @@ bus_drop_all_directory_watches (void)
   
   num_fds = 0;
 }
-
-#else /* fallback to NOP */
-
-void 
-bus_drop_all_directory_watches (void)
-{
-}
-
-void
-bus_watch_directory (const char *dir, void *userdata)
-{
-}
-
-#endif
