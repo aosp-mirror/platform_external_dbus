@@ -16,8 +16,6 @@ config_DATA=					\
 	session.conf				\
 	system.conf
 
-bin_PROGRAMS=dbus-daemon
-
 if DBUS_USE_LIBXML
 XML_SOURCES=config-loader-libxml.c
 endif
@@ -79,7 +77,7 @@ endif
 
 ## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
 ## even when not doing "make check"
-noinst_PROGRAMS=$(TESTS) 
+noinst_PROGRAMS=$(TESTS) dbus-daemon
 
 bus_test_SOURCES=				\
 	$(BUS_SOURCES)				\
@@ -91,7 +89,15 @@ bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
 clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov || true
 
+uninstall-hook:
+	rm -f $(DESTDIR)$(DBUS_DAEMONDIR)/dbus-daemon
+
 install-data-hook:
+	if test '!' -d $(DESTDIR)$(DBUS_DAEMONDIR); then \
+ 		$(mkinstalldirs) $(DESTDIR)$(DBUS_DAEMONDIR); \
+ 		chmod 755 $(DESTDIR)$(DBUS_DAEMONDIR); \
+ 	fi
+	$(INSTALL_PROGRAM) dbus-daemon $(DESTDIR)$(DBUS_DAEMONDIR)
 	$(mkinstalldirs) $(DESTDIR)$(localstatedir)/run/dbus
 	$(mkinstalldirs) $(DESTDIR)$(configdir)/system.d
 	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/services

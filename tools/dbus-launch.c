@@ -771,6 +771,25 @@ main (int argc, char **argv)
 
       verbose ("Calling exec()\n");
       
+      execl (DBUS_DAEMONDIR"/dbus-daemon",
+             DBUS_DAEMONDIR"/dbus-daemon",
+             "--fork",
+             "--print-pid", write_pid_fd_as_string,
+             "--print-address", write_address_fd_as_string,
+             config_file ? "--config-file" : "--session",
+             config_file, /* has to be last in this varargs list */
+             NULL);
+
+      fprintf (stderr,
+               "Failed to execute message bus daemon %s: %s.  Will try again without full path.\n",
+               DBUS_DAEMONDIR"/dbus-daemon", strerror (errno));
+
+      /*
+       * If it failed, try running without full PATH.  Note this is needed
+       * because the build process builds the run-with-tmp-session-bus.conf
+       * file and the dbus-daemon will not be in the install location during
+       * build time.
+       */
       execlp ("dbus-daemon",
               "dbus-daemon",
               "--fork",

@@ -1,5 +1,15 @@
 2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
 
+	* configure.in:
+	* tools/Makefile.am:
+	* tools/dbus-launch.c:
+	* bus/Makefile.am:
+	allow --with-dbus-daemondir switch to be used to make the
+	daemon install to a seperate bindir like /usr/libexec
+	(patch from Brian Cameron <brian dot cameron at sun dot com)
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
 	* bus/Makefile.am (install-data-hook): removed the slash after 
 	$(DESTDIR) so we don't get the double slash which does not work
 	in windows (patch from Andras Porjesz 
