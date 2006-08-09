@@ -78,8 +78,11 @@ _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator,
       _dbus_assert (allocator->lock == NULL);
       allocator->lock = mutex;
     }
-  else
-    _dbus_assert (allocator->lock == mutex);
+  else if (allocator->lock != mutex)
+    {
+      _dbus_warn ("D-Bus threads were initialized after first using the D-Bus library. If your application does not directly initialize threads or use D-Bus, keep in mind that some library or plugin may have used D-Bus or initialized threads behind your back. You can often fix this problem by calling dbus_init_threads() or dbus_g_threads_init() early in your main() method, before D-Bus is used.");
+      _dbus_abort ();
+    }
 
   if (*slot_id_p >= 0)
     {

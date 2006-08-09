@@ -1,3 +1,11 @@
+2006-08-09  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_alloc):
+	Change an assert to a detailed warning and abort.  
+	When allocator->lock != mutex it indicates that the user has failed
+	to initalize threads before using the D-Bus library.  This warning
+	helps the user identify the issue and fix their app.
+
 2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
 
 	These are all patches from Kjartan Maraas <kmaraas at gnome dot org>
