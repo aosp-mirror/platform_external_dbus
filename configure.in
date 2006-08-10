@@ -632,7 +632,7 @@ if test x$with_xml = xexpat; then
 elif test x$with_xml = xlibxml; then
         dbus_use_libxml=true
         if ! $have_libxml ; then
-           AC_MSG_ERROR([Explicitly requested libxml but libxml >= 2.6.0 not found])
+           AC_MSG_ERROR([Explicitly requested libxml but libxml not found])
         fi
 else
         ### expat is the default because libxml can't currently survive 
