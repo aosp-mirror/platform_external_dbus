@@ -342,6 +342,7 @@ _dbus_signature_test (void)
   DBusSignatureIter subsubiter;
   DBusSignatureIter subsubsubiter;
   const char *sig;
+  dbus_bool_t boolres;
 
   _dbus_assert (sizeof (DBusSignatureIter) >= sizeof (DBusSignatureRealIter));
 
@@ -361,7 +362,8 @@ _dbus_signature_test (void)
   _dbus_assert (dbus_signature_validate (sig, NULL));
   dbus_signature_iter_init (&iter, sig);
   _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_STRING);
-  _dbus_assert (dbus_signature_iter_next (&iter));
+  boolres = dbus_signature_iter_next (&iter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_BYTE);
 
   sig = DBUS_TYPE_UINT16_AS_STRING
@@ -374,15 +376,19 @@ _dbus_signature_test (void)
   _dbus_assert (dbus_signature_validate (sig, NULL));
   dbus_signature_iter_init (&iter, sig);
   _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_UINT16);
-  _dbus_assert (dbus_signature_iter_next (&iter));
+  boolres = dbus_signature_iter_next (&iter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_STRUCT);
   dbus_signature_iter_recurse (&iter, &subiter);
   _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_STRING);
-  _dbus_assert (dbus_signature_iter_next (&subiter));
+  boolres = dbus_signature_iter_next (&subiter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_UINT32);
-  _dbus_assert (dbus_signature_iter_next (&subiter));
+  boolres = dbus_signature_iter_next (&subiter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_VARIANT);
-  _dbus_assert (dbus_signature_iter_next (&subiter));
+  boolres = dbus_signature_iter_next (&subiter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_DOUBLE);
 
   sig = DBUS_TYPE_UINT16_AS_STRING
@@ -399,13 +405,16 @@ _dbus_signature_test (void)
   _dbus_assert (dbus_signature_validate (sig, NULL));
   dbus_signature_iter_init (&iter, sig);
   _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_UINT16);
-  _dbus_assert (dbus_signature_iter_next (&iter));
+  boolres = dbus_signature_iter_next (&iter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_STRUCT);
   dbus_signature_iter_recurse (&iter, &subiter);
   _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_UINT32);
-  _dbus_assert (dbus_signature_iter_next (&subiter));
+  boolres = dbus_signature_iter_next (&subiter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_BYTE);
-  _dbus_assert (dbus_signature_iter_next (&subiter));
+  boolres = dbus_signature_iter_next (&subiter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_ARRAY);
   _dbus_assert (dbus_signature_iter_get_element_type (&subiter) == DBUS_TYPE_ARRAY);
 
@@ -415,7 +424,8 @@ _dbus_signature_test (void)
 
   dbus_signature_iter_recurse (&subsubiter, &subsubsubiter);
   _dbus_assert (dbus_signature_iter_get_current_type (&subsubsubiter) == DBUS_TYPE_DOUBLE);
-  _dbus_assert (dbus_signature_iter_next (&subiter));
+  boolres = dbus_signature_iter_next (&subiter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&subiter) == DBUS_TYPE_STRUCT);
   dbus_signature_iter_recurse (&subiter, &subsubiter);
   _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_BYTE);
@@ -435,13 +445,17 @@ _dbus_signature_test (void)
   dbus_signature_iter_recurse (&iter, &subiter);
   dbus_signature_iter_recurse (&subiter, &subsubiter);
   _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_INT16);
-  _dbus_assert (dbus_signature_iter_next (&subsubiter));
+  boolres = dbus_signature_iter_next (&subiter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_STRING);
-  _dbus_assert (!dbus_signature_iter_next (&subsubiter));
+  boolres = dbus_signature_iter_next (&subiter);
+  _dbus_assert (boolres);
 
-  _dbus_assert (dbus_signature_iter_next (&iter));
+  boolres = dbus_signature_iter_next (&iter);
+  _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_VARIANT);
-  _dbus_assert (!dbus_signature_iter_next (&iter));
+  boolres = dbus_signature_iter_next (&iter);
+  _dbus_assert (boolres);
 
   sig = DBUS_TYPE_DICT_ENTRY_AS_STRING;
   _dbus_assert (!dbus_signature_validate (sig, NULL));

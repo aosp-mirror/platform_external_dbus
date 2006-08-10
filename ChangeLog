@@ -1,5 +1,11 @@
 2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-signature.c:
+	Fix the unit tests so that they work if assertions are not enabled.
+	(patch from Julio M. Merino Vidal  <jmmv at NetBSD dot org>)
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
 	* tools/run-with-tmp-session-bus.sh:
 	* test/name-test/run-test.sh:
 	Remove bashisms (patch from Julio M. Merino Vidal
