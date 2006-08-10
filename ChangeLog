@@ -1,5 +1,12 @@
 2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
 
+	* tools/run-with-tmp-session-bus.sh:
+	* test/name-test/run-test.sh:
+	Remove bashisms (patch from Julio M. Merino Vidal
+	<jmmv at NetBSD dot org>)
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: add a version (>= 2.6.0) check for libxml2
 
 2006-08-10  John (J5) Palmieri  <johnp@redhat.com>

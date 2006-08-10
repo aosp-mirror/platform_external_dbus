@@ -4,7 +4,7 @@ SCRIPTNAME=$0
 WRAPPED_SCRIPT=$1
 shift
 
-function die() 
+die() 
 {
     if ! test -z "$DBUS_SESSION_BUS_PID" ; then
         echo "killing message bus "$DBUS_SESSION_BUS_PID >&2
@@ -19,7 +19,7 @@ if test -z "$DBUS_TOP_BUILDDIR" ; then
 fi
 
 ## convenient to be able to ctrl+C without leaking the message bus process
-trap 'die "Received SIGINT"' SIGINT
+trap 'die "Received SIGINT"' INT
 
 CONFIG_FILE=./run-with-tmp-session-bus.conf
 SERVICE_DIR="$DBUS_TOP_BUILDDIR/test/data/valid-service-files"

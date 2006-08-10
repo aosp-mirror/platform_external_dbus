@@ -1,6 +1,6 @@
-#! /bin/bash
+#! /bin/sh
 
-function die()
+ie()
 {
     if ! test -z "$DBUS_SESSION_BUS_PID" ; then
         echo "killing message bus "$DBUS_SESSION_BUS_PID >&2
