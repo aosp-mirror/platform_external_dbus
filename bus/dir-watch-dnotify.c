@@ -74,10 +74,10 @@ bus_watch_directory (const char *dir, void *userdata)
 void 
 bus_drop_all_directory_watches (void)
 {
-  _dbus_verbose ("Dropping all watches on config directories\n");
-
   int i;
-  
+ 
+  _dbus_verbose ("Dropping all watches on config directories\n");
+ 
   for (i = 0; i < num_fds; i++)
     {
       if (close (fds[i]) != 0)
