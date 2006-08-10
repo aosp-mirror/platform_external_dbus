@@ -2998,6 +2998,35 @@ int _dbus_printf_string_upper_bound (const char *format,
 
 
 
+/**
+ * Gets the temporary files directory by inspecting the environment variables 
+ * TMPDIR, TMP, and TEMP in that order. If none of those are set "/tmp" is returned
+ *
+ * @returns char* - location of temp directory
+ */
+char*
+_dbus_get_tmpdir()
+{
+  char* tmpdir;
+
+  tmpdir = getenv("TMPDIR");
+  if (tmpdir) {
+     return tmpdir;
+  }
+
+  tmpdir = getenv("TMP");
+  if (tmpdir) {
+     return tmpdir;
+  }
+  
+  tmpdir = getenv("TEMP");
+  if (tmpdir) {
+     return tmpdir;
+  }
+
+  return "/tmp";
+}
+
 /** @} end of sysdeps */
 
 /* tests in dbus-sysdeps-util.c */

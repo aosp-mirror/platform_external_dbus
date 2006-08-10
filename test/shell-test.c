@@ -6,6 +6,7 @@
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-shell.h>
 #include <dbus/dbus-string.h>
+#include <dbus/dbus-sysdeps.h>
 
 static dbus_bool_t
 test_command_line (const char *arg1, ...)
@@ -95,7 +96,7 @@ main (int argc, char **argv)
       || !test_command_line ("/opt/gnome/bin/service-start", NULL)
       || !test_command_line ("grep", "-l", "-r", "-i", "'whatever'", "files*.c", NULL)
       || !test_command_line ("/home/boston/johnp/devel-local/dbus/test/test-segfault", NULL)
-      || !test_command_line ("ls", "-l", "-a", "--colors", "/tmp", NULL)
+      || !test_command_line ("ls", "-l", "-a", "--colors", _dbus_get_tmpdir(), NULL)
       || !test_command_line ("rsync-to-server", NULL)
       || !test_command_line ("test-segfault", "--no-segfault", NULL)
       || !test_command_line ("evolution", "mailto:pepe@cuco.com", NULL)

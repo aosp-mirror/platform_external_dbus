@@ -1,3 +1,12 @@
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps.c:
+	* dbus/dbus-address.c:
+	* bus/activation.c:
+	* test/shell-test.c:
+	don't hardcode tmp directory (patch from Dave Meikle 
+	<dmk at davemeikle dot co dot uk>)
+
 2006-08-09  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_alloc):
