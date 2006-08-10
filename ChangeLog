@@ -1,5 +1,11 @@
 2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-macros.h:
+	add #include <stddef.h> so that Sun compilers don't complain about
+	the defining NULL
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-sysdeps.c:
 	* dbus/dbus-address.c:
 	* bus/activation.c:
