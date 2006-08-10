@@ -24,8 +24,6 @@
 #error "Only <dbus/dbus.h> can be included directly, this file may disappear or change contents."
 #endif
 
-#include <stddef.h>
-
 #ifndef DBUS_MACROS_H
 #define DBUS_MACROS_H
 
