@@ -1,5 +1,12 @@
 2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-address.c (_dbus_address_test): Revert leaking strcmp.  
+	In any case it was wrong since this is a test checking to see if
+	address parsing is correct.  There was no need to get the true
+	tmp directory.  
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-macros.h: Revert the addition of stddef.h
 	as we should not be adding it to library headers 
 

@@ -715,7 +715,7 @@ _dbus_address_test (void)
 			   &entries, &len, &error))
     _dbus_assert_not_reached ("could not parse address");
   _dbus_assert (len == 2);
-  _dbus_assert (strcmp (dbus_address_entry_get_value (entries[0], "path"), strcat(_dbus_get_tmpdir(),"/foo") == 0));
+  _dbus_assert (strcmp (dbus_address_entry_get_value (entries[0], "path"), "/tmp/foo") == 0));
   _dbus_assert (strcmp (dbus_address_entry_get_value (entries[1], "name"), "test") == 0);
   _dbus_assert (strcmp (dbus_address_entry_get_value (entries[1], "sliff"), "sloff") == 0);
   
