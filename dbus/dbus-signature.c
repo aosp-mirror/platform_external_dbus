@@ -445,17 +445,17 @@ _dbus_signature_test (void)
   dbus_signature_iter_recurse (&iter, &subiter);
   dbus_signature_iter_recurse (&subiter, &subsubiter);
   _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_INT16);
-  boolres = dbus_signature_iter_next (&subiter);
+  boolres = dbus_signature_iter_next (&subsubiter);
   _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&subsubiter) == DBUS_TYPE_STRING);
-  boolres = dbus_signature_iter_next (&subiter);
-  _dbus_assert (boolres);
+  boolres = dbus_signature_iter_next (&subsubiter);
+  _dbus_assert (!boolres);
 
   boolres = dbus_signature_iter_next (&iter);
   _dbus_assert (boolres);
   _dbus_assert (dbus_signature_iter_get_current_type (&iter) == DBUS_TYPE_VARIANT);
   boolres = dbus_signature_iter_next (&iter);
-  _dbus_assert (boolres);
+  _dbus_assert (!boolres);
 
   sig = DBUS_TYPE_DICT_ENTRY_AS_STRING;
   _dbus_assert (!dbus_signature_validate (sig, NULL));
