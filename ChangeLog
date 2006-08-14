@@ -1,5 +1,14 @@
 2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_alloc):
+	Change _dbus_abort to _dbus_assert_not_reached because _dbus_abort
+	causes compile problems when asserts are turned off
+	Keeping _dbus_warn for printing out the message so even if
+	asserts are turned off the user gets the messages that something is 
+	wrong 
+
+2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
+
 	Patches by Kjartan Maraas <kmaraas at gnome dot org>
 
 	* bus/services.c (bus_service_list_queued_owners):
