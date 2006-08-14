@@ -1156,16 +1156,4 @@ dbus_bus_remove_match (DBusConnection *connection,
   dbus_message_unref (msg);
 }
 
-#ifdef DBUS_BUILD_TESTS
-const char *
-dbus_bus_connection_get_unique_name (DBusConnection *connection)
-{
-  BusData *bd;
-  bd = dbus_connection_get_data (connection, bus_data_slot);
-  
-  return bd->unique_name;
-}
-#endif /* DBUS_BUILD_TESTS */
-
-
 /** @} */

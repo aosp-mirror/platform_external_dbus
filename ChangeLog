@@ -1,3 +1,11 @@
+2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-bus.c:
+	* test/name-test/test-names.c:
+	Remove test method dbus_bus_connection_get_unique_name because 
+	we already have public method dbus_bus_get_unique_name that 
+	does the exact same thing
+
 2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-signature.c:

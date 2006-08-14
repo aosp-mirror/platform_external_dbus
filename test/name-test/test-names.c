@@ -24,8 +24,6 @@
 #define TEST_NAME "org.freedesktop.DBus.TestSuite.NameTest"
 #define NUM_TRIES_TIL_FAIL 15
 
-extern const char *dbus_bus_connection_get_unique_name (DBusConnection *connection);
-
 typedef struct {
   int command;
   
@@ -162,7 +160,7 @@ check_connection (DBusConnection *conn,
         }
 
       expected_uname = 
-             dbus_bus_connection_get_unique_name (uniq_conn[expected_conn_num]);
+             dbus_bus_get_unique_name (uniq_conn[expected_conn_num]);
 
       if (strcmp (list[i], expected_uname) != 0)
         {
@@ -385,10 +383,10 @@ check_signals (DBusConnection *monitor,
     }
 
     lost_name = lost_conn == NULL? NULL : 
-                         dbus_bus_connection_get_unique_name (lost_conn);
+                         dbus_bus_get_unique_name (lost_conn);
 
     acquired_name = acquired_conn == NULL? NULL :
-                         dbus_bus_connection_get_unique_name (acquired_conn);
+                         dbus_bus_get_unique_name (acquired_conn);
 
     if (lost_name != NULL)
       if (!match_acquired_or_lost_signal (lost_conn,
@@ -436,7 +434,7 @@ main (int argc, char *argv[])
   
   if (!match_acquired_or_lost_signal (conn[0],
                                 "NameAcquired",
-                                dbus_bus_connection_get_unique_name (conn[0])))
+                                dbus_bus_get_unique_name (conn[0])))
     return 1;
   
   conn[1] = dbus_bus_get_private (DBUS_BUS_SESSION, &error);
@@ -450,7 +448,7 @@ main (int argc, char *argv[])
 
   if (!match_acquired_or_lost_signal (conn[1],
                                 "NameAcquired",
-                                dbus_bus_connection_get_unique_name (conn[1])))
+                                dbus_bus_get_unique_name (conn[1])))
     return 1;
 
 
@@ -465,7 +463,7 @@ main (int argc, char *argv[])
 
   if (!match_acquired_or_lost_signal (conn[2],
                                 "NameAcquired",
-                                dbus_bus_connection_get_unique_name (conn[2])))
+                                dbus_bus_get_unique_name (conn[2])))
     return 1;
 
 
@@ -480,7 +478,7 @@ main (int argc, char *argv[])
 
   if (!match_acquired_or_lost_signal (conn[3],
                                 "NameAcquired",
-                                dbus_bus_connection_get_unique_name (conn[3])))
+                                dbus_bus_get_unique_name (conn[3])))
     return 1;
 
 
@@ -495,7 +493,7 @@ main (int argc, char *argv[])
 
   if (!match_acquired_or_lost_signal (monitor,
                                 "NameAcquired",
-                                dbus_bus_connection_get_unique_name (monitor)))
+                                dbus_bus_get_unique_name (monitor)))
     return 1;
 
   dbus_bus_add_match (monitor, "", &error);
