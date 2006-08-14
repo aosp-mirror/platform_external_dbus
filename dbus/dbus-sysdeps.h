@@ -323,7 +323,7 @@ void _dbus_set_signal_handler (int               sig,
 dbus_bool_t _dbus_file_exists     (const char *file);
 dbus_bool_t _dbus_user_at_console (const char *username,
                                    DBusError  *error);
-char* _dbus_get_tmpdir();
+char* _dbus_get_tmpdir(void);
 
 /* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
  * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 

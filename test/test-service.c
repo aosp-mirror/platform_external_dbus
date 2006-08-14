@@ -27,7 +27,7 @@ check_hello_from_self_reply (DBusPendingCall *pcall,
                              void *user_data)
 {
   DBusMessage *reply;
-  DBusMessage *echo_message, *echo_reply;
+  DBusMessage *echo_message, *echo_reply = NULL;
   DBusError error;
   DBusConnection *connection;
   

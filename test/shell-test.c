@@ -21,7 +21,7 @@ test_command_line (const char *arg1, ...)
   DBusError error;
 
   va_start (var_args, arg1);
-  _dbus_list_append (&list, arg1);
+  _dbus_list_append (&list, (char *)arg1);
   do
     {
       tmp = va_arg (var_args, char *);

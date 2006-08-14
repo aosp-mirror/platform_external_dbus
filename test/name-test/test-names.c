@@ -193,25 +193,6 @@ check_connection (DBusConnection *conn,
   return FALSE;
 }
 
-static void
-clear_message_queue (DBusConnection *conn)
-{
-  int tries;
-  DBusMessage *msg;
-
-  for (tries = 0; tries < NUM_TRIES_TIL_FAIL; tries++)
-    {
-      _dbus_connection_lock (conn);
-      _dbus_connection_do_iteration_unlocked (conn,
-                                              DBUS_ITERATION_DO_READING |
-                                              DBUS_ITERATION_DO_WRITING |
-                                              DBUS_ITERATION_BLOCK,
-                                              0);
-      _dbus_connection_unlock (conn);
-      msg = dbus_connection_pop_message (conn);
-   } 
-}
-
 static dbus_bool_t
 match_acquired_or_lost_signal (DBusConnection *conn, const char *member, const char *name)
 {

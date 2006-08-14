@@ -36,12 +36,11 @@ handle_echo (DBusConnection     *connection,
   DBusMessage *reply;
   DBusMessageIter iter;
   int i;
-  char *s;
   EchoData *d;
 
   _dbus_verbose ("sending reply to Echo method\n");
 
-  if (!dbus_connection_get_object_path_data (connection, echo_path, &d))
+  if (!dbus_connection_get_object_path_data (connection, echo_path, (void **)&d))
       die ("No memory");
 
 

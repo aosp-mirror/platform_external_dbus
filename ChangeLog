@@ -1,5 +1,56 @@
 2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
 
+	Patches by Kjartan Maraas <kmaraas at gnome dot org>
+
+	* bus/services.c (bus_service_list_queued_owners):
+	Add a pointer cast to fix compiler warning
+
+	* dbus/dbus-dataslot.c (_dbus_data_slot_list_get):
+	return a NULL instead of FALSE since the return type
+	is not expecting a boolean
+
+	* dbus/dbus-marshal-basic.c (_dbus_marshal_test):
+	Remove unused variable
+
+	* dbus/dbus-marshal-recursive-util.c (node_new):
+	return a NULL instead of FALSE since the return type
+	is not expecting a boolean
+
+	* dbus/dbus-server-debug-pipe.c (_dbus_transport_debug_pipe_new):
+	Send a NULL into _dbus_transport_new_for_fd instead of a FALSE
+	because we are expecting a pointer not a boolean
+
+	* dbus/dbus-sysdeps-util.c (_dbus_get_tmpdir): 
+	add void as the parameter so some compilers
+	don't complain
+
+	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_domain_socket,
+	  _dbus_transport_new_for_tcp_socket):
+	Send a NULL into _dbus_transport_new_for_fd instead of a FALSE
+	because we are expecting a pointer not a boolean
+
+	* test/shell-test.c (test_command_line):
+	cast the second argument to _dbus_list_append to avoid compiler
+	warnings
+
+	* test/test-names.c (main): remove unused variable
+
+	* test/test-service.c (check_hello_from_self_reply):
+	Initialize echo_message and echo_reply to NULL
+	
+	* test/test-shell-service.c (handle_echo):
+	Remove unused variable and cast the third parameter passed to
+	dbus_connection_get_object_path_data to avoid compiler warrnings
+
+	* test/name-test/test-names.c (clear_message_queue):
+	Remove unused function
+
+	* test/name-test/test-pending-call-dispatch.c:
+	Fix format string in printf
+
+
+2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-bus.c:
 	* test/name-test/test-names.c:
 	Remove test method dbus_bus_connection_get_unique_name because 

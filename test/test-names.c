@@ -46,7 +46,6 @@ main (int    argc,
       char **argv)
 {
   DBusError error;
-  int result;
   DBusConnection *connection;
   
   dbus_error_init (&error);

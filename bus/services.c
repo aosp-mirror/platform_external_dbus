@@ -1266,7 +1266,7 @@ bus_service_list_queued_owners (BusService *service,
       owner = (BusOwner *) link->data;
       uname = bus_connection_get_name (owner->conn);
 
-      if (!_dbus_list_append (return_list, uname))
+      if (!_dbus_list_append (return_list, (char *)uname))
         goto oom;
 
       link = _dbus_list_get_next_link (&service->owners, link);

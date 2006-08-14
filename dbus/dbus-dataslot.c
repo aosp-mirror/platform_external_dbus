@@ -305,7 +305,7 @@ _dbus_data_slot_list_get  (DBusDataSlotAllocator *allocator,
    * are disabled, since then the asserts are empty.
    */
   if (!_dbus_mutex_lock (allocator->lock))
-    return FALSE;
+    return NULL;
   _dbus_assert (slot >= 0);
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot].slot_id == slot);

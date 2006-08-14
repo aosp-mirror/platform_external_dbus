@@ -1229,7 +1229,7 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   _dbus_verbose ("Successfully connected to unix socket %s\n",
                  path);
 
-  transport = _dbus_transport_new_for_fd (fd, FALSE, &address);
+  transport = _dbus_transport_new_for_fd (fd, NULL, &address);
   if (transport == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -1297,7 +1297,7 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
   _dbus_verbose ("Successfully connected to tcp socket %s:%d\n",
                  host, port);
   
-  transport = _dbus_transport_new_for_fd (fd, FALSE, &address);
+  transport = _dbus_transport_new_for_fd (fd, NULL, &address);
   if (transport == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);

@@ -257,7 +257,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   _dbus_fd_set_close_on_exec (server_fd);
   
   client_transport = _dbus_transport_new_for_fd (client_fd,
-                                                 FALSE, &address);
+                                                 NULL, &address);
   if (client_transport == NULL)
     {
       _dbus_close (client_fd, NULL);

@@ -3005,7 +3005,7 @@ int _dbus_printf_string_upper_bound (const char *format,
  * @returns char* - location of temp directory
  */
 char*
-_dbus_get_tmpdir()
+_dbus_get_tmpdir(void)
 {
   char* tmpdir;
 

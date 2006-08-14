@@ -945,7 +945,7 @@ node_new (const TestTypeNodeClass *klass)
       if (!(* klass->construct) (node))
         {
           dbus_free (node);
-          return FALSE;
+          return NULL;
         }
     }
 

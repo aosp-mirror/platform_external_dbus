@@ -1663,7 +1663,6 @@ _dbus_marshal_test (void)
   dbus_uint16_t *v_ARRAY_UINT16;
   dbus_int32_t *v_ARRAY_INT32;
   dbus_uint32_t *v_ARRAY_UINT32;
-  double *v_ARRAY_DOUBLE;
   DBusString t;
   double v_DOUBLE;
   double t_DOUBLE;

@@ -103,7 +103,7 @@ main (int argc, char *argv[])
 
       /* we just care about seconds */
       delta = end_tv_sec - start_tv_sec;
-      printf ("Iter %i: %is\n", i, delta);
+      printf ("Iter %i: %lis\n", i, delta);
       if (delta >= 5)
         {
 	  printf ("Failed: looks like we might have been be stuck in poll ***\n");
