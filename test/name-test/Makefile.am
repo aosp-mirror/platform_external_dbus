@@ -16,10 +16,10 @@ if DBUS_BUILD_TESTS
 
 ## we use noinst_PROGRAMS not check_PROGRAMS for TESTS so that we
 ## build even when not doing "make check"
-noinst_PROGRAMS=test-names test-pending-call-dispatch 
+noinst_PROGRAMS=test-names test-pending-call-dispatch test-threads-init
 
 test_names_SOURCES=				\
-	test-names.c                             
+	test-names.c
 
 test_names_LDADD=$(top_builddir)/dbus/libdbus-1.la $(top_builddir)/dbus/libdbus-convenience.la
 
@@ -28,6 +28,11 @@ test_pending_call_dispatch_SOURCES =		\
 
 test_pending_call_dispatch_LDADD=$(top_builddir)/dbus/libdbus-1.la $(top_builddir)/dbus/libdbus-convenience.la
 
+
+test_threads_init_SOURCES =            \
+	test-threads-init.c
+
+test_threads_init_LDADD=$(top_builddir)/dbus/libdbus-1.la $(top_builddir)/dbus/libdbus-convenience.la
 
 endif
 

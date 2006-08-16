@@ -3595,7 +3595,7 @@ dbus_bool_t
 dbus_message_allocate_data_slot (dbus_int32_t *slot_p)
 {
   return _dbus_data_slot_allocator_alloc (&slot_allocator,
-                                          _DBUS_LOCK_NAME (message_slots),
+                                          &_DBUS_LOCK_NAME (message_slots),
                                           slot_p);
 }
 

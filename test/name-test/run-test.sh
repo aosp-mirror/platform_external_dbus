@@ -31,3 +31,6 @@ libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-names || di
 
 echo "running test-pending-call-dispatch"
 libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-pending-call-dispatch || die "test-client failed"
+
+echo "running test-threads-init"
+libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-threads-init || die "test-client failed"

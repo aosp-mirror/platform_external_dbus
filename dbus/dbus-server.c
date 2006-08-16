@@ -141,7 +141,7 @@ _dbus_server_init_base (DBusServer             *server,
   if (server->address == NULL)
     goto failed;
   
-  server->mutex = _dbus_mutex_new ();
+  _dbus_mutex_new_at_location (&server->mutex);
   if (server->mutex == NULL)
     goto failed;
   
@@ -160,11 +160,8 @@ _dbus_server_init_base (DBusServer             *server,
   return TRUE;
 
  failed:
-  if (server->mutex)
-    {
-      _dbus_mutex_free (server->mutex);
-      server->mutex = NULL;
-    }
+  _dbus_mutex_free_at_location (&server->mutex);
+  server->mutex = NULL;
   if (server->watches)
     {
       _dbus_watch_list_free (server->watches);
@@ -210,7 +207,7 @@ _dbus_server_finalize_base (DBusServer *server)
   _dbus_watch_list_free (server->watches);
   _dbus_timeout_list_free (server->timeouts);
 
-  _dbus_mutex_free (server->mutex);
+  _dbus_mutex_free_at_location (&server->mutex);
   
   dbus_free (server->address);
 
@@ -1060,7 +1057,7 @@ dbus_bool_t
 dbus_server_allocate_data_slot (dbus_int32_t *slot_p)
 {
   return _dbus_data_slot_allocator_alloc (&slot_allocator,
-                                          _DBUS_LOCK_NAME (server_slots),
+                                          (DBusMutex **)&_DBUS_LOCK_NAME (server_slots),
                                           slot_p);
 }
 

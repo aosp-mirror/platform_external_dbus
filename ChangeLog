@@ -1,3 +1,45 @@
+2006-08-16  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-threads.c: Add static DBusList *uninitialized_mutex_list and
+	static DBusList *uninitialized_condvar_list to support new late 
+	initialization threading model.  In this model threads can be initialized
+	even after the D-Bus API has been used but still needs to be initialized 
+	before the second thread has been started.  Mutexes and condvar addresses
+	are stored in the two static lists and are replaced with actuall locks
+	when threads are initalized.
+	(_dbus_mutex_new_at_location): New method for creating a mutex and placing
+	the location into the static list
+	(_dbus_mutex_free_at_location): New method for removing a mutex location 
+	from the static list and freeing the mutex
+	(_dbus_condvar_new_at_location): New method for creating a conditional 
+	variable and placing the location into the static list
+	(_dbus_condvar_free_at_location): New method for removing a conditional
+	variable location from the static list and freeing the conditional variable 
+
+	* dbus/dbus-connection.c:
+	(_dbus_connection_test_get_locks): New method for tests to check connections
+	(_dbus_connection_new_for_transport): Use the new at_location mutex and
+	condvar API
+	(dbus_connection_allocate_data_slot): Pass in the global lock address
+	to _dbus_data_slot_allocator_alloc
+
+	* dbus/dbus-dataslot.c:
+	(_dbus_data_slot_allocator_alloc): Use the address of the mutex
+	instead of the mutex itself
+
+	* dbus/dbus-message.c:
+	(dbus_message_allocate_data_slot): Pass in the global lock address
+	to _dbus_data_slot_allocator_alloc
+
+	* dbus/dbus-pending-call.c:
+	(dbus_pending_call_allocate_data_slot): Pass in the global lock address
+	to _dbus_data_slot_allocator_alloc
+
+	* dbus/dbus-server.c:
+	(_dbus_server_init_base): Use the new at_location mutex API
+	(dbus_server_allocate_data_slot): Pass in the global lock address
+	to _dbus_data_slot_allocator_alloc
+
 2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_alloc):

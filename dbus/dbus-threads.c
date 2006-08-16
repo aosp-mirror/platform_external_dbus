@@ -23,6 +23,7 @@
 #include "dbus-threads.h"
 #include "dbus-internals.h"
 #include "dbus-threads-internal.h"
+#include "dbus-list.h"
 
 static DBusThreadFunctions thread_functions =
 {
@@ -34,6 +35,9 @@ static DBusThreadFunctions thread_functions =
   NULL, NULL, NULL, NULL
 };
 static int thread_init_generation = 0;
+
+static DBusList *uninitialized_mutex_list = NULL;
+static DBusList *uninitialized_condvar_list = NULL;
 
 /** This is used for the no-op default mutex pointer, just to be distinct from #NULL */
 #define _DBUS_DUMMY_MUTEX ((DBusMutex*)0xABCDEF)
@@ -69,6 +73,32 @@ _dbus_mutex_new (void)
 }
 
 /**
+ * This does the same thing as _dbus_mutex_new.  It however
+ * gives another level of indirection by allocating a pointer
+ * to point to the mutex location.  This allows the threading
+ * module to swap out dummy mutexes for real a real mutex so libraries
+ * can initialize threads even after the D-Bus API has been used.
+ *
+ * @param location_p the location of the new mutex, can return #NULL on OOM
+ */
+void
+_dbus_mutex_new_at_location (DBusMutex **location_p)
+{
+  _dbus_assert (location_p != NULL);
+
+  *location_p = _dbus_mutex_new();
+
+  if (thread_init_generation != _dbus_current_generation && *location_p)
+    {
+      if (!_dbus_list_append (&uninitialized_mutex_list, location_p))
+        {
+	  _dbus_mutex_free (*location_p);
+	  *location_p = NULL;
+	}
+    }
+}
+
+/**
  * Frees a mutex created with dbus_mutex_new(); does
  * nothing if passed a #NULL pointer.
  */
@@ -77,6 +107,23 @@ _dbus_mutex_free (DBusMutex *mutex)
 {
   if (mutex && thread_functions.mutex_free)
     (* thread_functions.mutex_free) (mutex);
+}
+
+/**
+ * Frees a mutex and removes it from the 
+ * uninitialized_mutex_list;
+ * does nothing if passed a #NULL pointer.
+ */
+void
+_dbus_mutex_free_at_location (DBusMutex **location_p)
+{
+  if (location_p)
+    {
+      if (thread_init_generation != _dbus_current_generation)
+        _dbus_list_remove (&uninitialized_mutex_list, location_p);
+
+      _dbus_mutex_free (*location_p);
+    }
 }
 
 /**
@@ -125,6 +172,33 @@ _dbus_condvar_new (void)
     return _DBUS_DUMMY_CONDVAR;
 }
 
+
+/**
+ * This does the same thing as _dbus_condvar_new.  It however
+ * gives another level of indirection by allocating a pointer
+ * to point to the condvar location.  This allows the threading
+ * module to swap out dummy condvars for real a real condvar so libraries
+ * can initialize threads even after the D-Bus API has been used.
+ *
+ * @returns the location of a new condvar or #NULL on OOM
+ */
+
+void 
+_dbus_condvar_new_at_location (DBusCondVar **location_p)
+{
+  *location_p = _dbus_condvar_new();
+
+  if (thread_init_generation != _dbus_current_generation && *location_p)
+    {
+      if (!_dbus_list_append (&uninitialized_condvar_list, location_p))
+        {
+          _dbus_condvar_free (*location_p);
+          *location_p = NULL;
+        }
+    }
+}
+
+
 /**
  * Frees a conditional variable created with dbus_condvar_new(); does
  * nothing if passed a #NULL pointer.
@@ -134,6 +208,23 @@ _dbus_condvar_free (DBusCondVar *cond)
 {
   if (cond && thread_functions.condvar_free)
     (* thread_functions.condvar_free) (cond);
+}
+
+/**
+ * Frees a conditional variable and removes it from the 
+ * uninitialized_condvar_list; 
+ * does nothing if passed a #NULL pointer.
+ */
+void
+_dbus_condvar_free_at_location (DBusCondVar **location_p)
+{
+  if (location_p)
+    {
+      if (thread_init_generation != _dbus_current_generation)
+        _dbus_list_remove (&uninitialized_condvar_list, location_p);
+
+      _dbus_condvar_free (*location_p);
+    }
 }
 
 /**
@@ -214,8 +305,100 @@ shutdown_global_locks (void *data)
   dbus_free (locks);
 }
 
+static void
+shutdown_uninitialized_locks (void *data)
+{
+  _dbus_list_clear (&uninitialized_mutex_list);
+  _dbus_list_clear (&uninitialized_condvar_list);
+}
+
 static dbus_bool_t
-init_global_locks (void)
+init_uninitialized_locks (void)
+{
+  DBusList *link;
+
+  _dbus_assert (thread_init_generation == 0);
+
+  link = uninitialized_mutex_list;
+  while (link != NULL)
+    {
+      DBusMutex **mp;
+
+      mp = (DBusMutex **)link->data;
+      _dbus_assert (*mp == _DBUS_DUMMY_MUTEX);
+
+      *mp = _dbus_mutex_new ();
+      if (*mp == NULL)
+        goto fail_mutex;
+
+      link = _dbus_list_get_next_link (&uninitialized_mutex_list, link);
+    }
+
+  link = uninitialized_condvar_list;
+  while (link != NULL)
+    {
+      DBusCondVar **cp;
+
+      cp = (DBusCondVar **)link->data;
+      _dbus_assert (*cp == _DBUS_DUMMY_CONDVAR);
+
+      *cp = _dbus_condvar_new ();
+      if (*cp == NULL)
+        goto fail_condvar;
+
+      link = _dbus_list_get_next_link (&uninitialized_condvar_list, link);
+    }
+
+  _dbus_list_clear (&uninitialized_mutex_list);
+  _dbus_list_clear (&uninitialized_condvar_list);
+
+  if (!_dbus_register_shutdown_func (shutdown_uninitialized_locks,
+                                     NULL))
+    goto fail_condvar;
+
+  return TRUE;
+
+ fail_condvar:
+  link = uninitialized_condvar_list;
+  while (link != NULL)
+    {
+      DBusCondVar **cp;
+
+      cp = (DBusCondVar **)link->data;
+
+      if (*cp != _DBUS_DUMMY_CONDVAR)
+        _dbus_condvar_free (*cp);
+      else
+        break;
+
+      *cp = _DBUS_DUMMY_CONDVAR;
+
+      link = _dbus_list_get_next_link (&uninitialized_condvar_list, link);
+    }
+
+ fail_mutex:
+  link = uninitialized_mutex_list;
+  while (link != NULL)
+    {
+      DBusMutex **mp;
+
+      mp = (DBusMutex **)link->data;
+
+      if (*mp != _DBUS_DUMMY_MUTEX)
+        _dbus_mutex_free (*mp);
+      else
+        break;
+
+      *mp = _DBUS_DUMMY_MUTEX;
+
+      link = _dbus_list_get_next_link (&uninitialized_mutex_list, link);
+    }
+
+  return FALSE;
+}
+
+static dbus_bool_t
+init_locks (void)
 {
   int i;
   DBusMutex ***dynamic_global_locks;
@@ -259,6 +442,9 @@ init_global_locks (void)
   
   if (!_dbus_register_shutdown_func (shutdown_global_locks,
                                      dynamic_global_locks))
+    goto failed;
+
+  if (!init_uninitialized_locks ())
     goto failed;
   
   return TRUE;
@@ -339,24 +525,12 @@ dbus_threads_init (const DBusThreadFunctions *functions)
 
   if (thread_init_generation != _dbus_current_generation)
     thread_functions.mask = 0; /* allow re-init in new generation */
-  
+ 
+  /* Silently allow multiple init
+   * First init wins and D-Bus will always use its threading system 
+   */ 
   if (thread_functions.mask != 0)
-    {
-      /* Silently allow multiple init if the functions are the same ones.
-       * Well, we only bother checking two of them, just out of laziness.
-       */
-      if (thread_functions.mask == functions->mask &&
-          thread_functions.mutex_new == functions->mutex_new &&
-          thread_functions.condvar_new == functions->condvar_new)
-        {
-          return TRUE;
-        }
-      else
-        {
-          _dbus_warn ("dbus_threads_init() called twice with two different sets of functions\n");
-          return FALSE;
-        }
-    }
+    return TRUE;
   
   thread_functions.mutex_new = functions->mutex_new;
   thread_functions.mutex_free = functions->mutex_free;
@@ -372,7 +546,7 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   
   thread_functions.mask = functions->mask;
 
-  if (!init_global_locks ())
+  if (!init_locks ())
     return FALSE;
 
   thread_init_generation = _dbus_current_generation;

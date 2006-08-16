@@ -651,7 +651,7 @@ dbus_bool_t
 dbus_pending_call_allocate_data_slot (dbus_int32_t *slot_p)
 {
   return _dbus_data_slot_allocator_alloc (&slot_allocator,
-                                          _DBUS_LOCK_NAME (pending_call_slots),
+                                          &_DBUS_LOCK_NAME (pending_call_slots),
                                           slot_p);
 }
 
