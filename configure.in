@@ -952,7 +952,7 @@ AC_DEFINE_UNQUOTED(DBUS_SYSTEM_BUS_DEFAULT_ADDRESS, "$DBUS_SYSTEM_BUS_DEFAULT_AD
 #### Set up the pid file
 if ! test -z "$with_system_pid_file"; then
    DBUS_SYSTEM_PID_FILE=$with_system_pid_file
-elif test x$operating_system = xredhat ; then
+elif test x$with_init_scripts = xredhat ; then
    DBUS_SYSTEM_PID_FILE=${EXPANDED_LOCALSTATEDIR}/run/messagebus.pid
 else
    DBUS_SYSTEM_PID_FILE=${EXPANDED_LOCALSTATEDIR}/run/dbus/pid

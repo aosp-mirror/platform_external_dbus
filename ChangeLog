@@ -1,3 +1,10 @@
+2006-08-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: use $with_init_scripts instead of $operating_system
+	to determine where to store the pid since the init scripts manipulate 
+	the pid file (patch from Marcelo Ricardo Leitner 
+	<marcelo dot leitner at terra dot com dot br>.  
+
 2006-08-16  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-threads.c: Add static DBusList *uninitialized_mutex_list and
