@@ -1,3 +1,7 @@
+2006-08-17  Alp Toker  <alp@atoker.com>
+
+	* doc/dbus-specification.xml: Fix some minor typos.
+
 2006-08-17  John (J5) Palmieri  <johnp@redhat.com>
 
 	* configure.in: use $with_init_scripts instead of $operating_system
