@@ -15,7 +15,10 @@
 	variable and placing the location into the static list
 	(_dbus_condvar_free_at_location): New method for removing a conditional
 	variable location from the static list and freeing the conditional variable 
-
+	(init_uninitialized_locks): Atomic method which goes through the static 
+	lists of mutex and condvar location and updates them with actuall locks
+	(init_global_locks): changed to init_locks
+	
 	* dbus/dbus-connection.c:
 	(_dbus_connection_test_get_locks): New method for tests to check connections
 	(_dbus_connection_new_for_transport): Use the new at_location mutex and
@@ -39,6 +42,9 @@
 	(_dbus_server_init_base): Use the new at_location mutex API
 	(dbus_server_allocate_data_slot): Pass in the global lock address
 	to _dbus_data_slot_allocator_alloc
+
+	* test/name-test/test-threads-init.c: New test case for late thread
+	initialization
 
 2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
 
