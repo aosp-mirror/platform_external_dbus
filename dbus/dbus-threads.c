@@ -480,12 +480,10 @@ init_locks (void)
  * the D-Bus library will not lock any data structures.
  * If it is called, D-Bus will do locking, at some cost
  * in efficiency. Note that this function must be called
- * BEFORE using any other D-Bus functions.
+ * BEFORE the second thread is started.
  *
- * This function may be called more than once, as long
- * as you pass in the same functions each time. If it's
- * called multiple times with different functions, then
- * a warning is printed, because someone is confused.
+ * This function may be called more than once.  The first
+ * one wins.
  *
  * @param functions functions for using threads
  * @returns #TRUE on success, #FALSE if no memory

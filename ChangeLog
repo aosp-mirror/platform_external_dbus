@@ -1,5 +1,17 @@
 2006-08-18  John (J5) Palmieri  <johnp@redhat.com>
 
+	* Released 0.92 
+
+2006-08-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-threads.c (dbus_threads_init): change the documentation
+	to reflect the init late change
+
+	* bus/bus.c (bus_context_new): Check user before we fork so we can
+	print out an error message a user will be able to see
+
+2006-08-18  John (J5) Palmieri  <johnp@redhat.com>
+
 	Patch provided by Ralf Habacker (ralf dot habacker at freenet dot de) 
 
 	* dbus/dbus-sysdeps.c, dbus/dbus-threads.c, dbus/dbus-internals.h:
