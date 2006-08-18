@@ -69,6 +69,9 @@
 #define socklen_t int
 #endif
 
+_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
+_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
+
 /**
  * @addtogroup DBusInternalsUtils
  * @{

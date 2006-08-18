@@ -1,3 +1,22 @@
+2006-08-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	Patch provided by Ralf Habacker (ralf dot habacker at freenet dot de) 
+
+	* dbus/dbus-sysdeps.c, dbus/dbus-threads.c, dbus/dbus-internals.h:
+	Add two more global locks for use on windows platforms.  These are
+	unused on non-windows platforms but are not ifdefed out to avoid
+	potential bugs (i.e. the few bytes lost does not warrent the extra
+	maintanence and complexity that having seperate sets of locks would
+	cause)
+
+2006-08-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/services.c (bus_registry_acquire_service): Return an error
+	when an application tries to register the org.freedesktop.DBus Bus Name
+
+	* bus/services.c (bus_registry_release_service): Return an error
+	when an application tries to release the org.freedesktop.DBus Bus Name
+
 2006-08-17  Alp Toker  <alp@atoker.com>
 
 	* doc/dbus-specification.xml: Fix some minor typos.

@@ -281,7 +281,9 @@ _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 _DBUS_DECLARE_GLOBAL_LOCK (system_users);
 _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
 _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
-#define _DBUS_N_GLOBAL_LOCKS (11)
+_DBUS_DECLARE_GLOBAL_LOCK (win_fds);
+_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
+#define _DBUS_N_GLOBAL_LOCKS (13)
 
 dbus_bool_t _dbus_threads_init_debug (void);
 

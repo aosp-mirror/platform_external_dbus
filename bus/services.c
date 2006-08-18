@@ -417,6 +417,18 @@ bus_registry_acquire_service (BusRegistry      *registry,
       goto out;
     }
 
+  if (_dbus_string_equal_c_str (service_name, DBUS_SERVICE_DBUS))
+    {
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                      "Connection \"%s\" is not allowed to own the service \"%s\"because "
+                      "it is reserved for D-Bus' use only",
+                      bus_connection_is_active (connection) ?
+                      bus_connection_get_name (connection) :
+                      "(inactive)",
+                      DBUS_SERVICE_DBUS);
+      goto out;
+    }
+
   policy = bus_connection_get_policy (connection);
   _dbus_assert (policy != NULL);
 
@@ -445,7 +457,7 @@ bus_registry_acquire_service (BusRegistry      *registry,
                       _dbus_string_get_const_data (service_name));
       goto out;
     }
-      
+  
   if (!bus_client_policy_check_can_own (policy, connection,
                                         service_name))
     {
@@ -619,6 +631,19 @@ bus_registry_release_service (BusRegistry      *registry,
 
       _dbus_verbose ("Attempt to release invalid base service name \"%s\"",
                      _dbus_string_get_const_data (service_name));
+
+      goto out;
+    }
+
+   if (_dbus_string_equal_c_str (service_name, DBUS_SERVICE_DBUS))
+    {
+      /* Not allowed; the base service name cannot be created or released */
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                      "Cannot release the %s service because it is owned by the bus",
+                     DBUS_SERVICE_DBUS);
+
+      _dbus_verbose ("Attempt to release service name \"%s\"",
+                     DBUS_SERVICE_DBUS);
 
       goto out;
     }

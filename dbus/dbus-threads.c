@@ -405,6 +405,8 @@ init_locks (void)
   
   DBusMutex **global_locks[] = {
 #define LOCK_ADDR(name) (& _dbus_lock_##name)
+    LOCK_ADDR (win_fds),
+    LOCK_ADDR (sid_atom_cache),
     LOCK_ADDR (list),
     LOCK_ADDR (connection_slots),
     LOCK_ADDR (pending_call_slots),
