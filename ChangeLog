@@ -1,3 +1,8 @@
+2006-08-20  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-faq.xml, doc/dbus-tutorial.xml: some improvements to
+	the docs
+
 2006-08-18  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Released 0.92 

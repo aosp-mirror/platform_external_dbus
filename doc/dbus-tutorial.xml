@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-Bus Tutorial</title>
-    <releaseinfo>Version 0.4.1</releaseinfo>
-    <date>15 July 2005</date>
+    <releaseinfo>Version 0.5.0</releaseinfo>
+    <date>20 August 2006</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -41,6 +41,23 @@
     </authorgroup>
   </articleinfo>
 
+  <sect1 id="meta">
+    <title>Tutorial Work In Progress</title>
+    
+    <para>
+      This tutorial is not complete; it probably contains some useful information, but 
+      also has plenty of gaps. Right now, you'll also need to refer to the D-Bus specification,
+      Doxygen reference documentation, and look at some examples of how other apps use D-Bus.
+    </para>
+
+    <para>
+      Enhancing the tutorial is definitely encouraged - send your patches or suggestions to the
+      mailing list. If you create a D-Bus binding, please add a section to the tutorial for your 
+      binding, if only a short section with a couple of examples.
+    </para>
+
+  </sect1>
+
   <sect1 id="whatis">
     <title>What is D-Bus?</title>
     <para>
@@ -64,8 +81,8 @@
         </listitem>
         <listitem>
           <para>
-            <firstterm>Wrapper libraries</firstterm> based on particular
-            application frameworks.  For example, libdbus-glib and
+            <firstterm>Wrapper libraries</firstterm> or <firstterm>bindings</firstterm> 
+            based on particular application frameworks.  For example, libdbus-glib and
             libdbus-qt. There are also bindings to languages such as
             Python. These wrapper libraries are the API most people should use,
             as they simplify the details of D-Bus programming. libdbus is 
@@ -74,12 +91,6 @@
           </para>
         </listitem>
       </itemizedlist>
-    </para>
-
-    <para>
-      If you just want to use D-Bus and don't care how it works, jump directly
-      to <xref linkend="concepts"/>.
-      Otherwise, read on.
     </para>
 
     <para>
@@ -210,7 +221,7 @@
           <listitem>
             <para>
               Many implementation and deployment issues are specified rather
-              than left ambiguous.
+              than left ambiguous/configurable/pluggable.
             </para>
           </listitem>
           <listitem>
@@ -244,24 +255,21 @@
     </para>
 
     <sect2 id="objects">
-      <title>Objects and Object Paths</title>
+      <title>Native Objects and Object Paths</title>
       <para>
-        Each application using D-Bus contains <firstterm>objects</firstterm>,
-        which generally map to GObject, QObject, C++ objects, or Python objects
-        (but need not).  An object is an <emphasis>instance</emphasis> rather
-        than a type.  When messages are received over a D-Bus connection, they
-        are sent to a specific object, not to the application as a whole.
+        Your programming framework probably defines what an "object" is like;
+        usually with a base class. For example: java.lang.Object, GObject, QObject,
+        python's base Object, or whatever. Let's call this a <firstterm>native object</firstterm>.
       </para>
       <para>
-        To allow messages to specify their destination object, there has to be a
-        way to refer to an object. In your favorite programming language, this
-        is normally called a <firstterm>pointer</firstterm> or
-        <firstterm>reference</firstterm>. However, these references are
-        implemented as memory addresses relative to the address space of your
-        application, and thus can't be passed from one application to another.
+        The low-level D-Bus protocol, and corresponding libdbus API, does not care about native objects. 
+        However, it provides a concept called an 
+        <firstterm>object path</firstterm>. The idea of an object path is that 
+        higher-level bindings can name native object instances, and allow remote applications 
+        to refer to them.
       </para>
       <para>
-        To solve this, D-Bus introduces a name for each object. The name 
+        The object path
         looks like a filesystem path, for example an object could be 
         named <literal>/org/kde/kspread/sheets/3/cells/4/5</literal>. 
         Human-readable paths are nice, but you are free to create an 
@@ -276,6 +284,26 @@
       </para>
     </sect2>    
 
+    <sect2 id="members">
+      <title>Methods and Signals</title>
+
+      <para>
+        Each object has <firstterm>members</firstterm>; the two kinds of member
+        are <firstterm>methods</firstterm> and
+        <firstterm>signals</firstterm>. Methods are operations that can be
+        invoked on an object, with optional input (aka arguments or "in
+        parameters") and output (aka return values or "out parameters").
+        Signals are broadcasts from the object to any interested observers 
+        of the object; signals may contain a data payload.
+      </para>
+
+      <para>
+        Both methods and signals are referred to by name, such as 
+        "Frobate" or "OnClicked".
+      </para>
+
+    </sect2>
+
     <sect2 id="interfaces">
       <title>Interfaces</title>
       <para>
@@ -284,13 +312,192 @@
         just as it is in GLib or Qt or Java. Interfaces define the 
         <emphasis>type</emphasis> of an object instance.
       </para>
-    </sect2>
-      
-    <sect2 id="messages">
-      <title>Message Types</title>
       <para>
-        Messages are not all the same; in particular, D-Bus has 
-        4 built-in message types:
+        DBus identifies interfaces with a simple namespaced string,
+        something like <literal>org.freedesktop.Introspectable</literal>.
+        Most bindings will map these interface names directly to 
+        the appropriate programming language construct, for example 
+        to Java interfaces or C++ pure virtual classes.
+      </para>
+    </sect2>
+
+    <sect2 id="proxies">
+      <title>Proxies</title>
+      <para>
+        A <firstterm>proxy object</firstterm> is a convenient native object created to 
+        represent a remote object in another process. The low-level DBus API involves manually creating 
+        a method call message, sending it, then manually receiving and processing 
+        the method reply message. Higher-level bindings provide proxies as an alternative.
+        Proxies look like a normal native object; but when you invoke a method on the proxy 
+        object, the binding converts it into a DBus method call message, waits for the reply 
+        message, unpacks the return value, and returns it from the native method..
+      </para>
+      <para>
+        In pseudocode, programming without proxies might look like this:
+        <programlisting>
+          Message message = new Message("/remote/object/path", "MethodName", arg1, arg2);
+          Connection connection = getBusConnection();
+          connection.send(message);
+          Message reply = connection.waitForReply(message);
+          if (reply.isError()) {
+             
+          } else {
+             Object returnValue = reply.getReturnValue();
+          }
+        </programlisting>
+      </para>
+      <para>
+        Programming with proxies might look like this:
+        <programlisting>
+          Proxy proxy = new Proxy(getBusConnection(), "/remote/object/path");
+          Object returnValue = proxy.MethodName(arg1, arg2);
+        </programlisting>
+      </para>
+    </sect2>
+
+    <sect2 id="bus-names">
+      <title>Bus Names</title>
+
+      <para>
+        When each application connects to the bus daemon, the daemon immediately
+        assigns it a name, called the <firstterm>unique connection name</firstterm>.
+        A unique name begins with a ':' (colon) character. These names are never 
+        reused during the lifetime of the bus daemon - that is, you know 
+        a given name will always refer to the same application.
+        An example of a unique name might be
+        <literal>:34-907</literal>. The numbers after the colon have 
+        no meaning other than their uniqueness.
+      </para>
+
+      <para>
+        When a name is mapped 
+        to a particular application's connection, that application is said to 
+        <firstterm>own</firstterm> that name.
+      </para>
+
+      <para>
+        Applications may ask to own additional <firstterm>well-known
+        names</firstterm>. For example, you could write a specification to
+        define a name called <literal>com.mycompany.TextEditor</literal>.
+        Your definition could specify that to own this name, an application
+        should have an object at the path
+        <literal>/com/mycompany/TextFileManager</literal> supporting the
+        interface <literal>org.freedesktop.FileHandler</literal>.
+      </para>
+      
+      <para>
+        Applications could then send messages to this bus name, 
+        object, and interface to execute method calls.
+      </para>
+
+      <para>
+        You could think of the unique names as IP addresses, and the
+        well-known names as domain names. So
+        <literal>com.mycompany.TextEditor</literal> might map to something like
+        <literal>:34-907</literal> just as <literal>mycompany.com</literal> maps
+        to something like <literal>192.168.0.5</literal>.
+      </para>
+      
+      <para>
+        Names have a second important use, other than routing messages.  They
+        are used to track lifecycle. When an application exits (or crashes), its
+        connection to the message bus will be closed by the operating system
+        kernel. The message bus then sends out notification messages telling
+        remaining applications that the application's names have lost their
+        owner. By tracking these notifications, your application can reliably
+        monitor the lifetime of other applications.
+      </para>
+
+      <para>
+        Bus names can also be used to coordinate single-instance applications.
+        If you want to be sure only one
+        <literal>com.mycompany.TextEditor</literal> application is running for
+        example, have the text editor application exit if the bus name already
+        has an owner.
+      </para>
+
+    </sect2>
+
+    <sect2 id="addresses">
+      <title>Addresses</title>
+
+      <para>
+        Applications using D-Bus are either servers or clients.  A server
+        listens for incoming connections; a client connects to a server. Once
+        the connection is established, it is a symmetric flow of messages; the
+        client-server distinction only matters when setting up the 
+        connection.
+      </para>
+
+      <para>
+        If you're using the bus daemon, as you probably are, your application 
+        will be a client of the bus daemon. That is, the bus daemon listens 
+        for connections and your application initiates a connection to the bus 
+        daemon.
+      </para>
+
+      <para>
+        A D-Bus <firstterm>address</firstterm> specifies where a server will
+        listen, and where a client will connect.  For example, the address
+        <literal>unix:path=/tmp/abcdef</literal> specifies that the server will
+        listen on a UNIX domain socket at the path
+        <literal>/tmp/abcdef</literal> and the client will connect to that
+        socket. An address can also specify TCP/IP sockets, or any other
+        transport defined in future iterations of the D-Bus specification.
+      </para>
+
+      <para>
+        When using D-Bus with a message bus daemon,
+        libdbus automatically discovers the address of the per-session bus 
+        daemon by reading an environment variable. It discovers the 
+        systemwide bus daemon by checking a well-known UNIX domain socket path
+        (though you can override this address with an environment variable).
+      </para>
+
+      <para>
+        If you're using D-Bus without a bus daemon, it's up to you to 
+        define which application will be the server and which will be 
+        the client, and specify a mechanism for them to agree on 
+        the server's address. This is an unusual case.
+      </para>
+
+    </sect2>
+
+    <sect2 id="bigpicture">
+      <title>Big Conceptual Picture</title>
+
+      <para>
+        Pulling all these concepts together, to specify a particular 
+        method call on a particular object instance, a number of 
+        nested components have to be named:
+        <programlisting>
+          Address -&gt; [Bus Name] -&gt; Path -&gt; Interface -&gt; Method
+        </programlisting>
+        The bus name is in brackets to indicate that it's optional -- you only
+        provide a name to route the method call to the right application
+        when using the bus daemon. If you have a direct connection to another
+        application, bus names aren't used; there's no bus daemon.
+      </para>
+
+      <para>
+        The interface is also optional, primarily for historical 
+        reasons; DCOP does not require specifying the interface, 
+        instead simply forbidding duplicate method names 
+        on the same object instance. D-Bus will thus let you 
+        omit the interface, but if your method name is ambiguous 
+        it is undefined which method will be invoked.
+      </para>
+
+    </sect2>
+
+    <sect2 id="messages">
+      <title>Messages - Behind the Scenes</title>
+      <para>
+        D-Bus works by sending messages between processes. If you're using 
+        a sufficiently high-level binding, you may never work with messages directly.
+      </para>
+      <para>
+        There are 4 message types:
         <itemizedlist>
           <listitem>
             <para>
@@ -320,141 +527,178 @@
         </itemizedlist>
       </para>
       <para>
-        A method call maps very simply to messages, then: you send a method call
+        A method call maps very simply to messages: you send a method call
         message, and receive either a method return message or an error message
         in reply.
       </para>
+      <para>
+        Each message has a <firstterm>header</firstterm>, including <firstterm>fields</firstterm>, 
+        and a <firstterm>body</firstterm>, including <firstterm>arguments</firstterm>. You can think 
+        of the header as the routing information for the message, and the body as the payload.
+        Header fields might include the sender bus name, destination bus name, method or signal name, 
+        and so forth. One of the header fields is a <firstterm>type signature</firstterm> describing the 
+        values found in the body. For example, the letter "i" means "32-bit integer" so the signature 
+        "ii" means the payload has two 32-bit integers.
+      </para>
     </sect2>
 
-    <sect2 id="bus-names">
-      <title>Bus Names</title>
-      
+    <sect2 id="callprocedure">
+      <title>Calling a Method - Behind the Scenes</title>
+
       <para>
-        Object paths, interfaces, and messages exist on the level of 
-        libdbus and the D-Bus protocol; they are used even in the 
-        1-to-1 case with no message bus involved.
+        A method call in DBus consists of two messages; a method call message sent from process A to process B, 
+        and a matching method reply message sent from process B to process A. Both the call and the reply messages
+        are routed through the bus daemon. The caller includes a different serial number in each call message, and the
+        reply message includes this number to allow the caller to match replies to calls.
       </para>
 
       <para>
-        Bus names, on the other hand, are a property of the message bus daemon.
-        The bus maintains a mapping from names to message bus connections.
-        These names are used to specify the origin and destination
-        of messages passing through the message bus. When a name is mapped 
-        to a particular application's connection, that application is said to 
-        <firstterm>own</firstterm> that name.
+        The call message will contain any arguments to the method.
+        The reply message may indicate an error, or may contain data returned by the method.
       </para>
 
       <para>
-        On connecting to the bus daemon, each application immediately owns a
-        special name called the <firstterm>unique connection name</firstterm>.
-        A unique name begins with a ':' (colon) character; no other names are
-        allowed to begin with that character. Unique names are special because
-        they are created dynamically, and are never re-used during the lifetime
-        of the same bus daemon. You know that a given unique name will have the
-        same owner at all times.  An example of a unique name might be
-        <literal>:34-907</literal>. The numbers after the colon have 
-        no meaning other than their uniqueness.
+        A method invocation in DBus happens as follows:
+        <itemizedlist>
+          <listitem>
+            <para>
+              The language binding may provide a proxy, such that invoking a method on 
+              an in-process object invokes a method on a remote object in another process. If so, the 
+              application calls a method on the proxy, and the proxy
+              constructs a method call message to send to the remote process.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              For more low-level APIs, the application may construct a method call message itself, without
+              using a proxy.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              In either case, the method call message contains: a bus name belonging to the remote process; the name of the method; 
+              the arguments to the method; an object path inside the remote process; and optionally the name of the 
+              interface that specifies the method.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The method call message is sent to the bus daemon.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The bus daemon looks at the destination bus name. If a process owns that name, 
+              the bus daemon forwards the method call to that process. Otherwise, the bus daemon
+              creates an error message and sends it back as the reply to the method call message.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The receiving process unpacks the method call message. In a simple low-level API situation, it 
+              may immediately run the method and send a method reply message to the bus daemon.
+              When using a high-level binding API, the binding might examine the object path, interface,
+              and method name, and convert the method call message into an invocation of a method on 
+              a native object (GObject, java.lang.Object, QObject, etc.), then convert the return 
+              value from the native method into a method reply message.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The bus daemon receives the method reply message and sends it to the process that 
+              made the method call.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The process that made the method call looks at the method reply and makes use of any 
+              return values included in the reply. The reply may also indicate that an error occurred.
+              When using a binding, the method reply message may be converted into the return value of 
+              of a proxy method, or into an exception.
+            </para>
+          </listitem>
+        </itemizedlist>
       </para>
 
       <para>
-        Applications may ask to own additional <firstterm>well-known
-        names</firstterm>. For example, you could write a specification to
-        define a name called <literal>com.mycompany.TextEditor</literal>.
-        Your definition could specify that to own this name, an application
-        should have an object at the path
-        <literal>/com/mycompany/TextFileManager</literal> supporting the
-        interface <literal>org.freedesktop.FileHandler</literal>.        
-      </para>
-      
-      <para>
-        Applications could then send messages to this bus name, 
-        object, and interface to execute method calls.
-      </para>
-
-      <para>
-        You could think of the unique names as IP addresses, and the
-        well-known names as domain names. So
-        <literal>com.mycompany.TextEditor</literal> might map to something like
-        <literal>:34-907</literal> just as <literal>mycompany.com</literal> maps
-        to something like <literal>192.168.0.5</literal>.
-      </para>
-      
-      <para>
-        Names have a second important use, other than routing messages.  They
-        are used to track lifecycle. When an application exits (or crashes), its
-        connection to the message bus will be closed by the operating system
-        kernel. The message bus then sends out notification messages telling
-        remaining applications that the application's names have lost their
-        owner. By tracking these notifications, your application can reliably
-        monitor the lifetime of other applications.
-      </para>
-
-    </sect2>
-
-    <sect2 id="addresses">
-      <title>Addresses</title>
-
-      <para>
-        Applications using D-Bus are either servers or clients.  A server
-        listens for incoming connections; a client connects to a server. Once
-        the connection is established, it is a symmetric flow of messages; the
-        client-server distinction only matters when setting up the 
-        connection.
-      </para>
-
-      <para>
-        A D-Bus <firstterm>address</firstterm> specifies where a server will
-        listen, and where a client will connect.  For example, the address
-        <literal>unix:path=/tmp/abcdef</literal> specifies that the server will
-        listen on a UNIX domain socket at the path
-        <literal>/tmp/abcdef</literal> and the client will connect to that
-        socket. An address can also specify TCP/IP sockets, or any other
-        transport defined in future iterations of the D-Bus specification.
-      </para>
-
-      <para>
-        When using D-Bus with a message bus, the bus daemon is a server 
-        and all other applications are clients of the bus daemon.
-        libdbus automatically discovers the address of the per-session bus 
-        daemon by reading an environment variable. It discovers the 
-        systemwide bus daemon by checking a well-known UNIX domain socket path
-        (though you can override this address with an environment variable).
-      </para>
-
-      <para>
-        If you're using D-Bus without a bus daemon, it's up to you to 
-        define which application will be the server and which will be 
-        the client, and specify a mechanism for them to agree on 
-        the server's address.
+        The bus daemon never reorders messages. That is, if you send two method call messages to the same recipient, 
+        they will be received in the order they were sent. The recipient is not required to reply to the calls
+        in order, however; for example, it may process each method call in a separate thread, and return reply messages
+        in an undefined order depending on when the threads complete. Method calls have a unique serial 
+        number used by the method caller to match reply messages to call messages.
       </para>
 
     </sect2>
 
-    <sect2 id="bigpicture">
-      <title>Big Conceptual Picture</title>
+    <sect2 id="signalprocedure">
+      <title>Emitting a Signal - Behind the Scenes</title>
 
       <para>
-        Pulling all these concepts together, to specify a particular 
-        method call on a particular object instance, a number of 
-        nested components have to be named:
-        <programlisting>
-          Address -&gt; [Bus Name] -&gt; Path -&gt; Interface -&gt; Method
-        </programlisting>
-        The bus name is in brackets to indicate that it's optional -- you only
-        provide a name to route the method call to the right application
-        when using the bus daemon. If you have a direct connection to another
-        application, bus names aren't used; there's no bus daemon.
+        A signal in DBus consists of a single message, sent by one process to any number of other processes. 
+        That is, a signal is a unidirectional broadcast. The signal may contain arguments (a data payload), but 
+        because it is a broadcast, it never has a "return value." Contrast this with a method call 
+        (see <xref linkend="callprocedure"/>) where the method call message has a matching method reply message.
       </para>
 
       <para>
-        The interface is also optional, primarily for historical 
-        reasons; DCOP does not require specifying the interface, 
-        instead simply forbidding duplicate method names 
-        on the same object instance. D-Bus will thus let you 
-        omit the interface, but if your method name is ambiguous 
-        it is undefined which method will be invoked.
+        The emitter (aka sender) of a signal has no knowledge of the signal recipients. Recipients register
+        with the bus daemon to receive signals based on "match rules" - these rules would typically include the sender and 
+        the signal name. The bus daemon sends each signal only to recipients who have expressed interest in that 
+        signal.
       </para>
-      
+
+      <para>
+        A signal in DBus happens as follows:
+        <itemizedlist>
+          <listitem>
+            <para>
+              A signal message is created and sent to the bus daemon. When using the low-level API this may be 
+              done manually, with certain bindings it may be done for you by the binding when a native object
+              emits a native signal or event.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The signal message contains the name of the interface that specifies the signal;
+              the name of the signal; the bus name of the process sending the signal; and 
+              any arguments 
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Any process on the message bus can register "match rules" indicating which signals it 
+              is interested in. The bus has a list of registered match rules.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The bus daemon examines the signal and determines which processes are interested in it.
+              It sends the signal message to these processes.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Each process receiving the signal decides what to do with it; if using a binding, 
+              the binding may choose to emit a native signal on a proxy object. If using the 
+              low-level API, the process may just look at the signal sender and name and decide
+              what to do based on that.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </para>
+
+    </sect2>
+
+    <sect2 id="introspection">
+      <title>Introspection</title>
+
+      <para>
+        D-Bus objects may support the interface <literal>org.freedesktop.DBus.Introspectable</literal>.
+        This interface has one method <literal>Introspect</literal> which takes no arguments and returns
+        an XML string. The XML string describes the interfaces, methods, and signals of the object.
+        See the D-Bus specification for more details on this introspection format.
+      </para>
+
     </sect2>
 
   </sect1>

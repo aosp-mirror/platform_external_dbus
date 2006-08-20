@@ -155,6 +155,26 @@
       </question>
       <answer>
         <para>
+          It helps to keep these concepts separate in your mind:
+          <orderedlist>
+            <listitem>
+              <para>
+                Object/component system
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                GUI control/widget embedding interfaces
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Interprocess communication system or wire protocol
+              </para>
+            </listitem>
+          </orderedlist>
+        </para>
+        <para>
           D-Bus is not a component system. "Component system" was originally
           defined by COM, and was essentially a workaround for the limitations
           of the C++ object system (adding introspection, runtime location of
@@ -177,7 +197,10 @@
           in modern languages all objects are effectively "components."
         </para>
         <para>
-          A third, orthogonal feature is interprocess communication or IPC.
+          So components are fancy objects, and some objects are GUI controls.
+        </para>
+        <para>
+          A third, unrelated feature is interprocess communication or IPC.
           D-Bus is an IPC system. Given an object (or "component" if you must), 
           you can expose the functionality of that object over an IPC system.
           Examples of IPC systems are DCOM, CORBA, SOAP, XML-RPC, and D-Bus.
@@ -188,26 +211,6 @@
         <para>
           If you combine an IPC system with a set of GUI control interfaces, 
           then you can have an out-of-process or dynamically-loaded GUI control.
-        </para>
-        <para>
-          Summarizing, there are three orthogonal things:
-          <orderedlist>
-            <listitem>
-              <para>
-                Object/component system
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                Control embedding interfaces
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                Interprocess communication system or wire protocol
-              </para>
-            </listitem>
-          </orderedlist>
         </para>
         <para>
           Another related concept is the <firstterm>plugin</firstterm> or
