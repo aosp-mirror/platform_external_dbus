@@ -23,6 +23,19 @@ Important for 1.0
 
  - fix locking on DBusPendingCall
 
+ - dbus_connection_open() is like dbus_bus_get() in that it returns a shared
+   connection; it needs the corresponding fix to hold a strong reference to 
+   these connections.
+
+ - _dbus_bus_check_connection_and_unref does not do proper locking and 
+   doesn't handle all the shared connections, e.g. DBUS_BUS_STARTER
+
+ - for both the dbus-bus.c shared connections and dbus_connection_open() 
+   shared connections, it is probably appropriate to warn() if someone 
+   calls close() on them ; essentially shared connections are not closeable
+   because it's unclear who would do the closing and when, short of 
+   dbus_shutdown()
+
 Important for 1.0 GLib Bindings
 ===
 
