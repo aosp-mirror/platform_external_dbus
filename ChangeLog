@@ -1,5 +1,10 @@
 2006-08-25  John (J5) Palmieri  <johnp@redhat.com>
 
+	* test/Makefile.am: change find to use syntax that works with non
+	gnu versions of find
+
+2006-08-25  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-transport.c: fix invalid deref when checking if
 	a vtable method exists (Patch from Christian Ehrlicher 
 	<ch dot ehrlicher at gmx dot de>)
