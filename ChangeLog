@@ -1,3 +1,9 @@
+2006-08-25  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.ac, bus/Makefile.am: Generalize kqueue support so that
+	it works on any system providing this interface, not only FreeBSD.
+	For example, NetBSD. (Patch by Julio M. Merino Vidal  <jmmv at NetBSD dot org>)
+
 2006-08-20  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-faq.xml, doc/dbus-tutorial.xml: some improvements to
