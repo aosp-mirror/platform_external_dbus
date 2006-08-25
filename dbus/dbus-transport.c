@@ -68,7 +68,7 @@ live_messages_size_notify (DBusCounter *counter,
   /* disable or re-enable the read watch for the transport if
    * required.
    */
-  if (* transport->vtable->live_messages_changed)
+  if (transport->vtable->live_messages_changed)
     (* transport->vtable->live_messages_changed) (transport);
 
   _dbus_transport_unref (transport);
