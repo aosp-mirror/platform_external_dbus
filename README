@@ -31,7 +31,7 @@ the ./configure program.
                           use abstract socket namespace (linux only)
   --enable-selinux        build with SELinux support
   --enable-dnotify        build with dnotify support (linux only)
-
+  --enable-kqueue         build with kqueue support (*BSD only)
   --with-xml=libxml/expat           XML library to use
   --with-init-scripts=redhat        Style of init scripts to install
   --with-session-socket-dir=dirname Where to put sockets for the per-login-session message bus
