@@ -1002,10 +1002,10 @@ AC_SUBST(DBUS_DAEMONDIR)
 AC_DEFINE_UNQUOTED(DBUS_DAEMONDIR,"$DBUS_DAEMONDIR", [Directory for installing the DBUS daemon])
 
 #### Tell tests where to find certain stuff in builddir
-ABSOLUTE_TOP_BUILDDIR=`cd ${ac_top_builddir}. && pwd`
 
+DBUS_PWD=`pwd`
 AC_DEFUN([TEST_PATH], [
-TEST_$1=${ABSOLUTE_TOP_BUILDDIR}/test/$2
+TEST_$1=${DBUS_PWD}/test/$2
 AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1",
                    [Full path to test file test/$2 in builddir])
 AC_SUBST(TEST_$1)
@@ -1017,7 +1017,6 @@ TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
 TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
 TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
-AC_SUBST(ABSOLUTE_TOP_BUILDDIR)
 
 #### Find socket directories
 if ! test -z "$TMPDIR" ; then

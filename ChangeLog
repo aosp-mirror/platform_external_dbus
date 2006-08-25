@@ -1,5 +1,12 @@
 2006-08-25  John (J5) Palmieri  <johnp@redhat.com>
 
+	* configure.in, dbus/Makefile.am, test/name-test/run-test.sh, 
+	test/name-test/Makefile.am: Fixed some issues with getting get dbus 
+	to build with builddir != srcdir (Taken from a patch by Bernard Leak
+	<bernard at brenda-arkle dot demon dot co dot uk>)
+
+2006-08-25  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: Fix DBUS_DAEMONDIR to use EXPANDED_BINDIR for the
 	default case
 

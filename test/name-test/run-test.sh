@@ -8,8 +8,6 @@ ie()
     fi
     echo $SCRIPTNAME: $* >&2
 
-    rm $DBUS_TOP_BUILDDIR/python/dbus
- 
     exit 1
 }
 
@@ -24,7 +22,7 @@ export DBUS_TEST_NAME_RUN_TEST_SCRIPT=1
 if test -z "$DBUS_TEST_NAME_IN_RUN_TEST"; then
   DBUS_TEST_NAME_IN_RUN_TEST=1
   export DBUS_TEST_NAME_IN_RUN_TEST
-  exec $DBUS_TOP_BUILDDIR/tools/run-with-tmp-session-bus.sh $SCRIPTNAME $MODE
+  exec $DBUS_TOP_SRCDIR/tools/run-with-tmp-session-bus.sh $SCRIPTNAME $MODE
 fi 
 echo "running test-names"
 libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-names || die "test-client failed"
