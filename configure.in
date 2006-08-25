@@ -994,7 +994,7 @@ AC_DEFINE_UNQUOTED(DBUS_USER,"$DBUS_USER", [User for running the system BUS daem
 
 #### Directory to install dbus-daemon
 if test -z "$with_dbus_daemondir" ; then
-    DBUS_DAEMONDIR="${bindir}"
+    DBUS_DAEMONDIR=$EXPANDED_BINDIR
 else
     DBUS_DAEMONDIR=$with_dbus_daemondir
 fi
