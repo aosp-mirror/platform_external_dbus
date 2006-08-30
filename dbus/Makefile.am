@@ -129,6 +129,7 @@ DBUS_UTIL_SOURCES=				\
 	dbus-spawn.h				\
 	dbus-string-util.c			\
 	dbus-sysdeps-util.c			\
+	dbus-sysdeps-util-unix.c		\
 	dbus-test.c				\
 	dbus-test.h				\
 	dbus-userdb-util.c
