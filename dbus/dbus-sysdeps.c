@@ -2987,47 +2987,58 @@ _dbus_full_duplex_pipe (int        *fd1,
 }
 
 
-#ifndef DBUS_WIN
 /**
- * Measure the message length without terminating nul
+ * Measure the length of the given format string and arguments,
+ * not including the terminating nul.
+ *
+ * @param format a printf-style format string
+ * @param args arguments for the format string
+ * @returns length of the given format string and args
  */
-int _dbus_printf_string_upper_bound (const char *format,
-                                     va_list args)
+int
+_dbus_printf_string_upper_bound (const char *format,
+                                 va_list     args)
 {
   char c;
   return vsnprintf (&c, 1, format, args);
 }
-#endif
-
-
 
 /**
  * Gets the temporary files directory by inspecting the environment variables 
  * TMPDIR, TMP, and TEMP in that order. If none of those are set "/tmp" is returned
  *
- * @returns char* - location of temp directory
+ * @returns location of temp directory
  */
-char*
+const char*
 _dbus_get_tmpdir(void)
 {
-  char* tmpdir;
+  static const char* tmpdir = NULL;
 
-  tmpdir = getenv("TMPDIR");
-  if (tmpdir) {
-     return tmpdir;
-  }
+  if (tmpdir == NULL)
+    {
+      /* TMPDIR is what glibc uses, then
+       * glibc falls back to the P_tmpdir macro which
+       * just expands to "/tmp"
+       */
+      if (tmpdir == NULL)
+        tmpdir = getenv("TMPDIR");
 
-  tmpdir = getenv("TMP");
-  if (tmpdir) {
-     return tmpdir;
-  }
+      /* These two env variables are probably
+       * broken, but maybe some OS uses them?
+       */
+      if (tmpdir == NULL)
+        tmpdir = getenv("TMP");
+      if (tmpdir == NULL)
+        tmpdir = getenv("TEMP");
+
+      /* And this is the sane fallback. */
+      if (tmpdir == NULL)
+        tmpdir = "/tmp";
+    }
   
-  tmpdir = getenv("TEMP");
-  if (tmpdir) {
-     return tmpdir;
-  }
-
-  return "/tmp";
+  _dbus_assert(tmpdir != NULL);
+  
+  return tmpdir;
 }
 
 /** @} end of sysdeps */

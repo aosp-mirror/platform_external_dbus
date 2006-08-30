@@ -293,6 +293,8 @@ path_message_func (DBusConnection  *connection,
         
         if (!dbus_connection_send (connection, reply, NULL))
           die ("No memory");
+
+        return DBUS_HANDLER_RESULT_HANDLED;
     }
   else
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;

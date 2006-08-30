@@ -1,5 +1,15 @@
 2006-08-29  Havoc Pennington  <hp@redhat.com>
 
+	* test/test-service.c (path_message_func): fix lack of return value
+
+	* dbus/dbus-sysdeps.c (_dbus_printf_string_upper_bound): fix
+	formatting, remove #ifdef, and fix docs. #ifdef doesn't make
+	any more sense than on anything else in this file.
+	(_dbus_get_tmpdir): add const to return value, and keep the
+	results of the various getenv around in a static variable.
+
+2006-08-29  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps-util.c, dbus/dbus-sysdeps-util-unix.c: change
 	from Ralf Habacker to move UNIX-specific sysdeps into a separate file.
 
