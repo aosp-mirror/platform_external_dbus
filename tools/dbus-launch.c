@@ -311,6 +311,7 @@ signal_handler (int sig)
   switch (sig)
     {
     case SIGHUP:
+    case SIGTERM:
       got_sighup = TRUE;
       break;
     }
@@ -336,6 +337,7 @@ kill_bus_when_session_ends (void)
   act.sa_mask    = empty_mask;
   act.sa_flags   = 0;
   sigaction (SIGHUP,  &act, NULL);
+  sigaction (SIGTERM,  &act, NULL);
   
 #ifdef DBUS_BUILD_X11
   xdisplay = XOpenDisplay (NULL);
