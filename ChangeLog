@@ -1,5 +1,11 @@
 2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-pending-call.c: Add some checks so we don't crash on
+	NULL in the public API (Patch from Kimmo Hämäläinen 
+	<kimmo dot hamalainen at nokia dot com>)
+
+2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: Fix for OS-X compile time endian issues (patch from
 	Benjamin Reed <ranger at befunk dot com>)
 

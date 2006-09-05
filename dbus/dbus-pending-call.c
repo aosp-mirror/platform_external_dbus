@@ -547,6 +547,8 @@ dbus_pending_call_set_notify (DBusPendingCall              *pending,
 void
 dbus_pending_call_cancel (DBusPendingCall *pending)
 {
+  _dbus_return_if_fail (pending != NULL);
+
   _dbus_connection_remove_pending_call (pending->connection,
                                         pending);
 }
@@ -576,6 +578,8 @@ dbus_pending_call_get_completed (DBusPendingCall *pending)
 {
   dbus_bool_t completed;
   
+  _dbus_return_val_if_fail (pending != NULL, FALSE);
+
   CONNECTION_LOCK (pending->connection);
   completed = pending->completed;
   CONNECTION_UNLOCK (pending->connection);
@@ -597,6 +601,7 @@ dbus_pending_call_steal_reply (DBusPendingCall *pending)
 {
   DBusMessage *message;
   
+  _dbus_return_val_if_fail (pending != NULL, NULL);
   _dbus_return_val_if_fail (pending->completed, NULL);
   _dbus_return_val_if_fail (pending->reply != NULL, NULL);
 
@@ -627,6 +632,8 @@ dbus_pending_call_steal_reply (DBusPendingCall *pending)
 void
 dbus_pending_call_block (DBusPendingCall *pending)
 {
+  _dbus_return_if_fail (pending != NULL);
+
   _dbus_connection_block_pending_call (pending);
 }
 
@@ -650,6 +657,8 @@ _DBUS_DEFINE_GLOBAL_LOCK (pending_call_slots);
 dbus_bool_t
 dbus_pending_call_allocate_data_slot (dbus_int32_t *slot_p)
 {
+  _dbus_return_val_if_fail (slot_p != NULL, FALSE);
+
   return _dbus_data_slot_allocator_alloc (&slot_allocator,
                                           &_DBUS_LOCK_NAME (pending_call_slots),
                                           slot_p);
@@ -669,6 +678,7 @@ dbus_pending_call_allocate_data_slot (dbus_int32_t *slot_p)
 void
 dbus_pending_call_free_data_slot (dbus_int32_t *slot_p)
 {
+  _dbus_return_if_fail (slot_p != NULL);
   _dbus_return_if_fail (*slot_p >= 0);
 
   _dbus_data_slot_allocator_free (&slot_allocator, slot_p);
