@@ -165,6 +165,14 @@ if test "x$GCC" = "xyes"; then
      ;;
   esac
 
+  case " $CFLAGS " in
+  *[\ \	]-fno-common[\ \	]*) ;;
+  *) if cc_supports_flag -fno-common; then
+        CFLAGS="$CFLAGS -fno-common"
+     fi
+     ;;
+  esac
+
   if test "x$enable_ansi" = "xyes"; then
     case " $CFLAGS " in
     *[\ \	]-ansi[\ \	]*) ;;

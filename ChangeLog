@@ -1,3 +1,8 @@
+2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: Check for no-common compiler flag (OS-X fix from
+	Benjamin Reed <ranger at befunk dot com>)
+
 2006-09-01  John (J5) Palmieri  <johnp@redhat.com>
 
 	* tools/dbus-launch.c: Add a sigterm handler (patch from Frederic Crozat
