@@ -1,5 +1,10 @@
 2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
 
+	* configure.in: Fix for OS-X compile time endian issues (patch from
+	Benjamin Reed <ranger at befunk dot com>)
+
+2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: Check for no-common compiler flag (OS-X fix from
 	Benjamin Reed <ranger at befunk dot com>)
 

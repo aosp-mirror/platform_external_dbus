@@ -343,8 +343,21 @@ fi
 AC_SUBST(DBUS_INT16_TYPE)
 
 ## byte order
-AC_C_BIGENDIAN
-
+case $host_os in
+	darwin*)
+		# check at compile-time, so that it is possible to build universal
+		# (with multiple architectures at once on the compile line)
+		AH_VERBATIM([WORDS_BIGENDIAN_DARWIN], [
+			/* Use the compiler-provided endianness defines to allow universal compiling. */
+			#if defined(__BIG_ENDIAN__)
+			#define WORDS_BIGENDIAN 1
+			#endif
+		])
+		;;
+	*)
+		AC_C_BIGENDIAN
+		;;
+esac
 
 dnl **********************************
 dnl *** va_copy checks (from GLib) ***
@@ -433,8 +446,22 @@ if test x"$GCC" = xyes; then
         AC_MSG_RESULT([no])
         ;;
       i?86)
-        AC_MSG_RESULT([i486])
-        AC_DEFINE_UNQUOTED(DBUS_USE_ATOMIC_INT_486, 1, [Use atomic integer implementation for 486])
+        case $host_os in
+          darwin*)
+            AC_MSG_RESULT([darwin])
+            # check at compile-time, so that it is possible to build universal
+            # (with multiple architectures at once on the compile line)
+            AH_VERBATIM([DBUS_USE_ATOMIC_INT_486_DARWIN], [
+              #if (defined(__i386__) || defined(__x86_64__))
+              # define DBUS_USE_ATOMIC_INT_486 1
+              #endif
+            ])
+            ;;
+          *)
+            AC_MSG_RESULT([i486])
+            AC_DEFINE_UNQUOTED(DBUS_USE_ATOMIC_INT_486, 1, [Use atomic integer implementation for 486])
+            ;;
+        esac
         have_atomic_inc=yes
         ;;
       *)
@@ -444,7 +471,18 @@ if test x"$GCC" = xyes; then
   fi
 fi
 if test x$have_atomic_inc = xyes ; then
-  AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT, 1, [Some atomic integer implementation present])
+  case $host_os in
+    darwin*)
+      AH_VERBATIM([DBUS_HAVE_ATOMIC_INT_DARWIN], [
+        #if (defined(__i386__) || defined(__x86_64__))
+        # define DBUS_HAVE_ATOMIC_INT 1
+        #endif
+      ])
+      ;;
+    *)
+      AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT, 1, [Some atomic integer implementation present])
+      ;;
+  esac
 fi
 
 #### Various functions
