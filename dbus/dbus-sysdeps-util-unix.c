@@ -252,7 +252,7 @@ _dbus_change_identity  (dbus_uid_t     uid,
   /* setgroups() only works if we are a privileged process,
    * so we don't return error on failure; the only possible
    * failure is that we don't have perms to do it.
-   * FIXME not sure this is right, maybe if setuid()
+   * FIXME 1.0 not sure this is right, maybe if setuid()
    * is going to work then setgroups() should also work.
    */
   if (setgroups (0, NULL) < 0)
@@ -494,7 +494,7 @@ _dbus_directory_open (const DBusString *filename,
  * UNIX. If an error occurs, the contents of "filename" are
  * undefined. The error is never set if the function succeeds.
  *
- * @todo for thread safety, I think we have to use
+ * @todo 1.0 for thread safety, I think we have to use
  * readdir_r(). (GLib has the same issue, should file a bug.)
  *
  * @param iter the iterator

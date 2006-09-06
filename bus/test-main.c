@@ -94,7 +94,7 @@ main (int argc, char **argv)
   _dbus_string_init_const (&test_data_dir, dir);
 
 #if 0
-  /* FIXME this is disabled because of thread bugs that need fixing... */
+  /* FIXME 1.0 this is disabled because of thread bugs that need fixing... */
   if (!_dbus_threads_init_debug ())
     die ("initializing debug threads");
 #endif

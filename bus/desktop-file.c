@@ -772,7 +772,7 @@ bus_desktop_file_get_string (BusDesktopFile  *desktop_file,
 
   *val = _dbus_strdup (raw);
 
-  /* FIXME we don't distinguish "key not found" from "out of memory" here,
+  /* FIXME 1.0 we don't distinguish "key not found" from "out of memory" here,
    * which is broken.
    */
   if (*val == NULL)

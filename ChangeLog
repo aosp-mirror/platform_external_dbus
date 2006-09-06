@@ -1,5 +1,12 @@
 2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
 
+	* doc/TODO, various source files: Audited todo's and FIXME's and
+	prepended the ones we should be looking at with 1.0.  Those
+	prepended with 1.0? need clerification or might not be needed
+	for 1.0
+
+2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-pending-call.c: Add some checks so we don't crash on
 	NULL in the public API (Patch from Kimmo Hämäläinen 
 	<kimmo dot hamalainen at nokia dot com>)

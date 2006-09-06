@@ -1925,7 +1925,7 @@ process_command (DBusAuth *auth)
   if (!_dbus_string_move (&line, i, &args, 0))
     goto out;
 
-  /* FIXME we should probably validate that only the allowed
+  /* FIXME 1.0 we should probably validate that only the allowed
    * chars are in the command name
    */
   
@@ -2397,7 +2397,7 @@ _dbus_auth_needs_decoding (DBusAuth *auth)
  * the peer. If no encoding was negotiated, just copies the bytes (you
  * can avoid this by checking _dbus_auth_needs_decoding()).
  *
- * @todo We need to be able to distinguish "out of memory" error
+ * @todo 1.0? We need to be able to distinguish "out of memory" error
  * from "the data is hosed" error.
  *
  * @param auth the auth conversation

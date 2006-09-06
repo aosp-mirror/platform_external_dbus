@@ -471,7 +471,7 @@ _dbus_server_toggle_timeout (DBusServer  *server,
  * dbus_server_set_watch_functions() should be called
  * immediately to render the server fully functional.
  *
- * @todo error messages on bad address could really be better.
+ * @todo 1.0? error messages on bad address could really be better.
  * DBusResultCode is a bit limiting here.
  *
  * @param address the address of this server.
@@ -558,7 +558,7 @@ dbus_server_listen (const char     *address,
                   goto out;
                 }
               
-              /* FIXME - we will unconditionally unlink() the path if
+              /* FIXME 1.0 - we will unconditionally unlink() the path if
                * we don't support abstract namespace.  unlink() does
                * not follow symlinks, but would like independent
                * confirmation this is safe enough. See also

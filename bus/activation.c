@@ -1017,7 +1017,7 @@ bus_activation_send_pending_auto_activation_messages (BusActivation  *activation
 }
 
 /**
- * FIXME @todo the error messages here would ideally be preallocated
+ * FIXME @todo 1.0? the error messages here would ideally be preallocated
  * so we don't need to allocate memory to send them.
  * Using the usual tactic, prealloc an OOM message, then
  * if we can't alloc the real error send the OOM error instead.

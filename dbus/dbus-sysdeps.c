@@ -98,7 +98,7 @@ _dbus_abort (void)
  * Wrapper for setenv(). If the value is #NULL, unsets
  * the environment variable.
  *
- * @todo if someone can verify it's safe, we could avoid the
+ * @todo 1.0 if someone can verify it's safe, we could avoid the
  * memleak when doing an unset.
  *
  * @param varname name of environment variable

@@ -46,7 +46,7 @@ typedef struct DBusArrayLenFixup   DBusArrayLenFixup;
  * and getting the values should be fast and not involve all this type
  * reader nonsense.
  *
- * @todo DBusTypeMark isn't used right now and probably won't be, we should delete it
+ * @todo 1.0 DBusTypeMark isn't used right now and probably won't be, we should delete it
  */
 struct DBusTypeMark
 {

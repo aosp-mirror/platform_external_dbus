@@ -40,10 +40,6 @@
  * basic type may be read with this function. See
  * dbus_message_get_args() for more details.
  *
- * @todo this is static for now because there's no corresponding
- * iter_append_args() and I'm not sure we need this function to be
- * public since dbus_message_get_args() is what you usually want
- *
  * @param iter the message iterator
  * @param error error to be filled in on failure
  * @param first_arg_type the first argument type

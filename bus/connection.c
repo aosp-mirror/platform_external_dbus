@@ -183,7 +183,7 @@ bus_connection_disconnected (DBusConnection *connection)
       bus_matchmaker_disconnected (matchmaker, connection);
     }
   
-  /* Drop any service ownership. FIXME Unfortunately, this requires
+  /* Drop any service ownership. FIXME 1.0? Unfortunately, this requires
    * memory allocation and there doesn't seem to be a good way to
    * handle it other than sleeping; we can't "fail" the operation of
    * disconnecting a client, and preallocating a broadcast "service is

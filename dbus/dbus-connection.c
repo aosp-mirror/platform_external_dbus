@@ -444,7 +444,7 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
  * @param connection the connection.
  * @param link the list node and message to queue.
  *
- * @todo This needs to wake up the mainloop if it is in
+ * @todo 1.0? This needs to wake up the mainloop if it is in
  * a poll/select and this is a multithreaded app.
  */
 void
@@ -863,9 +863,10 @@ free_pending_call_on_hash_removal (void *data)
       _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
     }
 
-  /* FIXME this is sort of dangerous and undesirable to drop the lock here, but
-   * the pending call finalizer could in principle call out to application code
-   * so we pretty much have to... some larger code reorg might be needed.
+  /* FIXME 1.0? this is sort of dangerous and undesirable to drop the lock 
+   * here, but the pending call finalizer could in principle call out to 
+   * application code so we pretty much have to... some larger code reorg 
+   * might be needed.
    */
   _dbus_connection_ref_unlocked (connection);
   _dbus_pending_call_unref_and_unlock (pending);
@@ -2693,7 +2694,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   
   if (!_dbus_connection_get_is_connected_unlocked (connection))
     {
-      /* FIXME send a "DBUS_ERROR_DISCONNECTED" instead, just to help
+      /* FIXME 1.0 send a "DBUS_ERROR_DISCONNECTED" instead, just to help
        * programmers understand what went wrong since the timeout is
        * confusing
        */

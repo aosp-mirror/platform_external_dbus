@@ -1734,7 +1734,7 @@ bus_driver_handle_message (DBusConnection *connection,
 void
 bus_driver_remove_connection (DBusConnection *connection)
 {
-  /* FIXME Does nothing for now, should unregister the connection
+  /* FIXME 1.0 Does nothing for now, should unregister the connection
    * with the bus driver.
    */
 }

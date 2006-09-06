@@ -598,7 +598,8 @@ _dbus_marshal_read_basic (const DBusString      *str,
  * If you ask for #DBUS_TYPE_DOUBLE you will get a "const double*" back
  * and the "value" argument should be a "const double**" and so on.
  *
- * @todo we aren't using this function (except in the test suite)
+ * @todo 1.0 we aren't using this function (except in the test suite)
+ *       add #ifdefs around it
  * 
  * @param str the string to read from
  * @param pos position to read from
@@ -1359,7 +1360,8 @@ _dbus_type_to_string (int typecode)
 /**
  * If in verbose mode, print a block of binary data.
  *
- * @todo right now it prints even if not in verbose mode
+ * @todo 1.0 right now it prints even if not in verbose mode
+ *           check for verbose mode and return if not
  *
  * @param data the data
  * @param len the length of the data

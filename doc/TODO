@@ -8,7 +8,9 @@ Important for 1.0
    locks. Fixes the recursive deadlock. See the @todo for more
    and this thread: http://lists.freedesktop.org/archives/dbus/2006-February/004128.html
 
- - Audit @todo and FIXME for security issues
+ - Take a look at the issues marked @todo 1.0 or FIXME 1.0.  Ones with
+   Question marks at the ends either need clarification or are not 
+   really needed for 1.0 but would be nice.
 
  - the "break loader" and valid/invalid message tests are all disabled;
    they need to be fixed and re-enabled with the new message args stuff.

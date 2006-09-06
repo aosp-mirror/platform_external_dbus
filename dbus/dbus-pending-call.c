@@ -624,7 +624,7 @@ dbus_pending_call_steal_reply (DBusPendingCall *pending)
  * If the pending call is already completed, this function returns
  * immediately.
  *
- * @todo when you start blocking, the timeout is reset, but it should
+ * @todo 1.0? when you start blocking, the timeout is reset, but it should
  * really only use time remaining since the pending call was created.
  *
  * @param pending the pending call
