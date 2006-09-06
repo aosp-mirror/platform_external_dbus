@@ -171,6 +171,8 @@ void
 test_connection_shutdown (DBusLoop       *loop,
                           DBusConnection *connection)
 {
+  _dbus_connection_close_internal (connection);
+
   if (!dbus_connection_set_watch_functions (connection,
                                             NULL,
                                             NULL,

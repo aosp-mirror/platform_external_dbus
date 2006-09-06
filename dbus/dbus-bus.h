@@ -68,7 +68,7 @@ void            dbus_bus_remove_match     (DBusConnection *connection,
                                            const char     *rule,
                                            DBusError      *error);
 
-void           _dbus_bus_check_connection_and_unref (DBusConnection *connection);
+void           _dbus_bus_check_connection_and_unref_unlocked (DBusConnection *connection);
 
 DBUS_END_DECLS
 

@@ -239,7 +239,9 @@ struct DBusConnection
   char *server_guid; /**< GUID of server if we are in shared_connections, #NULL if server GUID is unknown or connection is private */
 
   unsigned int shareable : 1; /**< #TRUE if connection can go in shared_connections once we know the GUID */
-  
+ 
+  unsigned int shared : 1; /** < #TRUE if connection is shared and we hold a ref to it */
+
   unsigned int dispatch_acquired : 1; /**< Someone has dispatch path (can drain incoming queue) */
   unsigned int io_path_acquired : 1;  /**< Someone has transport io path (can use the transport to read/write messages) */
   
@@ -1360,6 +1362,7 @@ shared_connections_shutdown (void *data)
   _DBUS_LOCK (shared_connections);
 
   _dbus_assert (_dbus_hash_table_get_n_entries (shared_connections) == 0);
+
   _dbus_hash_table_unref (shared_connections);
   shared_connections = NULL;
   
@@ -1474,6 +1477,10 @@ connection_record_shared_unlocked (DBusConnection *connection,
     }
 
   connection->server_guid = guid_in_connection;
+  connection->shared = TRUE;
+
+  /* get a hard ref on this connection */
+  dbus_connection_ref (connection);
 
   _dbus_verbose ("stored connection to %s to be shared\n",
                  connection->server_guid);
@@ -1489,7 +1496,7 @@ static void
 connection_forget_shared_unlocked (DBusConnection *connection)
 {
   HAVE_LOCK_CHECK (connection);
-  
+ 
   if (connection->server_guid == NULL)
     return;
 
@@ -1505,6 +1512,8 @@ connection_forget_shared_unlocked (DBusConnection *connection)
   dbus_free (connection->server_guid);
   connection->server_guid = NULL;
 
+  /* remove the hash ref */
+  _dbus_connection_unref_unlocked (connection);
   _DBUS_UNLOCK (shared_connections);
 }
 
@@ -1605,7 +1614,7 @@ _dbus_connection_open_internal (const char     *address,
                   !connection_record_shared_unlocked (connection, guid))
                 {
                   _DBUS_SET_OOM (&tmp_error);
-                  dbus_connection_close (connection);
+                  _dbus_connection_close_internal (connection);
                   dbus_connection_unref (connection);
                   connection = NULL;
                 }
@@ -1896,6 +1905,32 @@ dbus_connection_unref (DBusConnection *connection)
     _dbus_connection_last_unref (connection);
 }
 
+static void
+_dbus_connection_close_internal_and_unlock (DBusConnection *connection)
+{
+  DBusDispatchStatus status;
+  
+  _dbus_verbose ("Disconnecting %p\n", connection);
+  
+  _dbus_transport_disconnect (connection->transport);
+
+  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+
+  /* this calls out to user code */
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+}
+
+void
+_dbus_connection_close_internal (DBusConnection *connection)
+{
+  _dbus_assert (connection != NULL);
+  _dbus_assert (connection->generation == _dbus_current_generation);
+
+  CONNECTION_LOCK (connection);
+  _dbus_connection_close_internal_and_unlock (connection);
+}
+
 /**
  * Closes the connection, so no further data can be sent or received.
  * Any further attempts to send data will result in errors.  This
@@ -1907,27 +1942,29 @@ dbus_connection_unref (DBusConnection *connection)
  * dbus_connection_set_dispatch_status_function(), as the disconnect
  * message it generates needs to be dispatched.
  *
+ * If the connection is a shared connection we print out a warning that
+ * you can not close shared connection and we return.  Internal calls
+ * should use _dbus_connection_close_internal() to close shared connections.
+ *
  * @param connection the connection.
  */
 void
 dbus_connection_close (DBusConnection *connection)
 {
-  DBusDispatchStatus status;
-  
   _dbus_return_if_fail (connection != NULL);
   _dbus_return_if_fail (connection->generation == _dbus_current_generation);
 
-  _dbus_verbose ("Disconnecting %p\n", connection);
-  
   CONNECTION_LOCK (connection);
-  
-  _dbus_transport_disconnect (connection->transport);
 
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
-  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+  if (connection->shared)
+    {
+      CONNECTION_UNLOCK (connection);
 
-  /* this calls out to user code */
-  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+      _dbus_warn ("Applications can not close shared connections.  Please fix this in your app.  Ignoring close request and continuing.");
+      return;
+    }
+
+  _dbus_connection_close_internal_and_unlock (connection);
 }
 
 static dbus_bool_t
@@ -3823,7 +3860,7 @@ dbus_connection_dispatch (DBusConnection *connection)
                                   DBUS_INTERFACE_LOCAL,
                                   "Disconnected"))
         {
-          _dbus_bus_check_connection_and_unref (connection);
+          _dbus_bus_check_connection_and_unref_unlocked (connection);
 
           if (connection->exit_on_disconnect)
             {

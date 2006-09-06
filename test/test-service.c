@@ -115,6 +115,7 @@ check_hello_from_self_reply (DBusPendingCall *pcall,
   dbus_message_unref (reply);
   dbus_message_unref (echo_message);
   dbus_pending_call_unref (pcall);
+  dbus_connection_unref (connection);
 }
 
 static DBusHandlerResult
@@ -242,7 +243,7 @@ path_message_func (DBusConnection  *connection,
                                         "org.freedesktop.TestSuite",
                                         "Exit"))
     {
-      dbus_connection_close (connection);
+      dbus_connection_unref (connection);
       quit ();
       return DBUS_HANDLER_RESULT_HANDLED;
     }
@@ -319,7 +320,6 @@ filter_func (DBusConnection     *connection,
                               DBUS_INTERFACE_LOCAL,
                               "Disconnected"))
     {
-      dbus_connection_close (connection);
       quit ();
       return DBUS_HANDLER_RESULT_HANDLED;
     }

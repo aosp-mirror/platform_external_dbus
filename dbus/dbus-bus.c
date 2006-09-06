@@ -28,6 +28,7 @@
 #include "dbus-message.h"
 #include "dbus-marshal-validate.h"
 #include "dbus-threads-internal.h"
+#include "dbus-connection-internal.h"
 #include <string.h>
 
 /**
@@ -303,20 +304,29 @@ ensure_bus_data (DBusConnection *connection)
 }
 
 /* internal function that checks to see if this
-   is a shared bus connection and if it is unref it */
+   is a shared connection owned by the bus and if it is unref it */
 void
-_dbus_bus_check_connection_and_unref (DBusConnection *connection)
+_dbus_bus_check_connection_and_unref_unlocked (DBusConnection *connection)
 {
+  _DBUS_LOCK (bus);
+
   if (bus_connections[DBUS_BUS_SYSTEM] == connection)
     {
       bus_connections[DBUS_BUS_SYSTEM] = NULL;
-      dbus_connection_unref (connection);
+      _dbus_connection_unref_unlocked (connection);
     }
   else if (bus_connections[DBUS_BUS_SESSION] == connection)
     {
       bus_connections[DBUS_BUS_SESSION] = NULL;
-      dbus_connection_unref (connection);
+      _dbus_connection_unref_unlocked (connection);
     }
+  else if (bus_connections[DBUS_BUS_STARTER] == connection)
+    {
+      bus_connections[DBUS_BUS_STARTER] = NULL;
+      _dbus_connection_unref_unlocked (connection);
+    }
+
+  _DBUS_UNLOCK (bus);
 }
 
 static DBusConnection *
@@ -394,7 +404,7 @@ internal_bus_get (DBusBusType  type,
   if (!dbus_bus_register (connection, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
-      dbus_connection_close (connection);
+      _dbus_connection_close_internal (connection);
       dbus_connection_unref (connection);
 
       _DBUS_UNLOCK (bus);

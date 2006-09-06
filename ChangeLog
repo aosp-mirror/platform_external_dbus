@@ -1,5 +1,43 @@
 2006-09-06  John (J5) Palmieri  <johnp@redhat.com>
 
+	* doc/TODO:
+	- Remove pending call locking todo item
+	- dbus_connection_open now holds hard ref.  Remove todo item
+	- do proper locking on _dbus_bus_check_connection_and_unref
+	  and handle DBUS_BUS_STARTER. Remove todo item
+	- Warn on closing of a shared connection.  Remove todo item
+
+	* bus/bus.c, bus/connection.c, bus/dispatch.c, dbus/dbus-bus.c,
+	dbus/dbus-connection.c: Use the dbus_connection_close_internal
+	so we don't get the warning when closing shared connections
+
+	* test/test-service.c, test/test-shell-service.c: Applications
+	don't close shared connections themselves so we unref instead of
+	close
+
+	* test/test-utils.c (test_connection_shutdown): Close the connection
+
+	* dbus/dbus-bus.c (_dbus_bus_check_connection_and_unref): Changed to
+	_dbus_bus_check_connection_and_unref_unlocked since we only call this
+	method on a locked connection.  
+	Make sure we call _dbus_connection_unref_unlocked instead of 
+	dbus_connection_unref also.
+	Handle DBUS_BUS_STARTER correctly
+
+	* dbus/dbus-connection.c (connection_record_shared_unlocked):
+	Mark as shared and hard ref the connection
+	(connection_forget_shared_unlocked): Remove the hard ref from the 
+	connection
+	(_dbus_connection_close_internal_and_unlock):  New internal function
+	which takes a locked connection and unlocks it after closing it
+	(_dbus_connection_close_internal): New internal function which acts
+	like the origonal dbus_connection_close method by grabbing a connection
+	lock and calling _dbus_connection_close_internal_and_unlock
+	(dbus_connection_close): Public close method, warns when the app
+	trys to close a shared connection
+
+2006-09-06  John (J5) Palmieri  <johnp@redhat.com>
+
 	* bus/driver.c:
 	(bus_driver_generate_introspect_string): New method for populating
 	a DBusString with the introspect data
