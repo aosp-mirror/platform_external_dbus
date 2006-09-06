@@ -21,8 +21,6 @@ Important for 1.0
 
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
 
- - publish the introspection dtd at its URL
-
  - fix locking on DBusPendingCall
 
  - dbus_connection_open() is like dbus_bus_get() in that it returns a shared
