@@ -1,5 +1,18 @@
 2006-09-06  John (J5) Palmieri  <johnp@redhat.com>
 
+	* bus/driver.c:
+	(bus_driver_generate_introspect_string): New method for populating
+	a DBusString with the introspect data
+	(bus_driver_handle_introspect): Move introspect generation code to 
+	bus_driver_generate_introspect_string
+
+	* bus/main.c:
+	(introspect): New function which prints out the intropect data and
+	exits
+	(main): Add a --introspect switch
+
+2006-09-06  John (J5) Palmieri  <johnp@redhat.com>
+
 	* doc/TODO: Removed dtd publishing item.  
 	It seems the dtd has already been added at
 	http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd

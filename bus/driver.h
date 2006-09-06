@@ -45,5 +45,8 @@ dbus_bool_t bus_driver_send_service_owner_changed  (const char     *service_name
 						    const char     *new_owner,
 						    BusTransaction *transaction,
 						    DBusError      *error);
+dbus_bool_t bus_driver_generate_introspect_string  (DBusString *xml);
+
+
 
 #endif /* BUS_DRIVER_H */

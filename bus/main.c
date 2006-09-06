@@ -21,6 +21,7 @@
  *
  */
 #include "bus.h"
+#include "driver.h"
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-watch.h>
 #include <stdio.h>
@@ -66,7 +67,7 @@ signal_handler (int sig)
 static void
 usage (void)
 {
-  fprintf (stderr, DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork]\n");
+  fprintf (stderr, DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect]\n");
   exit (1);
 }
 
@@ -81,6 +82,30 @@ version (void)
   exit (0);
 }
 
+static void
+introspect (void)
+{
+  DBusString xml;
+  const char *v_STRING;  
+
+  if (!_dbus_string_init (&xml))
+    goto oom;
+
+  if (!bus_driver_generate_introspect_string (&xml))
+    {
+      _dbus_string_free (&xml);
+      goto oom;
+    }
+
+  v_STRING = _dbus_string_get_const_data (&xml);
+  printf ("%s\n", v_STRING); 
+
+  exit (0);
+ 
+ oom:
+  _dbus_warn ("Can not introspect - Out of memory\n");
+  exit (1);
+}
 static void
 check_two_config_files (const DBusString *config_file,
                         const char       *extra_arg)
@@ -231,6 +256,8 @@ main (int argc, char **argv)
         usage ();
       else if (strcmp (arg, "--version") == 0)
         version ();
+      else if (strcmp (arg, "--introspect") == 0)
+        introspect ();
       else if (strcmp (arg, "--nofork") == 0)
         force_fork = FORK_NEVER;
       else if (strcmp (arg, "--fork") == 0)

@@ -1493,6 +1493,96 @@ write_args_for_direction (DBusString *xml,
   return FALSE;
 }
 
+dbus_bool_t
+bus_driver_generate_introspect_string (DBusString *xml)
+{
+  int i;
+
+  if (!_dbus_string_append (xml, DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE))
+    return FALSE;
+  if (!_dbus_string_append (xml, "<node>\n"))
+    return FALSE;
+  if (!_dbus_string_append_printf (xml, "  <interface name=\"%s\">\n", DBUS_INTERFACE_INTROSPECTABLE))
+    return FALSE;
+  if (!_dbus_string_append (xml, "    <method name=\"Introspect\">\n"))
+    return FALSE;
+  if (!_dbus_string_append_printf (xml, "      <arg name=\"data\" direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
+    return FALSE;
+  if (!_dbus_string_append (xml, "    </method>\n"))
+    return FALSE;
+  if (!_dbus_string_append (xml, "  </interface>\n"))
+    return FALSE;
+
+  if (!_dbus_string_append_printf (xml, "  <interface name=\"%s\">\n",
+                                   DBUS_INTERFACE_DBUS))
+    return FALSE;
+
+  i = 0;
+  while (i < _DBUS_N_ELEMENTS (message_handlers))
+    {
+	  
+      if (!_dbus_string_append_printf (xml, "    <method name=\"%s\">\n",
+                                       message_handlers[i].name))
+        return FALSE;
+
+      if (!write_args_for_direction (xml, message_handlers[i].in_args, TRUE))
+	return FALSE;
+
+      if (!write_args_for_direction (xml, message_handlers[i].out_args, FALSE))
+	return FALSE;
+
+      if (!_dbus_string_append (xml, "    </method>\n"))
+	return FALSE;
+      
+      ++i;
+    }
+
+  if (!_dbus_string_append_printf (xml, "    <signal name=\"NameOwnerChanged\">\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append_printf (xml, "    </signal>\n"))
+    return FALSE;
+
+
+
+  if (!_dbus_string_append_printf (xml, "    <signal name=\"NameLost\">\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append_printf (xml, "    </signal>\n"))
+    return FALSE;
+
+
+
+  if (!_dbus_string_append_printf (xml, "    <signal name=\"NameAcquired\">\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append_printf (xml, "    </signal>\n"))
+    return FALSE;
+
+  if (!_dbus_string_append (xml, "  </interface>\n"))
+    return FALSE;
+  
+  if (!_dbus_string_append (xml, "</node>\n"))
+    return FALSE;
+
+  return TRUE;
+}
+
 static dbus_bool_t
 bus_driver_handle_introspect (DBusConnection *connection,
                               BusTransaction *transaction,
@@ -1502,7 +1592,6 @@ bus_driver_handle_introspect (DBusConnection *connection,
   DBusString xml;
   DBusMessage *reply;
   const char *v_STRING;
-  int i;
 
   _dbus_verbose ("Introspect() on bus driver\n");
   
@@ -1523,95 +1612,15 @@ bus_driver_handle_introspect (DBusConnection *connection,
       return FALSE;
     }
 
-  if (!_dbus_string_append (&xml, DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE))
-    goto oom;
-  if (!_dbus_string_append (&xml, "<node>\n"))
-    goto oom;
-  if (!_dbus_string_append_printf (&xml, "  <interface name=\"%s\">\n", DBUS_INTERFACE_INTROSPECTABLE))
-    goto oom;
-  if (!_dbus_string_append (&xml, "    <method name=\"Introspect\">\n"))
-    goto oom;
-  if (!_dbus_string_append_printf (&xml, "      <arg name=\"data\" direction=\"out\" type=\"%s\"/>\n", DBUS_TYPE_STRING_AS_STRING))
-    goto oom;
-  if (!_dbus_string_append (&xml, "    </method>\n"))
-    goto oom;
-  if (!_dbus_string_append (&xml, "  </interface>\n"))
+  if (!bus_driver_generate_introspect_string (&xml))
     goto oom;
 
-  if (!_dbus_string_append_printf (&xml, "  <interface name=\"%s\">\n",
-                                   DBUS_INTERFACE_DBUS))
-    goto oom;
-
-  i = 0;
-  while (i < _DBUS_N_ELEMENTS (message_handlers))
-    {
-	  
-      if (!_dbus_string_append_printf (&xml, "    <method name=\"%s\">\n",
-                                       message_handlers[i].name))
-        goto oom;
-
-      if (!write_args_for_direction (&xml, message_handlers[i].in_args, TRUE))
-	goto oom;
-
-      if (!write_args_for_direction (&xml, message_handlers[i].out_args, FALSE))
-	goto oom;
-
-      if (!_dbus_string_append (&xml, "    </method>\n"))
-	goto oom;
-      
-      ++i;
-    }
-
-  if (!_dbus_string_append_printf (&xml, "    <signal name=\"NameOwnerChanged\">\n"))
-    goto oom;
-  
-  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
-    goto oom;
-  
-  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
-    goto oom;
-  
-  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
-    goto oom;
-  
-  if (!_dbus_string_append_printf (&xml, "    </signal>\n"))
-    goto oom;
-
-
-
-  if (!_dbus_string_append_printf (&xml, "    <signal name=\"NameLost\">\n"))
-    goto oom;
-  
-  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
-    goto oom;
-  
-  if (!_dbus_string_append_printf (&xml, "    </signal>\n"))
-    goto oom;
-
-
-
-  if (!_dbus_string_append_printf (&xml, "    <signal name=\"NameAcquired\">\n"))
-    goto oom;
-  
-  if (!_dbus_string_append_printf (&xml, "      <arg type=\"s\"/>\n"))
-    goto oom;
-  
-  if (!_dbus_string_append_printf (&xml, "    </signal>\n"))
-    goto oom;
-
-
-  
-  if (!_dbus_string_append (&xml, "  </interface>\n"))
-    goto oom;
-  
-  if (!_dbus_string_append (&xml, "</node>\n"))
-    goto oom;
+  v_STRING = _dbus_string_get_const_data (&xml);
 
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     goto oom;
 
-  v_STRING = _dbus_string_get_const_data (&xml);
   if (! dbus_message_append_args (reply,
                                   DBUS_TYPE_STRING, &v_STRING,
                                   DBUS_TYPE_INVALID))
