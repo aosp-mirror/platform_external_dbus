@@ -102,7 +102,7 @@ handle_new_client_fd_and_unlock (DBusServer *server,
   transport = _dbus_transport_new_for_fd (client_fd, &server->guid_hex, NULL);
   if (transport == NULL)
     {
-      close (client_fd);
+      _dbus_close (client_fd, NULL);
       SERVER_UNLOCK (server);
       return FALSE;
     }
@@ -219,7 +219,7 @@ unix_disconnect (DBusServer *server)
       unix_server->watch = NULL;
     }
   
-  close (unix_server->fd);
+  _dbus_close (unix_server->fd, NULL);
   unix_server->fd = -1;
 
   if (unix_server->socket_name != NULL)
@@ -436,7 +436,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       _dbus_string_free (&address);
       return NULL;
     }

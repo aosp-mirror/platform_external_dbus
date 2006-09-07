@@ -435,7 +435,7 @@ _dbus_connect_unix_socket (const char     *path,
         {
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                       "Abstract socket name too long\n");
-          close (fd);
+          _dbus_close (fd, NULL);
           return -1;
 	}
 	
@@ -444,7 +444,7 @@ _dbus_connect_unix_socket (const char     *path,
 #else /* HAVE_ABSTRACT_SOCKETS */
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
                       "Operating system does not support abstract socket namespace\n");
-      close (fd);
+      _dbus_close (fd, NULL);
       return -1;
 #endif /* ! HAVE_ABSTRACT_SOCKETS */
     }
@@ -454,7 +454,7 @@ _dbus_connect_unix_socket (const char     *path,
         {
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                       "Socket name too long\n");
-          close (fd);
+          _dbus_close (fd, NULL);
           return -1;
 	}
 
@@ -468,7 +468,7 @@ _dbus_connect_unix_socket (const char     *path,
                       "Failed to connect to socket %s: %s",
                       path, _dbus_strerror (errno));
 
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
       
       return -1;
@@ -478,7 +478,7 @@ _dbus_connect_unix_socket (const char     *path,
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
 
       return -1;
@@ -543,7 +543,7 @@ _dbus_listen_unix_socket (const char     *path,
         {
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                       "Abstract socket name too long\n");
-          close (listen_fd);
+          _dbus_close (listen_fd, NULL);
           return -1;
 	}
       
@@ -552,7 +552,7 @@ _dbus_listen_unix_socket (const char     *path,
 #else /* HAVE_ABSTRACT_SOCKETS */
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
                       "Operating system does not support abstract socket namespace\n");
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
 #endif /* ! HAVE_ABSTRACT_SOCKETS */
     }
@@ -580,7 +580,7 @@ _dbus_listen_unix_socket (const char     *path,
         {
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                       "Abstract socket name too long\n");
-          close (listen_fd);
+          _dbus_close (listen_fd, NULL);
           return -1;
 	}
 	
@@ -592,7 +592,7 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s\": %s",
                       path, _dbus_strerror (errno));
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
 
@@ -601,14 +601,14 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to listen on socket \"%s\": %s",
                       path, _dbus_strerror (errno));
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
 
   if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
   
@@ -666,7 +666,7 @@ _dbus_connect_tcp_socket (const char     *host,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
-      close (fd);
+      _dbus_close (fd, NULL);
       return -1;
     }
   
@@ -684,7 +684,7 @@ _dbus_connect_tcp_socket (const char     *host,
                       "Failed to connect to socket %s:%d %s",
                       host, port, _dbus_strerror (errno));
 
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
       
       return -1;
@@ -692,7 +692,7 @@ _dbus_connect_tcp_socket (const char     *host,
 
   if (!_dbus_set_fd_nonblocking (fd, error))
     {
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
 
       return -1;
@@ -740,7 +740,7 @@ _dbus_listen_tcp_socket (const char     *host,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
   
@@ -756,7 +756,7 @@ _dbus_listen_tcp_socket (const char     *host,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
 
@@ -765,13 +765,13 @@ _dbus_listen_tcp_socket (const char     *host,
       dbus_set_error (error, _dbus_error_from_errno (errno),  
                       "Failed to listen on socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
 
   if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
   
@@ -2123,7 +2123,7 @@ _dbus_file_get_contents (DBusString       *str,
       _dbus_verbose ("fstat() failed: %s",
                      _dbus_strerror (errno));
       
-      close (fd);
+      _dbus_close (fd, NULL);
       
       return FALSE;
     }
@@ -2133,7 +2133,7 @@ _dbus_file_get_contents (DBusString       *str,
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "File size %lu of \"%s\" is too large.",
                       (unsigned long) sb.st_size, filename_c);
-      close (fd);
+      _dbus_close (fd, NULL);
       return FALSE;
     }
   
@@ -2157,7 +2157,7 @@ _dbus_file_get_contents (DBusString       *str,
               _dbus_verbose ("read() failed: %s",
                              _dbus_strerror (errno));
               
-              close (fd);
+              _dbus_close (fd, NULL);
               _dbus_string_set_length (str, orig_len);
               return FALSE;
             }
@@ -2165,7 +2165,7 @@ _dbus_file_get_contents (DBusString       *str,
             total += bytes_read;
         }
 
-      close (fd);
+      _dbus_close (fd, NULL);
       return TRUE;
     }
   else if (sb.st_size != 0)
@@ -2174,12 +2174,12 @@ _dbus_file_get_contents (DBusString       *str,
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "\"%s\" is not a regular file",
                       filename_c);
-      close (fd);
+      _dbus_close (fd, NULL);
       return FALSE;
     }
   else
     {
-      close (fd);
+      _dbus_close (fd, NULL);
       return TRUE;
     }
 }
@@ -2278,7 +2278,7 @@ _dbus_string_save_to_file (const DBusString *str,
       total += bytes_written;
     }
 
-  if (close (fd) < 0)
+  if (!_dbus_close (fd, NULL))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not close file %s: %s",
@@ -2309,7 +2309,7 @@ _dbus_string_save_to_file (const DBusString *str,
    */
 
   if (fd >= 0)
-    close (fd);
+    _dbus_close (fd, NULL);
         
   if (need_unlink && unlink (tmp_filename_c) < 0)
     _dbus_verbose ("Failed to unlink temp file %s: %s\n",
@@ -2352,7 +2352,7 @@ _dbus_create_file_exclusively (const DBusString *filename,
       return FALSE;
     }
 
-  if (close (fd) < 0)
+  if (!_dbus_close (fd, NULL))
     {
       dbus_set_error (error,
                       DBUS_ERROR_FAILED,
@@ -2575,7 +2575,7 @@ _dbus_generate_random_bytes (DBusString *str,
 
   if (_dbus_read (fd, str, n_bytes) != n_bytes)
     {
-      close (fd);
+      _dbus_close (fd, NULL);
       _dbus_string_set_length (str, old_len);
       return pseudorandom_generate_random_bytes (str, n_bytes);
     }
@@ -2583,7 +2583,7 @@ _dbus_generate_random_bytes (DBusString *str,
   _dbus_verbose ("Read %d bytes from /dev/urandom\n",
                  n_bytes);
   
-  close (fd);
+  _dbus_close (fd, NULL);
   
   return TRUE;
 }
@@ -2965,8 +2965,8 @@ _dbus_full_duplex_pipe (int        *fd1,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not set full-duplex pipe nonblocking");
       
-      close (fds[0]);
-      close (fds[1]);
+      _dbus_close (fds[0], NULL);
+      _dbus_close (fds[1], NULL);
       
       return FALSE;
     }

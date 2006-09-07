@@ -276,13 +276,13 @@ _dbus_babysitter_unref (DBusBabysitter *sitter)
            * a hangup and then the babysitter will
            * quit itself.
            */
-          close (sitter->socket_to_babysitter);
+          _dbus_close (sitter->socket_to_babysitter, NULL);
           sitter->socket_to_babysitter = -1;
         }
 
       if (sitter->error_pipe_from_child >= 0)
         {
-          close (sitter->error_pipe_from_child);
+          _dbus_close (sitter->error_pipe_from_child, NULL);
           sitter->error_pipe_from_child = -1;
         }
 
@@ -470,7 +470,7 @@ static void
 close_socket_to_babysitter (DBusBabysitter *sitter)
 {
   _dbus_verbose ("Closing babysitter\n");
-  close (sitter->socket_to_babysitter);
+  _dbus_close (sitter->socket_to_babysitter, NULL);
   sitter->socket_to_babysitter = -1;
 }
 
@@ -478,7 +478,7 @@ static void
 close_error_pipe_from_child (DBusBabysitter *sitter)
 {
   _dbus_verbose ("Closing child error\n");
-  close (sitter->error_pipe_from_child);
+  _dbus_close (sitter->error_pipe_from_child, NULL);
   sitter->error_pipe_from_child = -1;
 }
 
@@ -753,7 +753,7 @@ close_and_invalidate (int *fd)
     return -1;
   else
     {
-      ret = close (*fd);
+      ret = _dbus_close (*fd, NULL);
       *fd = -1;
     }
 
