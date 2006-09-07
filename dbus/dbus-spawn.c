@@ -1061,7 +1061,8 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
     goto cleanup_and_fail;
 
   _dbus_fd_set_close_on_exec (child_err_report_pipe[READ_END]);
-  
+  _dbus_fd_set_close_on_exec (child_err_report_pipe[WRITE_END]);
+
   if (!_dbus_full_duplex_pipe (&babysitter_pipe[0], &babysitter_pipe[1], TRUE, error))
     goto cleanup_and_fail;
 

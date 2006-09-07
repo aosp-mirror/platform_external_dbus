@@ -1,5 +1,11 @@
 2006-09-07  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-spawn.c (_dbus_spawn_async_with_babysitter): Make sure we
+	close child_err_report_pipe[WRITE_END] on exec (Patch from 
+	Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>)
+
+2006-09-07  John (J5) Palmieri  <johnp@redhat.com>
+
 	* Clean up close calls to use _dbus_close (Patch from 
 	Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>)
 
