@@ -1,3 +1,9 @@
+2006-09-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-connection.c (dbus_connection_dispatch): Properly remove
+	filters (Patch from Kimmo Hämäläinen 
+	<kimmo dot hamalainen at nokia dot com>)
+
 2006-09-07  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-connection-internal.h: Add prototype for 

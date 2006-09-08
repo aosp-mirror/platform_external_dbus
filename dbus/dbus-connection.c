@@ -3718,6 +3718,13 @@ dbus_connection_dispatch (DBusConnection *connection)
       DBusMessageFilter *filter = link->data;
       DBusList *next = _dbus_list_get_next_link (&filter_list_copy, link);
 
+      if (filter->function == NULL)
+        {
+          _dbus_verbose ("  filter was removed in a callback function\n");
+          link = next;
+          continue;
+        }
+
       _dbus_verbose ("  running filter on message %p\n", message);
       result = (* filter->function) (connection, message, filter->user_data);
 
