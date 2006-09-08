@@ -1,5 +1,18 @@
 2006-09-08  John (J5) Palmieri  <johnp@redhat.com>
 
+	* bus/test-main.c (main): Initialize threading during tests
+
+	* dbus/dbus-connection.c (_dbus_connection_new_for_transport):
+	Unlock connection on error
+	(generate_local_error_message): static method for generating
+	an error message when we don't have a message to reply to
+	(_dbus_connection_block_pending_call): Send a disconnect error
+	instead of just a timeout (NULL) when the bus gets disconnected
+	while blocking for a reply.
+	
+
+2006-09-08  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-connection.c (dbus_connection_dispatch): Properly remove
 	filters (Patch from Kimmo Hämäläinen 
 	<kimmo dot hamalainen at nokia dot com>)

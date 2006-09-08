@@ -93,11 +93,8 @@ main (int argc, char **argv)
 
   _dbus_string_init_const (&test_data_dir, dir);
 
-#if 0
-  /* FIXME 1.0 this is disabled because of thread bugs that need fixing... */
   if (!_dbus_threads_init_debug ())
     die ("initializing debug threads");
-#endif
  
   test_pre_hook ();
   printf ("%s: Running expire list test\n", argv[0]);

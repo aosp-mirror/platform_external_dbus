@@ -1190,7 +1190,11 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   CONNECTION_LOCK (connection);
   
   if (!_dbus_transport_set_connection (transport, connection))
-    goto error;
+    {
+      CONNECTION_UNLOCK (connection);
+
+      goto error;
+    }
 
   _dbus_transport_ref (transport);
 
@@ -2632,6 +2636,52 @@ _dbus_memory_pause_based_on_timeout (int timeout_milliseconds)
     _dbus_sleep_milliseconds (1000);
 }
 
+static DBusMessage *
+generate_local_error_message (dbus_uint32_t serial, 
+                              char *error_name, 
+                              char *error_msg)
+{
+  DBusMessage *message;
+  message = dbus_message_new (DBUS_MESSAGE_TYPE_ERROR);
+  if (!message)
+    goto out;
+
+  if (!dbus_message_set_error_name (message, error_name))
+    {
+      dbus_message_unref (message);
+      message = NULL;
+      goto out; 
+    }
+
+  dbus_message_set_no_reply (message, TRUE); 
+
+  if (!dbus_message_set_reply_serial (message,
+                                      serial))
+    {
+      dbus_message_unref (message);
+      message = NULL;
+      goto out;
+    }
+
+  if (error_msg != NULL)
+    {
+      DBusMessageIter iter;
+
+      dbus_message_iter_init_append (message, &iter);
+      if (!dbus_message_iter_append_basic (&iter,
+                                           DBUS_TYPE_STRING,
+                                           &error_msg))
+        {
+          dbus_message_unref (message);
+          message = NULL;
+	  goto out;
+        }
+    }
+
+ out:
+  return message;
+}
+
 /**
  * Blocks until a pending call times out or gets a reply.
  *
@@ -2731,12 +2781,14 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   
   if (!_dbus_connection_get_is_connected_unlocked (connection))
     {
-      /* FIXME 1.0 send a "DBUS_ERROR_DISCONNECTED" instead, just to help
-       * programmers understand what went wrong since the timeout is
-       * confusing
-       */
-      
-      complete_pending_call_and_unlock (connection, pending, NULL);
+      DBusMessage *error_msg;
+
+      error_msg = generate_local_error_message (client_serial,
+                                                DBUS_ERROR_DISCONNECTED, 
+                                                "Connection was dissconnected before a reply was recived"); 
+
+      /* on OOM error_msg is set to NULL */
+      complete_pending_call_and_unlock (connection, pending, error_msg);
       dbus_pending_call_unref (pending);
       return;
     }
