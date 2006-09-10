@@ -493,6 +493,8 @@ AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketp
 
 AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 
+AC_CHECK_HEADERS(errno.h)
+
 AC_CACHE_CHECK([for posix getpwnam_r],
 		ac_cv_func_posix_getpwnam_r,
 		[AC_TRY_RUN([

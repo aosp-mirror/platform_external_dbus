@@ -104,6 +104,7 @@ DBUS_SHARED_SOURCES=				\
 	dbus-string.h				\
 	dbus-string-private.h			\
 	dbus-sysdeps.c				\
+	dbus-sysdeps-unix.c			\
 	dbus-sysdeps.h				\
 	dbus-userdb.c				\
 	dbus-userdb.h

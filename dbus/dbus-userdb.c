@@ -75,7 +75,7 @@ _dbus_group_info_free_allocated (DBusGroupInfo *info)
  */
 dbus_bool_t
 _dbus_is_a_number (const DBusString *str,
-             unsigned long    *num)
+                   unsigned long    *num)
 {
   int end;
 

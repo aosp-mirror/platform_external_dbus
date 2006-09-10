@@ -258,6 +258,8 @@ void         _dbus_directory_close         (DBusDirIter      *iter);
 dbus_bool_t  _dbus_check_dir_is_private_to_user    (DBusString *dir,
                                                     DBusError *error);
 
+void        _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
+                                                      int   n_bytes);
 void        _dbus_generate_random_bytes_buffer (char       *buffer,
                                                 int         n_bytes);
 dbus_bool_t _dbus_generate_random_bytes        (DBusString *str,

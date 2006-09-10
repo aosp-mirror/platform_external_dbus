@@ -1,3 +1,15 @@
+2006-09-10  Havoc Pennington  <hp@redhat.com>
+
+       patch mostly by Peter Kümmel, bug #8211
+	
+	* dbus/dbus-sysdeps-unix.c: new file, which splits out
+	unix-specific stuff in dbus-sysdeps.c
+
+	* dbus/dbus-sysdeps.c: don't include any UNIX-only headers, 
+	and move unix-specific stuff to dbus-sysdeps-unix.c
+
+	* configure.in: check HAVE_ERRNO_H
+	
 2006-09-08  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/test-main.c (main): Initialize threading during tests
