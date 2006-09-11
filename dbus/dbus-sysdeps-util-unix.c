@@ -252,7 +252,8 @@ _dbus_change_identity  (dbus_uid_t     uid,
   /* setgroups() only works if we are a privileged process,
    * so we don't return error on failure; the only possible
    * failure is that we don't have perms to do it.
-   * FIXME 1.0 not sure this is right, maybe if setuid()
+   *
+   * not sure this is right, maybe if setuid()
    * is going to work then setgroups() should also work.
    */
   if (setgroups (0, NULL) < 0)

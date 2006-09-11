@@ -558,13 +558,6 @@ dbus_server_listen (const char     *address,
                   goto out;
                 }
               
-              /* FIXME 1.0 - we will unconditionally unlink() the path if
-               * we don't support abstract namespace.  unlink() does
-               * not follow symlinks, but would like independent
-               * confirmation this is safe enough. See also
-               * _dbus_listen_unix_socket() and comments therein.
-               */
-
               /* Always use abstract namespace if possible with tmpdir */
               
               server =

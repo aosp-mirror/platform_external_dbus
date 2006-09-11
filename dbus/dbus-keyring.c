@@ -44,7 +44,7 @@
  * by a single server instance for a fixed period of time, then
  * discarded). Also, the keys are not sent over the wire.
  *
- * @todo 1.0? there's a memory leak on some codepath in here, I saw it once
+ * @todo there's a memory leak on some codepath in here, I saw it once
  * when running make check - probably some specific initial cookies
  * present in the cookie file, then depending on what we do with them.
  */

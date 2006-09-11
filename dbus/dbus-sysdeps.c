@@ -75,8 +75,10 @@ _dbus_abort (void)
  * Wrapper for setenv(). If the value is #NULL, unsets
  * the environment variable.
  *
- * @todo 1.0 if someone can verify it's safe, we could avoid the
- * memleak when doing an unset.
+ * There is an unfixable memleak in that it is unsafe to
+ * free memory malloced for use with setenv. This is because
+ * we can not rely on internal implementation details of
+ * the underlying libc library.
  *
  * @param varname name of environment variable
  * @param value value of environment variable

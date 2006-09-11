@@ -1,5 +1,9 @@
 2006-09-11  John (J5) Palmieri  <johnp@redhat.com>
 
+	* remove a bunch of todo items from the 1.0 list
+
+2006-09-11  John (J5) Palmieri  <johnp@redhat.com>
+
 	* bus/activation.c, bus/desktop-file.c: Distinguish between OOM and
 	key not found
 

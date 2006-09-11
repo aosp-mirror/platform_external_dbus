@@ -446,8 +446,6 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
  * @param connection the connection.
  * @param link the list node and message to queue.
  *
- * @todo 1.0? This needs to wake up the mainloop if it is in
- * a poll/select and this is a multithreaded app.
  */
 void
 _dbus_connection_queue_synthesized_message_link (DBusConnection *connection,

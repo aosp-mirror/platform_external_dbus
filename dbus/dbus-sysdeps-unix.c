@@ -455,7 +455,7 @@ _dbus_listen_unix_socket (const char     *path,
     }
   else
     {
-      /* FIXME discussed security implications of this with Nalin,
+      /* Discussed security implications of this with Nalin,
        * and we couldn't think of where it would kick our ass, but
        * it still seems a bit sucky. It also has non-security suckage;
        * really we'd prefer to exit if the socket is already in use.
