@@ -983,21 +983,9 @@ node_read_value (TestTypeNode   *node,
                  DBusTypeReader *reader,
                  int             seed)
 {
-  DBusTypeMark mark;
   DBusTypeReader restored;
 
-  _dbus_type_reader_save_mark (reader, &mark);
-
   if (!(* node->klass->read_value) (node, reader, seed))
-    return FALSE;
-
-  _dbus_type_reader_init_from_mark (&restored,
-                                    reader->byte_order,
-                                    reader->type_str,
-                                    reader->value_str,
-                                    &mark);
-
-  if (!(* node->klass->read_value) (node, &restored, seed))
     return FALSE;
 
   return TRUE;

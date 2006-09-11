@@ -119,8 +119,6 @@ struct DBusTypeReaderClass
   dbus_bool_t (* check_finished)   (const DBusTypeReader  *reader); /**< check whether reader is at the end */
   void        (* next)             (DBusTypeReader        *reader,
                                     int                    current_type); /**< go to the next value */
-  void        (* init_from_mark)   (DBusTypeReader        *reader,
-                                    const DBusTypeMark    *mark);  /**< uncompress from a mark */
 };
 
 static int
@@ -620,24 +618,12 @@ array_reader_next (DBusTypeReader *reader,
     }
 }
 
-static void
-array_init_from_mark (DBusTypeReader     *reader,
-                      const DBusTypeMark *mark)
-{
-  /* Fill in the array-specific fields from the mark. The general
-   * fields are already filled in.
-   */
-  reader->u.array.start_pos = mark->array_start_pos;
-  reader->array_len_offset = mark->array_len_offset;
-}
-
 static const DBusTypeReaderClass body_reader_class = {
   "body", 0,
   FALSE,
   NULL, /* body is always toplevel, so doesn't get recursed into */
   NULL,
-  base_reader_next,
-  NULL
+  base_reader_next
 };
 
 static const DBusTypeReaderClass body_types_only_reader_class = {
@@ -645,8 +631,7 @@ static const DBusTypeReaderClass body_types_only_reader_class = {
   TRUE,
   NULL, /* body is always toplevel, so doesn't get recursed into */
   NULL,
-  base_reader_next,
-  NULL
+  base_reader_next
 };
 
 static const DBusTypeReaderClass struct_reader_class = {
@@ -654,8 +639,7 @@ static const DBusTypeReaderClass struct_reader_class = {
   FALSE,
   struct_or_dict_entry_reader_recurse,
   NULL,
-  struct_reader_next,
-  NULL
+  struct_reader_next
 };
 
 static const DBusTypeReaderClass struct_types_only_reader_class = {
@@ -663,8 +647,7 @@ static const DBusTypeReaderClass struct_types_only_reader_class = {
   TRUE,
   struct_or_dict_entry_types_only_reader_recurse,
   NULL,
-  struct_reader_next,
-  NULL
+  struct_reader_next
 };
 
 static const DBusTypeReaderClass dict_entry_reader_class = {
@@ -672,8 +655,7 @@ static const DBusTypeReaderClass dict_entry_reader_class = {
   FALSE,
   struct_or_dict_entry_reader_recurse,
   NULL,
-  dict_entry_reader_next,
-  NULL
+  dict_entry_reader_next
 };
 
 static const DBusTypeReaderClass dict_entry_types_only_reader_class = {
@@ -681,8 +663,7 @@ static const DBusTypeReaderClass dict_entry_types_only_reader_class = {
   TRUE,
   struct_or_dict_entry_types_only_reader_recurse,
   NULL,
-  dict_entry_reader_next,
-  NULL
+  dict_entry_reader_next
 };
 
 static const DBusTypeReaderClass array_reader_class = {
@@ -690,8 +671,7 @@ static const DBusTypeReaderClass array_reader_class = {
   FALSE,
   array_reader_recurse,
   array_reader_check_finished,
-  array_reader_next,
-  array_init_from_mark
+  array_reader_next
 };
 
 static const DBusTypeReaderClass array_types_only_reader_class = {
@@ -699,8 +679,7 @@ static const DBusTypeReaderClass array_types_only_reader_class = {
   TRUE,
   array_types_only_reader_recurse,
   NULL,
-  array_types_only_reader_next,
-  NULL
+  array_types_only_reader_next
 };
 
 static const DBusTypeReaderClass variant_reader_class = {
@@ -708,8 +687,7 @@ static const DBusTypeReaderClass variant_reader_class = {
   FALSE,
   variant_reader_recurse,
   NULL,
-  base_reader_next,
-  NULL
+  base_reader_next
 };
 
 static const DBusTypeReaderClass const *
@@ -756,41 +734,6 @@ _dbus_type_reader_init (DBusTypeReader    *reader,
 }
 
 /**
- * Initializes a type reader that's been compressed into a
- * DBusTypeMark.  The args have to be the same as those passed in to
- * create the original #DBusTypeReader.
- *
- * @param reader the reader
- * @param byte_order the byte order of the value block
- * @param type_str string containing the type signature
- * @param value_str string containing the values block
- * @param mark the mark to decompress from
- */
-void
-_dbus_type_reader_init_from_mark (DBusTypeReader     *reader,
-                                  int                 byte_order,
-                                  const DBusString   *type_str,
-                                  const DBusString   *value_str,
-                                  const DBusTypeMark *mark)
-{
-  reader->klass = all_reader_classes[mark->container_type];
-
-  reader_init (reader, byte_order,
-               mark->type_pos_in_value_str ? value_str : type_str,
-               mark->type_pos,
-               value_str, mark->value_pos);
-
-  if (reader->klass->init_from_mark)
-    (* reader->klass->init_from_mark) (reader, mark);
-
-#if RECURSIVE_MARSHAL_READ_TRACE
-  _dbus_verbose ("  type reader %p init from mark type_pos = %d value_pos = %d remaining sig '%s'\n",
-                 reader, reader->type_pos, reader->value_pos,
-                 _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
-#endif
-}
-
-/**
  * Like _dbus_type_reader_init() but the iteration is over the
  * signature, not over values.
  *
@@ -813,60 +756,6 @@ _dbus_type_reader_init_types_only (DBusTypeReader    *reader,
                  reader, reader->type_pos,
                  _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
 #endif
-}
-
-/**
- * Like _dbus_type_reader_init_from_mark() but only iterates over
- * the signature, not the values.
- *
- * @param reader the reader
- * @param type_str the signature string
- * @param mark the mark to decompress from
- */
-void
-_dbus_type_reader_init_types_only_from_mark (DBusTypeReader     *reader,
-                                             const DBusString   *type_str,
-                                             const DBusTypeMark *mark)
-{
-  reader->klass = all_reader_classes[mark->container_type];
-  _dbus_assert (reader->klass->types_only);
-  _dbus_assert (!mark->type_pos_in_value_str);
-
-  reader_init (reader, DBUS_COMPILER_BYTE_ORDER, /* irrelevant */
-               type_str, mark->type_pos,
-               NULL, _DBUS_INT_MAX /* crashes if we screw up */);
-
-  if (reader->klass->init_from_mark)
-    (* reader->klass->init_from_mark) (reader, mark);
-
-#if RECURSIVE_MARSHAL_READ_TRACE
-  _dbus_verbose ("  type reader %p init types only from mark type_pos = %d remaining sig '%s'\n",
-                 reader, reader->type_pos,
-                 _dbus_string_get_const_data_len (reader->type_str, reader->type_pos, 0));
-#endif
-}
-
-/**
- * Compresses a type reader into a #DBusTypeMark, useful for example
- * if you want to cache a bunch of positions in a block of values.
- *
- * @param reader the reader
- * @param mark the mark to init
- */
-void
-_dbus_type_reader_save_mark (const DBusTypeReader *reader,
-                             DBusTypeMark         *mark)
-{
-  mark->type_pos_in_value_str = (reader->type_str == reader->value_str);
-  mark->container_type = reader->klass->id;
-  _dbus_assert (all_reader_classes[reader->klass->id] == reader->klass);
-
-  mark->type_pos = reader->type_pos;
-  mark->value_pos = reader->value_pos;
-
-  /* these are just junk if the reader isn't really an array of course */
-  mark->array_len_offset = reader->array_len_offset;
-  mark->array_start_pos = reader->u.array.start_pos;
 }
 
 /**
