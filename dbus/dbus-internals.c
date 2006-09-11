@@ -213,11 +213,30 @@ _dbus_warn (const char *format,
 #ifdef DBUS_ENABLE_VERBOSE_MODE
 
 static dbus_bool_t verbose_initted = FALSE;
+static dbus_bool_t verbose = TRUE;
 
 #define PTHREAD_IN_VERBOSE 0
 #if PTHREAD_IN_VERBOSE
 #include <pthread.h>
 #endif
+
+static inline void
+_dbus_verbose_init (void)
+{
+  if (!verbose_initted)
+    {
+      const char *p = _dbus_getenv ("DBUS_VERBOSE"); 
+      verbose = p != NULL && *p == '1';
+      verbose_initted = TRUE;
+    }
+}
+
+dbus_bool_t
+_dbus_is_verbose_real (void)
+{
+  _dbus_verbose_init ();
+  return verbose;
+}
 
 /**
  * Prints a warning message to stderr
@@ -232,7 +251,6 @@ _dbus_verbose_real (const char *format,
                     ...)
 {
   va_list args;
-  static dbus_bool_t verbose = TRUE;
   static dbus_bool_t need_pid = TRUE;
   int len;
   
@@ -240,17 +258,8 @@ _dbus_verbose_real (const char *format,
    * in the non-verbose case we just have the one
    * conditional and return immediately.
    */
-  if (!verbose)
+  if (!_dbus_is_verbose_real())
     return;
-  
-  if (!verbose_initted)
-    {
-      const char *p = _dbus_getenv ("DBUS_VERBOSE"); 
-      verbose = p != NULL && *p == '1';
-      verbose_initted = TRUE;
-      if (!verbose)
-        return;
-    }
 
   /* Print out pid before the line */
   if (need_pid)

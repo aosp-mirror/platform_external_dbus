@@ -80,9 +80,11 @@ void _dbus_warn               (const char *format,
 void _dbus_verbose_real       (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
 void _dbus_verbose_reset_real (void);
+dbus_bool_t _dbus_is_verbose_real (void);
 
 #  define _dbus_verbose _dbus_verbose_real
 #  define _dbus_verbose_reset _dbus_verbose_reset_real
+#  define _dbus_is_verbose _dbus_is_verbose_real
 #else
 #  ifdef HAVE_ISO_VARARGS
 #    define _dbus_verbose(...)
@@ -92,6 +94,7 @@ void _dbus_verbose_reset_real (void);
 #    error "This compiler does not support varargs macros and thus verbose mode can't be disabled meaningfully"
 #  endif
 #  define _dbus_verbose_reset()
+#  define _dbus_is_verbose() FALSE 
 #endif /* !DBUS_ENABLE_VERBOSE_MODE */
 
 const char* _dbus_strerror (int error_number);

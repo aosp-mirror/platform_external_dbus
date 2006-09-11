@@ -588,58 +588,6 @@ _dbus_marshal_read_basic (const DBusString      *str,
     *new_pos = pos;
 }
 
-/**
- * Reads a block of fixed-length basic values, as an optimization
- * vs. reading each one individually into a new buffer.
- *
- * This function returns the data in-place; it does not make a copy,
- * and it does not swap the bytes.
- *
- * If you ask for #DBUS_TYPE_DOUBLE you will get a "const double*" back
- * and the "value" argument should be a "const double**" and so on.
- *
- * @todo 1.0 we aren't using this function (except in the test suite)
- *       add #ifdefs around it
- * 
- * @param str the string to read from
- * @param pos position to read from
- * @param element_type type of array elements
- * @param value place to return the array
- * @param n_elements number of array elements to read
- * @param byte_order the byte order, used to read the array length
- * @param new_pos #NULL or location to store a position after the elements
- */
-void
-_dbus_marshal_read_fixed_multi  (const DBusString *str,
-                                 int               pos,
-                                 int               element_type,
-                                 void             *value,
-                                 int               n_elements,
-                                 int               byte_order,
-                                 int              *new_pos)
-{
-  int array_len;
-  int alignment;
-
-  _dbus_assert (dbus_type_is_fixed (element_type));
-  _dbus_assert (dbus_type_is_basic (element_type));
-
-#if 0
-  _dbus_verbose ("reading %d elements of %s\n",
-                 n_elements, _dbus_type_to_string (element_type));
-#endif
-  
-  alignment = _dbus_type_get_alignment (element_type);
-
-  pos = _DBUS_ALIGN_VALUE (pos, alignment);
-  
-  array_len = n_elements * alignment;
-
-  *(const DBusBasicValue**) value = (void*) _dbus_string_get_const_data_len (str, pos, array_len);
-  if (new_pos)
-    *new_pos = pos + array_len;
-}
-
 static dbus_bool_t
 marshal_2_octets (DBusString   *str,
                   int           insert_at,
@@ -1360,9 +1308,6 @@ _dbus_type_to_string (int typecode)
 /**
  * If in verbose mode, print a block of binary data.
  *
- * @todo 1.0 right now it prints even if not in verbose mode
- *           check for verbose mode and return if not
- *
  * @param data the data
  * @param len the length of the data
  * @param offset where to start counting for byte indexes
@@ -1376,6 +1321,9 @@ _dbus_verbose_bytes (const unsigned char *data,
   const unsigned char *aligned;
 
   _dbus_assert (len >= 0);
+
+  if (!_dbus_is_verbose())
+    return;
 
   /* Print blanks on first row if appropriate */
   aligned = _DBUS_ALIGN_ADDRESS (data, 4);
@@ -1533,6 +1481,55 @@ _dbus_first_type_in_signature_c_str (const char       *str,
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"
 #include <stdio.h>
+
+/**
+ * Reads a block of fixed-length basic values, as an optimization
+ * vs. reading each one individually into a new buffer.
+ *
+ * This function returns the data in-place; it does not make a copy,
+ * and it does not swap the bytes.
+ *
+ * If you ask for #DBUS_TYPE_DOUBLE you will get a "const double*" back
+ * and the "value" argument should be a "const double**" and so on.
+ *
+ * @param str the string to read from
+ * @param pos position to read from
+ * @param element_type type of array elements
+ * @param value place to return the array
+ * @param n_elements number of array elements to read
+ * @param byte_order the byte order, used to read the array length
+ * @param new_pos #NULL or location to store a position after the elements
+ */
+void
+_dbus_marshal_read_fixed_multi  (const DBusString *str,
+                                 int               pos,
+                                 int               element_type,
+                                 void             *value,
+                                 int               n_elements,
+                                 int               byte_order,
+                                 int              *new_pos)
+{
+  int array_len;
+  int alignment;
+
+  _dbus_assert (dbus_type_is_fixed (element_type));
+  _dbus_assert (dbus_type_is_basic (element_type));
+
+#if 0
+  _dbus_verbose ("reading %d elements of %s\n",
+                 n_elements, _dbus_type_to_string (element_type));
+#endif
+  
+  alignment = _dbus_type_get_alignment (element_type);
+
+  pos = _DBUS_ALIGN_VALUE (pos, alignment);
+  
+  array_len = n_elements * alignment;
+
+  *(const DBusBasicValue**) value = (void*) _dbus_string_get_const_data_len (str, pos, array_len);
+  if (new_pos)
+    *new_pos = pos + array_len;
+}
 
 static void
 swap_test_array (void *array,

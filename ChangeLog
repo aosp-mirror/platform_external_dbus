@@ -1,5 +1,14 @@
 2006-09-08  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-internal.c: Add dbus_is_verbose so we can have more
+	complex debugging code
+
+	* dbus/dbus-marshal-basic.c (_dbus_marshal_read_fixed_multi): Move
+	between the test suite ifdefs
+	(_dbus_verbose_bytes): return if verbosity is not enabled 
+
+2006-09-08  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-marshal-recursive-util.c, dbus/dbus-marshal-recursive.c:
 	remove DBusMark
 
