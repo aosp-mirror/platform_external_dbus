@@ -43,7 +43,8 @@ dbus_bool_t bus_desktop_file_get_raw    (BusDesktopFile  *desktop_file,
 dbus_bool_t bus_desktop_file_get_string (BusDesktopFile  *desktop_file,
 					 const char      *section,
 					 const char      *keyname,
-					 char           **val);
+					 char           **val,
+					 DBusError       *error);
 
 
 #endif /* BUS_DESKTOP_FILE_H */

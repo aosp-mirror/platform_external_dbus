@@ -761,22 +761,29 @@ dbus_bool_t
 bus_desktop_file_get_string (BusDesktopFile  *desktop_file,
 			     const char      *section,
 			     const char      *keyname,
-			     char           **val)
+			     char           **val,
+			     DBusError       *error)
 {
   const char *raw;
-  
+ 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
   *val = NULL;
   
   if (!bus_desktop_file_get_raw (desktop_file, section, keyname, &raw))
-    return FALSE;
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "No \"%s\" key in .service file\n", keyname);
+      return FALSE;
+    }
 
   *val = _dbus_strdup (raw);
 
-  /* FIXME 1.0 we don't distinguish "key not found" from "out of memory" here,
-   * which is broken.
-   */
   if (*val == NULL)
-    return FALSE;
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
   
   return TRUE;
 }
