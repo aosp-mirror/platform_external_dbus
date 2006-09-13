@@ -1,5 +1,10 @@
 2006-09-13  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-sysdeps-util-unix.c (_dbus_directory_get_next_file):
+	use threadsafe readdir_r instead of readdir
+
+2006-09-13  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus-threads.c (dbus_threads_init_default): New method for
 	initializing the internal thread implementation (Patch from
 	Alexander Larsson <alexl at redhat dot com>)
