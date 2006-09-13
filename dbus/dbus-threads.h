@@ -98,6 +98,7 @@ typedef struct
 } DBusThreadFunctions;
 
 dbus_bool_t  dbus_threads_init         (const DBusThreadFunctions *functions);
+dbus_bool_t  dbus_threads_init_default (void);
 
 DBUS_END_DECLS
 

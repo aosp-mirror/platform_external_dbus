@@ -1,3 +1,9 @@
+2006-09-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus-threads.c (dbus_threads_init_default): New method for
+	initializing the internal thread implementation (Patch from
+	Alexander Larsson <alexl at redhat dot com>)
+
 2006-09-11  John (J5) Palmieri  <johnp@redhat.com>
 
 	* remove a bunch of todo items from the 1.0 list
