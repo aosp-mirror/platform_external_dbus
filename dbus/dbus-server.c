@@ -471,7 +471,7 @@ _dbus_server_toggle_timeout (DBusServer  *server,
  * dbus_server_set_watch_functions() should be called
  * immediately to render the server fully functional.
  *
- * @todo 1.0? error messages on bad address could really be better.
+ * @todo error messages on bad address could really be better.
  * DBusResultCode is a bit limiting here.
  *
  * @param address the address of this server.
