@@ -70,8 +70,7 @@ _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator,
 {
   dbus_int32_t slot;
 
-  if (!_dbus_mutex_lock (*mutex_loc))
-    return FALSE;
+  _dbus_mutex_lock (*mutex_loc);
 
   if (allocator->n_allocated_slots == 0)
     {
@@ -246,8 +245,7 @@ _dbus_data_slot_list_set  (DBusDataSlotAllocator *allocator,
    * be e.g. realloc()ing allocated_slots. We avoid doing this if asserts
    * are disabled, since then the asserts are empty.
    */
-  if (!_dbus_mutex_lock (*(allocator->lock_loc)))
-    return FALSE;
+  _dbus_mutex_lock (*(allocator->lock_loc));
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot].slot_id == slot);
   _dbus_mutex_unlock (*(allocator->lock_loc));
@@ -304,8 +302,7 @@ _dbus_data_slot_list_get  (DBusDataSlotAllocator *allocator,
    * be e.g. realloc()ing allocated_slots. We avoid doing this if asserts
    * are disabled, since then the asserts are empty.
    */
-  if (!_dbus_mutex_lock (*(allocator->lock_loc)))
-    return NULL;
+  _dbus_mutex_lock (*(allocator->lock_loc));
   _dbus_assert (slot >= 0);
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot].slot_id == slot);

@@ -1,3 +1,11 @@
+2006-09-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-threads.c: Allow recursive mutex's to be passed into
+	dbus_threads_init and be used by the dbus mutex functions to
+	avoid deadlocks.
+
+	* doc/TODO: Remove recursive mutex dbus_connection_dispatch TODO item
+
 2006-09-13  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-sysdeps-util-unix.c (_dbus_directory_get_next_file):

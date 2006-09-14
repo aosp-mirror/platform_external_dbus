@@ -39,10 +39,10 @@
 static DBusThreadFunctions thread_functions =
 {
   0,
-  NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL, NULL,
-
+  NULL, NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL,
+  
   NULL, NULL, NULL, NULL
 };
 
@@ -87,7 +87,9 @@ static DBusList *uninitialized_condvar_list = NULL;
 DBusMutex*
 _dbus_mutex_new (void)
 {
-  if (thread_functions.mutex_new)
+  if (thread_functions.recursive_mutex_new)
+    return (* thread_functions.recursive_mutex_new) ();
+  else if (thread_functions.mutex_new)
     return (* thread_functions.mutex_new) ();
   else
     return _DBUS_DUMMY_MUTEX;
@@ -126,8 +128,13 @@ _dbus_mutex_new_at_location (DBusMutex **location_p)
 void
 _dbus_mutex_free (DBusMutex *mutex)
 {
-  if (mutex && thread_functions.mutex_free)
-    (* thread_functions.mutex_free) (mutex);
+  if (mutex)
+    {
+      if (mutex && thread_functions.recursive_mutex_free)
+        (* thread_functions.recursive_mutex_free) (mutex);
+      else if (mutex && thread_functions.mutex_free)
+        (* thread_functions.mutex_free) (mutex);
+    }
 }
 
 /**
@@ -149,17 +156,19 @@ _dbus_mutex_free_at_location (DBusMutex **location_p)
 
 /**
  * Locks a mutex. Does nothing if passed a #NULL pointer.
- * Locks are not recursive.
- *
- * @returns #TRUE on success
+ * Locks may be recursive if threading implementation initialized
+ * recursive locks.
  */
-dbus_bool_t
+void
 _dbus_mutex_lock (DBusMutex *mutex)
 {
-  if (mutex && thread_functions.mutex_lock)
-    return (* thread_functions.mutex_lock) (mutex);
-  else
-    return TRUE;
+  if (mutex) 
+    {
+      if (thread_functions.recursive_mutex_lock)
+        (* thread_functions.recursive_mutex_lock) (mutex);
+      else if (thread_functions.mutex_lock)
+        (* thread_functions.mutex_lock) (mutex);
+    }
 }
 
 /**
@@ -167,13 +176,16 @@ _dbus_mutex_lock (DBusMutex *mutex)
  *
  * @returns #TRUE on success
  */
-dbus_bool_t
+void
 _dbus_mutex_unlock (DBusMutex *mutex)
 {
-  if (mutex && thread_functions.mutex_unlock)
-    return (* thread_functions.mutex_unlock) (mutex);
-  else
-    return TRUE;
+  if (mutex)
+    {
+      if (thread_functions.recursive_mutex_unlock)
+        (* thread_functions.recursive_mutex_unlock) (mutex);
+      else if (thread_functions.mutex_unlock)
+        (* thread_functions.mutex_unlock) (mutex);
+    }
 }
 
 /**
@@ -515,25 +527,20 @@ init_locks (void)
 dbus_bool_t
 dbus_threads_init (const DBusThreadFunctions *functions)
 {
+  dbus_bool_t mutex_set;
+  dbus_bool_t recursive_mutex_set;
+
   _dbus_assert (functions != NULL);
 
   /* these base functions are required. Future additions to
    * DBusThreadFunctions may be optional.
    */
-  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK);
-  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_FREE_MASK);
-  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_LOCK_MASK);
-  _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_UNLOCK_MASK);
   _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK);
   _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK);
   _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK);
   _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK);
   _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK);
   _dbus_assert (functions->mask & DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK);
-  _dbus_assert (functions->mutex_new != NULL);
-  _dbus_assert (functions->mutex_free != NULL);
-  _dbus_assert (functions->mutex_lock != NULL);
-  _dbus_assert (functions->mutex_unlock != NULL);
   _dbus_assert (functions->condvar_new != NULL);
   _dbus_assert (functions->condvar_free != NULL);
   _dbus_assert (functions->condvar_wait != NULL);
@@ -541,6 +548,40 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   _dbus_assert (functions->condvar_wake_one != NULL);
   _dbus_assert (functions->condvar_wake_all != NULL);
 
+  /* Either the mutex function set or recursive mutex set needs 
+   * to be available but not both
+   */
+  mutex_set = (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK) &&  
+              (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_FREE_MASK) && 
+              (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_LOCK_MASK) &&
+              (functions->mask & DBUS_THREAD_FUNCTIONS_MUTEX_UNLOCK_MASK) &&
+               functions->mutex_new &&
+               functions->mutex_free &&
+               functions->mutex_lock &&
+               functions->mutex_unlock;
+
+  recursive_mutex_set = 
+              (functions->mask & DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_NEW_MASK) && 
+              (functions->mask & DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_FREE_MASK) && 
+              (functions->mask & DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_LOCK_MASK) && 
+              (functions->mask & DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_UNLOCK_MASK) &&
+                functions->recursive_mutex_new &&
+                functions->recursive_mutex_free &&
+                functions->recursive_mutex_lock &&
+                functions->recursive_mutex_unlock;
+
+  if (!(mutex_set || recursive_mutex_set))
+    _dbus_assert_not_reached ("Either the nonrecusrive or recursive mutex " 
+                              "functions sets should be passed into "
+                              "dbus_threads_init. Neither sets were passed.");
+
+  if (mutex_set && recursive_mutex_set)
+    _dbus_assert_not_reached ("Either the nonrecusrive or recursive mutex " 
+                              "functions sets should be passed into "
+                              "dbus_threads_init. Both sets were passed. "
+                              "You most likely just want to set the recursive "
+                              "mutex functions to avoid deadlocks in D-Bus.");
+                          
   /* Check that all bits in the mask actually are valid mask bits.
    * ensures people won't write code that breaks when we add
    * new bits.
@@ -567,7 +608,19 @@ dbus_threads_init (const DBusThreadFunctions *functions)
   thread_functions.condvar_wait_timeout = functions->condvar_wait_timeout;
   thread_functions.condvar_wake_one = functions->condvar_wake_one;
   thread_functions.condvar_wake_all = functions->condvar_wake_all;
+ 
+  if (functions->mask & DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_NEW_MASK)
+    thread_functions.recursive_mutex_new = functions->recursive_mutex_new;
   
+  if (functions->mask & DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_FREE_MASK)
+    thread_functions.recursive_mutex_free = functions->recursive_mutex_free;
+  
+  if (functions->mask & DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_LOCK_MASK)
+    thread_functions.recursive_mutex_lock = functions->recursive_mutex_lock;
+
+  if (functions->mask & DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_UNLOCK_MASK)
+    thread_functions.recursive_mutex_unlock = functions->recursive_mutex_unlock;
+
   thread_functions.mask = functions->mask;
 
   if (!init_locks ())

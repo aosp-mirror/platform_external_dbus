@@ -40,6 +40,11 @@ typedef void        (* DBusMutexFreeFunction)   (DBusMutex *mutex);
 typedef dbus_bool_t (* DBusMutexLockFunction)   (DBusMutex *mutex);
 typedef dbus_bool_t (* DBusMutexUnlockFunction) (DBusMutex *mutex);
 
+typedef DBusMutex*  (* DBusRecursiveMutexNewFunction)    (void);
+typedef void        (* DBusRecursiveMutexFreeFunction)   (DBusMutex *mutex);
+typedef void        (* DBusRecursiveMutexLockFunction)   (DBusMutex *mutex);
+typedef void        (* DBusRecursiveMutexUnlockFunction) (DBusMutex *mutex);
+
 typedef DBusCondVar*  (* DBusCondVarNewFunction)         (void);
 typedef void          (* DBusCondVarFreeFunction)        (DBusCondVar *cond);
 typedef void          (* DBusCondVarWaitFunction)        (DBusCondVar *cond,
@@ -62,8 +67,11 @@ typedef enum
   DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK   = 1 << 7,
   DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK = 1 << 8,
   DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK = 1 << 9,
-
-  DBUS_THREAD_FUNCTIONS_ALL_MASK     = (1 << 10) - 1
+  DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_NEW_MASK    = 1 << 10,
+  DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_FREE_MASK   = 1 << 11,
+  DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_LOCK_MASK   = 1 << 12,
+  DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_UNLOCK_MASK = 1 << 13,
+  DBUS_THREAD_FUNCTIONS_ALL_MASK     = (1 << 13) - 1
 } DBusThreadFunctionsMask;
 
 /**
@@ -85,15 +93,16 @@ typedef struct
   DBusCondVarWaitTimeoutFunction condvar_wait_timeout; /**< Function to wait on a condition with a timeout */
   DBusCondVarWakeOneFunction condvar_wake_one; /**< Function to wake one thread waiting on the condition */
   DBusCondVarWakeAllFunction condvar_wake_all; /**< Function to wake all threads waiting on the condition */
-  
+ 
+  DBusRecursiveMutexNewFunction recursive_mutex_new; /**< Function to create a recursive mutex */
+  DBusRecursiveMutexFreeFunction recursive_mutex_free; /**< Function to free a recursive mutex */
+  DBusRecursiveMutexLockFunction recursive_mutex_lock; /**< Function to lock a recursive mutex */
+  DBusRecursiveMutexUnlockFunction recursive_mutex_unlock; /**< Function to unlock a recursive mutex */
+
   void (* padding1) (void); /**< Reserved for future expansion */
   void (* padding2) (void); /**< Reserved for future expansion */
   void (* padding3) (void); /**< Reserved for future expansion */
   void (* padding4) (void); /**< Reserved for future expansion */
-  void (* padding5) (void); /**< Reserved for future expansion */
-  void (* padding6) (void); /**< Reserved for future expansion */
-  void (* padding7) (void); /**< Reserved for future expansion */
-  void (* padding8) (void); /**< Reserved for future expansion */
   
 } DBusThreadFunctions;
 

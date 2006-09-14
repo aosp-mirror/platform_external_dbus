@@ -55,8 +55,7 @@ alloc_link (void *data)
 {
   DBusList *link;
 
-  if (!_DBUS_LOCK (list))
-    return NULL;
+  _DBUS_LOCK (list);
 
   if (list_pool == NULL)
     {      
