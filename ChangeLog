@@ -1,5 +1,10 @@
 2006-09-14  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus/dbus-sysdeps-util-unix.c (_dbus_write_pid_file):
+	use _dbus_close instead of close
+
+2006-09-14  John (J5) Palmieri  <johnp@redhat.com>
+
 	* dbus/dbus-sysdeps.c: Add support for LOCAL_CREDS socket
 	credentials.  Fixes "external" authentication under e.g. NetBSD
 	which does not support any other socket credentials mechanism.
