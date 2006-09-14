@@ -1031,6 +1031,12 @@ unix_do_iteration (DBusTransport *transport,
       
       if (poll_res >= 0)
         {
+          if (poll_res == 0)
+            poll_fd.revents = 0; /* some concern that posix does not guarantee this;
+                                  * valgrind flags it as an error. though it probably
+                                  * is guaranteed on linux at least.
+                                  */
+          
           if (poll_fd.revents & _DBUS_POLLERR)
             do_io_error (transport);
           else
