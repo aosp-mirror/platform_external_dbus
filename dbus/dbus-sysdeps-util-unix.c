@@ -210,7 +210,7 @@ _dbus_write_pid_file (const DBusString *filename,
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to fdopen fd %d: %s", fd, _dbus_strerror (errno));
-      _dbus_close (fd);
+      _dbus_close (fd, NULL);
       return FALSE;
     }
   
