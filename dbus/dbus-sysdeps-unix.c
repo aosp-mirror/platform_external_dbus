@@ -385,6 +385,35 @@ _dbus_connect_unix_socket (const char     *path,
 }
 
 /**
+ * Enables or disables the reception of credentials on the given socket during
+ * the next message transmission.  This is only effective if the #LOCAL_CREDS
+ * system feature exists, in which case the other side of the connection does
+ * not have to do anything special to send the credentials.
+ *
+ * @param fd socket on which to change the #LOCAL_CREDS flag.
+ * @param on whether to enable or disable the #LOCAL_CREDS flag.
+ */
+static dbus_bool_t
+_dbus_set_local_creds (int fd, dbus_bool_t on)
+{
+  dbus_bool_t retval = TRUE;
+
+#if defined(LOCAL_CREDS) && !defined(HAVE_CMSGCRED)
+  int val = on ? 1 : 0;
+  if (setsockopt (fd, 0, LOCAL_CREDS, &val, sizeof (val)) < 0)
+    {
+      _dbus_verbose ("Unable to set LOCAL_CREDS socket option on fd %d\n", fd);
+      retval = FALSE;
+    }
+  else
+    _dbus_verbose ("LOCAL_CREDS %s for further messages on fd %d\n",
+                   on ? "enabled" : "disabled", fd);
+#endif
+
+  return retval;
+}
+
+/**
  * Creates a socket and binds it to the given path,
  * then listens on the socket. The socket is
  * set to be nonblocking.
@@ -499,6 +528,15 @@ _dbus_listen_unix_socket (const char     *path,
                       "Failed to listen on socket \"%s\": %s",
                       path, _dbus_strerror (errno));
       _dbus_close (listen_fd, NULL);
+      return -1;
+    }
+
+  if (!_dbus_set_local_creds (listen_fd, TRUE))
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to enable LOCAL_CREDS on socket \"%s\": %s",
+                      path, _dbus_strerror (errno));
+      close (listen_fd);
       return -1;
     }
 
@@ -772,6 +810,12 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
 	  struct cmsghdr hdr;
 	  struct cmsgcred cred;
   } cmsg;
+
+#elif defined(LOCAL_CREDS)
+  struct {
+	  struct cmsghdr hdr;
+	  struct sockcred cred;
+  } cmsg;
 #endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -786,17 +830,11 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
 
   _dbus_credentials_clear (credentials);
 
-#if defined(LOCAL_CREDS) && defined(HAVE_CMSGCRED)
-  /* Set the socket to receive credentials on the next message */
-  {
-    int on = 1;
-    if (setsockopt (client_fd, 0, LOCAL_CREDS, &on, sizeof (on)) < 0)
-      {
-	_dbus_verbose ("Unable to set LOCAL_CREDS socket option\n");
-	return FALSE;
-      }
-  }
-#endif
+  /* Systems supporting LOCAL_CREDS are configured to have this feature
+   * enabled (if it does not conflict with HAVE_CMSGCRED) prior accepting
+   * the connection.  Therefore, the received message must carry the
+   * credentials information without doing anything special.
+   */
 
   iov.iov_base = &buf;
   iov.iov_len = 1;
@@ -805,7 +843,7 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   msg.msg_iov = &iov;
   msg.msg_iovlen = 1;
 
-#ifdef HAVE_CMSGCRED
+#if defined(HAVE_CMSGCRED) || defined(LOCAL_CREDS)
   memset (&cmsg, 0, sizeof (cmsg));
   msg.msg_control = &cmsg;
   msg.msg_controllen = sizeof (cmsg);
@@ -830,7 +868,7 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
       return FALSE;
     }
 
-#ifdef HAVE_CMSGCRED
+#if defined(HAVE_CMSGCRED) || defined(LOCAL_CREDS)
   if (cmsg.hdr.cmsg_len < sizeof (cmsg) || cmsg.hdr.cmsg_type != SCM_CREDS)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -862,6 +900,13 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     credentials->pid = cmsg.cred.cmcred_pid;
     credentials->uid = cmsg.cred.cmcred_euid;
     credentials->gid = cmsg.cred.cmcred_groups[0];
+#elif defined(LOCAL_CREDS)
+    credentials->pid = DBUS_PID_UNSET;
+    credentials->uid = cmsg.cred.sc_uid;
+    credentials->gid = cmsg.cred.sc_gid;
+    /* Since we have already got the credentials from this socket, we can
+     * disable its LOCAL_CREDS flag if it was ever set. */
+    _dbus_set_local_creds (client_fd, FALSE);
 #elif defined(HAVE_GETPEEREID)
     uid_t euid;
     gid_t egid;
