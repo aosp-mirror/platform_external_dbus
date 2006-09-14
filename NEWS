@@ -1,3 +1,18 @@
+D-Bus 1.0 RC 1 (0.93) (14 September 2006)
+==
+- dbus_threads_init_default added for initalizing threads without the need for
+  bindings
+- Filters are now properly removed
+- dbus_connection_open now holds a hard ref to shared connections
+- We now print out a warning and do nothing when someone tries to close a 
+  shared connection
+- The --introspect switch has been added to the bus for printing out 
+  introspection data without actually running the bus
+- LOCAL_CREDS socket credentials are now supported for systems which 
+  support it such as NetBSD
+- Generalize kqueue support so it works with NetBSD as well as FreeBSD
+- Numerous bug fixes and memory leaks patched
+
 D-Bus 0.92 (18 August 2006)
 ==
 - Proper thread locking added to pending calls
