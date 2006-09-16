@@ -62,6 +62,8 @@ DBUS_LIB_SOURCES=				\
 	dbus-server-debug-pipe.c		\
 	dbus-server-debug-pipe.h		\
 	dbus-server-protected.h			\
+	dbus-server-socket.c			\
+	dbus-server-socket.h			\
 	dbus-server-unix.c			\
 	dbus-server-unix.h			\
 	dbus-sha.c				\
@@ -74,6 +76,8 @@ DBUS_LIB_SOURCES=				\
 	dbus-transport.c			\
 	dbus-transport.h			\
 	dbus-transport-protected.h		\
+	dbus-transport-socket.c			\
+	dbus-transport-socket.h			\
 	dbus-transport-unix.c			\
 	dbus-transport-unix.h			\
 	dbus-watch.c				\

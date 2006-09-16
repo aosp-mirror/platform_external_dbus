@@ -23,6 +23,7 @@
 
 #include "dbus-transport-protected.h"
 #include "dbus-transport-unix.h"
+#include "dbus-transport-socket.h"
 #include "dbus-connection-internal.h"
 #include "dbus-watch.h"
 #include "dbus-auth.h"
@@ -655,19 +656,19 @@ _dbus_transport_set_connection (DBusTransport  *transport,
 }
 
 /**
- * Get the UNIX file descriptor, if any.
+ * Get the socket file descriptor, if any.
  *
  * @param transport the transport
  * @param fd_p pointer to fill in with the descriptor
  * @returns #TRUE if a descriptor was available
  */
 dbus_bool_t
-_dbus_transport_get_unix_fd (DBusTransport *transport,
-                             int           *fd_p)
+_dbus_transport_get_socket_fd (DBusTransport *transport,
+                               int           *fd_p)
 {
   dbus_bool_t retval;
   
-  if (transport->vtable->get_unix_fd == NULL)
+  if (transport->vtable->get_socket_fd == NULL)
     return FALSE;
 
   if (transport->disconnected)
@@ -675,8 +676,8 @@ _dbus_transport_get_unix_fd (DBusTransport *transport,
 
   _dbus_transport_ref (transport);
 
-  retval = (* transport->vtable->get_unix_fd) (transport,
-                                               fd_p);
+  retval = (* transport->vtable->get_socket_fd) (transport,
+                                                 fd_p);
   
   _dbus_transport_unref (transport);
 

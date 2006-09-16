@@ -66,9 +66,9 @@ struct DBusTransportVTable
   void        (* live_messages_changed) (DBusTransport *transport);
   /**< Outstanding messages counter changed */
 
-  dbus_bool_t (* get_unix_fd) (DBusTransport *transport,
-                               int           *fd_p);
-  /**< Get UNIX file descriptor */
+  dbus_bool_t (* get_socket_fd) (DBusTransport *transport,
+                                 int           *fd_p);
+  /**< Get socket file descriptor */
 };
 
 /**

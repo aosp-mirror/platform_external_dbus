@@ -28,6 +28,10 @@
 #include <config.h>
 #include <dbus/dbus-sysdeps.h>
 
+#ifdef DBUS_WIN
+#error "Don't include this on Windows"
+#endif
+
 DBUS_BEGIN_DECLS
 
 dbus_bool_t 
@@ -50,6 +54,15 @@ _dbus_write_two (int               fd,
                  const DBusString *buffer2,
                  int               start2,
                  int               len2);
+
+dbus_bool_t _dbus_open_unix_socket (int              *fd,
+                                    DBusError        *error);
+int _dbus_connect_unix_socket (const char     *path,
+                               dbus_bool_t     abstract,
+                               DBusError      *error);
+int _dbus_listen_unix_socket  (const char     *path,
+                               dbus_bool_t     abstract,
+                               DBusError      *error);
 
 DBUS_END_DECLS
 

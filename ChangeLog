@@ -1,5 +1,25 @@
 2006-09-16  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-server.c (dbus_server_listen): change how this works
+	to be able to delegate to a set of handlers that can succeed,
+	fail, or choose not to handle. Allows us to have 
+	dbus_server_listen_platform_specific.
+
+	* dbus/dbus-server-socket.c (_dbus_server_new_for_tcp_socket):
+	factor out the tcp socket stuff to be used on windows, leaving
+	unix domain socket only in dbus-socket-unix.c
+
+	* dbus/dbus-transport-socket.c
+	(_dbus_transport_new_for_tcp_socket): factor out the tcp socket
+	stuff to be used on windows, leaving unix domain socket only 
+	in dbus-transport-unix.c
+
+	* dbus/dbus-connection.c (dbus_connection_get_unix_user): insert
+	temporary hack to be sure this fails on windows
+	(dbus_connection_get_unix_process_id): ditto
+
+2006-09-16  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps-unix.c (_dbus_open_tcp_socket) 
 	(_dbus_open_unix_socket, _dbus_open_socket): change API for 
 	_dbus_open_socket so the domain/type/protocol from system headers

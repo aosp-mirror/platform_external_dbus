@@ -100,8 +100,6 @@ typedef unsigned long dbus_gid_t;
 
 dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
                                     DBusError        *error);
-dbus_bool_t _dbus_open_unix_socket (int              *fd,
-                                    DBusError        *error);
 dbus_bool_t _dbus_close_socket     (int               fd,
                                     DBusError        *error);
 int         _dbus_read_socket      (int               fd,
@@ -118,15 +116,6 @@ int         _dbus_write_socket_two (int               fd,
                                     const DBusString *buffer2,
                                     int               start2,
                                     int               len2);
-
-
-
-int _dbus_connect_unix_socket (const char     *path,
-                               dbus_bool_t     abstract,
-                               DBusError      *error);
-int _dbus_listen_unix_socket  (const char     *path,
-                               dbus_bool_t     abstract,
-                               DBusError      *error);
 int _dbus_connect_tcp_socket  (const char     *host,
                                dbus_uint32_t   port,
                                DBusError      *error);
@@ -145,6 +134,9 @@ typedef struct
   dbus_gid_t gid; /**< group ID or DBUS_GID_UNSET */
 } DBusCredentials;
 
+/* FIXME these read/send credentials should get moved to sysdeps-unix.h,
+ * or renamed to reflect what they mean cross-platform
+ */
 dbus_bool_t _dbus_read_credentials_unix_socket (int              client_fd,
                                                 DBusCredentials *credentials,
                                                 DBusError       *error);

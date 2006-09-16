@@ -26,9 +26,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <stdlib.h>
 
 /**

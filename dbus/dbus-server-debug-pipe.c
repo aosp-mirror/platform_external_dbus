@@ -24,7 +24,7 @@
 
 #include "dbus-internals.h"
 #include "dbus-server-debug-pipe.h"
-#include "dbus-transport-unix.h"
+#include "dbus-transport-socket.h"
 #include "dbus-connection-internal.h"
 #include "dbus-hash.h"
 #include "dbus-string.h"
@@ -256,8 +256,8 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   _dbus_fd_set_close_on_exec (client_fd);
   _dbus_fd_set_close_on_exec (server_fd);
   
-  client_transport = _dbus_transport_new_for_fd (client_fd,
-                                                 NULL, &address);
+  client_transport = _dbus_transport_new_for_socket (client_fd,
+                                                     NULL, &address);
   if (client_transport == NULL)
     {
       _dbus_close_socket (client_fd, NULL);
@@ -271,8 +271,8 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   
   client_fd = -1;
 
-  server_transport = _dbus_transport_new_for_fd (server_fd,
-                                                 &server->guid_hex, NULL);
+  server_transport = _dbus_transport_new_for_socket (server_fd,
+                                                     &server->guid_hex, NULL);
   if (server_transport == NULL)
     {
       _dbus_transport_unref (client_transport);
@@ -322,6 +322,58 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   return client_transport;
 }
 
+/**
+ * Tries to interpret the address entry as a debug pipe entry.
+ * 
+ * Sets error if the result is not OK.
+ * 
+ * @param entry an address entry
+ * @param a new DBusServer, or #NULL on failure.
+ * @param error location to store rationale for failure on bad address
+ * @returns the outcome
+ * 
+ */
+DBusServerListenResult
+_dbus_server_listen_debug_pipe (DBusAddressEntry *entry,
+                                DBusServer      **server_p,
+                                DBusError        *error)
+{
+  const char *method;
+
+  *server_p = NULL;
+  
+  method = dbus_address_entry_get_method (entry);
+  
+  if (strcmp (method, "debug-pipe") == 0)
+    {
+      const char *name = dbus_address_entry_get_value (entry, "name");
+      
+      if (name == NULL)
+        {
+          _dbus_server_set_bad_address(error, "debug-pipe", "name",
+                                       NULL);
+          return DBUS_SERVER_LISTEN_BAD_ADDRESS;
+        }
+
+      *server_p = _dbus_server_debug_pipe_new (name, error);
+      
+      if (*server_p)
+        {
+          _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+          return DBUS_SERVER_LISTEN_OK;
+        }
+      else
+        {
+          _DBUS_ASSERT_ERROR_IS_SET(error);
+          return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
+        }
+    }
+  else
+    {
+      _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+      return DBUS_SERVER_LISTEN_NOT_HANDLED;
+    }
+}
 
 /** @} */
 

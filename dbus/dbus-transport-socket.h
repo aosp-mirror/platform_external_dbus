@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-server-unix.h Server implementation for Unix network protocols.
+/* dbus-transport-socket.h Socket subclasses of DBusTransport
  *
- * Copyright (C) 2002  Red Hat Inc.
+ * Copyright (C) 2002, 2006  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -20,18 +20,21 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef DBUS_SERVER_UNIX_H
-#define DBUS_SERVER_UNIX_H
+#ifndef DBUS_TRANSPORT_SOCKET_H
+#define DBUS_TRANSPORT_SOCKET_H
 
-#include <dbus/dbus-internals.h>
-#include <dbus/dbus-server-protected.h>
+#include <dbus/dbus-transport.h>
 
 DBUS_BEGIN_DECLS
 
-DBusServer* _dbus_server_new_for_domain_socket (const char       *path,
-                                                dbus_bool_t       abstract,
-                                                DBusError        *error);
+DBusTransport* _dbus_transport_new_for_socket        (int               fd,
+                                                      const DBusString *server_guid,
+                                                      const DBusString *address);
+DBusTransport* _dbus_transport_new_for_tcp_socket    (const char       *host,
+                                                      dbus_int32_t      port,
+                                                      DBusError        *error);
+
 
 DBUS_END_DECLS
 
-#endif /* DBUS_SERVER_UNIX_H */
+#endif /* DBUS_TRANSPORT_SOCKET_H */

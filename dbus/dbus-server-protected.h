@@ -27,6 +27,7 @@
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-threads-internal.h>
 #include <dbus/dbus-server.h>
+#include <dbus/dbus-address.h>
 #include <dbus/dbus-timeout.h>
 #include <dbus/dbus-watch.h>
 #include <dbus/dbus-resources.h>
@@ -120,6 +121,22 @@ void        _dbus_server_toggle_timeout (DBusServer             *server,
 
 void        _dbus_server_ref_unlocked   (DBusServer             *server);
 void        _dbus_server_unref_unlocked (DBusServer             *server);
+
+typedef enum
+{
+  DBUS_SERVER_LISTEN_NOT_HANDLED, /**< we aren't in charge of this address type */
+  DBUS_SERVER_LISTEN_OK,          /**< we set up the listen */
+  DBUS_SERVER_LISTEN_BAD_ADDRESS, /**< malformed address */
+  DBUS_SERVER_LISTEN_DID_NOT_CONNECT /**< well-formed address but failed to set it up */
+} DBusServerListenResult;
+
+DBusServerListenResult _dbus_server_listen_platform_specific (DBusAddressEntry  *entry,
+                                                              DBusServer       **server_p,
+                                                              DBusError         *error);
+void                   _dbus_server_set_bad_address          (DBusError         *error,
+                                                              const char        *address_problem_type,
+                                                              const char        *address_problem_field,
+                                                              const char        *address_problem_other);
 
 #ifdef DBUS_DISABLE_CHECKS
 #define TOOK_LOCK_CHECK(server)

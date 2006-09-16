@@ -4224,6 +4224,9 @@ dbus_connection_set_dispatch_status_function (DBusConnection             *connec
  * connections will have a file descriptor. So for adding descriptors
  * to the main loop, use dbus_watch_get_fd() and so forth.
  *
+ * @todo this function should be called get_socket_fd or something;
+ * there's no reason it can't work on Windows sockets also.
+ * 
  * @param connection the connection
  * @param fd return location for the file descriptor.
  * @returns #TRUE if fd is successfully obtained.
@@ -4239,8 +4242,8 @@ dbus_connection_get_unix_fd (DBusConnection *connection,
   
   CONNECTION_LOCK (connection);
   
-  retval = _dbus_transport_get_unix_fd (connection->transport,
-                                        fd);
+  retval = _dbus_transport_get_socket_fd (connection->transport,
+                                          fd);
 
   CONNECTION_UNLOCK (connection);
 
@@ -4266,6 +4269,14 @@ dbus_connection_get_unix_user (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (uid != NULL, FALSE);
+
+#ifdef DBUS_WIN
+  /* FIXME this should be done at a lower level, but it's kind of hard,
+   * just want to be sure we don't ship with this API returning
+   * some weird internal fake uid for 1.0
+   */
+  return FALSE;
+#endif
   
   CONNECTION_LOCK (connection);
 
@@ -4297,6 +4308,14 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (pid != NULL, FALSE);
+
+#ifdef DBUS_WIN
+  /* FIXME this should be done at a lower level, but it's kind of hard,
+   * just want to be sure we don't ship with this API returning
+   * some weird internal fake uid for 1.0
+   */
+  return FALSE;
+#endif
   
   CONNECTION_LOCK (connection);
 

@@ -23,6 +23,7 @@
 
 #include "dbus-server.h"
 #include "dbus-server-unix.h"
+#include "dbus-server-socket.h"
 #include "dbus-string.h"
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-server-debug-pipe.h"
@@ -441,6 +442,21 @@ _dbus_server_toggle_timeout (DBusServer  *server,
                             enabled);
 }
 
+void
+_dbus_server_set_bad_address (DBusError *error,
+                              const char *address_problem_type,
+                              const char *address_problem_field,
+                              const char *address_problem_other)
+{
+  if (address_problem_type != NULL)
+    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                    "Server address of type %s was missing argument %s",
+                    address_problem_type, address_problem_field);
+  else
+    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                    "Could not parse server address: %s",
+                    address_problem_other);
+}
 
 /** @} */
 
@@ -463,6 +479,18 @@ _dbus_server_toggle_timeout (DBusServer  *server,
  * 
  */
 
+static const struct {
+  DBusServerListenResult (* func) (DBusAddressEntry *entry,
+                                   DBusServer      **server_p,
+                                   DBusError        *error);
+} listen_funcs[] = {
+  { _dbus_server_listen_socket },
+  { _dbus_server_listen_platform_specific }
+#ifdef DBUS_BUILD_TESTS
+  , { _dbus_server_listen_debug_pipe }
+#endif
+};
+
 /**
  * Listens for new connections on the given address.
  * Returns #NULL if listening fails for any reason.
@@ -470,10 +498,7 @@ _dbus_server_toggle_timeout (DBusServer  *server,
  * dbus_server_set_new_connection_function() and
  * dbus_server_set_watch_functions() should be called
  * immediately to render the server fully functional.
- *
- * @todo error messages on bad address could really be better.
- * DBusResultCode is a bit limiting here.
- *
+ * 
  * @param address the address of this server.
  * @param error location to store rationale for failure.
  * @returns a new DBusServer, or #NULL on failure.
@@ -486,10 +511,9 @@ dbus_server_listen (const char     *address,
   DBusServer *server;
   DBusAddressEntry **entries;
   int len, i;
-  const char *address_problem_type;
-  const char *address_problem_field;
-  const char *address_problem_other;
-
+  DBusError first_connect_error;
+  dbus_bool_t handled_once;
+  
   _dbus_return_val_if_fail (address != NULL, NULL);
   _dbus_return_val_if_error_is_set (error, NULL);
   
@@ -497,161 +521,111 @@ dbus_server_listen (const char     *address,
     return NULL;
 
   server = NULL;
-  address_problem_type = NULL;
-  address_problem_field = NULL;
-  address_problem_other = NULL;
+  dbus_error_init (&first_connect_error);
+  handled_once = FALSE;
   
   for (i = 0; i < len; i++)
     {
-      const char *method;
+      int j;
 
-      method = dbus_address_entry_get_method (entries[i]);
-
-      if (strcmp (method, "unix") == 0)
-	{
-	  const char *path = dbus_address_entry_get_value (entries[i], "path");
-          const char *tmpdir = dbus_address_entry_get_value (entries[i], "tmpdir");
-          const char *abstract = dbus_address_entry_get_value (entries[i], "abstract");
-          
-	  if (path == NULL && tmpdir == NULL && abstract == NULL)
-            {
-              address_problem_type = "unix";
-              address_problem_field = "path or tmpdir or abstract";
-              goto bad_address;
-            }
-
-          if ((path && tmpdir) ||
-              (path && abstract) ||
-              (tmpdir && abstract))
-            {
-              address_problem_other = "cannot specify two of \"path\" and \"tmpdir\" and \"abstract\" at the same time";
-              goto bad_address;
-            }
-
-          if (tmpdir != NULL)
-            {
-              DBusString full_path;
-              DBusString filename;
-              
-              if (!_dbus_string_init (&full_path))
-                {
-                  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-                  goto out;
-                }
-                  
-              if (!_dbus_string_init (&filename))
-                {
-                  _dbus_string_free (&full_path);
-                  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-                  goto out;
-                }
-              
-              if (!_dbus_string_append (&filename,
-                                        "dbus-") ||
-                  !_dbus_generate_random_ascii (&filename, 10) ||
-                  !_dbus_string_append (&full_path, tmpdir) ||
-                  !_dbus_concat_dir_and_file (&full_path, &filename))
-                {
-                  _dbus_string_free (&full_path);
-                  _dbus_string_free (&filename);
-                  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-                  goto out;
-                }
-              
-              /* Always use abstract namespace if possible with tmpdir */
-              
-              server =
-                _dbus_server_new_for_domain_socket (_dbus_string_get_const_data (&full_path),
-#ifdef HAVE_ABSTRACT_SOCKETS
-                                                    TRUE,
-#else
-                                                    FALSE,
-#endif
-                                                    error);
-
-              _dbus_string_free (&full_path);
-              _dbus_string_free (&filename);
-            }
-          else
-            {
-              if (path)
-                server = _dbus_server_new_for_domain_socket (path, FALSE, error);
-              else
-                server = _dbus_server_new_for_domain_socket (abstract, TRUE, error);
-            }
-	}
-      else if (strcmp (method, "tcp") == 0)
-	{
-	  const char *host = dbus_address_entry_get_value (entries[i], "host");
-          const char *port = dbus_address_entry_get_value (entries[i], "port");
-          DBusString  str;
-          long lport;
-          dbus_bool_t sresult;
-          
-	  if (port == NULL)
-            {
-              address_problem_type = "tcp";
-              address_problem_field = "port";
-              goto bad_address;
-            }
-
-          _dbus_string_init_const (&str, port);
-          sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-          _dbus_string_free (&str);
-          
-          if (sresult == FALSE || lport <= 0 || lport > 65535)
-            {
-              address_problem_other = "Port is not an integer between 0 and 65535";
-              goto bad_address;
-            }
-          
-	  server = _dbus_server_new_for_tcp_socket (host, lport, error);
-
-	  if (server)
-	    break;
-	}
-#ifdef DBUS_BUILD_TESTS
-      else if (strcmp (method, "debug-pipe") == 0)
-	{
-	  const char *name = dbus_address_entry_get_value (entries[i], "name");
-
-	  if (name == NULL)
-            {
-              address_problem_type = "debug-pipe";
-              address_problem_field = "name";
-              goto bad_address;
-            }
-
-	  server = _dbus_server_debug_pipe_new (name, error);
-	}
-#endif
-      else
+      for (j = 0; j < (int) _DBUS_N_ELEMENTS (listen_funcs); ++j)
         {
-          address_problem_other = "Unknown address type (examples of valid types are \"unix\" and \"tcp\")";
-          goto bad_address;
-        }
+          DBusServerListenResult result;
+          DBusError tmp_error;
       
-      if (server)
-        break;
+          dbus_error_init (&tmp_error);
+          result = (* listen_funcs[j].func) (entries[i],
+                                             &server,
+                                             &tmp_error);
+
+          if (result == DBUS_SERVER_LISTEN_OK)
+            {
+              _dbus_assert (server != NULL);
+              _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+              handled_once = TRUE;
+              goto out;
+            }
+          else if (result == DBUS_SERVER_LISTEN_BAD_ADDRESS)
+            {
+              _dbus_assert (server == NULL);
+              _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+              dbus_move_error (&tmp_error, error);
+              handled_once = TRUE;
+              goto out;
+            }
+          else if (result == DBUS_SERVER_LISTEN_NOT_HANDLED)
+            {
+              _dbus_assert (server == NULL);
+              _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+
+              /* keep trying addresses */
+            }
+          else if (result == DBUS_SERVER_LISTEN_DID_NOT_CONNECT)
+            {
+              _dbus_assert (server == NULL);
+              _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+              if (!dbus_error_is_set (&first_connect_error))
+                dbus_move_error (&tmp_error, &first_connect_error);
+              else
+                dbus_error_free (&tmp_error);
+
+              handled_once = TRUE;
+              
+              /* keep trying addresses */
+            }
+        }
+
+      _dbus_assert (server == NULL);
+      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
     }
 
  out:
+
+  if (!handled_once)
+    {
+      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+      if (len > 0)
+        dbus_set_error (error,
+                       DBUS_ERROR_BAD_ADDRESS,
+                       "Unknown address type '%s'",
+                       dbus_address_entry_get_method (entries[0]));
+      else
+        dbus_set_error (error,
+                        DBUS_ERROR_BAD_ADDRESS,
+                        "Empty address '%s'",
+                        address);
+    }
   
   dbus_address_entries_free (entries);
-  return server;
 
- bad_address:
-  dbus_address_entries_free (entries);
-  if (address_problem_type != NULL)
-    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                    "Server address of type %s was missing argument %s",
-                    address_problem_type, address_problem_field);
+  if (server == NULL)
+    {
+      _dbus_assert (error == NULL || dbus_error_is_set (&first_connect_error) ||
+                   dbus_error_is_set (error));
+      
+      if (error && dbus_error_is_set (error))
+        {
+          /* already set the error */
+        }
+      else
+        {
+          /* didn't set the error but either error should be
+           * NULL or first_connect_error should be set.
+           */
+          _dbus_assert (error == NULL || dbus_error_is_set (&first_connect_error));
+          dbus_move_error (&first_connect_error, error);
+        }
+
+      _DBUS_ASSERT_ERROR_IS_CLEAR (&first_connect_error); /* be sure we freed it */
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+
+      return NULL;
+    }
   else
-    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                    "Could not parse server address: %s",
-                    address_problem_other);
-
-  return NULL;
+    {
+      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+      return server;
+    }
 }
 
 /**
@@ -1166,17 +1140,30 @@ _dbus_server_test (void)
   
   for (i = 0; i < _DBUS_N_ELEMENTS (valid_addresses); i++)
     {
-      server = dbus_server_listen (valid_addresses[i], NULL);
+      DBusError error;
+
+      /* FIXME um, how are the two tests here different? */
+      
+      dbus_error_init (&error);
+      server = dbus_server_listen (valid_addresses[i], &error);
       if (server == NULL)
-	_dbus_assert_not_reached ("Failed to listen for valid address.");
+        {
+          _dbus_warn ("server listen error: %s: %s\n", error.name, error.message);
+          dbus_error_free (&error);
+          _dbus_assert_not_reached ("Failed to listen for valid address.");
+        }
 
       dbus_server_disconnect (server);
       dbus_server_unref (server);
 
       /* Try disconnecting before unreffing */
-      server = dbus_server_listen (valid_addresses[i], NULL);
+      server = dbus_server_listen (valid_addresses[i], &error);
       if (server == NULL)
-	_dbus_assert_not_reached ("Failed to listen for valid address.");
+        {
+          _dbus_warn ("server listen error: %s: %s\n", error.name, error.message);
+          dbus_error_free (&error);          
+          _dbus_assert_not_reached ("Failed to listen for valid address.");
+        }
 
       dbus_server_disconnect (server);
       dbus_server_unref (server);

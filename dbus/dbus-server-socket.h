@@ -1,8 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-server-debug-pipe.h In-proc debug server implementation 
+/* dbus-server-socket.h Server implementation for sockets
  *
- * Copyright (C) 2003  CodeFactory AB
- * Copyright (C) 2003  Red Hat, Inc.
+ * Copyright (C) 2002, 2006  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -21,24 +20,27 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#ifndef DBUS_SERVER_DEBUG_PIPE_H
-#define DBUS_SERVER_DEBUG_PIPE_H
+#ifndef DBUS_SERVER_SOCKET_H
+#define DBUS_SERVER_SOCKET_H
 
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-server-protected.h>
-#include <dbus/dbus-transport.h>
 
 DBUS_BEGIN_DECLS
 
-DBusServer*            _dbus_server_debug_pipe_new    (const char        *server_name,
-                                                       DBusError         *error);
-DBusTransport*         _dbus_transport_debug_pipe_new (const char        *server_name,
-                                                       DBusError         *error);
-DBusServerListenResult _dbus_server_listen_debug_pipe (DBusAddressEntry  *entry,
-                                                       DBusServer       **server_p,
-                                                       DBusError         *error);
+DBusServer* _dbus_server_new_for_socket           (int               fd,
+                                                   const DBusString *address);
+DBusServer* _dbus_server_new_for_tcp_socket       (const char       *host,
+                                                   dbus_uint32_t     port,
+                                                   DBusError        *error);
+DBusServerListenResult _dbus_server_listen_socket (DBusAddressEntry  *entry,
+                                                   DBusServer       **server_p,
+                                                   DBusError         *error);
 
+
+void _dbus_server_socket_own_filename (DBusServer *server,
+                                       char       *filename);
 
 DBUS_END_DECLS
 
-#endif /* DBUS_SERVER_DEBUG_PIPE_H */
+#endif /* DBUS_SERVER_SOCKET_H */
