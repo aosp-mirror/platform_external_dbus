@@ -24,6 +24,7 @@
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
+#include "dbus-sysdeps-unix.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
@@ -75,6 +76,54 @@
  * @addtogroup DBusInternalsUtils
  * @{
  */
+
+dbus_bool_t
+_dbus_open_socket (int              *fd,
+                   int               domain,
+                   int               type,
+                   int               protocol)
+{
+  *fd = socket (domain, type, protocol);
+  return fd >= 0;
+}
+
+dbus_bool_t 
+_dbus_close_socket (int               fd,
+                    DBusError        *error)
+{
+  return _dbus_close (fd, error);
+}
+
+int
+_dbus_read_socket (int               fd,
+                   DBusString       *buffer,
+                   int               count)
+{
+  return _dbus_read (fd, buffer, count);
+}
+
+int
+_dbus_write_socket (int               fd,
+                    const DBusString *buffer,
+                    int               start,
+                    int               len)
+{
+  return _dbus_write (fd, buffer, start, len);
+}
+
+int
+_dbus_write_socket_two (int               fd,
+                        const DBusString *buffer1,
+                        int               start1,
+                        int               len1,
+                        const DBusString *buffer2,
+                        int               start2,
+                        int               len2)
+{
+  return _dbus_write_two (fd, buffer1, start1, len1,
+                          buffer2, start2, len2);
+}
+
 
 /**
  * Thin wrapper around the read() system call that appends
@@ -306,9 +355,8 @@ _dbus_connect_unix_socket (const char     *path,
   _dbus_verbose ("connecting to unix socket %s abstract=%d\n",
                  path, abstract);
   
-  fd = socket (PF_UNIX, SOCK_STREAM, 0);
   
-  if (fd < 0)
+  if (!_dbus_open_socket (&fd, PF_UNIX, SOCK_STREAM, 0))
     {
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
@@ -442,9 +490,7 @@ _dbus_listen_unix_socket (const char     *path,
   _dbus_verbose ("listening on unix socket %s abstract=%d\n",
                  path, abstract);
   
-  listen_fd = socket (PF_UNIX, SOCK_STREAM, 0);
-  
-  if (listen_fd < 0)
+  if (!_dbus_open_socket (&listen_fd, PF_UNIX, SOCK_STREAM, 0))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to create socket \"%s\": %s",
@@ -578,10 +624,9 @@ _dbus_connect_tcp_socket (const char     *host,
   struct in_addr *haddr;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+ 
   
-  fd = socket (AF_INET, SOCK_STREAM, 0);
-  
-  if (fd < 0)
+  if (!_dbus_open_socket (&fd, AF_INET, SOCK_STREAM, 0))
     {
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
@@ -658,9 +703,8 @@ _dbus_listen_tcp_socket (const char     *host,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  listen_fd = socket (AF_INET, SOCK_STREAM, 0);
   
-  if (listen_fd < 0)
+  if (!_dbus_open_socket (&listen_fd, AF_INET, SOCK_STREAM, 0))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to create socket \"%s:%d\": %s",

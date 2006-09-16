@@ -1,3 +1,13 @@
+2006-09-16  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps-unix.h: small change to Peter's patch to make
+	dbus-sysdeps-unix-util.c build, add unix-specific sysdeps header.
+
+	* dbus/dbus-sysdeps.h, dbus-sysdeps-unix.c: patch from Peter 
+	Kümmel bug #8249 to make the sysdeps.h read/write/open/close
+	functions specifically for sockets only, and move generic 
+	read/write/open/close into unix-specific code.
+
 2006-09-14  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-transport-unix.c (unix_do_iteration): fix a valgrind

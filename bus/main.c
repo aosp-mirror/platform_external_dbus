@@ -51,7 +51,7 @@ signal_handler (int sig)
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX  */
     case SIGHUP:
       _dbus_string_init_const (&str, "foo");
-      if (!_dbus_write (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
+      if (!_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
 	{
 	  _dbus_warn ("Unable to write to reload pipe.\n");
 	  exit (1);
@@ -150,7 +150,7 @@ handle_reload_watch (DBusWatch    *watch,
   DBusError error;
   DBusString str;
   _dbus_string_init (&str);
-  if (_dbus_read (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
+  if (_dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
     {
       _dbus_warn ("Couldn't read from reload pipe.\n");
       exit (1);

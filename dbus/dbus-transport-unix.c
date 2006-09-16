@@ -250,8 +250,8 @@ read_data_into_auth (DBusTransport *transport,
 
   _dbus_auth_get_buffer (transport->auth, &buffer);
   
-  bytes_read = _dbus_read (unix_transport->fd,
-                           buffer, unix_transport->max_bytes_read_per_iteration);
+  bytes_read = _dbus_read_socket (unix_transport->fd,
+                                  buffer, unix_transport->max_bytes_read_per_iteration);
 
   _dbus_auth_return_buffer (transport->auth, buffer,
                             bytes_read > 0 ? bytes_read : 0);
@@ -305,9 +305,9 @@ write_data_from_auth (DBusTransport *transport)
                                      &buffer))
     return FALSE;
   
-  bytes_written = _dbus_write (unix_transport->fd,
-                               buffer,
-                               0, _dbus_string_get_length (buffer));
+  bytes_written = _dbus_write_socket (unix_transport->fd,
+                                      buffer,
+                                      0, _dbus_string_get_length (buffer));
 
   if (bytes_written > 0)
     {
@@ -556,10 +556,10 @@ do_writing (DBusTransport *transport)
 #endif
           
           bytes_written =
-            _dbus_write (unix_transport->fd,
-                         &unix_transport->encoded_outgoing,
-                         unix_transport->message_bytes_written,
-                         total_bytes_to_write - unix_transport->message_bytes_written);
+            _dbus_write_socket (unix_transport->fd,
+                                &unix_transport->encoded_outgoing,
+                                unix_transport->message_bytes_written,
+                                total_bytes_to_write - unix_transport->message_bytes_written);
         }
       else
         {
@@ -573,21 +573,21 @@ do_writing (DBusTransport *transport)
           if (unix_transport->message_bytes_written < header_len)
             {
               bytes_written =
-                _dbus_write_two (unix_transport->fd,
-                                 header,
-                                 unix_transport->message_bytes_written,
-                                 header_len - unix_transport->message_bytes_written,
-                                 body,
-                                 0, body_len);
+                _dbus_write_socket_two (unix_transport->fd,
+                                        header,
+                                        unix_transport->message_bytes_written,
+                                        header_len - unix_transport->message_bytes_written,
+                                        body,
+                                        0, body_len);
             }
           else
             {
               bytes_written =
-                _dbus_write (unix_transport->fd,
-                             body,
-                             (unix_transport->message_bytes_written - header_len),
-                             body_len -
-                             (unix_transport->message_bytes_written - header_len));
+                _dbus_write_socket (unix_transport->fd,
+                                    body,
+                                    (unix_transport->message_bytes_written - header_len),
+                                    body_len -
+                                    (unix_transport->message_bytes_written - header_len));
             }
         }
 
@@ -682,9 +682,9 @@ do_reading (DBusTransport *transport)
       if (_dbus_string_get_length (&unix_transport->encoded_incoming) > 0)
         bytes_read = _dbus_string_get_length (&unix_transport->encoded_incoming);
       else
-        bytes_read = _dbus_read (unix_transport->fd,
-                                 &unix_transport->encoded_incoming,
-                                 unix_transport->max_bytes_read_per_iteration);
+        bytes_read = _dbus_read_socket (unix_transport->fd,
+                                        &unix_transport->encoded_incoming,
+                                        unix_transport->max_bytes_read_per_iteration);
 
       _dbus_assert (_dbus_string_get_length (&unix_transport->encoded_incoming) ==
                     bytes_read);
@@ -719,8 +719,8 @@ do_reading (DBusTransport *transport)
       _dbus_message_loader_get_buffer (transport->loader,
                                        &buffer);
       
-      bytes_read = _dbus_read (unix_transport->fd,
-                               buffer, unix_transport->max_bytes_read_per_iteration);
+      bytes_read = _dbus_read_socket (unix_transport->fd,
+                                      buffer, unix_transport->max_bytes_read_per_iteration);
       
       _dbus_message_loader_return_buffer (transport->loader,
                                           buffer,
@@ -882,7 +882,7 @@ unix_disconnect (DBusTransport *transport)
   
   free_watches (transport);
   
-  _dbus_close (unix_transport->fd, NULL);
+  _dbus_close_socket (unix_transport->fd, NULL);
   unix_transport->fd = -1;
 }
 
@@ -1247,7 +1247,7 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   return transport;
 
  failed_1:
-  _dbus_close (fd, NULL);
+  _dbus_close_socket (fd, NULL);
  failed_0:
   _dbus_string_free (&address);
   return NULL;
@@ -1307,7 +1307,7 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
   if (transport == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_close (fd, NULL);
+      _dbus_close_socket (fd, NULL);
       _dbus_string_free (&address);
       fd = -1;
     }

@@ -630,7 +630,7 @@ bus_context_new (const DBusString *config_file,
         }
 
       bytes = _dbus_string_get_length (&addr);
-      if (_dbus_write (print_addr_fd, &addr, 0, bytes) != bytes)
+      if (_dbus_write_socket (print_addr_fd, &addr, 0, bytes) != bytes)
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Printing message bus address: %s\n",
@@ -640,7 +640,7 @@ bus_context_new (const DBusString *config_file,
         }
 
       if (print_addr_fd > 2)
-        _dbus_close (print_addr_fd, NULL);
+        _dbus_close_socket (print_addr_fd, NULL);
 
       _dbus_string_free (&addr);
     }
@@ -731,7 +731,7 @@ bus_context_new (const DBusString *config_file,
         }
 
       bytes = _dbus_string_get_length (&pid);
-      if (_dbus_write (print_pid_fd, &pid, 0, bytes) != bytes)
+      if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Printing message bus PID: %s\n",
@@ -741,7 +741,7 @@ bus_context_new (const DBusString *config_file,
         }
 
       if (print_pid_fd > 2)
-        _dbus_close (print_pid_fd, NULL);
+        _dbus_close_socket (print_pid_fd, NULL);
       
       _dbus_string_free (&pid);
     }

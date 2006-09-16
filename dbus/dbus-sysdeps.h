@@ -74,20 +74,6 @@ const char* _dbus_getenv (const char *varname);
 dbus_bool_t _dbus_setenv (const char *varname,
 			  const char *value);
 
-int _dbus_read      (int               fd,
-                     DBusString       *buffer,
-                     int               count);
-int _dbus_write     (int               fd,
-                     const DBusString *buffer,
-                     int               start,
-                     int               len);
-int _dbus_write_two (int               fd,
-                     const DBusString *buffer1,
-                     int               start1,
-                     int               len1,
-                     const DBusString *buffer2,
-                     int               start2,
-                     int               len2);
 
 typedef unsigned long dbus_pid_t;
 typedef unsigned long dbus_uid_t;
@@ -101,15 +87,39 @@ typedef unsigned long dbus_gid_t;
 #define DBUS_UID_FORMAT "%lu"
 #define DBUS_GID_FORMAT "%lu"
 
+
 /**
- * Struct representing socket credentials
+ * Socket interface
+ *
+ *  @todo Use for the file descriptors a struct
+ *           - struct DBusSocket{ int d; }; -
+ *        instead of int to get type-safety which 
+ *        will be checked by the compiler.
+ * 
  */
-typedef struct
-{
-  dbus_pid_t pid; /**< process ID or DBUS_PID_UNSET */
-  dbus_uid_t uid; /**< user ID or DBUS_UID_UNSET */
-  dbus_gid_t gid; /**< group ID or DBUS_GID_UNSET */
-} DBusCredentials;
+
+dbus_bool_t _dbus_open_socket      (int              *fd,
+                                    int               domain, 
+                                    int               type, 
+                                    int               protocol);
+dbus_bool_t _dbus_close_socket     (int               fd,
+                                    DBusError        *error);
+int         _dbus_read_socket      (int               fd,
+                                    DBusString       *buffer,
+                                    int               count);
+int         _dbus_write_socket     (int               fd,
+                                    const DBusString *buffer,
+                                    int               start,
+                                    int               len);
+int         _dbus_write_socket_two (int               fd,
+                                    const DBusString *buffer1,
+                                    int               start1,
+                                    int               len1,
+                                    const DBusString *buffer2,
+                                    int               start2,
+                                    int               len2);
+
+
 
 int _dbus_connect_unix_socket (const char     *path,
                                dbus_bool_t     abstract,
@@ -124,6 +134,16 @@ int _dbus_listen_tcp_socket   (const char     *host,
                                dbus_uint32_t   port,
                                DBusError      *error);
 int _dbus_accept              (int             listen_fd);
+
+/**
+ * Struct representing socket credentials
+ */
+typedef struct
+{
+  dbus_pid_t pid; /**< process ID or DBUS_PID_UNSET */
+  dbus_uid_t uid; /**< user ID or DBUS_UID_UNSET */
+  dbus_gid_t gid; /**< group ID or DBUS_GID_UNSET */
+} DBusCredentials;
 
 dbus_bool_t _dbus_read_credentials_unix_socket (int              client_fd,
                                                 DBusCredentials *credentials,
@@ -223,7 +243,10 @@ void _dbus_sleep_milliseconds (int milliseconds);
 void _dbus_get_current_time (long *tv_sec,
                              long *tv_usec);
 
-
+/**
+ * File/directory interface
+ */
+dbus_bool_t _dbus_file_exists         (const char       *file);
 dbus_bool_t _dbus_file_get_contents   (DBusString       *str,
                                        const DBusString *filename,
                                        DBusError        *error);
@@ -258,6 +281,13 @@ void         _dbus_directory_close         (DBusDirIter      *iter);
 dbus_bool_t  _dbus_check_dir_is_private_to_user    (DBusString *dir,
                                                     DBusError *error);
 
+void _dbus_fd_set_close_on_exec (int fd);
+
+const char* _dbus_get_tmpdir      (void);
+
+/**
+ * Random numbers 
+ */
 void        _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
                                                       int   n_bytes);
 void        _dbus_generate_random_bytes_buffer (char       *buffer,
@@ -272,7 +302,6 @@ const char* _dbus_error_from_errno (int error_number);
 
 void _dbus_disable_sigpipe (void);
 
-void _dbus_fd_set_close_on_exec (int fd);
 
 void _dbus_exit (int code) _DBUS_GNUC_NORETURN;
 
@@ -302,8 +331,6 @@ dbus_bool_t _dbus_full_duplex_pipe (int              *fd1,
                                     int              *fd2,
                                     dbus_bool_t       blocking,
                                     DBusError        *error);
-dbus_bool_t _dbus_close            (int               fd,
-                                    DBusError        *error);
 
 void        _dbus_print_backtrace  (void);
 
@@ -322,10 +349,8 @@ typedef void (* DBusSignalHandler) (int sig);
 void _dbus_set_signal_handler (int               sig,
                                DBusSignalHandler handler);
 
-dbus_bool_t _dbus_file_exists     (const char *file);
 dbus_bool_t _dbus_user_at_console (const char *username,
                                    DBusError  *error);
-const char* _dbus_get_tmpdir      (void);
 
 /* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
  * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 
