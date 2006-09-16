@@ -120,6 +120,17 @@ dbus_bool_t _dbus_transport_init_base     (DBusTransport             *transport,
 void        _dbus_transport_finalize_base (DBusTransport             *transport);
 
 
+typedef enum
+{
+  DBUS_TRANSPORT_OPEN_NOT_HANDLED,    /**< we aren't in charge of this address type */
+  DBUS_TRANSPORT_OPEN_OK,             /**< we set up the listen */
+  DBUS_TRANSPORT_OPEN_BAD_ADDRESS,    /**< malformed address */
+  DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT /**< well-formed address but failed to set it up */
+} DBusTransportOpenResult;
+
+DBusTransportOpenResult _dbus_transport_open_platform_specific (DBusAddressEntry  *entry,
+                                                                DBusTransport    **transport_p,
+                                                                DBusError         *error);
 
 DBUS_END_DECLS
 

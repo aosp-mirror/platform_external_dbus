@@ -67,9 +67,9 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
           
       if (path == NULL && tmpdir == NULL && abstract == NULL)
         {
-          _dbus_server_set_bad_address(error, "unix",
-                                       "path or tmpdir or abstract",
-                                       NULL);
+          _dbus_set_bad_address(error, "unix",
+                                "path or tmpdir or abstract",
+                                NULL);
           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
         }
 
@@ -77,8 +77,8 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
           (path && abstract) ||
           (tmpdir && abstract))
         {
-          _dbus_server_set_bad_address(error, NULL, NULL,
-                                       "cannot specify two of \"path\" and \"tmpdir\" and \"abstract\" at the same time");
+          _dbus_set_bad_address(error, NULL, NULL,
+                                "cannot specify two of \"path\" and \"tmpdir\" and \"abstract\" at the same time");
           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
         }
 

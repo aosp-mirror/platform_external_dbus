@@ -1,5 +1,14 @@
 2006-09-16  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-transport.c (_dbus_transport_open): modify to delegate
+	to _dbus_transport_open_platform_specific,
+	_dbus_transport_open_socket,
+	and _dbus_transport_open_debug_pipe
+
+	* dbus/dbus-transport-protected.h: add _dbus_transport_open_platform_specific
+
+2006-09-16  Havoc Pennington  <hp@redhat.com>
+
         Attempt auditing public API to remove all cases where a Unix
 	function returns weird emulated goo to Windows. This probably 
 	breaks the bus daemon on Windows, to fix it again we may 

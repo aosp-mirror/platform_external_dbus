@@ -400,7 +400,7 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
           
       if (port == NULL)
         {
-          _dbus_server_set_bad_address(error, "tcp", "port", NULL);
+          _dbus_set_bad_address(error, "tcp", "port", NULL);
           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
         }
 
@@ -410,8 +410,8 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
           
       if (sresult == FALSE || lport <= 0 || lport > 65535)
         {
-          _dbus_server_set_bad_address(error, NULL, NULL, 
-                                       "Port is not an integer between 0 and 65535");
+          _dbus_set_bad_address(error, NULL, NULL, 
+                                "Port is not an integer between 0 and 65535");
           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
         }
           

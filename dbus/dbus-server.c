@@ -442,22 +442,6 @@ _dbus_server_toggle_timeout (DBusServer  *server,
                             enabled);
 }
 
-void
-_dbus_server_set_bad_address (DBusError *error,
-                              const char *address_problem_type,
-                              const char *address_problem_field,
-                              const char *address_problem_other)
-{
-  if (address_problem_type != NULL)
-    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                    "Server address of type %s was missing argument %s",
-                    address_problem_type, address_problem_field);
-  else
-    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                    "Could not parse server address: %s",
-                    address_problem_other);
-}
-
 /** @} */
 
 /**
@@ -493,7 +477,11 @@ static const struct {
 
 /**
  * Listens for new connections on the given address.
- * Returns #NULL if listening fails for any reason.
+ * If there are multiple address entries in the address,
+ * tries each one and listens on the first one that
+ * works.
+ * 
+ * Returns #NULL and sets error if listening fails for any reason.
  * Otherwise returns a new #DBusServer.
  * dbus_server_set_new_connection_function() and
  * dbus_server_set_watch_functions() should be called

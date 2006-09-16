@@ -133,10 +133,6 @@ typedef enum
 DBusServerListenResult _dbus_server_listen_platform_specific (DBusAddressEntry  *entry,
                                                               DBusServer       **server_p,
                                                               DBusError         *error);
-void                   _dbus_server_set_bad_address          (DBusError         *error,
-                                                              const char        *address_problem_type,
-                                                              const char        *address_problem_field,
-                                                              const char        *address_problem_other);
 
 #ifdef DBUS_DISABLE_CHECKS
 #define TOOK_LOCK_CHECK(server)

@@ -293,6 +293,12 @@ dbus_bool_t _dbus_threads_init_debug (void);
 dbus_bool_t   _dbus_address_append_escaped (DBusString       *escaped,
                                             const DBusString *unescaped);
 
+void          _dbus_set_bad_address        (DBusError         *error,
+                                            const char        *address_problem_type,
+                                            const char        *address_problem_field,
+                                            const char        *address_problem_other);
+
+
 DBUS_END_DECLS
 
 #endif /* DBUS_INTERNALS_H */

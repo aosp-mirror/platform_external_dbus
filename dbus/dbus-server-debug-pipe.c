@@ -350,8 +350,8 @@ _dbus_server_listen_debug_pipe (DBusAddressEntry *entry,
       
       if (name == NULL)
         {
-          _dbus_server_set_bad_address(error, "debug-pipe", "name",
-                                       NULL);
+          _dbus_set_bad_address(error, "debug-pipe", "name",
+                                NULL);
           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
         }
 
@@ -374,6 +374,48 @@ _dbus_server_listen_debug_pipe (DBusAddressEntry *entry,
       return DBUS_SERVER_LISTEN_NOT_HANDLED;
     }
 }
+
+DBusTransportOpenResult
+_dbus_transport_open_debug_pipe (DBusAddressEntry  *entry,
+                                 DBusTransport    **transport_p,
+                                 DBusError         *error)
+{
+  const char *method;
+  
+  method = dbus_address_entry_get_method (entry);
+  _dbus_assert (method != NULL);
+
+  if (strcmp (method, "debug-pipe") == 0)
+    {
+      const char *name = dbus_address_entry_get_value (entry, "name");
+
+      if (name == NULL)
+        {
+          _dbus_set_bad_address (error, "debug-pipe", "name",
+                                 NULL);
+          return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
+        }
+          
+      *transport_p = _dbus_transport_debug_pipe_new (name, error);
+
+      if (*transport_p == NULL)
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          return DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT;
+        }
+      else
+        {
+          _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+          return DBUS_TRANSPORT_OPEN_OK;
+        }      
+    }
+  else
+    {
+      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+      return DBUS_TRANSPORT_OPEN_NOT_HANDLED;
+    }
+}
+
 
 /** @} */
 

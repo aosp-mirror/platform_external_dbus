@@ -48,6 +48,81 @@ struct DBusAddressEntry
   DBusList *values;  /**< List of values */
 };
 
+
+void
+_dbus_set_bad_address (DBusError *error,
+                       const char *address_problem_type,
+                       const char *address_problem_field,
+                       const char *address_problem_other)
+{
+  if (address_problem_type != NULL)
+    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                    "Server address of type %s was missing argument %s",
+                    address_problem_type, address_problem_field);
+  else
+    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                    "Could not parse server address: %s",
+                    address_problem_other);
+}
+
+#define _DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE(b)        \
+         (((b) >= 'a' && (b) <= 'z') ||                 \
+          ((b) >= 'A' && (b) <= 'Z') ||                 \
+          ((b) >= '0' && (b) <= '9') ||                 \
+          (b) == '-' ||                                 \
+          (b) == '_' ||                                 \
+          (b) == '/' ||                                 \
+          (b) == '\\' ||                                \
+          (b) == '.')
+
+/**
+ * Appends an escaped version of one string to another string,
+ * using the D-Bus address escaping mechanism
+ *
+ * @param escaped the string to append to
+ * @param unescaped the string to escape
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_address_append_escaped (DBusString       *escaped,
+                              const DBusString *unescaped)
+{
+  const char *p;
+  const char *end;
+  dbus_bool_t ret;
+  int orig_len;
+
+  ret = FALSE;
+
+  orig_len = _dbus_string_get_length (escaped);
+  p = _dbus_string_get_const_data (unescaped);
+  end = p + _dbus_string_get_length (unescaped);
+  while (p != end)
+    {
+      if (_DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE (*p))
+        {
+          if (!_dbus_string_append_byte (escaped, *p))
+            goto out;
+        }
+      else
+        {
+          if (!_dbus_string_append_byte (escaped, '%'))
+            goto out;
+          if (!_dbus_string_append_byte_as_hex (escaped, *p))
+            goto out;
+        }
+      
+      ++p;
+    }
+
+  ret = TRUE;
+  
+ out:
+  if (!ret)
+    _dbus_string_set_length (escaped, orig_len);
+  return ret;
+}
+
 /** @} */ /* End of internals */
 
 static void
@@ -163,64 +238,6 @@ dbus_address_entry_get_value (DBusAddressEntry *entry,
     }
   
   return NULL;
-}
-
-#define _DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE(b)        \
-         (((b) >= 'a' && (b) <= 'z') ||                 \
-          ((b) >= 'A' && (b) <= 'Z') ||                 \
-          ((b) >= '0' && (b) <= '9') ||                 \
-          (b) == '-' ||                                 \
-          (b) == '_' ||                                 \
-          (b) == '/' ||                                 \
-          (b) == '\\' ||                                \
-          (b) == '.')
-
-/**
- * Appends an escaped version of one string to another string,
- * using the D-Bus address escaping mechanism
- *
- * @param escaped the string to append to
- * @param unescaped the string to escape
- * @returns #FALSE if no memory
- */
-dbus_bool_t
-_dbus_address_append_escaped (DBusString       *escaped,
-                              const DBusString *unescaped)
-{
-  const char *p;
-  const char *end;
-  dbus_bool_t ret;
-  int orig_len;
-
-  ret = FALSE;
-
-  orig_len = _dbus_string_get_length (escaped);
-  p = _dbus_string_get_const_data (unescaped);
-  end = p + _dbus_string_get_length (unescaped);
-  while (p != end)
-    {
-      if (_DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE (*p))
-        {
-          if (!_dbus_string_append_byte (escaped, *p))
-            goto out;
-        }
-      else
-        {
-          if (!_dbus_string_append_byte (escaped, '%'))
-            goto out;
-          if (!_dbus_string_append_byte_as_hex (escaped, *p))
-            goto out;
-        }
-      
-      ++p;
-    }
-
-  ret = TRUE;
-  
- out:
-  if (!ret)
-    _dbus_string_set_length (escaped, orig_len);
-  return ret;
 }
 
 static dbus_bool_t

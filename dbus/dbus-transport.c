@@ -201,6 +201,18 @@ _dbus_transport_finalize_base (DBusTransport *transport)
   dbus_free (transport->expected_guid);
 }
 
+static const struct {
+  DBusTransportOpenResult (* func) (DBusAddressEntry *entry,
+                                    DBusTransport   **transport_p,
+                                    DBusError        *error);
+} open_funcs[] = {
+  { _dbus_transport_open_socket },
+  { _dbus_transport_open_platform_specific }
+#ifdef DBUS_BUILD_TESTS
+  , { _dbus_transport_open_debug_pipe }
+#endif
+};
+
 /**
  * Try to open a new transport for the given address entry.  (This
  * opens a client-side-of-the-connection transport.)
@@ -214,19 +226,14 @@ _dbus_transport_open (DBusAddressEntry *entry,
                       DBusError        *error)
 {
   DBusTransport *transport;
-  const char *address_problem_type;
-  const char *address_problem_field;
-  const char *address_problem_other;
-  const char *method;
   const char *expected_guid_orig;
   char *expected_guid;
-
+  int i;
+  DBusError tmp_error;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   transport = NULL;
-  address_problem_type = NULL;
-  address_problem_field = NULL;
-  address_problem_other = NULL;
   expected_guid_orig = dbus_address_entry_get_value (entry, "guid");
   expected_guid = _dbus_strdup (expected_guid_orig);
 
@@ -235,115 +242,56 @@ _dbus_transport_open (DBusAddressEntry *entry,
       _DBUS_SET_OOM (error);
       return NULL;
     }
+
+  dbus_error_init (&tmp_error);
+  for (i = 0; i < (int) _DBUS_N_ELEMENTS (open_funcs); ++i)
+    {
+      DBusTransportOpenResult result;
+
+      _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+      result = (* open_funcs[i].func) (entry, &transport, &tmp_error);
+
+      switch (result)
+        {
+        case DBUS_TRANSPORT_OPEN_OK:
+          _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+          goto out;
+          break;
+        case DBUS_TRANSPORT_OPEN_NOT_HANDLED:
+          _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+          /* keep going through the loop of open funcs */
+          break;
+        case DBUS_TRANSPORT_OPEN_BAD_ADDRESS:
+          _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+          goto out;
+          break;
+        case DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT:
+          _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+          goto out;
+          break;
+        }
+    }
+
+ out:
   
-  method = dbus_address_entry_get_method (entry);
-  _dbus_assert (method != NULL);
-      
-  if (strcmp (method, "unix") == 0)
-    {
-      const char *path = dbus_address_entry_get_value (entry, "path");
-      const char *tmpdir = dbus_address_entry_get_value (entry, "tmpdir");
-      const char *abstract = dbus_address_entry_get_value (entry, "abstract");
-          
-      if (tmpdir != NULL)
-        {
-          address_problem_other = "cannot use the \"tmpdir\" option for an address to connect to, only in an address to listen on";
-          goto bad_address;
-        }
-          
-      if (path == NULL && abstract == NULL)
-        {
-          address_problem_type = "unix";
-          address_problem_field = "path or abstract";  
-          goto bad_address;
-        }
-
-      if (path != NULL && abstract != NULL)
-        {
-          address_problem_other = "can't specify both \"path\" and \"abstract\" options in an address";
-          goto bad_address;
-        }
-
-      if (path)
-        transport = _dbus_transport_new_for_domain_socket (path, FALSE,
-                                                           error);
-      else
-        transport = _dbus_transport_new_for_domain_socket (abstract, TRUE,
-                                                           error);
-    }
-  else if (strcmp (method, "tcp") == 0)
-    {
-      const char *host = dbus_address_entry_get_value (entry, "host");
-      const char *port = dbus_address_entry_get_value (entry, "port");
-      DBusString  str;
-      long lport;
-      dbus_bool_t sresult;
-          
-      if (port == NULL)
-        {
-          address_problem_type = "tcp";
-          address_problem_field = "port";
-          goto bad_address;
-        }
-
-      _dbus_string_init_const (&str, port);
-      sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-      _dbus_string_free (&str);
-          
-      if (sresult == FALSE || lport <= 0 || lport > 65535)
-        {
-          address_problem_other = "Port is not an integer between 0 and 65535";
-          goto bad_address;
-        }
-          
-      transport = _dbus_transport_new_for_tcp_socket (host, lport, error);
-    }
-#ifdef DBUS_BUILD_TESTS
-  else if (strcmp (method, "debug-pipe") == 0)
-    {
-      const char *name = dbus_address_entry_get_value (entry, "name");
-
-      if (name == NULL)
-        {
-          address_problem_type = "debug-pipe";
-          address_problem_field = "name";
-          goto bad_address;
-        }
-          
-      transport = _dbus_transport_debug_pipe_new (name, error);
-    }
-#endif
-  else
-    {
-      address_problem_other = "Unknown address type (examples of valid types are \"unix\" and \"tcp\")";
-      goto bad_address;
-    }
-
   if (transport == NULL)
     {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
+      if (!dbus_error_is_set (&tmp_error))
+        _dbus_set_bad_address (&tmp_error,
+                               NULL, NULL,
+                               "Unknown address type (examples of valid types are \"tcp\" and on UNIX \"unix\")");
+      
+      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+      dbus_move_error(&tmp_error, error);
       dbus_free (expected_guid);
     }
   else
     {
+      _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
       transport->expected_guid = expected_guid;
     }
-  
-  return transport;
-  
- bad_address:
-  dbus_free (expected_guid);
-  
-  if (address_problem_type != NULL)
-    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                    "Address of type %s was missing argument %s",
-                    address_problem_type, address_problem_field);
-  else
-    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                    "Could not parse address: %s",
-                    address_problem_other);
 
-  return NULL;
+  return transport;
 }
 
 /**

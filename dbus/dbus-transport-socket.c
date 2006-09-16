@@ -1251,5 +1251,59 @@ error:
   return NULL;
 }
 
+DBusTransportOpenResult
+_dbus_transport_open_socket(DBusAddressEntry  *entry,
+                            DBusTransport    **transport_p,                            
+                            DBusError         *error)
+{
+  const char *method;
+  
+  method = dbus_address_entry_get_method (entry);
+  _dbus_assert (method != NULL);
+
+  if (strcmp (method, "tcp") == 0)
+    {
+      const char *host = dbus_address_entry_get_value (entry, "host");
+      const char *port = dbus_address_entry_get_value (entry, "port");
+      DBusString  str;
+      long lport;
+      dbus_bool_t sresult;
+          
+      if (port == NULL)
+        {
+          _dbus_set_bad_address (error, "tcp", "port", NULL);
+          return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
+        }
+
+      _dbus_string_init_const (&str, port);
+      sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
+      _dbus_string_free (&str);
+          
+      if (sresult == FALSE || lport <= 0 || lport > 65535)
+        {
+          _dbus_set_bad_address (error, NULL, NULL,
+                                 "Port is not an integer between 0 and 65535");
+          return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
+        }
+          
+      *transport_p = _dbus_transport_new_for_tcp_socket (host, lport, error);
+      if (*transport_p == NULL)
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          return DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT;
+        }
+      else
+        {
+          _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+          return DBUS_TRANSPORT_OPEN_OK;
+        }
+    }
+  else
+    {
+      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+      return DBUS_TRANSPORT_OPEN_NOT_HANDLED;
+    }
+}
+
 /** @} */
 
