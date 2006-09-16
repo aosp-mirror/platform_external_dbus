@@ -4224,8 +4224,12 @@ dbus_connection_set_dispatch_status_function (DBusConnection             *connec
  * connections will have a file descriptor. So for adding descriptors
  * to the main loop, use dbus_watch_get_fd() and so forth.
  *
- * @todo this function should be called get_socket_fd or something;
- * there's no reason it can't work on Windows sockets also.
+ * If the connection is socket-based, you can also use
+ * dbus_connection_get_socket(), which will work on Windows too.
+ * This function always fails on Windows.
+ *
+ * Right now the returned descriptor is always a socket, but
+ * that is not guaranteed.
  * 
  * @param connection the connection
  * @param fd return location for the file descriptor.
@@ -4234,6 +4238,36 @@ dbus_connection_set_dispatch_status_function (DBusConnection             *connec
 dbus_bool_t
 dbus_connection_get_unix_fd (DBusConnection *connection,
                              int            *fd)
+{
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (connection->transport != NULL, FALSE);
+
+#ifdef DBUS_WIN
+  /* FIXME do this on a lower level */
+  return FALSE;
+#endif
+  
+  return dbus_connection_get_socket(connection, fd);
+}
+
+/**
+ * Gets the underlying Windows or UNIX socket file descriptor
+ * of the connection, if any. DO NOT read or write to the file descriptor, or try to
+ * select() on it; use DBusWatch for main loop integration. Not all
+ * connections will have a socket. So for adding descriptors
+ * to the main loop, use dbus_watch_get_fd() and so forth.
+ *
+ * If the connection is not socket-based, this function will return FALSE,
+ * even if the connection does have a file descriptor of some kind.
+ * i.e. this function always returns specifically a socket file descriptor.
+ * 
+ * @param connection the connection
+ * @param fd return location for the file descriptor.
+ * @returns #TRUE if fd is successfully obtained.
+ */
+dbus_bool_t
+dbus_connection_get_socket(DBusConnection              *connection,
+                           int                         *fd)
 {
   dbus_bool_t retval;
 
@@ -4249,6 +4283,7 @@ dbus_connection_get_unix_fd (DBusConnection *connection,
 
   return retval;
 }
+
 
 /**
  * Gets the UNIX user ID of the connection if any.
@@ -4340,6 +4375,13 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
  * only the same UID as the server process will be allowed to
  * connect.
  *
+ * On Windows, the function will be set and its free_data_function will
+ * be invoked when the connection is freed or a new function is set.
+ * However, the function will never be called, because there are
+ * no UNIX user ids to pass to it.
+ * 
+ * @todo add a Windows API analogous to dbus_connection_set_unix_user_function()
+ * 
  * @param connection the connection
  * @param function the predicate
  * @param data data to pass to the predicate

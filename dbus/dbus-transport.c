@@ -524,11 +524,28 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
 
               _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
               _dbus_connection_unlock (connection);
-              
+
+#ifdef DBUS_WIN
+              /* FIXME this is a bad hack for now because we want to ship 1.0
+               * without leaking any weird unix-emulation implementation details
+               * to the public API. The correct fix will be to move this
+               * unix user function invocation into dbus-transport-unix.c, and
+               * have a separate, appropriate function for Windows, if any.
+               * On Windows we may only use the session (not system) daemon
+               * anyway, so it might not matter.
+               *
+               * The windows and unix callbacks should both be stored/set
+               * in cross-platform code, so apps can unconditionally set
+               * them both, but only the platform-appropriate one
+               * should ever be invoked.
+               */
+              allow = TRUE;
+#else
               allow = (* unix_user_function) (connection,
                                               auth_identity.uid,
                                               unix_user_data);
-
+#endif
+              
               _dbus_verbose ("lock %s post unix user function\n", _DBUS_FUNCTION_NAME);
               _dbus_connection_lock (connection);
 

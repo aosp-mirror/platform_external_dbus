@@ -1,5 +1,24 @@
 2006-09-16  Havoc Pennington  <hp@redhat.com>
 
+        Attempt auditing public API to remove all cases where a Unix
+	function returns weird emulated goo to Windows. This probably 
+	breaks the bus daemon on Windows, to fix it again we may 
+	need to stop processing unix-specific config options on Windows,
+	and may need to add Windows-specific public API or config options.
+	
+	* configure.in (LT_CURRENT, LT_AGE): increment current and age,
+	to reflect added interfaces; should not break soname.
+	
+	* dbus/dbus-transport.c (_dbus_transport_get_is_authenticated): do
+	not invoke unix user function on Windows. Kind of a hacky fix, but 
+	we don't want a "unix uid" leaking out on Windows.
+
+	* dbus/dbus-connection.c (dbus_connection_get_socket): add new API
+	to get the socket fd on Windows or UNIX
+	(dbus_connection_get_unix_fd): make this always fail on Windows
+
+2006-09-16  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-server.c (dbus_server_listen): change how this works
 	to be able to delegate to a set of handlers that can succeed,
 	fail, or choose not to handle. Allows us to have 

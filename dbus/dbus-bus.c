@@ -606,6 +606,9 @@ dbus_bus_get_unique_name (DBusConnection *connection)
  * Asks the bus to return the uid of the named
  * connection.
  *
+ * Not going to work on Windows, the bus should return
+ * an error then.
+ * 
  * @param connection the connection
  * @param name a name owned by the connection
  * @param error location to store the error

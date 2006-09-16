@@ -255,6 +255,8 @@ dbus_bool_t dbus_connection_list_registered        (DBusConnection              
 
 dbus_bool_t dbus_connection_get_unix_fd            (DBusConnection              *connection,
                                                     int                         *fd);
+dbus_bool_t dbus_connection_get_socket             (DBusConnection              *connection,
+                                                    int                         *fd);
 
 DBUS_END_DECLS
 
