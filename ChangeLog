@@ -1,5 +1,17 @@
 2006-09-16  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-sysdeps-unix.c (_dbus_open_tcp_socket) 
+	(_dbus_open_unix_socket, _dbus_open_socket): change API for 
+	_dbus_open_socket so the domain/type/protocol from system headers
+	are not required. This is kind of pointless though unless we move
+	part of _dbus_connect_tcp_socket into sysdeps.c instead of
+	sysdeps-unix.c, which would mean adding a wrapper around
+	bind/listen/etc.
+	Also, add DBusError to the socket-opening functions so they 
+	don't require use of errno.
+
+2006-09-16  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps-unix.h: small change to Peter's patch to make
 	dbus-sysdeps-unix-util.c build, add unix-specific sysdeps header.
 

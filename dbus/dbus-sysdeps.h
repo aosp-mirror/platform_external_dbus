@@ -98,10 +98,10 @@ typedef unsigned long dbus_gid_t;
  * 
  */
 
-dbus_bool_t _dbus_open_socket      (int              *fd,
-                                    int               domain, 
-                                    int               type, 
-                                    int               protocol);
+dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
+                                    DBusError        *error);
+dbus_bool_t _dbus_open_unix_socket (int              *fd,
+                                    DBusError        *error);
 dbus_bool_t _dbus_close_socket     (int               fd,
                                     DBusError        *error);
 int         _dbus_read_socket      (int               fd,

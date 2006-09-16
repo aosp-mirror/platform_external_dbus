@@ -77,14 +77,40 @@
  * @{
  */
 
-dbus_bool_t
+static dbus_bool_t
 _dbus_open_socket (int              *fd,
                    int               domain,
                    int               type,
-                   int               protocol)
+                   int               protocol,
+                   DBusError        *error)
 {
   *fd = socket (domain, type, protocol);
-  return fd >= 0;
+  if (fd >= 0)
+    {
+      return TRUE;
+    }
+  else
+    {
+      dbus_set_error(error,
+                     _dbus_error_from_errno (errno),
+                     "Failed to open socket: %s",
+                     _dbus_strerror (errno));
+      return FALSE;
+    }
+}
+
+dbus_bool_t
+_dbus_open_tcp_socket (int              *fd,
+                       DBusError        *error)
+{
+  return _dbus_open_socket(fd, AF_INET, SOCK_STREAM, 0, error);
+}
+
+dbus_bool_t
+_dbus_open_unix_socket (int              *fd,
+                        DBusError        *error)
+{
+  return _dbus_open_socket(fd, PF_UNIX, SOCK_STREAM, 0, error);
 }
 
 dbus_bool_t 
@@ -356,15 +382,12 @@ _dbus_connect_unix_socket (const char     *path,
                  path, abstract);
   
   
-  if (!_dbus_open_socket (&fd, PF_UNIX, SOCK_STREAM, 0))
+  if (!_dbus_open_unix_socket (&fd, error))
     {
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to create socket: %s",
-                      _dbus_strerror (errno)); 
-      
+      _DBUS_ASSERT_ERROR_IS_SET(error);
       return -1;
     }
+  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
@@ -490,13 +513,12 @@ _dbus_listen_unix_socket (const char     *path,
   _dbus_verbose ("listening on unix socket %s abstract=%d\n",
                  path, abstract);
   
-  if (!_dbus_open_socket (&listen_fd, PF_UNIX, SOCK_STREAM, 0))
+  if (!_dbus_open_unix_socket (&listen_fd, error))
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to create socket \"%s\": %s",
-                      path, _dbus_strerror (errno));
+      _DBUS_ASSERT_ERROR_IS_SET(error);
       return -1;
     }
+  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
   _DBUS_ZERO (addr);
   addr.sun_family = AF_UNIX;
@@ -626,16 +648,14 @@ _dbus_connect_tcp_socket (const char     *host,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
  
   
-  if (!_dbus_open_socket (&fd, AF_INET, SOCK_STREAM, 0))
+  if (!_dbus_open_tcp_socket (&fd, error))
     {
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to create socket: %s",
-                      _dbus_strerror (errno)); 
+      _DBUS_ASSERT_ERROR_IS_SET(error);
       
       return -1;
     }
-
+  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+      
   if (host == NULL)
     host = "localhost";
 
@@ -704,13 +724,12 @@ _dbus_listen_tcp_socket (const char     *host,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   
-  if (!_dbus_open_socket (&listen_fd, AF_INET, SOCK_STREAM, 0))
+  if (!_dbus_open_tcp_socket (&listen_fd, error))
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to create socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
+      _DBUS_ASSERT_ERROR_IS_SET(error);
       return -1;
     }
+  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
   he = gethostbyname (host);
   if (he == NULL) 
