@@ -1,3 +1,9 @@
+2006-09-17  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-transport.c (_dbus_transport_get_is_authenticated):
+	fix so that if unix_user_function is set on windows, we still
+	do the default check that the auth identity matches the bus identity
+
 2006-09-16  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-transport.c (_dbus_transport_open): modify to delegate
