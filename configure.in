@@ -551,6 +551,9 @@ dnl check for writev header and writev function so we're
 dnl good to go if HAVE_WRITEV gets defined.
 AC_CHECK_HEADERS(sys/uio.h, [AC_CHECK_FUNCS(writev)])
 
+dnl needed on darwin for NAME_MAX
+AC_CHECK_HEADERS(sys/syslimits.h)
+
 dnl check for flavours of varargs macros (test from GLib)
 AC_MSG_CHECKING(for ISO C99 varargs macros in C)
 AC_TRY_COMPILE([],[

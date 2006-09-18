@@ -44,6 +44,10 @@
 #include <dirent.h>
 #include <sys/un.h>
 
+#ifdef HAVE_SYS_SYSLIMITS_H
+#include <sys/syslimits.h>
+#endif
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif

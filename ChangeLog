@@ -1,3 +1,7 @@
+2006-09-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/Makefile.am: use @EXPANDED_DATADIR@ instead of @DATADIRNAME@  
+
 2006-09-17  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-transport.c (_dbus_transport_get_is_authenticated):
