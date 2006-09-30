@@ -13,7 +13,8 @@ dbus_monitor_SOURCES=				\
 	dbus-print-message.h
 
 dbus_launch_SOURCES=				\
-	dbus-launch.c
+	dbus-launch.c				\
+	dbus-launch-x11.c
 
 dbus_cleanup_sockets_SOURCES=			\
 	dbus-cleanup-sockets.c

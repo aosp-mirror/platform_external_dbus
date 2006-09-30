@@ -27,6 +27,7 @@
 #include "dbus-sysdeps-unix.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
+#include "dbus-transport.h"
 #include "dbus-string.h"
 #include <sys/types.h>
 #include <stdlib.h>
@@ -2273,6 +2274,118 @@ _dbus_get_tmpdir(void)
   _dbus_assert(tmpdir != NULL);
   
   return tmpdir;
+}
+
+/**
+ * Determines the address of the session bus by querying a
+ * platform-specific method.
+ *
+ * If successful, returns #TRUE and appends the address to @p
+ * address. If a failure happens, returns #FALSE and
+ * sets an error in @p error.
+ *
+ * @param address a DBusString where the address can be stored
+ * @param error a DBusError to store the error in case of failure
+ * @returns #TRUE on success, #FALSE if an error happened
+ */
+dbus_bool_t
+_dbus_get_autolaunch_address (DBusString *address, DBusError *error)
+{
+  static char *argv[] = { DBUS_BINDIR "/dbus-launch", "--autolaunch",
+                          "--binary-syntax", NULL };
+  int address_pipe[2];
+  pid_t pid;
+  int ret;
+  int status;
+  int orig_len = _dbus_string_get_length (address);
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+#define READ_END        0
+#define WRITE_END       1
+  if (pipe (address_pipe) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to create a pipe: %s",
+                      _dbus_strerror (errno));
+      _dbus_verbose ("Failed to create a pipe to call dbus-launch: %s\n",
+                     _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  pid = fork ();
+  if (pid < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to fork(): %s",
+                      _dbus_strerror (errno));
+      _dbus_verbose ("Failed to fork() to call dbus-launch: %s\n",
+                     _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if (pid == 0)
+    {
+      /* child process */
+      int fd = open ("/dev/null", O_RDWR);
+      if (fd == -1)
+        /* huh?! can't open /dev/null? */
+        _exit (1);
+
+      /* set-up stdXXX */
+      close (address_pipe[READ_END]);
+      close (0);                /* close stdin */
+      close (1);                /* close stdout */
+      close (2);                /* close stderr */
+
+      if (dup2 (fd, 0) == -1)
+        _exit (1);
+      if (dup2 (address_pipe[WRITE_END], 1) == -1)
+        _exit (1);
+      if (dup2 (fd, 2) == -1)
+        _exit (1);
+
+      close (fd);
+      close (address_pipe[WRITE_END]);
+
+      execv (argv[0], argv);
+
+      /* failed, try searching PATH */
+      argv[0] = "dbus-launch";
+      execvp ("dbus-launch", argv);
+
+      /* still nothing, we failed */
+      _exit (1);
+    }
+
+  /* parent process */
+  close (address_pipe[WRITE_END]);
+  ret = 0;
+  do 
+    {
+      ret = _dbus_read (address_pipe[READ_END], address, 1024);
+    }
+  while (ret > 0);
+
+  /* reap the child process to avoid it lingering as zombie */
+  do
+    {
+      ret = waitpid (pid, &status, 0);
+    }
+  while (ret == -1 && errno == EINTR);
+
+  /* We succeeded if the process exited with status 0 and
+     anything was read */
+  if (!WIFEXITED (status) || WEXITSTATUS (status) != 0 ||
+      _dbus_string_get_length (address) == orig_len)
+    {
+      /* The process ended with error */
+      _dbus_string_set_length (address, orig_len);
+      dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
+                      "Failed to execute dbus-launch to autolaunch D-Bus session");
+      return FALSE;
+    }
+  return TRUE;
 }
 
 /** @} end of sysdeps */

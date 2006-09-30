@@ -1052,6 +1052,11 @@ fi
 AC_SUBST(DBUS_DAEMONDIR)
 AC_DEFINE_UNQUOTED(DBUS_DAEMONDIR,"$DBUS_DAEMONDIR", [Directory for installing the DBUS daemon])
 
+#### Directory to install the other binaries
+DBUS_BINDIR=$EXPANDED_BINDIR
+AC_SUBST(DBUS_BINDIR)
+AC_DEFINE_UNQUOTED(DBUS_BINDIR,"$DBUS_BINDIR", [Directory for installing the binaries])
+
 #### Tell tests where to find certain stuff in builddir
 
 DBUS_PWD=`pwd`

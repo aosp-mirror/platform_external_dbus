@@ -1,3 +1,30 @@
+2006-09-30  Thiago Macieira  <thiago@kde.org>
+
+	* configure.in: add DBUS_BINDIR as a #define to C source code.
+
+	* tools/dbus-launch.c
+	* tools/dbus-launch.h
+	* tools/dbus-launch-x11.c:
+	* tools/dbus-launch.1: Add the --autolaunch option to
+	dbus-launch, which makes it scan for an existing session
+	started with --autolaunch. With that option, it also creates
+	an X11 window and saves the bus address and PID to it.
+
+	* dbus/dbus-sysdeps.h:
+	* dbus/dbus-sysdeps-unix.c (_dbus_get_autolaunch_address): Add
+	a function that runs "dbus-launch --autolaunch" to retrieve
+	the running D-Bus session address (or start one if none was running)
+
+	* dbus/dbus-transport.c: Add the handler for the "autolaunch:"
+        address protocol, which tries to get the running session from
+        dbus-launch.
+
+	* dbus/dbus-bus.c:
+	* dbus/dbus-internals.h: Make "autolaunch:" be the default
+	D-Bus session bus address.
+
+	* dbus/dbus-connection.c: Fix horrible typo in error message.
+
 2006-09-18  John (J5) Palmieri  <johnp@redhat.com>
 
 	* tools/Makefile.am: use @EXPANDED_DATADIR@ instead of @DATADIRNAME@  

@@ -376,6 +376,9 @@ dbus_bool_t _dbus_user_at_console (const char *username,
 dbus_bool_t _dbus_parse_uid (const DBusString  *uid_str,
                              dbus_uid_t        *uid);
 
+dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
+					  DBusError *error);
+
 DBUS_END_DECLS
 
 #endif /* DBUS_SYSDEPS_H */

@@ -175,6 +175,13 @@ init_connections_unlocked (void)
           if (!get_from_env (&bus_connection_addresses[DBUS_BUS_SESSION],
                              "DBUS_SESSION_BUS_ADDRESS"))
             return FALSE;
+
+	  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+	    bus_connection_addresses[DBUS_BUS_SESSION] =
+	      _dbus_strdup (DBUS_SESSION_BUS_DEFAULT_ADDRESS);
+           if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+             return FALSE;
+
           _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_SESSION] ?
                          bus_connection_addresses[DBUS_BUS_SESSION] : "none set");
         }

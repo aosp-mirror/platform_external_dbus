@@ -7,7 +7,7 @@
 dbus-launch \- Utility to start a message bus from a shell script
 .SH SYNOPSIS
 .PP
-.B dbus-launch [\-\-version] [\-\-sh-syntax] [\-\-csh-syntax] [\-\-auto-syntax] [\-\-exit-with-session] [\-\-config-file=FILENAME] [PROGRAM] [ARGS...]
+.B dbus-launch [\-\-version] [\-\-sh-syntax] [\-\-csh-syntax] [\-\-auto-syntax] [\-\-exit-with-session] [\-\-autolaunch] [\-\-config-file=FILENAME] [PROGRAM] [ARGS...]
 
 .SH DESCRIPTION
 
@@ -88,6 +88,13 @@ If this option is provided, a persistent "babysitter" process will be
 created that watches stdin for HUP and tries to connect to the X
 server. If this process gets a HUP on stdin or loses its X connection,
 it kills the message bus daemon.
+
+.TP
+.I "--autolaunch"
+This option implies that \fIdbus-launch\fP should scan for a
+previously-started session and reuse the values found there. If no
+session is found, it will start a new session. The
+\-\-exit-with-session option is implied if \-\-autolaunch is given.
 
 .TP
 .I "--sh-syntax"

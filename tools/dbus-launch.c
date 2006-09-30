@@ -20,7 +20,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
-#include <config.h>
+#include "dbus-launch.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -32,22 +32,14 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <sys/select.h>
+#include <time.h>
+
 #ifdef DBUS_BUILD_X11
 #include <X11/Xlib.h>
+extern Display *xdisplay;
 #endif
 
-#ifndef TRUE
-#define TRUE (1)
-#endif
-
-#ifndef FALSE
-#define FALSE (0)
-#endif
-
-#undef	MAX
-#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
-
-static void
+void
 verbose (const char *format,
          ...)
 {
@@ -95,7 +87,7 @@ version (void)
   exit (0);
 }
 
-static char *
+char *
 xstrdup (const char *str)
 {
   int len;
@@ -276,8 +268,8 @@ do_waitpid (pid_t pid)
 
 static pid_t bus_pid_to_kill = -1;
 
-static void
-kill_bus_and_exit (void)
+void
+kill_bus_and_exit (int exitcode)
 {
   verbose ("Killing message bus and exiting babysitter\n");
   
@@ -290,18 +282,38 @@ kill_bus_and_exit (void)
   sleep (3);
   kill (bus_pid_to_kill, SIGKILL);
 
-  exit (0);
+  exit (exitcode);
 }
 
-#ifdef DBUS_BUILD_X11
-static int
-x_io_error_handler (Display *xdisplay)
+static void
+print_variables (const char *bus_address, pid_t bus_pid, long bus_wid,
+		 int c_shell_syntax, int bourne_shell_syntax,
+		 int binary_syntax)
 {
-  verbose ("X IO error\n");
-  kill_bus_and_exit ();
-  return 0;
+  if (binary_syntax)
+    {
+      write (1, bus_address, strlen (bus_address) + 1);
+      write (1, &bus_pid, sizeof bus_pid);
+      write (1, &bus_wid, sizeof bus_wid);
+      return;
+    }
+  else if (c_shell_syntax)
+    {
+      printf ("setenv DBUS_SESSION_BUS_ADDRESS '%s';\n", bus_address);	
+      printf ("set DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
+      if (bus_wid)
+	printf ("set DBUS_SESSION_BUS_WINDOWID=%ld;\n", (long) bus_wid);
+    }
+  else
+    {
+      printf ("DBUS_SESSION_BUS_ADDRESS='%s';\n", bus_address);
+      if (bourne_shell_syntax)
+	printf ("export DBUS_SESSION_BUS_ADDRESS;\n");
+      printf ("DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
+      if (bus_wid)
+	printf ("DBUS_SESSION_BUS_WINDOWID=%ld;\n", (long) bus_wid);
+    }
 }
-#endif
 
 static int got_sighup = FALSE;
 
@@ -326,9 +338,6 @@ kill_bus_when_session_ends (void)
   fd_set err_set;
   struct sigaction act;
   sigset_t empty_mask;
-#ifdef DBUS_BUILD_X11
-  Display *xdisplay;
-#endif
   
   /* install SIGHUP handler */
   got_sighup = FALSE;
@@ -340,17 +349,14 @@ kill_bus_when_session_ends (void)
   sigaction (SIGTERM,  &act, NULL);
   
 #ifdef DBUS_BUILD_X11
-  xdisplay = XOpenDisplay (NULL);
+  x11_init();
   if (xdisplay != NULL)
     {
-      verbose ("Successfully opened X display\n");
       x_fd = ConnectionNumber (xdisplay);
-      XSetIOErrorHandler (x_io_error_handler);
     }
   else
     x_fd = -1;
 #else
-  verbose ("Compiled without X11 support\n");
   x_fd = -1;
 #endif
 
@@ -393,7 +399,7 @@ kill_bus_when_session_ends (void)
       if (got_sighup)
         {
           verbose ("Got SIGHUP, exiting\n");
-          kill_bus_and_exit ();
+          kill_bus_and_exit (0);
         }
       
 #ifdef DBUS_BUILD_X11
@@ -405,15 +411,7 @@ kill_bus_when_session_ends (void)
         verbose ("X fd condition reading = %d error = %d\n",
                  FD_ISSET (x_fd, &read_set),
                  FD_ISSET (x_fd, &err_set));
-      
-      if (xdisplay != NULL)
-        {      
-          while (XPending (xdisplay))
-            {
-              XEvent ignored;
-              XNextEvent (xdisplay, &ignored);
-            }
-        }
+      x11_handle_event ();
 #endif
 
       if (tty_fd >= 0)
@@ -431,7 +429,7 @@ kill_bus_when_session_ends (void)
                        bytes_read, errno);
               
               if (bytes_read == 0)
-                kill_bus_and_exit (); /* EOF */
+                kill_bus_and_exit (0); /* EOF */
               else if (bytes_read < 0 && errno != EINTR)
                 {
                   /* This shouldn't happen I don't think; to avoid
@@ -439,14 +437,14 @@ kill_bus_when_session_ends (void)
                    */
                   fprintf (stderr, "dbus-launch: error reading from stdin: %s\n",
                            strerror (errno));
-                  kill_bus_and_exit ();
+                  kill_bus_and_exit (0);
                 }
             }
           else if (FD_ISSET (tty_fd, &err_set))
             {
               verbose ("TTY has error condition\n");
               
-              kill_bus_and_exit ();
+              kill_bus_and_exit (0);
             }
         }
     }
@@ -455,19 +453,14 @@ kill_bus_when_session_ends (void)
 static void
 babysit (int   exit_with_session,
          pid_t child_pid,
-         int   read_bus_pid_fd,  /* read pid from here */
-         int   write_bus_pid_fd) /* forward pid to here */
+         int   read_bus_pid_fd)  /* read pid from here */
 {
   int ret;
-#define MAX_PID_LEN 64
-  char buf[MAX_PID_LEN];
-  long val;
-  char *end;
   int dev_null_fd;
   const char *s;
 
-  verbose ("babysitting, exit_with_session = %d, child_pid = %ld, read_bus_pid_fd = %d, write_bus_pid_fd = %d\n",
-           exit_with_session, (long) child_pid, read_bus_pid_fd, write_bus_pid_fd);
+  verbose ("babysitting, exit_with_session = %d, child_pid = %ld, read_bus_pid_fd = %d\n",
+           exit_with_session, (long) child_pid, read_bus_pid_fd);
   
   /* We chdir ("/") since we are persistent and daemon-like, and fork
    * again so dbus-launch can reap the parent.  However, we don't
@@ -536,40 +529,25 @@ babysit (int   exit_with_session,
   /* Child continues */
   verbose ("=== Babysitter process created\n");
 
-  verbose ("Reading PID from daemon\n");
-  /* Now read data */
-  switch (read_line (read_bus_pid_fd, buf, MAX_PID_LEN))
+  verbose ("Reading PID from bus\n");
+      
+  switch (read_pid (read_bus_pid_fd, &bus_pid_to_kill))
     {
     case READ_STATUS_OK:
       break;
     case READ_STATUS_EOF:
-      fprintf (stderr, "EOF reading PID from bus daemon\n");
+      fprintf (stderr, "EOF in dbus-launch reading PID from bus daemon\n");
       exit (1);
       break;
     case READ_STATUS_ERROR:
-      fprintf (stderr, "Error reading PID from bus daemon: %s\n",
-               strerror (errno));
+      fprintf (stderr, "Error in dbus-launch reading PID from bus daemon: %s\n",
+	       strerror (errno));
       exit (1);
       break;
     }
 
-  end = NULL;
-  val = strtol (buf, &end, 0);
-  if (buf == end || end == NULL)
-    {
-      fprintf (stderr, "Failed to parse bus PID \"%s\": %s\n",
-               buf, strerror (errno));
-      exit (1);
-    }
-
-  bus_pid_to_kill = val;
-
   verbose ("Got PID %ld from daemon\n",
            (long) bus_pid_to_kill);
-  
-  /* Write data to launcher */
-  write_pid (write_bus_pid_fd, bus_pid_to_kill);
-  close (write_bus_pid_fd);
   
   if (exit_with_session)
     {
@@ -597,9 +575,11 @@ main (int argc, char **argv)
   const char *runprog = NULL;
   int remaining_args = 0;
   int exit_with_session;
+  int binary_syntax = FALSE;
   int c_shell_syntax = FALSE;
   int bourne_shell_syntax = FALSE;
   int auto_shell_syntax = FALSE;
+  int autolaunch = FALSE;
   int i;  
   int ret;
   int bus_pid_to_launcher_pipe[2];
@@ -628,10 +608,14 @@ main (int argc, char **argv)
       else if (strcmp (arg, "-s") == 0 ||
 	       strcmp (arg, "--sh-syntax") == 0)
         bourne_shell_syntax = TRUE;
+      else if (strcmp (arg, "--binary-syntax") == 0)
+	binary_syntax = TRUE;
       else if (strcmp (arg, "--version") == 0)
         version ();
       else if (strcmp (arg, "--exit-with-session") == 0)
         exit_with_session = TRUE;
+      else if (strcmp (arg, "--autolaunch") == 0)
+	autolaunch = TRUE;
       else if (strstr (arg, "--config-file=") == arg)
         {
           const char *file;
@@ -672,9 +656,6 @@ main (int argc, char **argv)
       ++i;
     }
 
-  if (exit_with_session)
-    verbose ("--exit-with-session enabled\n");
-
   if (auto_shell_syntax)
     {
       if ((shname = getenv ("SHELL")) != NULL)
@@ -688,8 +669,52 @@ main (int argc, char **argv)
        bourne_shell_syntax = TRUE;
     }  
 
+  if (exit_with_session)
+    verbose ("--exit-with-session enabled\n");
+
+  if (autolaunch)
+    {
+#ifndef DBUS_BUILD_X11
+      fprintf (stderr, "Autolaunch requested, but X11 support not compiled in.\n"
+	       "Cannot continue.\n");
+      exit (1);
+#else
+      char *address;
+      pid_t pid;
+      long wid;
+
+      verbose ("Autolaunch enabled (using X11).\n");
+      if (!exit_with_session)
+	{
+	  verbose ("--exit-with-session automatically enabled\n");
+	  exit_with_session = TRUE;
+	}
+
+      if (!x11_init ())
+	{
+	  fprintf (stderr, "Autolaunch error: X11 initialization failed.\n");
+	  exit (1);
+	}
+
+      if (!x11_get_address (&address, &pid, &wid))
+	{
+	  fprintf (stderr, "Autolaunch error: X11 communication error.\n");
+	  exit (1);
+	}
+
+      if (address != NULL)
+	{
+	  verbose ("dbus-daemon is already running. Returning existing parameters.\n");
+	  print_variables (address, pid, wid, c_shell_syntax,
+			   bourne_shell_syntax, binary_syntax);
+	  exit (0);
+	}
+#endif
+    }
+
   if (pipe (bus_pid_to_launcher_pipe) < 0 ||
-      pipe (bus_address_to_launcher_pipe) < 0)
+      pipe (bus_address_to_launcher_pipe) < 0 ||
+      pipe (bus_pid_to_babysitter_pipe) < 0)
     {
       fprintf (stderr,
                "Failed to create pipe: %s\n",
@@ -697,9 +722,6 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  bus_pid_to_babysitter_pipe[READ_END] = -1;
-  bus_pid_to_babysitter_pipe[WRITE_END] = -1;
-  
   ret = fork ();
   if (ret < 0)
     {
@@ -716,16 +738,8 @@ main (int argc, char **argv)
       char write_address_fd_as_string[MAX_FD_LEN];
 
       verbose ("=== Babysitter's intermediate parent created\n");
-      
+
       /* Fork once more to create babysitter */
-      
-      if (pipe (bus_pid_to_babysitter_pipe) < 0)
-        {
-          fprintf (stderr,
-                   "Failed to create pipe: %s\n",
-                   strerror (errno));
-          exit (1);              
-        }
       
       ret = fork ();
       if (ret < 0)
@@ -741,6 +755,7 @@ main (int argc, char **argv)
           verbose ("=== Babysitter's intermediate parent continues\n");
           
           close (bus_pid_to_launcher_pipe[READ_END]);
+	  close (bus_pid_to_launcher_pipe[WRITE_END]);
           close (bus_address_to_launcher_pipe[READ_END]);
           close (bus_address_to_launcher_pipe[WRITE_END]);
           close (bus_pid_to_babysitter_pipe[WRITE_END]);
@@ -750,8 +765,7 @@ main (int argc, char **argv)
            * daemon
            */
           babysit (exit_with_session, ret,
-                   bus_pid_to_babysitter_pipe[READ_END],
-                   bus_pid_to_launcher_pipe[WRITE_END]);
+                   bus_pid_to_babysitter_pipe[READ_END]);
           exit (0);
         }
 
@@ -763,10 +777,10 @@ main (int argc, char **argv)
       close (bus_pid_to_launcher_pipe[READ_END]);
       close (bus_address_to_launcher_pipe[READ_END]);
       close (bus_pid_to_babysitter_pipe[READ_END]);
-      close (bus_pid_to_launcher_pipe[WRITE_END]);
+      close (bus_pid_to_babysitter_pipe[WRITE_END]);
 
       sprintf (write_pid_fd_as_string,
-               "%d", bus_pid_to_babysitter_pipe[WRITE_END]);
+               "%d", bus_pid_to_launcher_pipe[WRITE_END]);
 
       sprintf (write_address_fd_as_string,
                "%d", bus_address_to_launcher_pipe[WRITE_END]);
@@ -809,14 +823,20 @@ main (int argc, char **argv)
   else
     {
       /* Parent */
-#define MAX_ADDR_LEN 512
+#define MAX_PID_LEN 64
       pid_t bus_pid;  
       char bus_address[MAX_ADDR_LEN];
+      char buf[MAX_PID_LEN];
+      char *end;
+      long wid = 0;
+      long val;
+      int ret2;
 
       verbose ("=== Parent dbus-launch continues\n");
       
       close (bus_pid_to_launcher_pipe[WRITE_END]);
       close (bus_address_to_launcher_pipe[WRITE_END]);
+      close (bus_pid_to_babysitter_pipe[READ_END]);
 
       verbose ("Waiting for babysitter's intermediate parent\n");
       
@@ -851,25 +871,70 @@ main (int argc, char **argv)
         
       close (bus_address_to_launcher_pipe[READ_END]);
 
-      verbose ("Reading PID from babysitter\n");
-      
-      switch (read_pid (bus_pid_to_launcher_pipe[READ_END], &bus_pid))
-        {
-        case READ_STATUS_OK:
-          break;
-        case READ_STATUS_EOF:
-          fprintf (stderr, "EOF in dbus-launch reading address from bus daemon\n");
-          exit (1);
-          break;
-        case READ_STATUS_ERROR:
-          fprintf (stderr, "Error in dbus-launch reading address from bus daemon: %s\n",
-                   strerror (errno));
-          exit (1);
-          break;
-        }
+      verbose ("Reading PID from daemon\n");
+      /* Now read data */
+      switch (read_line (bus_pid_to_launcher_pipe[READ_END], buf, MAX_PID_LEN))
+	{
+	case READ_STATUS_OK:
+	  break;
+	case READ_STATUS_EOF:
+	  fprintf (stderr, "EOF reading PID from bus daemon\n");
+	  exit (1);
+	  break;
+	case READ_STATUS_ERROR:
+	  fprintf (stderr, "Error reading PID from bus daemon: %s\n",
+		   strerror (errno));
+	  exit (1);
+	  break;
+	}
+
+      end = NULL;
+      val = strtol (buf, &end, 0);
+      if (buf == end || end == NULL)
+	{
+	  fprintf (stderr, "Failed to parse bus PID \"%s\": %s\n",
+		   buf, strerror (errno));
+	  exit (1);
+	}
+
+      bus_pid = val;
 
       close (bus_pid_to_launcher_pipe[READ_END]);
-      
+
+#ifdef DBUS_BUILD_X11
+      ret2 = x11_save_address (bus_address, bus_pid, &wid);
+      if (ret2 == 0)
+	{
+	  /* another window got added. Return its address */
+	  char *address;
+	  pid_t pid;
+	  long wid;
+
+	  if (x11_get_address (&address, &pid, &wid) && address != NULL)
+	    {
+	      verbose ("dbus-daemon is already running. Returning existing parameters.\n");
+	      print_variables (address, pid, wid, c_shell_syntax,
+			       bourne_shell_syntax, binary_syntax);
+	      free (address);
+
+	      bus_pid_to_kill = bus_pid;
+	      kill_bus_and_exit (0);
+	    }
+
+	  /* if failed, fall through */
+	}
+      if (ret2 <= 0)
+	{
+	  fprintf (stderr, "Error saving bus information.\n");
+	  bus_pid_to_kill = bus_pid;
+	  kill_bus_and_exit (1);
+	}
+#endif
+
+      /* Forward the pid to the babysitter */
+      write_pid (bus_pid_to_babysitter_pipe[WRITE_END], bus_pid);
+      close (bus_pid_to_babysitter_pipe[WRITE_END]);
+
       if (runprog)
 	{
 	  char *envvar;
@@ -904,18 +969,8 @@ main (int argc, char **argv)
 	}
       else
 	{
-	  if (c_shell_syntax)
-	    printf ("setenv DBUS_SESSION_BUS_ADDRESS '%s';\n", bus_address);	
-	  else
-	    {
-	      printf ("DBUS_SESSION_BUS_ADDRESS='%s';\n", bus_address);
-	      if (bourne_shell_syntax)
-		printf ("export DBUS_SESSION_BUS_ADDRESS;\n");
-	    }
-	  if (c_shell_syntax)
-	    printf ("set DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
-	  else
-	    printf ("DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
+	  print_variables (bus_address, bus_pid, wid, c_shell_syntax,
+			   bourne_shell_syntax, binary_syntax);
 	}
 	  
       verbose ("dbus-launch exiting\n");

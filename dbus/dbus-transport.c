@@ -201,13 +201,118 @@ _dbus_transport_finalize_base (DBusTransport *transport)
   dbus_free (transport->expected_guid);
 }
 
+
+/**
+ * Verifies if a given D-Bus address is a valid address
+ * by attempting to connect to it. If it is, returns the
+ * opened DBusTransport object. If it isn't, returns #NULL
+ * and sets @p error.
+ *
+ * @param error address where an error can be returned.
+ * @returns a new transport, or #NULL on failure.
+ */
+static DBusTransport*
+check_address (const char *address, DBusError *error)
+{
+  DBusAddressEntry **entries;
+  DBusTransport *transport = NULL;
+  int len, i;
+
+  _dbus_assert (address != NULL);
+  _dbus_assert (*address != '\0');
+
+  if (!dbus_parse_address (address, &entries, &len, error))
+    return FALSE;              /* not a valid address */
+
+  for (i = 0; i < len; i++)
+    {
+      transport = _dbus_transport_open (entries[i], error);
+      if (transport != NULL)
+        break;
+    }
+
+  dbus_address_entries_free (entries);
+  return transport;
+}
+
+/**
+ * Creates a new transport for the "autostart" method.
+ * This creates a client-side of a transport.
+ *
+ * @param error address where an error can be returned.
+ * @returns a new transport, or #NULL on failure.
+ */
+static DBusTransport*
+_dbus_transport_new_for_autolaunch (DBusError      *error)
+{
+  DBusString address;
+  DBusTransport *result = NULL;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (!_dbus_string_init (&address))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return NULL;
+    }
+
+  if (!_dbus_get_autolaunch_address (&address, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      goto out;
+    }
+
+  result = check_address (_dbus_string_get_const_data (&address), error);
+  if (result == NULL)
+    _DBUS_ASSERT_ERROR_IS_SET (error);
+  else
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+ out:
+  _dbus_string_free (&address);
+  return result;
+}
+
+static DBusTransportOpenResult
+_dbus_transport_open_autolaunch (DBusAddressEntry  *entry,
+                                 DBusTransport    **transport_p,
+                                 DBusError         *error)
+{
+  const char *method;
+  
+  method = dbus_address_entry_get_method (entry);
+  _dbus_assert (method != NULL);
+
+  if (strcmp (method, "autolaunch") == 0)
+    {
+      *transport_p = _dbus_transport_new_for_autolaunch (error);
+
+      if (*transport_p == NULL)
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          return DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT;
+        }
+      else
+        {
+          _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+          return DBUS_TRANSPORT_OPEN_OK;
+        }      
+    }
+  else
+    {
+      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+      return DBUS_TRANSPORT_OPEN_NOT_HANDLED;
+    }
+}
+
 static const struct {
   DBusTransportOpenResult (* func) (DBusAddressEntry *entry,
                                     DBusTransport   **transport_p,
                                     DBusError        *error);
 } open_funcs[] = {
   { _dbus_transport_open_socket },
-  { _dbus_transport_open_platform_specific }
+  { _dbus_transport_open_platform_specific },
+  { _dbus_transport_open_autolaunch }
 #ifdef DBUS_BUILD_TESTS
   , { _dbus_transport_open_debug_pipe }
 #endif

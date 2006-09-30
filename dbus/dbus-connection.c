@@ -2783,7 +2783,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
 
       error_msg = generate_local_error_message (client_serial,
                                                 DBUS_ERROR_DISCONNECTED, 
-                                                "Connection was dissconnected before a reply was recived"); 
+                                                "Connection was disconnected before a reply was received"); 
 
       /* on OOM error_msg is set to NULL */
       complete_pending_call_and_unlock (connection, pending, error_msg);
