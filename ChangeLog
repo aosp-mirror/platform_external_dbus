@@ -1,5 +1,11 @@
 2006-09-30  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-bus.c (dbus_bus_get_private, dbus_bus_get) 
+	(internal_bus_get): fix screwy code formatting. whoever committed
+	that was not paying attention!
+
+2006-09-30  Havoc Pennington  <hp@redhat.com>
+
 	* configure.in (LT_CURRENT, LT_AGE): increment current and age to
 	reflect addition of interfaces.
 

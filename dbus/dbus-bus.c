@@ -338,7 +338,8 @@ _dbus_bus_check_connection_and_unref_unlocked (DBusConnection *connection)
 
 static DBusConnection *
 internal_bus_get (DBusBusType  type,
-	      DBusError   *error, dbus_bool_t private)
+                  dbus_bool_t  private,
+                  DBusError   *error)
 {
   const char *address;
   DBusConnection *connection;
@@ -453,8 +454,9 @@ internal_bus_get (DBusBusType  type,
  */
 DBusConnection *
 dbus_bus_get (DBusBusType  type,
-	      DBusError   *error) {
-  return internal_bus_get(type, error, FALSE);
+	      DBusError   *error)
+{
+  return internal_bus_get (type, FALSE, error);
 }
 
 /**
@@ -469,8 +471,9 @@ dbus_bus_get (DBusBusType  type,
  */
 DBusConnection *
 dbus_bus_get_private (DBusBusType  type,
-	      DBusError   *error) {
-  return internal_bus_get(type, error, TRUE);
+                      DBusError   *error)
+{
+  return internal_bus_get (type, TRUE, error);
 }
 
 /**
