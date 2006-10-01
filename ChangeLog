@@ -1,5 +1,34 @@
 2006-10-01  Havoc Pennington  <hp@redhat.com>
 
+	* tools/dbus-launch.c (print_variables): if no syntax is given,
+	don't print something that's sort-of-half-sh-syntax, just print
+	a plain key-value pairs thing.
+
+	* tools/dbus-launch-x11.c: use machine ID rather than hostname for
+	the local machine representation (but still have the hostname in
+	the display). Remove the hostname from the display if it is
+	localhost. Change session files to be named
+	~/.dbus/session-bus/machine-display. Change X atoms to be
+	underscore-prefixed so nobody whines about ICCCM compliance.
+	Otherwise name them the same as the env variables.
+	Change session file format to include key-value pairs and an
+	explanatory comment. Keys are the same as the env variables.
+	(set_address_in_x11): X property format can't depend on
+	sizeof(pid_t) on a particular machine, fix to always be 32 bits
+
+	* tools/dbus-launch.c: make --autolaunch take a machine id
+	argument. If --autolaunch is used with a program to run, complain
+	for now (but add a FIXME). Also, don't look for existing bus if 
+	there's a program to run (but add a FIXME).
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_get_autolaunch_address): pass
+	machine uuid to dbus-launch (avoids linking dbus-launch to libdbus
+	just to get this, and avoids duplicating uuid-reading code).
+
+	* tools/dbus-launch.1: clarify various things
+	
+2006-10-01  Havoc Pennington  <hp@redhat.com>
+
 	* test/test-service.c (path_message_func): remove broken extra
 	unref that was hidden by the bugs in dbus-connection.c/dbus-bus.c
 

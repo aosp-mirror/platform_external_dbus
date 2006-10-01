@@ -24,6 +24,8 @@
 
 #ifdef DBUS_BUILD_X11
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -46,39 +48,53 @@ x_io_error_handler (Display *xdisplay)
   return 0;
 }
 
-static char *
-get_local_hostname (void)
+static void
+remove_prefix (char *s,
+               char *prefix)
 {
-  static const int increment = 128;
-  static char *cache = NULL;
-  char *buffer = NULL;
-  int size = 0;
+  int plen;
 
-  while (cache == NULL)
+  plen = strlen (prefix);
+
+  if (strncmp (s, prefix, plen) == 0)
     {
-      size += increment;
-      buffer = realloc (buffer, size);
-      if (buffer == NULL)
-        return NULL;            /* out of memory */
+      memmove (s, s + plen, strlen (s) - plen + 1);
+    }
+}
 
-      if (gethostname (buffer, size - 1) == -1 &&
-          errno != ENAMETOOLONG)
-        return NULL;
-
-      buffer[size - 1] = '\0';  /* to make sure */
-      cache = buffer;
+static const char*
+get_homedir (void)
+{
+  const char *home;
+  
+  home = getenv ("HOME");
+  if (home == NULL)
+    {
+      /* try from the user database */
+      struct passwd *user = getpwuid (getuid());
+      if (user != NULL)
+        home = user->pw_dir;
     }
 
-  return cache;
+  if (home == NULL)
+    {
+      fprintf (stderr, "Can't get user home directory\n");
+      exit (1);
+    }
+
+  return home;
 }
+
+#define DBUS_DIR ".dbus"
+#define DBUS_SESSION_BUS_DIR "session-bus"
 
 static char *
 get_session_file (void)
 {
-  static const char prefix[] = "/.dbus-session-file_";
-  char *hostname;
+  static const char prefix[] = "/" DBUS_DIR "/" DBUS_SESSION_BUS_DIR "/";
+  const char *machine;
+  const char *home;
   char *display;
-  char *home;
   char *result;
   char *p;
 
@@ -92,43 +108,46 @@ get_session_file (void)
   /* remove the screen part of the display name */
   p = strrchr (display, ':');
   if (p != NULL)
-    for ( ; *p; ++p)
-      if (*p == '.')
+    {
+      for ( ; *p; ++p)
         {
-          *p = '\0';
-          break;
+          if (*p == '.')
+            {
+              *p = '\0';
+              break;
+            }
         }
+    }
 
-  /* replace the : in the display with _ */
+  /* Note that we leave the hostname in the display most of the
+   * time. The idea is that we want to be per-(machine,display,user)
+   * triplet to be extra-sure we get a bus we can connect to. Ideally
+   * we'd recognize when the hostname matches the machine we're on in
+   * all cases; we do try to drop localhost and localhost.localdomain
+   * as a special common case so that alternate spellings of DISPLAY
+   * don't result in extra bus instances.
+   *
+   * We also kill the ":" if there's nothing in front of it. This
+   * avoids an ugly double underscore in the filename.
+   */
+  remove_prefix (display, "localhost.localdomain:");
+  remove_prefix (display, "localhost:");
+  remove_prefix (display, ":");
+
+  /* replace the : in the display with _ if the : is still there.
+   * use _ instead of - since it can't be in hostnames.
+   */
   for (p = display; *p; ++p)
-    if (*p == ':')
-      *p = '_';
-
-  hostname = get_local_hostname ();
-  if (hostname == NULL)
     {
-      /* out of memory */
-      free (display);
-      return NULL;
+      if (*p == ':')
+        *p = '_';
     }
+  
+  machine = get_machine_uuid ();
 
-  home = getenv ("HOME");
-  if (home == NULL)
-    {
-      /* try from the user database */
-      struct passwd *user = getpwuid (getuid());
-      if (user == NULL)
-        {
-          verbose ("X11 integration disabled because the home directory"
-                   " could not be determined\n");
-          free (display);
-          return NULL;
-        }
-
-      home = user->pw_dir;
-    }
-
-  result = malloc (strlen (home) + strlen (prefix) + strlen (hostname) +
+  home = get_homedir ();
+  
+  result = malloc (strlen (home) + strlen (prefix) + strlen (machine) +
                    strlen (display) + 2);
   if (result == NULL)
     {
@@ -139,13 +158,53 @@ get_session_file (void)
 
   strcpy (result, home);
   strcat (result, prefix);
-  strcat (result, hostname);
-  strcat (result, "_");
+  strcat (result, machine);
+  strcat (result, "-");
   strcat (result, display);
   free (display);
 
   verbose ("session file: %s\n", result);
   return result;
+}
+
+static void
+ensure_session_directory (void)
+{
+  const char *home;
+  char *dir;
+  
+  home = get_homedir ();
+
+  /* be sure we have space for / and nul */
+  dir = malloc (strlen (home) + strlen (DBUS_DIR) + strlen (DBUS_SESSION_BUS_DIR) + 3);
+  if (dir == NULL)
+    {
+      fprintf (stderr, "no memory\n");
+      exit (1);
+    }
+  
+  strcpy (dir, home);
+  strcat (dir, "/");
+  strcat (dir, DBUS_DIR);
+
+  if (mkdir (dir, 0700) < 0)
+    {
+      /* only print a warning here, writing the session file itself will fail later */
+      if (errno != EEXIST)
+        fprintf (stderr, "Unable to create %s\n", dir);
+    }
+
+  strcat (dir, "/");
+  strcat (dir, DBUS_SESSION_BUS_DIR);
+
+  if (mkdir (dir, 0700) < 0)
+    {
+      /* only print a warning here, writing the session file itself will fail later */
+      if (errno != EEXIST)
+        fprintf (stderr, "Unable to create %s\n", dir);
+    }
+  
+  free (dir);
 }
 
 static Display *
@@ -166,12 +225,12 @@ open_x11 (void)
 static int
 init_x_atoms (Display *display)
 {
-  static const char selection_prefix[] = "DBUS_SESSION_SELECTION_";
-  static const char address_prefix[] = "DBUS_SESSION_ADDRESS";
-  static const char pid_prefix[] = "DBUS_SESSION_PID";
+  static const char selection_prefix[] = "_DBUS_SESSION_BUS_SELECTION_";
+  static const char address_prefix[] = "_DBUS_SESSION_BUS_ADDRESS";
+  static const char pid_prefix[] = "_DBUS_SESSION_BUS_PID";
   static int init = FALSE;
   char *atom_name;
-  char *hostname;
+  const char *machine;
   char *user_name;
   struct passwd *user;
 
@@ -186,15 +245,9 @@ init_x_atoms (Display *display)
     }
   user_name = xstrdup(user->pw_name);
 
-  hostname = get_local_hostname ();
-  if (hostname == NULL)
-    {
-      verbose ("Could not create X11 atoms; aborting X11 integration.\n");
-      free (user_name);
-      return FALSE;
-    }
+  machine = get_machine_uuid ();
 
-  atom_name = malloc (strlen (hostname) + strlen (user_name) + 2 +
+  atom_name = malloc (strlen (machine) + strlen (user_name) + 2 +
                       MAX (strlen (selection_prefix),
                            MAX (strlen (address_prefix),
                                 strlen (pid_prefix))));
@@ -209,7 +262,7 @@ init_x_atoms (Display *display)
   strcpy (atom_name, selection_prefix);
   strcat (atom_name, user_name);
   strcat (atom_name, "_");
-  strcat (atom_name, hostname);
+  strcat (atom_name, machine);
   selection_atom = XInternAtom (display, atom_name, FALSE);
 
   /* create the address property atom */
@@ -285,7 +338,8 @@ set_address_in_x11(char *address, pid_t pid)
 {
   char *current_address;
   Window wid;
-
+  int pid32;
+  
   /* lock the X11 display to make sure we're doing this atomically */
   XGrabServer (xdisplay);
 
@@ -313,8 +367,14 @@ set_address_in_x11(char *address, pid_t pid)
   /* Save the property in the window */
   XChangeProperty (xdisplay, wid, address_atom, XA_STRING, 8, PropModeReplace,
                    (unsigned char *)address, strlen (address));
+  pid32 = pid;
+  if (sizeof(pid32) != 4)
+    {
+      fprintf (stderr, "int is not 32 bits!\n");
+      exit (1);
+    }
   XChangeProperty (xdisplay, wid, pid_atom, XA_CARDINAL, 32, PropModeReplace,
-                   (unsigned char *)&pid, sizeof(pid) / 4);
+                   (unsigned char *)&pid32, 1);
 
   /* Now grab the selection */
   XSetSelectionOwner (xdisplay, selection_atom, wid, CurrentTime);
@@ -337,6 +397,7 @@ set_address_in_file (char *address, pid_t pid, Window wid)
   char *session_file;
   FILE *f;
 
+  ensure_session_directory ();
   session_file = get_session_file();
   if (session_file == NULL)
     return FALSE;
@@ -344,7 +405,18 @@ set_address_in_file (char *address, pid_t pid, Window wid)
   f = fopen (session_file, "w");
   if (f == NULL)
     return FALSE;               /* some kind of error */
-  fprintf (f, "%s\n%ld\n%ld\n", address, (long)pid, (long)wid);
+  fprintf (f,
+           "# This file allows processes on the machine with id %s using \n"
+           "# display %s to find the D-Bus session bus with the below address.\n"
+           "# If the DBUS_SESSION_BUS_ADDRESS environment variable is set, it will\n"
+           "# be used rather than this file.\n"
+           "# See \"man dbus-launch\" for more details.\n"
+           "DBUS_SESSION_BUS_ADDRESS=%s\n"
+           "DBUS_SESSION_BUS_PID=%ld\n"
+           "DBUS_SESSION_BUS_WINDOWID=%ld\n",
+           get_machine_uuid (),
+           getenv ("DISPLAY"),
+           address, (long)pid, (long)wid);
 
   fclose (f);
   free (session_file);

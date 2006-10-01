@@ -45,6 +45,8 @@ void verbose (const char *format, ...);
 char *xstrdup (const char *str);
 void kill_bus_and_exit (int exitcode);
 
+const char* get_machine_uuid (void);
+
 #ifdef DBUS_BUILD_X11
 /* defined in dbus-launch-x11.c */
 int x11_init (void);

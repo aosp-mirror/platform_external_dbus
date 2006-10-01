@@ -1,7 +1,8 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-launch.c  dbus-launch utility
  *
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003, 2006 Red Hat, Inc.
+ * Copyright (C) 2006 Thiago Macieira <thiago@kde.org>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -38,6 +39,27 @@
 #include <X11/Xlib.h>
 extern Display *xdisplay;
 #endif
+
+static char* machine_uuid = NULL;
+
+const char*
+get_machine_uuid (void)
+{
+  return machine_uuid;
+}
+
+static void
+save_machine_uuid (const char *uuid_arg)
+{
+  if (strlen (uuid_arg) != 32)
+    {
+      fprintf (stderr, "machine ID '%s' looks like it's the wrong length, should be 32 hex digits",
+               uuid_arg);
+      exit (1);
+    }
+
+  machine_uuid = xstrdup (uuid_arg);
+}
 
 void
 verbose (const char *format,
@@ -303,8 +325,9 @@ print_variables (const char *bus_address, pid_t bus_pid, long bus_wid,
       printf ("set DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
       if (bus_wid)
 	printf ("set DBUS_SESSION_BUS_WINDOWID=%ld;\n", (long) bus_wid);
+      fflush (stdout);
     }
-  else
+  else if (bourne_shell_syntax)
     {
       printf ("DBUS_SESSION_BUS_ADDRESS='%s';\n", bus_address);
       if (bourne_shell_syntax)
@@ -312,6 +335,15 @@ print_variables (const char *bus_address, pid_t bus_pid, long bus_wid,
       printf ("DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
       if (bus_wid)
 	printf ("DBUS_SESSION_BUS_WINDOWID=%ld;\n", (long) bus_wid);
+      fflush (stdout);
+    }
+  else
+    {
+      printf ("DBUS_SESSION_BUS_ADDRESS=%s\n", bus_address);
+      printf ("DBUS_SESSION_BUS_PID=%ld\n", (long) bus_pid);
+      if (bus_wid)
+	printf ("DBUS_SESSION_BUS_WINDOWID=%ld\n", (long) bus_wid);
+      fflush (stdout);
     }
 }
 
@@ -614,8 +646,38 @@ main (int argc, char **argv)
         version ();
       else if (strcmp (arg, "--exit-with-session") == 0)
         exit_with_session = TRUE;
+      else if (strstr (arg, "--autolaunch=") == arg)
+        {
+          const char *s;
+
+          if (autolaunch)
+            {
+              fprintf (stderr, "--autolaunch given twice\n");
+              exit (1);
+            }
+          
+          autolaunch = TRUE;
+
+          s = strchr (arg, '=');
+          ++s;
+
+          save_machine_uuid (s);
+        }
+      else if (prev_arg &&
+               strcmp (prev_arg, "--autolaunch") == 0)
+        {
+          if (autolaunch)
+            {
+              fprintf (stderr, "--autolaunch given twice\n");
+              exit (1);
+            }
+          
+          autolaunch = TRUE;
+
+          save_machine_uuid (arg);
+        }
       else if (strcmp (arg, "--autolaunch") == 0)
-	autolaunch = TRUE;
+        ; /* wait for next arg */
       else if (strstr (arg, "--config-file=") == arg)
         {
           const char *file;
@@ -673,7 +735,7 @@ main (int argc, char **argv)
     verbose ("--exit-with-session enabled\n");
 
   if (autolaunch)
-    {
+    {      
 #ifndef DBUS_BUILD_X11
       fprintf (stderr, "Autolaunch requested, but X11 support not compiled in.\n"
 	       "Cannot continue.\n");
@@ -682,7 +744,23 @@ main (int argc, char **argv)
       char *address;
       pid_t pid;
       long wid;
+      
+      if (get_machine_uuid () == NULL)
+        {
+          fprintf (stderr, "Machine UUID not provided as arg to --autolaunch\n");
+          exit (1);
+        }
 
+      /* FIXME right now autolaunch always does print_variables(), but it should really
+       * exec the child program instead if a child program was specified. For now
+       * we just exit if this conflict arises.
+       */
+      if (runprog)
+        {
+          fprintf (stderr, "Currently --autolaunch does not support running a program\n");
+          exit (1);
+        }
+      
       verbose ("Autolaunch enabled (using X11).\n");
       if (!exit_with_session)
 	{
@@ -703,7 +781,7 @@ main (int argc, char **argv)
 	}
 
       if (address != NULL)
-	{
+	{          
 	  verbose ("dbus-daemon is already running. Returning existing parameters.\n");
 	  print_variables (address, pid, wid, c_shell_syntax,
 			   bourne_shell_syntax, binary_syntax);
@@ -902,7 +980,10 @@ main (int argc, char **argv)
       close (bus_pid_to_launcher_pipe[READ_END]);
 
 #ifdef DBUS_BUILD_X11
-      if (xdisplay != NULL)
+      /* FIXME the runprog == NULL is broken - we need to launch the runprog with the existing bus,
+       * instead of just doing print_variables() if there's an existing bus.
+       */
+      if (xdisplay != NULL && runprog == NULL)
         {
           ret2 = x11_save_address (bus_address, bus_pid, &wid);
           if (ret2 == 0)

@@ -2293,18 +2293,44 @@ _dbus_get_tmpdir(void)
  * @returns #TRUE on success, #FALSE if an error happened
  */
 dbus_bool_t
-_dbus_get_autolaunch_address (DBusString *address, DBusError *error)
+_dbus_get_autolaunch_address (DBusString *address,
+                              DBusError  *error)
 {
-  static char *argv[] = { DBUS_BINDIR "/dbus-launch", "--autolaunch",
-                          "--binary-syntax", NULL };
+  static char *argv[5];
   int address_pipe[2];
   pid_t pid;
   int ret;
   int status;
   int orig_len;
-
+  int i;
+  DBusString uuid;
+  dbus_bool_t retval;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  retval = FALSE;
 
+  _dbus_string_init (&uuid);
+  
+  if (!_dbus_get_local_machine_uuid_encoded (&uuid))
+    {
+      _DBUS_SET_OOM (error);
+      goto out;
+    }
+  
+  i = 0;
+  argv[i] = DBUS_BINDIR "/dbus-launch";
+  ++i;
+  argv[i] = "--autolaunch";
+  ++i;
+  argv[i] = _dbus_string_get_const_data (&uuid);
+  ++i;
+  argv[i] = "--binary-syntax";
+  ++i;
+  argv[i] = NULL;
+  ++i;
+
+  _dbus_assert (i == _DBUS_N_ELEMENTS (argv));
+  
   orig_len = _dbus_string_get_length (address);
   
 #define READ_END        0
@@ -2316,7 +2342,7 @@ _dbus_get_autolaunch_address (DBusString *address, DBusError *error)
                       _dbus_strerror (errno));
       _dbus_verbose ("Failed to create a pipe to call dbus-launch: %s\n",
                      _dbus_strerror (errno));
-      return FALSE;
+      goto out;
     }
 
   pid = fork ();
@@ -2327,7 +2353,7 @@ _dbus_get_autolaunch_address (DBusString *address, DBusError *error)
                       _dbus_strerror (errno));
       _dbus_verbose ("Failed to fork() to call dbus-launch: %s\n",
                      _dbus_strerror (errno));
-      return FALSE;
+      goto out;
     }
 
   if (pid == 0)
@@ -2389,9 +2415,19 @@ _dbus_get_autolaunch_address (DBusString *address, DBusError *error)
       _dbus_string_set_length (address, orig_len);
       dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
                       "Failed to execute dbus-launch to autolaunch D-Bus session");
-      return FALSE;
+      goto out;
     }
-  return TRUE;
+
+  retval = TRUE;
+  
+ out:
+  if (retval)
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  else
+    _DBUS_ASSERT_ERROR_IS_SET (error);
+  
+  _dbus_string_free (&uuid);
+  return retval;
 }
 
 /**
