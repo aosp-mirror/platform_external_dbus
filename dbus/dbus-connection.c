@@ -1475,6 +1475,12 @@ connection_lookup_shared (DBusAddressEntry  *entry,
                * message hasn't been processed yet, in which case we
                * want to pretend it isn't in the hash and avoid
                * returning it.
+               *
+               * The idea is to avoid ever returning a disconnected connection
+               * from dbus_connection_open(). We could just synchronously
+               * drop our shared ref to the connection on connection disconnect,
+               * and then assert here that the connection is connected, but
+               * that causes reentrancy headaches.
                */
               CONNECTION_LOCK (connection);
               if (_dbus_connection_get_is_connected_unlocked (connection))
@@ -1581,8 +1587,6 @@ connection_forget_shared_unlocked (DBusConnection *connection)
       connection->server_guid = NULL;
       _DBUS_UNLOCK (shared_connections);
     }
-
-  _dbus_bus_notify_shared_connection_disconnected_unlocked (connection);
   
   /* remove our reference held on all shareable connections */
   _dbus_connection_unref_unlocked (connection);
@@ -2001,6 +2005,15 @@ dbus_connection_unref (DBusConnection *connection)
     _dbus_connection_last_unref (connection);
 }
 
+/*
+ * Note that the transport can disconnect itself (other end drops us)
+ * and in that case this function never runs. So this function must
+ * not do anything more than disconnect the transport and update the
+ * dispatch status.
+ * 
+ * If the transport self-disconnects, then we assume someone will
+ * dispatch the connection to cause the dispatch status update.
+ */
 static void
 _dbus_connection_close_possibly_shared_and_unlock (DBusConnection *connection)
 {
@@ -2018,13 +2031,21 @@ _dbus_connection_close_possibly_shared_and_unlock (DBusConnection *connection)
   
   _dbus_transport_disconnect (connection->transport);
 
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
+  /* This has the side effect of queuing the disconnect message link
+   * (unless we don't have enough memory, possibly, so don't assert it).
+   * After the disconnect message link is queued, dbus_bus_get/dbus_connection_open
+   * should never again return the newly-disconnected connection.
+   *
+   * However, we only unref the shared connection and exit_on_disconnect when
+   * the disconnect message reaches the head of the message queue,
+   * NOT when it's first queued.
+   */
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
-  /* this calls out to user code */
+  /* This calls out to user code */
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 
-  /* could also call out to user code */
+  /* Could also call out to user code */
   dbus_connection_unref (connection);
 }
 
@@ -3671,9 +3692,17 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
       
       if (!is_connected)
         {
+          /* It's possible this would be better done by having an
+           * explicit notification from
+           * _dbus_transport_disconnect() that would synchronously
+           * do this, instead of waiting for the next dispatch
+           * status check. However, probably not good to change
+           * until it causes a problem.
+           */
+          
           if (status == DBUS_DISPATCH_COMPLETE &&
               connection->disconnect_message_link)
-            {
+            {              
               _dbus_verbose ("Sending disconnect message from %s\n",
                              _DBUS_FUNCTION_NAME);
           
@@ -3689,6 +3718,14 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
                                                                connection->disconnect_message_link);
               connection->disconnect_message_link = NULL;
 
+              /* Set the weakref in dbus-bus.c to NULL, so nobody will get a disconnected
+               * connection from dbus_bus_get(). We make the same guarantee for
+               * dbus_connection_open() but in a different way since we don't want to
+               * unref right here; we instead check for connectedness before returning
+               * the connection from the hash.
+               */
+              _dbus_bus_notify_shared_connection_disconnected_unlocked (connection);
+              
               status = DBUS_DISPATCH_DATA_REMAINS;
             }
 

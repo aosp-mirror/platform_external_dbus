@@ -1,5 +1,20 @@
 2006-10-01  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-bus.c
+	(internal_bus_get): only weak ref the connection; this means 
+	_dbus_bus_notify_shared_connection_disconnected_unlocked can be
+	called safely in any context
+	(_dbus_bus_notify_shared_connection_disconnected_unlocked): don't
+	unref
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_get_dispatch_status_unlocked): move
+	_dbus_bus_notify_shared_connection_disconnected_unlocked here
+	when queuing Disconnected instead of when the Disconnected message
+	arrives, so dbus_bus_get() won't return closed connections.
+	
+2006-10-01  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-connection.c (_dbus_connection_close_if_only_one_ref): 
 	Add a hack to make DBusNewConnectionFunction work right.
 

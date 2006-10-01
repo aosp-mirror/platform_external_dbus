@@ -336,7 +336,6 @@ _dbus_bus_notify_shared_connection_disconnected_unlocked (DBusConnection *connec
       if (bus_connections[i] == connection)
         {
           bus_connections[i] = NULL;
-          _dbus_connection_unref_unlocked (connection);
         }
     }
 
@@ -428,9 +427,8 @@ internal_bus_get (DBusBusType  type,
 
   if (!private)
     {
-      /* get a hard ref to the connection */
+      /* get a weak ref to the connection */
       bus_connections[type] = connection;
-      dbus_connection_ref (bus_connections[type]);
     }
   
   bd = ensure_bus_data (connection);
