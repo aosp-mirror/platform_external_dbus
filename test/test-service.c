@@ -3,7 +3,7 @@
 
 static DBusLoop *loop;
 static dbus_bool_t already_quit = FALSE;
-static dbus_bool_t hello_from_self_reply_recived = FALSE;
+static dbus_bool_t hello_from_self_reply_received = FALSE;
 
 static void
 quit (void)
@@ -54,7 +54,7 @@ check_hello_from_self_reply (DBusPendingCall *pcall,
   if (type == DBUS_MESSAGE_TYPE_METHOD_RETURN)
     {
       const char *s;
-      printf ("Reply from HelloFromSelf recived\n");
+      printf ("Reply from HelloFromSelf received\n");
      
       if (!dbus_message_get_args (echo_message,
                               &error,
@@ -108,9 +108,9 @@ check_hello_from_self_reply (DBusPendingCall *pcall,
       dbus_error_free (&error);
     }
   else
-     _dbus_assert_not_reached ("Unexpected message recived\n");
+     _dbus_assert_not_reached ("Unexpected message received\n");
 
-  hello_from_self_reply_recived = TRUE;
+  hello_from_self_reply_received = TRUE;
   
   dbus_message_unref (reply);
   dbus_message_unref (echo_message);
@@ -243,7 +243,6 @@ path_message_func (DBusConnection  *connection,
                                         "org.freedesktop.TestSuite",
                                         "Exit"))
     {
-      dbus_connection_unref (connection);
       quit ();
       return DBUS_HANDLER_RESULT_HANDLED;
     }
@@ -286,7 +285,7 @@ path_message_func (DBusConnection  *connection,
                                         "HelloFromSelf"))
     {
         DBusMessage *reply;
-        printf ("Recived the HelloFromSelf message\n");
+        printf ("Received the HelloFromSelf message\n");
         
         reply = dbus_message_new_method_return (message);
         if (reply == NULL)

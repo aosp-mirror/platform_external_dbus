@@ -69,7 +69,7 @@ _dbus_abort (void)
     {
       /* don't use _dbus_warn here since it can _dbus_abort() */
       fprintf (stderr, "  Process %lu sleeping for gdb attach\n", (unsigned long) _dbus_getpid());
-      _dbus_sleep_milliseconds (1000 * 60);
+      _dbus_sleep_milliseconds (1000 * 180);
     }
   
   abort ();

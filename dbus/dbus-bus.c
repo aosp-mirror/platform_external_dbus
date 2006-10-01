@@ -257,6 +257,10 @@ bus_data_free (void *data)
       int i;
       _DBUS_LOCK (bus);
       /* We may be stored in more than one slot */
+      /* This should now be impossible - these slots are supposed to
+       * be cleared on disconnect, so should not need to be cleared on
+       * finalize
+       */
       i = 0;
       while (i < N_BUS_TYPES)
         {
@@ -427,7 +431,10 @@ internal_bus_get (DBusBusType  type,
 
   if (!private)
     {
-      /* get a weak ref to the connection */
+      /* store a weak ref to the connection (dbus-connection.c is
+       * supposed to have a strong ref that it drops on disconnect,
+       * since this is a shared connection)
+       */
       bus_connections[type] = connection;
     }
   

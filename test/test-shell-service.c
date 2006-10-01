@@ -85,7 +85,6 @@ path_message_func (DBusConnection  *connection,
                                         "org.freedesktop.TestSuite",
                                         "Exit"))
     {
-      dbus_connection_unref (connection);
       quit ();
       return DBUS_HANDLER_RESULT_HANDLED;
     }

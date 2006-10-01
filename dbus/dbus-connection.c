@@ -1964,7 +1964,8 @@ _dbus_connection_last_unref (DBusConnection *connection)
  * For shared connections, libdbus will own a reference
  * as long as the connection is connected, so you can know that either
  * you don't have the last reference, or it's OK to drop the last reference.
- * Most connections are shared.
+ * Most connections are shared. dbus_connection_open() and dbus_bus_get()
+ * return shared connections.
  *
  * For private connections, the creator of the connection must arrange for
  * dbus_connection_close() to be called prior to dropping the last reference.
@@ -2002,7 +2003,20 @@ dbus_connection_unref (DBusConnection *connection)
 #endif
   
   if (last_unref)
-    _dbus_connection_last_unref (connection);
+    {
+#ifndef DBUS_DISABLE_CHECKS
+      if (_dbus_transport_get_is_connected (connection->transport))
+        {
+          _dbus_warn ("The last reference on a connection was dropped without closing the connection. This is a bug. See dbus_connection_unref() documentation for details.\n");
+          if (connection->shareable)
+            _dbus_warn ("Most likely, the application called unref() too many times and removed a reference belonging to libdbus, since this is a shared connection.\n");
+          else
+            _dbus_warn ("Most likely, the application was supposed to call dbus_connection_close(), since this is a private connection.\n");
+          return;
+        }
+#endif
+      _dbus_connection_last_unref (connection);
+    }
 }
 
 /*
@@ -2109,6 +2123,7 @@ dbus_connection_close (DBusConnection *connection)
 
   CONNECTION_LOCK (connection);
 
+#ifndef DBUS_DISABLE_CHECKS
   if (connection->shareable)
     {
       CONNECTION_UNLOCK (connection);
@@ -2116,7 +2131,8 @@ dbus_connection_close (DBusConnection *connection)
       _dbus_warn ("Applications must not close shared connections - see dbus_connection_close() docs. This is a bug in the application.\n");
       return;
     }
-
+#endif
+  
   _dbus_connection_close_possibly_shared_and_unlock (connection);
 }
 
@@ -3670,6 +3686,67 @@ _dbus_connection_failed_pop (DBusConnection *connection,
   connection->n_incoming += 1;
 }
 
+/* Note this may be called multiple times since we don't track whether we already did it */
+static void
+notify_disconnected_unlocked (DBusConnection *connection)
+{
+  HAVE_LOCK_CHECK (connection);
+
+  /* Set the weakref in dbus-bus.c to NULL, so nobody will get a disconnected
+   * connection from dbus_bus_get(). We make the same guarantee for
+   * dbus_connection_open() but in a different way since we don't want to
+   * unref right here; we instead check for connectedness before returning
+   * the connection from the hash.
+   */
+  _dbus_bus_notify_shared_connection_disconnected_unlocked (connection);
+
+  /* Dump the outgoing queue, we aren't going to be able to
+   * send it now, and we'd like accessors like
+   * dbus_connection_get_outgoing_size() to be accurate.
+   */
+  if (connection->n_outgoing > 0)
+    {
+      DBusList *link;
+      
+      _dbus_verbose ("Dropping %d outgoing messages since we're disconnected\n",
+                     connection->n_outgoing);
+      
+      while ((link = _dbus_list_get_last_link (&connection->outgoing_messages)))
+        {
+          _dbus_connection_message_sent (connection, link->data);
+        }
+    } 
+}
+
+/* Note this may be called multiple times since we don't track whether we already did it */
+static DBusDispatchStatus
+notify_disconnected_and_dispatch_complete_unlocked (DBusConnection *connection)
+{
+  HAVE_LOCK_CHECK (connection);
+  
+  if (connection->disconnect_message_link != NULL)
+    {
+      _dbus_verbose ("Sending disconnect message from %s\n",
+                     _DBUS_FUNCTION_NAME);
+      
+      /* If we have pending calls, queue their timeouts - we want the Disconnected
+       * to be the last message, after these timeouts.
+       */
+      connection_timeout_and_complete_all_pending_calls_unlocked (connection);
+      
+      /* We haven't sent the disconnect message already,
+       * and all real messages have been queued up.
+       */
+      _dbus_connection_queue_synthesized_message_link (connection,
+                                                       connection->disconnect_message_link);
+      connection->disconnect_message_link = NULL;
+
+      return DBUS_DISPATCH_DATA_REMAINS;
+    }
+
+  return DBUS_DISPATCH_COMPLETE;
+}
+
 static DBusDispatchStatus
 _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
 {
@@ -3692,59 +3769,21 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
       
       if (!is_connected)
         {
-          /* It's possible this would be better done by having an
-           * explicit notification from
-           * _dbus_transport_disconnect() that would synchronously
-           * do this, instead of waiting for the next dispatch
-           * status check. However, probably not good to change
-           * until it causes a problem.
+          /* It's possible this would be better done by having an explicit
+           * notification from _dbus_transport_disconnect() that would
+           * synchronously do this, instead of waiting for the next dispatch
+           * status check. However, probably not good to change until it causes
+           * a problem.
            */
-          
-          if (status == DBUS_DISPATCH_COMPLETE &&
-              connection->disconnect_message_link)
-            {              
-              _dbus_verbose ("Sending disconnect message from %s\n",
-                             _DBUS_FUNCTION_NAME);
-          
-              /* If we have pending calls, queue their timeouts - we want the Disconnected
-               * to be the last message, after these timeouts.
-               */
-              connection_timeout_and_complete_all_pending_calls_unlocked (connection);
-              
-              /* We haven't sent the disconnect message already,
-               * and all real messages have been queued up.
-               */
-              _dbus_connection_queue_synthesized_message_link (connection,
-                                                               connection->disconnect_message_link);
-              connection->disconnect_message_link = NULL;
+          notify_disconnected_unlocked (connection);
 
-              /* Set the weakref in dbus-bus.c to NULL, so nobody will get a disconnected
-               * connection from dbus_bus_get(). We make the same guarantee for
-               * dbus_connection_open() but in a different way since we don't want to
-               * unref right here; we instead check for connectedness before returning
-               * the connection from the hash.
-               */
-              _dbus_bus_notify_shared_connection_disconnected_unlocked (connection);
-              
-              status = DBUS_DISPATCH_DATA_REMAINS;
-            }
-
-          /* Dump the outgoing queue, we aren't going to be able to
-           * send it now, and we'd like accessors like
-           * dbus_connection_get_outgoing_size() to be accurate.
+          /* I'm not sure this is needed; the idea is that we want to
+           * queue the Disconnected only after we've read all the
+           * messages, but if we're disconnected maybe we are guaranteed
+           * to have read them all ?
            */
-          if (connection->n_outgoing > 0)
-            {
-              DBusList *link;
-              
-              _dbus_verbose ("Dropping %d outgoing messages since we're disconnected\n",
-                             connection->n_outgoing);
-              
-              while ((link = _dbus_list_get_last_link (&connection->outgoing_messages)))
-                {
-                  _dbus_connection_message_sent (connection, link->data);
-                }
-            }
+          if (status == DBUS_DISPATCH_COMPLETE)
+            status = notify_disconnected_and_dispatch_complete_unlocked (connection);
         }
       
       if (status != DBUS_DISPATCH_COMPLETE)

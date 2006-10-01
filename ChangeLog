@@ -1,5 +1,20 @@
 2006-10-01  Havoc Pennington  <hp@redhat.com>
 
+	* test/test-service.c (path_message_func): remove broken extra
+	unref that was hidden by the bugs in dbus-connection.c/dbus-bus.c
+
+	* test/test-shell-service.c (path_message_func): same fix
+	
+	* dbus/dbus-connection.c
+	(_dbus_connection_get_dispatch_status_unlocked): break up the
+	function a little for clarity and fix the notification of
+	dbus-bus.c to not require dispatch to be complete
+
+	* dbus/dbus-connection.c (dbus_connection_unref): improve the
+	warning when you try to finalize an open connection.
+	
+2006-10-01  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-bus.c
 	(internal_bus_get): only weak ref the connection; this means 
 	_dbus_bus_notify_shared_connection_disconnected_unlocked can be
