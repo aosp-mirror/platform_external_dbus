@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-connection.c DBusConnection object
  *
- * Copyright (C) 2002, 2003, 2004, 2005  Red Hat Inc.
+ * Copyright (C) 2002-2006  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -246,6 +246,8 @@ struct DBusConnection
   unsigned int io_path_acquired : 1;  /**< Someone has transport io path (can use the transport to read/write messages) */
   
   unsigned int exit_on_disconnect : 1; /**< If #TRUE, exit after handling disconnect signal */
+
+  unsigned int route_peer_messages : 1; /**< If #TRUE, if org.freedesktop.DBus.Peer messages have a bus name, don't handle them automatically */
   
 #ifndef DBUS_DISABLE_CHECKS
   unsigned int have_connection_lock : 1; /**< Used to check locking */
@@ -1175,6 +1177,8 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->objects = objects;
   connection->exit_on_disconnect = FALSE;
   connection->shareable = FALSE;
+  connection->route_peer_messages = FALSE;
+  
 #ifndef DBUS_DISABLE_CHECKS
   connection->generation = _dbus_current_generation;
 #endif
@@ -3575,15 +3579,20 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
 }
 
 /**
-* Filter funtion for handling the Peer standard interface
-**/
+ * Filter funtion for handling the Peer standard interface.
+ */
 static DBusHandlerResult
 _dbus_connection_peer_filter_unlocked_no_update (DBusConnection *connection,
                                                  DBusMessage    *message)
 {
-  if (dbus_message_is_method_call (message,
-                                   DBUS_INTERFACE_PEER,
-                                   "Ping"))
+  if (connection->route_peer_messages && dbus_message_get_destination (message) != NULL)
+    {
+      /* This means we're letting the bus route this message */
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+  else if (dbus_message_is_method_call (message,
+                                        DBUS_INTERFACE_PEER,
+                                        "Ping"))
     {
       DBusMessage *ret;
       dbus_bool_t sent;
@@ -3601,9 +3610,68 @@ _dbus_connection_peer_filter_unlocked_no_update (DBusConnection *connection,
       
       return DBUS_HANDLER_RESULT_HANDLED;
     }
-                                   
-  
-  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+  else if (dbus_message_is_method_call (message,
+                                        DBUS_INTERFACE_PEER,
+                                        "GetMachineId"))
+    {
+      DBusMessage *ret;
+      dbus_bool_t sent;
+      DBusString uuid;
+      
+      ret = dbus_message_new_method_return (message);
+      if (ret == NULL)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+      sent = FALSE;
+      _dbus_string_init (&uuid);
+      if (_dbus_get_local_machine_uuid_encoded (&uuid))
+        {
+          const char *v_STRING = _dbus_string_get_const_data (&uuid);
+          if (dbus_message_append_args (ret,
+                                        DBUS_TYPE_STRING, &v_STRING,
+                                        DBUS_TYPE_INVALID))
+            {
+              sent = _dbus_connection_send_unlocked_no_update (connection, ret, NULL);
+            }
+        }
+      _dbus_string_free (&uuid);
+      
+      dbus_message_unref (ret);
+
+      if (!sent)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+      
+      return DBUS_HANDLER_RESULT_HANDLED;
+    }
+  else if (dbus_message_has_interface (message, DBUS_INTERFACE_PEER))
+    {
+      /* We need to bounce anything else with this interface, otherwise apps
+       * could start extending the interface and when we added extensions
+       * here to DBusConnection we'd break those apps.
+       */
+      
+      DBusMessage *ret;
+      dbus_bool_t sent;
+      
+      ret = dbus_message_new_error (message,
+                                    DBUS_ERROR_UNKNOWN_METHOD,
+                                    "Unknown method invoked on org.freedesktop.DBus.Peer interface");
+      if (ret == NULL)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+      
+      sent = _dbus_connection_send_unlocked_no_update (connection, ret, NULL);
+      
+      dbus_message_unref (ret);
+      
+      if (!sent)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+      
+      return DBUS_HANDLER_RESULT_HANDLED;
+    }
+  else
+    {
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
 }
 
 /**
@@ -4409,6 +4477,35 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
 }
 
 /**
+ *
+ * Normally #DBusConnection automatically handles all messages to the
+ * org.freedesktop.DBus.Peer interface. However, the message bus wants
+ * to be able to route methods on that interface through the bus and
+ * to other applications. If routing peer messages is enabled, then
+ * messages with the org.freedesktop.DBus.Peer interface that also
+ * have a bus destination name set will not be automatically
+ * handled by the #DBusConnection and instead will be dispatched
+ * normally to the application.
+ *
+ *
+ * If a normal application sets this flag, it can break things badly.
+ * So don't set this unless you are the message bus.
+ *
+ * @param connection the connection
+ * @param value #TRUE to pass through org.freedesktop.DBus.Peer messages with a bus name set
+ */
+void
+dbus_connection_set_route_peer_messages (DBusConnection             *connection,
+                                         dbus_bool_t                 value)
+{
+  _dbus_return_if_fail (connection != NULL);
+  
+  CONNECTION_LOCK (connection);
+  connection->route_peer_messages = TRUE;
+  CONNECTION_UNLOCK (connection);
+}
+
+/**
  * Adds a message filter. Filters are handlers that are run on all
  * incoming messages, prior to the objects registered with
  * dbus_connection_register_object_path().  Filters are run in the
@@ -4966,6 +5063,60 @@ dbus_connection_get_outgoing_size (DBusConnection *connection)
   res = _dbus_counter_get_value (connection->outgoing_counter);
   CONNECTION_UNLOCK (connection);
   return res;
+}
+
+/**
+ * Obtains the machine UUID of the machine this process is running on.
+ *
+ * The returned string must be freed with dbus_free().
+ * 
+ * This UUID is guaranteed to remain the same until the next reboot
+ * (unless the sysadmin foolishly changes it and screws themselves).
+ * It will usually remain the same across reboots also, but hardware
+ * configuration changes or rebuilding the machine could break that.
+ *
+ * The idea is that two processes with the same machine ID should be
+ * able to use shared memory, UNIX domain sockets, process IDs, and other
+ * features of the OS that require both processes to be running
+ * on the same OS kernel instance.
+ *
+ * The machine ID can also be used to create unique per-machine
+ * instances. For example, you could use it in bus names or
+ * X selection names.
+ *
+ * The machine ID is preferred over the machine hostname, because
+ * the hostname is frequently set to "localhost.localdomain" and
+ * may also change at runtime.
+ *
+ * You can get the machine ID of a remote application by invoking the
+ * method GetMachineId from interface org.freedesktop.DBus.Peer.
+ *
+ * If the remote application has the same machine ID as the one
+ * returned by this function, then the remote application is on the
+ * same machine as your application.
+ * 
+ * @returns a 32-byte-long hex-encoded UUID string, or #NULL if insufficient memory
+ */
+char*
+dbus_get_local_machine_id (void)
+{
+  DBusString uuid;
+  char *s;
+
+  s = NULL;
+  _dbus_string_init (&uuid);
+  if (!_dbus_get_local_machine_uuid_encoded (&uuid) ||
+      !_dbus_string_steal_data (&uuid, &s))
+    {
+      _dbus_string_free (&uuid);
+      return FALSE;
+    }
+  else
+    {
+      _dbus_string_free (&uuid);
+      return s;
+    }
+
 }
 
 /** @} */

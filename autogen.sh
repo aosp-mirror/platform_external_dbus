@@ -83,7 +83,7 @@ for arg in $*; do
 done
 
 if $run_configure; then
-    $srcdir/configure --enable-maintainer-mode "$@"
+    $srcdir/configure --enable-maintainer-mode --config-cache "$@"
     echo 
     echo "Now type 'make' to compile $PROJECT."
 else

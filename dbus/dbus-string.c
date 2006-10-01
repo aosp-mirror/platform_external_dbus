@@ -1924,18 +1924,82 @@ _dbus_string_skip_blank (const DBusString *str,
   i = start;
   while (i < real->len)
     {
-      if (!(real->str[i] == ' ' ||
-            real->str[i] == '\t'))
+      if (!DBUS_IS_ASCII_BLANK (real->str[i]))
         break;
       
       ++i;
     }
 
-  _dbus_assert (i == real->len || !(real->str[i] == ' ' ||
-                                    real->str[i] == '\t'));
+  _dbus_assert (i == real->len || !DBUS_IS_ASCII_WHITE (real->str[i]));
   
   if (end)
     *end = i;
+}
+
+
+/**
+ * Skips whitespace from start, storing the first non-whitespace in *end.
+ * (whitespace is space, tab, newline, CR).
+ *
+ * @param str the string
+ * @param start where to start
+ * @param end where to store the first non-whitespace byte index
+ */
+void
+_dbus_string_skip_white (const DBusString *str,
+                         int               start,
+                         int              *end)
+{
+  int i;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
+  
+  i = start;
+  while (i < real->len)
+    {
+      if (!DBUS_IS_ASCII_WHITE (real->str[i]))
+        break;
+      
+      ++i;
+    }
+
+  _dbus_assert (i == real->len || !(DBUS_IS_ASCII_WHITE (real->str[i])));
+  
+  if (end)
+    *end = i;
+}
+
+/**
+ * Skips whitespace from end, storing the start index of the trailing
+ * whitespace in *start. (whitespace is space, tab, newline, CR).
+ *
+ * @param str the string
+ * @param end where to start scanning backward
+ * @param start where to store the start of whitespace chars
+ */
+void
+_dbus_string_skip_white_reverse (const DBusString *str,
+                                 int               end,
+                                 int              *start)
+{
+  int i;
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (end <= real->len);
+  _dbus_assert (end >= 0);
+  
+  i = end;
+  while (i > 0)
+    {
+      if (!DBUS_IS_ASCII_WHITE (real->str[i-1]))
+        break;
+      --i;
+    }
+
+  _dbus_assert (i >= 0 && (i == 0 || !(DBUS_IS_ASCII_WHITE (real->str[i-1]))));
+  
+  if (start)
+    *start = i;
 }
 
 /**
@@ -2041,6 +2105,26 @@ _dbus_string_delete_leading_blanks (DBusString *str)
     _dbus_string_delete (str, 0, i);
 }
 #endif
+
+/**
+ * Deletes leading and trailing whitespace
+ * 
+ * @param str the string
+ */
+void
+_dbus_string_chop_white(DBusString *str)
+{
+  int i;
+  
+  _dbus_string_skip_white (str, 0, &i);
+
+  if (i > 0)
+    _dbus_string_delete (str, 0, i);
+  
+  _dbus_string_skip_white_reverse (str, _dbus_string_get_length (str), &i);
+
+  _dbus_string_set_length (str, i);
+}
 
 /**
  * Tests two DBusString for equality.

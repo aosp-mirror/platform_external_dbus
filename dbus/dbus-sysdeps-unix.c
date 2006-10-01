@@ -2297,10 +2297,12 @@ _dbus_get_autolaunch_address (DBusString *address, DBusError *error)
   pid_t pid;
   int ret;
   int status;
-  int orig_len = _dbus_string_get_length (address);
+  int orig_len;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
+  orig_len = _dbus_string_get_length (address);
+  
 #define READ_END        0
 #define WRITE_END       1
   if (pipe (address_pipe) < 0)
@@ -2386,6 +2388,34 @@ _dbus_get_autolaunch_address (DBusString *address, DBusError *error)
       return FALSE;
     }
   return TRUE;
+}
+
+/**
+ * Reads the uuid of the machine we're running on from
+ * the dbus configuration. Optionally try to create it
+ * (only root can do this usually).
+ *
+ * On UNIX, reads a file that gets created by dbus-uuidgen
+ * in a post-install script. On Windows, if there's a standard
+ * machine uuid we could just use that, but I can't find one
+ * with the right properties (the hardware profile guid can change
+ * without rebooting I believe). If there's no standard one
+ * we might want to use the registry instead of a file for
+ * this, and I'm not sure how we'd ensure the uuid gets created.
+ *
+ * @param guid to init with the machine's uuid
+ * @param create_if_not_found try to create the uuid if it doesn't exist
+ * @param error the error return
+ * @returns #FALSE if the error is set
+ */
+dbus_bool_t
+_dbus_read_local_machine_uuid (DBusGUID   *machine_id,
+                               dbus_bool_t create_if_not_found,
+                               DBusError  *error)
+{
+  DBusString filename;
+  _dbus_string_init_const (&filename, DBUS_MACHINE_UUID_FILE);
+  return _dbus_read_uuid_file (&filename, machine_id, create_if_not_found, error);
 }
 
 /** @} end of sysdeps */

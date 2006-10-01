@@ -33,7 +33,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 
-Display *xdisplay;
+Display *xdisplay = NULL;
 static Atom selection_atom;
 static Atom address_atom;
 static Atom pid_atom;

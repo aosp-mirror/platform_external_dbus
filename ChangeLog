@@ -1,3 +1,64 @@
+2006-09-30  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in (LT_CURRENT, LT_AGE): increment current and age to
+	reflect addition of interfaces.
+
+	* doc/dbus-specification.xml: describe a new
+	org.freedesktop.DBus.Peer.GetMachineId method
+
+	* dbus/dbus-string.c (_dbus_string_skip_white_reverse): new function
+	(_dbus_string_skip_white, _dbus_string_skip_blank): use new
+	DBUS_IS_ASCII_BLANK, DBUS_IS_ASCII_WHITE macros and fix assertion
+	at end of skip_white
+	(_dbus_string_chop_white): new function
+
+	* bus/connection.c (bus_connections_setup_connection): call
+	dbus_connection_set_route_peer_messages.
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_peer_filter_unlocked_no_update): modify to
+	support a GetMachineId method.
+
+	Also, support a new flag to let the bus pass peer methods through
+	to apps on the bus, which can be set with
+	dbus_connection_set_route_peer_messages.
+
+	Finally, handle and return an error for anything unknown on the
+	Peer interface, which will allow us to extend the Peer interface
+	in the future without fear that we're now intercepting something
+	apps were wanting to see.
+	
+	* tools/dbus-uuidgen.c: a thin wrapper around the functions in 
+	dbus/dbus-uuidgen.c
+
+	* dbus/dbus-uuidgen.c: implement the bulk of the dbus-uuidgen
+	binary here, since most of the code is already in libdbus
+
+	* dbus/dbus-sysdeps.c (_dbus_read_local_machine_uuid): read the
+	uuid from the system config file
+
+	* dbus/dbus-internals.c (_dbus_generate_uuid, _dbus_uuid_encode) 
+	(_dbus_read_uuid_file_without_creating) 
+	(_dbus_create_uuid_file_exclusively, _dbus_read_uuid_file): new
+	uuid-related functions, partly factored out from dbus-server.c
+
+	* dbus/dbus-sysdeps.c (_dbus_error_from_errno): convert EEXIST to
+	DBUS_ERROR_FILE_EXISTS instead of EEXIST
+
+	* dbus/dbus-protocol.h (DBUS_ERROR_FILE_EXISTS): add file exists error
+
+	* tools/dbus-cleanup-sockets.1: explain what the point of this
+	thing is a bit more
+
+	* autogen.sh (run_configure): add --config-cache to default
+	configure args
+
+	* dbus/dbus-internals.h (_DBUS_ASSERT_ERROR_IS_SET): disable the
+	error set/clear assertions when DBUS_DISABLE_CHECKS is defined
+
+	* tools/dbus-launch.c (main): if xdisplay hasn't been opened,
+	don't try to save address, fixes crash in make check
+	
 2006-09-30  Thiago Macieira  <thiago@kde.org>
 
 	* configure.in: add DBUS_BINDIR as a #define to C source code.

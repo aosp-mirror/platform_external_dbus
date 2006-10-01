@@ -564,6 +564,8 @@ bus_connections_setup_connection (BusConnections *connections,
       return FALSE;
     }
 
+  dbus_connection_set_route_peer_messages (connection, TRUE);
+  
   retval = FALSE;
 
   dbus_error_init (&error);

@@ -151,6 +151,8 @@ void               dbus_connection_set_unix_user_function       (DBusConnection 
                                                                  DBusAllowUnixUserFunction   function,
                                                                  void                       *data,
                                                                  DBusFreeFunction            free_data_function);
+void               dbus_connection_set_route_peer_messages      (DBusConnection             *connection,
+                                                                 dbus_bool_t                 value);
 
 
 int          dbus_watch_get_fd      (DBusWatch        *watch);
@@ -257,6 +259,8 @@ dbus_bool_t dbus_connection_get_unix_fd            (DBusConnection              
                                                     int                         *fd);
 dbus_bool_t dbus_connection_get_socket             (DBusConnection              *connection,
                                                     int                         *fd);
+
+char*       dbus_get_local_machine_id              (void);
 
 DBUS_END_DECLS
 

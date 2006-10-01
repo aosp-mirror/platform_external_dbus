@@ -919,7 +919,7 @@ _dbus_error_from_errno (int error_number)
 #endif
 #ifdef EEXIST
     case EEXIST:
-      return DBUS_ERROR_FILE_NOT_FOUND;
+      return DBUS_ERROR_FILE_EXISTS;
 #endif
 #ifdef ENOENT
     case ENOENT:

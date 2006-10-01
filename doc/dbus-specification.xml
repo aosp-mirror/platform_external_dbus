@@ -2290,9 +2290,10 @@
       <title><literal>org.freedesktop.DBus.Peer</literal></title>
       <para>
         The <literal>org.freedesktop.DBus.Peer</literal> interface 
-        has one method:
+        has two methods:
         <programlisting>
           org.freedesktop.DBus.Peer.Ping ()
+          org.freedesktop.DBus.Peer.GetMachineId (out STRING machine_uuid)
         </programlisting>
       </para>
       <para>
@@ -2300,9 +2301,33 @@
         <literal>org.freedesktop.DBus.Peer.Ping</literal>, an application should do
         nothing other than reply with a <literal>METHOD_RETURN</literal> as
         usual.  It does not matter which object path a ping is sent to.  The
-        reference implementation should simply handle this method on behalf of
-        all objects, though it doesn't yet. (The point is, you're really pinging
-        the peer process, not a specific object.)
+        reference implementation handles this method automatically.
+      </para>
+      <para>
+        On receipt of the <literal>METHOD_CALL</literal> message
+        <literal>org.freedesktop.DBus.Peer.GetMachineId</literal>, an application should 
+        reply with a <literal>METHOD_RETURN</literal> containing a hex-encoded 
+        UUID representing the identity of the machine the process is running on.
+        This UUID must be the same for all processes on a single system at least
+        until that system next reboots. It should be the same across reboots 
+        if possible, but may change due to reconfiguration or hardware changes.
+        It does not matter which object path a GetMachineId is sent to.  The
+        reference implementation handles this method automatically.
+      </para>
+      <para>
+        The UUID must contain 128 bits of data and be hex-encoded (meaning, the hex 
+        string contains 32 ASCII characters). The hex-encoded string may not contain 
+        hyphens or other non-hex-digit characters, and it must be exactly 32 characters long.
+        To generate a UUID, the recommended algorithm is to put the current time in seconds
+        since the UNIX epoch in the last 32 bits of the UUID, and to put randomly-generated bits
+        in the first 96 bits of the UUID.
+      </para>
+      <para>
+        The UUID is intended to be per-instance-of-the-operating-system, so may represent
+        a virtual machine running on a hypervisor, rather than a physical machine.
+        Basically if two processes see the same UUID, they should also see the same
+        shared memory, UNIX domain sockets, process IDs, and other features that require 
+        a running OS kernel in common between the processes.
       </para>
     </sect2>
 

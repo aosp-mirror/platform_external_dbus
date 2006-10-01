@@ -233,6 +233,9 @@ void          _dbus_string_skip_blank            (const DBusString  *str,
 void          _dbus_string_skip_white            (const DBusString  *str,
                                                   int                start,
                                                   int               *end);
+void          _dbus_string_skip_white_reverse    (const DBusString  *str,
+                                                  int                end,
+                                                  int               *start);
 dbus_bool_t   _dbus_string_equal                 (const DBusString  *a,
                                                   const DBusString  *b);
 dbus_bool_t   _dbus_string_equal_c_str           (const DBusString  *a,
@@ -253,6 +256,7 @@ dbus_bool_t   _dbus_string_pop_line              (DBusString        *source,
                                                   DBusString        *dest);
 void          _dbus_string_delete_first_word     (DBusString        *str);
 void          _dbus_string_delete_leading_blanks (DBusString        *str);
+void          _dbus_string_chop_white            (DBusString        *str); 
 dbus_bool_t   _dbus_string_append_byte_as_hex    (DBusString        *str,
                                                   int                byte);
 dbus_bool_t   _dbus_string_hex_encode            (const DBusString  *source,

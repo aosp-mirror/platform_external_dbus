@@ -1,5 +1,7 @@
 
-INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
+configdir=$(sysconfdir)/dbus-1
+
+INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION -DDBUS_MACHINE_UUID_FILE=\""$(configdir)/machine-id"\"
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
@@ -80,6 +82,8 @@ DBUS_LIB_SOURCES=				\
 	dbus-transport-socket.h			\
 	dbus-transport-unix.c			\
 	dbus-transport-unix.h			\
+	dbus-uuidgen.c				\
+	dbus-uuidgen.h				\
 	dbus-watch.c				\
 	dbus-watch.h
 

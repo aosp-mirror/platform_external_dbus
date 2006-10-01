@@ -37,16 +37,6 @@
 DBUS_BEGIN_DECLS
 
 typedef struct DBusServerVTable DBusServerVTable;
-typedef union DBusGUID DBusGUID;
-
-/**
- * A server's globally unique ID
- */
-union DBusGUID
-{
-  dbus_uint32_t as_uint32s[4];
-  unsigned char as_bytes[16];
-};
 
 /**
  * Virtual table to be implemented by all server "subclasses"

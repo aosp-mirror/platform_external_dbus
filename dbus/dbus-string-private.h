@@ -107,6 +107,18 @@ typedef struct
 #define DBUS_CONST_STRING_PREAMBLE(str) const DBusRealString *real = (DBusRealString*) str; \
   DBUS_GENERIC_STRING_PREAMBLE (real)
 
+/**
+ * Checks for ASCII blank byte
+ * @param c the byte
+ */
+#define DBUS_IS_ASCII_BLANK(c) ((c) == ' ' || (c) == '\t')
+
+/**
+ * Checks for ASCII whitespace byte
+ * @param c the byte
+ */
+#define DBUS_IS_ASCII_WHITE(c) ((c) == ' ' || (c) == '\t' || (c) == '\n' || (c) == '\r')
+
 /** @} */
 
 DBUS_END_DECLS

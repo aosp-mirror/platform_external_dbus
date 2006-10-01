@@ -799,7 +799,7 @@ main (int argc, char **argv)
       fprintf (stderr,
                "Failed to execute message bus daemon %s: %s.  Will try again without full path.\n",
                DBUS_DAEMONDIR"/dbus-daemon", strerror (errno));
-
+      
       /*
        * If it failed, try running without full PATH.  Note this is needed
        * because the build process builds the run-with-tmp-session-bus.conf
@@ -902,33 +902,36 @@ main (int argc, char **argv)
       close (bus_pid_to_launcher_pipe[READ_END]);
 
 #ifdef DBUS_BUILD_X11
-      ret2 = x11_save_address (bus_address, bus_pid, &wid);
-      if (ret2 == 0)
-	{
-	  /* another window got added. Return its address */
-	  char *address;
-	  pid_t pid;
-	  long wid;
-
-	  if (x11_get_address (&address, &pid, &wid) && address != NULL)
-	    {
-	      verbose ("dbus-daemon is already running. Returning existing parameters.\n");
-	      print_variables (address, pid, wid, c_shell_syntax,
-			       bourne_shell_syntax, binary_syntax);
-	      free (address);
-
-	      bus_pid_to_kill = bus_pid;
-	      kill_bus_and_exit (0);
-	    }
-
-	  /* if failed, fall through */
-	}
-      if (ret2 <= 0)
-	{
-	  fprintf (stderr, "Error saving bus information.\n");
-	  bus_pid_to_kill = bus_pid;
-	  kill_bus_and_exit (1);
-	}
+      if (xdisplay != NULL)
+        {
+          ret2 = x11_save_address (bus_address, bus_pid, &wid);
+          if (ret2 == 0)
+            {
+              /* another window got added. Return its address */
+              char *address;
+              pid_t pid;
+              long wid;
+              
+              if (x11_get_address (&address, &pid, &wid) && address != NULL)
+                {
+                  verbose ("dbus-daemon is already running. Returning existing parameters.\n");
+                  print_variables (address, pid, wid, c_shell_syntax,
+                                   bourne_shell_syntax, binary_syntax);
+                  free (address);
+                  
+                  bus_pid_to_kill = bus_pid;
+                  kill_bus_and_exit (0);
+                }
+              
+              /* if failed, fall through */
+            }
+          if (ret2 <= 0)
+            {
+              fprintf (stderr, "Error saving bus information.\n");
+              bus_pid_to_kill = bus_pid;
+              kill_bus_and_exit (1);
+            }
+        }
 #endif
 
       /* Forward the pid to the babysitter */

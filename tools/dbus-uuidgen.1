@@ -1,0 +1,91 @@
+.\" 
+.\" dbus-uuidgen manual page.
+.\" Copyright (C) 2006 Red Hat, Inc.
+.\"
+.TH dbus-uuidgen 1
+.SH NAME
+dbus-uuidgen \- Utility to generate UUIDs
+.SH SYNOPSIS
+.PP
+.B dbus-uuidgen [\-\-version] [\-\-ensure[=FILENAME]] [\-\-get[=FILENAME]]
+
+.SH DESCRIPTION
+
+The \fIdbus-uuidgen\fP command generates or reads a universally unique ID.
+
+.PP
+See http://www.freedesktop.org/software/dbus/ for more information
+about D-Bus.
+
+.PP
+The primary usage of \fIdbus-uuidgen\fP is to run in the post-install
+script of a D-Bus package like this:
+.nf
+  dbus-uuidgen --ensure
+.fi
+
+.PP
+This will ensure that /etc/dbus-1/machine-id exists and has the uuid in it.
+It won't overwrite an existing uuid, since this id should remain fixed
+for a single machine until the next reboot at least.
+
+.PP
+The important properties of the machine UUID are that 1) it remains
+unchanged until the next reboot and 2) it is different for any two 
+running instances of the OS kernel. That is, if two processes see the 
+same UUID, they should also see the same shared memory, UNIX domain
+sockets, local X displays, localhost.localdomain resolution, process
+IDs, and so forth.
+
+.PP
+If you run \fIdbus-uuidgen\fP with no options it just prints a new uuid made
+up out of thin air. This is similar to the regular "uuidgen" command.
+
+.PP
+If you run it with --get, it prints the machine uuid by default, or
+the uuid in the specified file if you specify a file.
+
+.PP
+The D-Bus UUID has no relationship to RFC 4122 and does not generate
+UUIDs compatible with that spec.
+
+.PP
+If you try to change an existing /etc/dbus-1/machine-id on a running
+system, it will probably result in bad things happening. Don't try 
+to change this file. Also, don't make it the same on two different 
+systems; it needs to be different anytime there are two different 
+kernels running.
+
+.PP
+If you need to share /etc between two different kernels, a possible solution
+is to symlink the machine ID to /var, and run "dbus-uuidgen
+--ensure=/var/whatever" from an early boot script or the system
+message bus boot script.
+
+.SH OPTIONS
+The following options are supported:
+.TP
+.I "--get[=FILENAME]"
+If a filename is not given, defaults to sysconfdir/dbus-1/machine-id
+(sysconfdir is usually /etc). If this file exists and is valid, the
+uuid in the file is printed on stdout. Otherwise, the command exits 
+with a nonzero status.
+
+.TP
+.I "--ensure[=FILENAME]"
+If a filename is not given, defaults to sysconfdir/dbus-1/machine-id
+(sysconfdir is usually /etc). If this file exists then it will be
+validated, and a failure code returned if it contains the wrong thing.
+If the file does not exist, it will be created with a new uuid in it.
+On success, prints no output.
+
+.TP
+.I "--version"
+Print the version of dbus-uuidgen
+
+.SH AUTHOR
+See http://www.freedesktop.org/software/dbus/doc/AUTHORS
+
+.SH BUGS
+Please send bug reports to the D-Bus mailing list or bug tracker,
+see http://www.freedesktop.org/software/dbus/

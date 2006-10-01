@@ -157,8 +157,16 @@ extern const char _dbus_return_if_fail_warning_format[];
 #define _DBUS_STRUCT_OFFSET(struct_type, member)	\
     ((long) ((unsigned char*) &((struct_type*) 0)->member))
 
+#ifdef DBUS_DISABLE_CHECKS
+/* this is an assert and not an error, but in the typical --disable-checks case (you're trying
+ * to really minimize code size), disabling these assertions makes sense.
+ */
+#define _DBUS_ASSERT_ERROR_IS_SET(error)
+#define _DBUS_ASSERT_ERROR_IS_CLEAR(error)
+#else
 #define _DBUS_ASSERT_ERROR_IS_SET(error)   _dbus_assert ((error) == NULL || dbus_error_is_set ((error)))
 #define _DBUS_ASSERT_ERROR_IS_CLEAR(error) _dbus_assert ((error) == NULL || !dbus_error_is_set ((error)))
+#endif
 
 #define _dbus_return_if_error_is_set(error) _dbus_return_if_fail ((error) == NULL || !dbus_error_is_set ((error)))
 #define _dbus_return_val_if_error_is_set(error, val) _dbus_return_val_if_fail ((error) == NULL || !dbus_error_is_set ((error)), (val))
@@ -288,7 +296,8 @@ _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
 _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
 _DBUS_DECLARE_GLOBAL_LOCK (win_fds);
 _DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
-#define _DBUS_N_GLOBAL_LOCKS (13)
+_DBUS_DECLARE_GLOBAL_LOCK (machine_uuid);
+#define _DBUS_N_GLOBAL_LOCKS (14)
 
 dbus_bool_t _dbus_threads_init_debug (void);
 
@@ -300,6 +309,28 @@ void          _dbus_set_bad_address        (DBusError         *error,
                                             const char        *address_problem_field,
                                             const char        *address_problem_other);
 
+#define DBUS_UUID_LENGTH_BYTES 16
+#define DBUS_UUID_LENGTH_HEX (DBUS_UUID_LENGTH_BYTES * 2)
+
+/**
+ * A globally unique ID ; we have one for each DBusServer, and also one for each
+ * machine with libdbus installed on it.
+ */
+union DBusGUID
+{
+  dbus_uint32_t as_uint32s[DBUS_UUID_LENGTH_BYTES / 4];
+  char as_bytes[DBUS_UUID_LENGTH_BYTES];
+};
+
+void        _dbus_generate_uuid  (DBusGUID         *uuid);
+dbus_bool_t _dbus_uuid_encode    (const DBusGUID   *uuid,
+                                  DBusString       *encoded);
+dbus_bool_t _dbus_read_uuid_file (const DBusString *filename,
+                                  DBusGUID         *uuid,
+                                  dbus_bool_t       create_if_not_found,
+                                  DBusError        *error);
+
+dbus_bool_t _dbus_get_local_machine_uuid_encoded (DBusString *uuid_str);
 
 DBUS_END_DECLS
 

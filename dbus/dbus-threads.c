@@ -450,7 +450,8 @@ init_locks (void)
     LOCK_ADDR (shutdown_funcs),
     LOCK_ADDR (system_users),
     LOCK_ADDR (message_cache),
-    LOCK_ADDR (shared_connections)
+    LOCK_ADDR (shared_connections),
+    LOCK_ADDR (machine_uuid)
 #undef LOCK_ADDR
   };
 

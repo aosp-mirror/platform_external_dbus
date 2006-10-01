@@ -413,6 +413,258 @@ _dbus_string_array_contains (const char **array,
   return FALSE;
 }
 
+/**
+ * Generates a new UUID. If you change how this is done,
+ * there's some text about it in the spec that should also change.
+ *
+ * @param uuid the uuid to initialize
+ */
+void
+_dbus_generate_uuid (DBusGUID *uuid)
+{
+  long now;
+  char *p;
+  int ts_size;
+
+  _dbus_get_current_time (&now, NULL);
+
+  uuid->as_uint32s[0] = now;
+
+  ts_size = sizeof (uuid->as_uint32s[0]);
+  p = ((char*)uuid->as_bytes) + ts_size;
+  
+  _dbus_generate_random_bytes_buffer (p,
+                                      sizeof (uuid->as_bytes) - ts_size);
+}
+
+/**
+ * Hex-encode a UUID.
+ *
+ * @param uuid the uuid
+ * @param encoded string to append hex uuid to
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_uuid_encode (const DBusGUID *uuid,
+                   DBusString     *encoded)
+{
+  DBusString binary;
+  _dbus_string_init_const_len (&binary, uuid->as_bytes, DBUS_UUID_LENGTH_BYTES);
+  return _dbus_string_hex_encode (&binary, 0, encoded, _dbus_string_get_length (encoded));
+}
+
+static dbus_bool_t
+_dbus_read_uuid_file_without_creating (const DBusString *filename,
+                                       DBusGUID         *uuid,
+                                       DBusError        *error)
+{
+  DBusString contents;
+  DBusString decoded;
+  int end;
+  
+  _dbus_string_init (&contents);
+  _dbus_string_init (&decoded);
+  
+  if (!_dbus_file_get_contents (&contents, filename, error))
+    goto error;
+
+  _dbus_string_chop_white (&contents);
+
+  if (_dbus_string_get_length (&contents) != DBUS_UUID_LENGTH_HEX)
+    {
+      dbus_set_error (error, DBUS_ERROR_INVALID_FILE_CONTENT,
+                      "UUID file '%s' should contain a hex string of length %d, not length %d, with no other text",
+                      _dbus_string_get_const_data (filename),
+                      DBUS_UUID_LENGTH_HEX,
+                      _dbus_string_get_length (&contents));
+      goto error;
+    }
+
+  if (!_dbus_string_hex_decode (&contents, 0, &end, &decoded, 0))
+    {
+      _DBUS_SET_OOM (error);
+      goto error;
+    }
+
+  if (end == 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_INVALID_FILE_CONTENT,
+                      "UUID file '%s' contains invalid hex data",
+                      _dbus_string_get_const_data (filename));
+      goto error;
+    }
+
+  if (_dbus_string_get_length (&decoded) != DBUS_UUID_LENGTH_BYTES)
+    {
+      dbus_set_error (error, DBUS_ERROR_INVALID_FILE_CONTENT,
+                      "UUID file '%s' contains %d bytes of hex-encoded data instead of %d",
+                      _dbus_string_get_const_data (filename),
+                      _dbus_string_get_length (&decoded),
+                      DBUS_UUID_LENGTH_BYTES);
+      goto error;
+    }
+
+  _dbus_string_copy_to_buffer (&decoded, uuid->as_bytes, DBUS_UUID_LENGTH_BYTES);
+
+  _dbus_string_free (&decoded);
+  _dbus_string_free (&contents);
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  return TRUE;
+  
+ error:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  _dbus_string_free (&contents);
+  _dbus_string_free (&decoded);
+  return FALSE;
+}
+
+static dbus_bool_t
+_dbus_create_uuid_file_exclusively (const DBusString *filename,
+                                    DBusGUID         *uuid,
+                                    DBusError        *error)
+{
+  DBusString encoded;
+
+  _dbus_string_init (&encoded);
+
+  _dbus_generate_uuid (uuid);
+  
+  if (!_dbus_uuid_encode (uuid, &encoded))
+    {
+      _DBUS_SET_OOM (error);
+      goto error;
+    }
+  
+  /* FIXME this is racy; we need a save_file_exclusively
+   * function. But in practice this should be fine for now.
+   *
+   * - first be sure we can create the file and it
+   *   doesn't exist by creating it empty with O_EXCL
+   * - then create it by creating a temporary file and
+   *   overwriting atomically with rename()
+   */
+  if (!_dbus_create_file_exclusively (filename, error))
+    goto error;
+
+  if (!_dbus_string_append_byte (&encoded, '\n'))
+    {
+      _DBUS_SET_OOM (error);
+      goto error;
+    }
+  
+  if (!_dbus_string_save_to_file (&encoded, filename, error))
+    goto error;
+
+
+  _dbus_string_free (&encoded);
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  return TRUE;
+  
+ error:
+  _DBUS_ASSERT_ERROR_IS_SET (error);
+  _dbus_string_free (&encoded);
+  return FALSE;        
+}
+
+/**
+ * Reads (and optionally writes) a uuid to a file. Initializes the uuid
+ * unless an error is returned.
+ *
+ * @param filename the name of the file
+ * @param uuid uuid to be initialized with the loaded uuid
+ * @param create_if_not_found #TRUE to create a new uuid and save it if the file doesn't exist
+ * @param error the error return
+ * @returns #FALSE if the error is set
+ */
+dbus_bool_t
+_dbus_read_uuid_file (const DBusString *filename,
+                      DBusGUID         *uuid,
+                      dbus_bool_t       create_if_not_found,
+                      DBusError        *error)
+{
+  DBusError read_error;
+
+  dbus_error_init (&read_error);
+
+  if (_dbus_read_uuid_file_without_creating (filename, uuid, &read_error))
+    return TRUE;
+
+  if (!create_if_not_found)
+    {
+      dbus_move_error (&read_error, error);
+      return FALSE;
+    }
+
+  /* If the file exists and contains junk, we want to keep that error
+   * message instead of overwriting it with a "file exists" error
+   * message when we try to write
+   */
+  if (dbus_error_has_name (&read_error, DBUS_ERROR_INVALID_FILE_CONTENT))
+    {
+      dbus_move_error (&read_error, error);
+      return FALSE;
+    }
+  else
+    {
+      dbus_error_free (&read_error);
+      return _dbus_create_uuid_file_exclusively (filename, uuid, error);
+    }
+}
+
+_DBUS_DEFINE_GLOBAL_LOCK (machine_uuid);
+static int machine_uuid_initialized_generation = 0;
+static DBusGUID machine_uuid;
+
+/**
+ * Gets the hex-encoded UUID of the machine this function is
+ * executed on. This UUID is guaranteed to be the same for a given
+ * machine at least until it next reboots, though it also
+ * makes some effort to be the same forever, it may change if the
+ * machine is reconfigured or its hardware is modified.
+ * 
+ * @param uuid_str string to append hex-encoded machine uuid to
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_get_local_machine_uuid_encoded (DBusString *uuid_str)
+{
+  dbus_bool_t ok;
+  
+  _DBUS_LOCK (machine_uuid);
+  if (machine_uuid_initialized_generation != _dbus_current_generation)
+    {
+      DBusError error;
+      dbus_error_init (&error);
+      if (!_dbus_read_local_machine_uuid (&machine_uuid, FALSE,
+                                          &error))
+        {          
+#ifndef DBUS_BUILD_TESTS
+          /* For the test suite, we may not be installed so just continue silently
+           * here. But in a production build, we want to be nice and loud about
+           * this.
+           */
+          _dbus_warn ("D-Bus library appears to be incorrectly set up; failed to read machine uuid: %s\n",
+                      error.message);
+          _dbus_warn ("See the manual page for dbus-uuidgen to correct this issue.\n");
+          _dbus_warn ("Continuing with a bogus made-up machine UUID, which may cause problems.");
+#endif
+          
+          dbus_error_free (&error);
+          
+          _dbus_generate_uuid (&machine_uuid);
+        }
+    }
+
+  ok = _dbus_uuid_encode (&machine_uuid, uuid_str);
+
+  _DBUS_UNLOCK (machine_uuid);
+
+  return ok;
+}
+
 #ifdef DBUS_BUILD_TESTS
 /**
  * Returns a string describing the given name.

@@ -2941,6 +2941,87 @@ check_existent_ping (BusContext     *context,
  * but the correct thing may include OOM errors.
  */
 static dbus_bool_t
+check_existent_get_machine_id (BusContext     *context,
+                               DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  const char *machine_id;
+  
+  message = dbus_message_new_method_call (EXISTENT_SERVICE_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.DBus.Peer",
+                                          "GetMachineId");
+  
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+
+  /* Note: if this test is run in OOM mode, it will block when the bus
+   * doesn't send a reply due to OOM.
+   */
+  block_connection_until_message_from_bus (context, connection, "reply from running GetMachineId");
+      
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Failed to pop message! Should have been reply from GetMachineId message\n");
+      return FALSE;
+    }
+
+  if (dbus_message_get_reply_serial (message) != serial)
+    {
+      _dbus_warn ("Wrong reply serial\n");
+      dbus_message_unref (message);
+      return FALSE;
+    }
+
+  if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_METHOD_RETURN)
+    {
+      _dbus_warn ("Unexpected message return during GetMachineId\n");
+      dbus_message_unref (message);
+      return FALSE;
+    }
+
+  machine_id = NULL;
+  if (!dbus_message_get_args (message, NULL, DBUS_TYPE_STRING, &machine_id, DBUS_TYPE_INVALID))
+    {
+      _dbus_warn ("Did not get a machine ID in reply to GetMachineId\n");
+      dbus_message_unref (message);
+      return FALSE;
+    }
+
+  if (machine_id == NULL || strlen (machine_id) != 32)
+    {
+      _dbus_warn ("Machine id looks bogus: '%s'\n", machine_id ? machine_id : "null");
+      dbus_message_unref (message);
+      return FALSE;
+    }
+  
+  /* We can't check that the machine id is correct because during make check it is
+   * just made up for each process separately
+   */
+  
+  dbus_message_unref (message);
+  message = NULL;
+      
+  return TRUE;
+}
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
 check_existent_service_auto_start (BusContext     *context,
                                    DBusConnection *connection)
 {
@@ -3115,6 +3196,9 @@ check_existent_service_auto_start (BusContext     *context,
   if (!check_existent_ping (context, connection))
     goto out;
 
+  if (!check_existent_get_machine_id (context, connection))
+    goto out;
+  
   if (!check_existent_hello_from_self (context, connection))
     goto out;
 

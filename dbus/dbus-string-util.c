@@ -111,43 +111,6 @@ _dbus_string_find_byte_backward (const DBusString  *str,
   return i >= 0;
 }
 
-/**
- * Skips whitespace from start, storing the first non-whitespace in *end.
- * (whitespace is space, tab, newline, CR).
- *
- * @param str the string
- * @param start where to start
- * @param end where to store the first non-whitespace byte index
- */
-void
-_dbus_string_skip_white (const DBusString *str,
-                         int               start,
-                         int              *end)
-{
-  int i;
-  DBUS_CONST_STRING_PREAMBLE (str);
-  _dbus_assert (start <= real->len);
-  _dbus_assert (start >= 0);
-  
-  i = start;
-  while (i < real->len)
-    {
-      if (!(real->str[i] == ' ' ||
-            real->str[i] == '\n' ||
-            real->str[i] == '\r' ||
-            real->str[i] == '\t'))
-        break;
-      
-      ++i;
-    }
-
-  _dbus_assert (i == real->len || !(real->str[i] == ' ' ||
-                                    real->str[i] == '\t'));
-  
-  if (end)
-    *end = i;
-}
-
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS

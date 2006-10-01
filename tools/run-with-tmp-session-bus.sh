@@ -34,7 +34,11 @@ cat $DBUS_TOP_BUILDDIR/bus/session.conf |  \
 
 echo "Created configuration file $CONFIG_FILE" >&2
 
-export PATH=$DBUS_TOP_BUILDDIR/bus:$PATH
+if ! test -e "$DBUS_TOP_BUILDDIR"/bus/dbus-daemon ; then
+    die "$DBUS_TOP_BUILDDIR/bus/dbus-daemon does not exist"
+fi
+
+export PATH="$DBUS_TOP_BUILDDIR"/bus:$PATH
 ## the libtool script found by the path search should already do this, but
 export LD_LIBRARY_PATH=$DBUS_TOP_BUILDDIR/dbus/.libs:$LD_LIBRARY_PATH
 
@@ -46,7 +50,7 @@ echo "Running $DBUS_TOP_BUILDDIR/tools/dbus-launch --sh-syntax --config-file=$CO
 eval `$DBUS_TOP_BUILDDIR/tools/dbus-launch --sh-syntax --config-file=$CONFIG_FILE`
 
 if test -z "$DBUS_SESSION_BUS_PID" ; then
-    die "Failed to launch message bus for introspection generation to run"
+    die "Failed to launch message bus for test script to run"
 fi
 
 echo "Started bus pid $DBUS_SESSION_BUS_PID at $DBUS_SESSION_BUS_ADDRESS" >&2
