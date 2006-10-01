@@ -612,6 +612,7 @@ main (int argc, char **argv)
   int bourne_shell_syntax = FALSE;
   int auto_shell_syntax = FALSE;
   int autolaunch = FALSE;
+  int requires_arg = FALSE;
   int i;  
   int ret;
   int bus_pid_to_launcher_pipe[2];
@@ -627,7 +628,7 @@ main (int argc, char **argv)
   while (i < argc)
     {
       const char *arg = argv[i];
-      
+ 
       if (strcmp (arg, "--help") == 0 ||
           strcmp (arg, "-h") == 0 ||
           strcmp (arg, "-?") == 0)
@@ -635,13 +636,13 @@ main (int argc, char **argv)
       else if (strcmp (arg, "--auto-syntax") == 0)
         auto_shell_syntax = TRUE;
       else if (strcmp (arg, "-c") == 0 ||
-	       strcmp (arg, "--csh-syntax") == 0)
+               strcmp (arg, "--csh-syntax") == 0)
         c_shell_syntax = TRUE;
       else if (strcmp (arg, "-s") == 0 ||
-	       strcmp (arg, "--sh-syntax") == 0)
+               strcmp (arg, "--sh-syntax") == 0)
         bourne_shell_syntax = TRUE;
       else if (strcmp (arg, "--binary-syntax") == 0)
-	binary_syntax = TRUE;
+        binary_syntax = TRUE;
       else if (strcmp (arg, "--version") == 0)
         version ();
       else if (strcmp (arg, "--exit-with-session") == 0)
@@ -675,9 +676,10 @@ main (int argc, char **argv)
           autolaunch = TRUE;
 
           save_machine_uuid (arg);
+	  requires_arg = FALSE;
         }
       else if (strcmp (arg, "--autolaunch") == 0)
-        ; /* wait for next arg */
+	requires_arg = TRUE;
       else if (strstr (arg, "--config-file=") == arg)
         {
           const char *file;
@@ -703,9 +705,24 @@ main (int argc, char **argv)
             }
 
           config_file = xstrdup (arg);
+	  requires_arg = FALSE;
         }
       else if (strcmp (arg, "--config-file") == 0)
-        ; /* wait for next arg */
+	requires_arg = TRUE;
+      else if (arg[0] == '-')
+        {
+          if (strcmp (arg, "--") != 0)
+            {
+              fprintf (stderr, "Option `%s' is unknown.\n", arg);
+              exit (1);
+            }
+          else
+            {
+              runprog = argv[i+1];
+              remaining_args = i+2;
+              break;
+            }
+        }
       else
 	{
 	  runprog = arg;
@@ -716,6 +733,11 @@ main (int argc, char **argv)
       prev_arg = arg;
       
       ++i;
+    }
+  if (requires_arg)
+    {
+      fprintf (stderr, "Option `%s' requires an argument.\n", prev_arg);
+      exit (1);
     }
 
   if (auto_shell_syntax)

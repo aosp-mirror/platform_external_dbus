@@ -1,3 +1,9 @@
+2006-10-02  Thiago Macieira  <thiago@kde.org>
+
+	* tools/dbus-launch.c (main): make it complain and abort
+	execution in case an unknown option is given. Also, process
+	the '--' argument as the end of arguments.
+
 2006-10-01  Havoc Pennington  <hp@redhat.com>
 
 	* tools/dbus-launch.c (print_variables): if no syntax is given,
