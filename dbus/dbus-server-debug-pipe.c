@@ -317,6 +317,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
   /* If no one grabbed a reference, the connection will die,
    * and the client transport will get an immediate disconnect
    */
+  _dbus_connection_close_if_only_one_ref (connection);
   dbus_connection_unref (connection);
 
   return client_transport;

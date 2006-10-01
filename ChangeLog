@@ -1,3 +1,68 @@
+2006-10-01  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection.c (_dbus_connection_close_if_only_one_ref): 
+	Add a hack to make DBusNewConnectionFunction work right.
+
+	* dbus/dbus-server-socket.c (handle_new_client_fd_and_unlock): use
+	the hack here. Also, fix the todo about refcount leak.
+	
+	* dbus/dbus-server-debug-pipe.c (_dbus_transport_debug_pipe_new):
+	and use the hack here
+	
+        * dbus/dbus-connection.c: Kill the "shared" flag vs. the
+	"shareable" flag; this was completely broken, since it meant 
+	dbus_connection_open() returned a connection of unknown
+	shared-ness. Now, we always hold a ref on anything opened 
+	as shareable.
+
+	Move the call to notify dbus-bus.c into
+	connection_forget_shared_unlocked, so libdbus consistently forgets
+	all its knowledge of a connection at once. This exposed numerous
+	places where things were totally broken if we dropped a ref inside
+	get_dispatch_status_unlocked where
+	connection_forget_shared_unlocked was previously, so move
+	connection_forget_shared_unlocked into
+	_dbus_connection_update_dispatch_status_and_unlock. Also move the
+	exit_on_disconnect here.
+
+	(shared_connections_shutdown): this assumed weak refs to the
+	shared connections; since we have strong refs now, the assertion 
+	was failing and stuff was left in the hash. Fix it to close
+	still-open shared connections.
+	
+	* bus/dispatch.c: fixup to use dbus_connection_open_private on the 
+	debug pipe connections
+	
+	* dbus/dbus-connection.c (dbus_connection_dispatch): only notify
+	dbus-bus.c if the closed connection is in fact shared
+	(_dbus_connection_close_possibly_shared): rename from 
+	_dbus_connection_close_internal
+	(dbus_connection_close, dbus_connection_open,
+	dbus_connection_open_private): Improve docs to explain the deal
+	with when you should close or unref or both
+
+	* dbus/dbus-bus.c
+	(_dbus_bus_notify_shared_connection_disconnected_unlocked): rename
+	from _dbus_bus_check_connection_and_unref_unlocked and modify to
+	loop over all connections
+
+	* test/test-utils.c (test_connection_shutdown): don't try to close
+	shared connections.
+
+	* test/name-test/test-threads-init.c (main): fix warnings in here
+
+	* dbus/dbus-sysdeps.c (_dbus_abort): support DBUS_BLOCK_ON_ABORT
+	env variable to cause blocking waiting for gdb; drop
+	DBUS_PRINT_BACKTRACE and just call _dbus_print_backtrace() 
+	unconditionally.
+
+	* configure.in: add -export-dynamic to libtool flags if assertions enabled
+	so _dbus_print_backtrace works.
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_print_backtrace): use fprintf
+	instead of _dbus_verbose to print the backtrace, and diagnose lack 
+	of -rdynamic/-export-dynamic
+	
 2006-09-30  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-bus.c (dbus_bus_get_private, dbus_bus_get) 

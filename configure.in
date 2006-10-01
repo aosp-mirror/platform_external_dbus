@@ -82,10 +82,24 @@ fi
 if test x$enable_verbose_mode = xyes; then
     AC_DEFINE(DBUS_ENABLE_VERBOSE_MODE,1,[Support a verbose mode])
 fi
+
 if test x$enable_asserts = xno; then
     AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
     AC_DEFINE(G_DISABLE_ASSERT,1,[Disable GLib assertion macros])
+    R_DYNAMIC_LDFLAG=""
+else
+    # -rdynamic is needed for glibc's backtrace_symbols to work.
+    # No clue how much overhead this adds, but it's useful 
+    # to do this on any assertion failure,
+    # so for now it's enabled anytime asserts are (currently not
+    # in production builds).
+
+    # To get -rdynamic you pass -export-dynamic to libtool.
+    AC_DEFINE(DBUS_BUILT_R_DYNAMIC,1,[whether -export-dynamic was passed to libtool])
+    R_DYNAMIC_LDFLAG=-export-dynamic
 fi
+AC_SUBST(R_DYNAMIC_LDFLAG)
+
 if test x$enable_checks = xno; then
     AC_DEFINE(DBUS_DISABLE_CHECKS,1,[Disable public API sanity checking])
     AC_DEFINE(G_DISABLE_CHECKS,1,[Disable GLib public API sanity checking])

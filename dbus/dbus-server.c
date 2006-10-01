@@ -791,7 +791,15 @@ dbus_server_get_address (DBusServer *server)
  * function is passed each new connection as the connection is
  * created. If the new connection function increments the connection's
  * reference count, the connection will stay alive. Otherwise, the
- * connection will be unreferenced and closed.
+ * connection will be unreferenced and closed. The new connection
+ * function may also close the connection itself, which is considered
+ * good form if the connection is not wanted.
+ *
+ * The connection here is private in the sense of
+ * dbus_connection_open_private(), so if the new connection function
+ * keeps a reference it must arrange for the connection to be closed.
+ * i.e. libdbus does not own this connection once the new connection
+ * function takes a reference.
  *
  * @param server the server.
  * @param function a function to handle new connections.

@@ -2129,14 +2129,14 @@ _dbus_set_fd_nonblocking (int             fd,
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 /**
- * On GNU libc systems, print a crude backtrace to the verbose log.
- * On other systems, print "no backtrace support"
- *
+ * On GNU libc systems, print a crude backtrace to stderr.  On other
+ * systems, print "no backtrace support" and block for possible gdb
+ * attachment if an appropriate environment variable is set.
  */
 void
 _dbus_print_backtrace (void)
-{
-#if defined (HAVE_BACKTRACE) && defined (DBUS_ENABLE_VERBOSE_MODE)
+{  
+#if defined (HAVE_BACKTRACE) && defined (DBUS_BUILT_R_DYNAMIC)
   void *bt[500];
   int bt_size;
   int i;
@@ -2149,13 +2149,17 @@ _dbus_print_backtrace (void)
   i = 0;
   while (i < bt_size)
     {
-      _dbus_verbose ("  %s\n", syms[i]);
+      /* don't use dbus_warn since it can _dbus_abort() */
+      fprintf (stderr, "  %s\n", syms[i]);
       ++i;
     }
+  fflush (stderr);
 
   free (syms);
+#elif defined (HAVE_BACKTRACE) && ! defined (DBUS_BUILT_R_DYNAMIC)
+  fprintf (stderr, "  D-Bus not built with -rdynamic so unable to print a backtrace\n");
 #else
-  _dbus_verbose ("  D-Bus not compiled with backtrace support\n");
+  fprintf (stderr, "  D-Bus not compiled with backtrace support so unable to print a backtrace\n");
 #endif
 }
 #endif /* asserts or tests enabled */

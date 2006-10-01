@@ -75,12 +75,14 @@ dbus_daemon_LDADD=					\
 	$(DBUS_BUS_LIBS)				\
 	$(top_builddir)/dbus/libdbus-convenience.la
 
+dbus_daemon_LDFLAGS=@R_DYNAMIC_LDFLAG@
+
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS
 if DBUS_BUILD_TESTS
-TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
-TESTS=bus-test 
+TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus DBUS_FATAL_WARNINGS=1 DBUS_BLOCK_ON_ABORT=1
+TESTS=bus-test
 else
 TESTS=
 endif
@@ -94,6 +96,7 @@ bus_test_SOURCES=				\
 	test-main.c
 
 bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
+bus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 ## mop up the gcov files
 clean-local:
@@ -104,9 +107,9 @@ uninstall-hook:
 
 install-data-hook:
 	if test '!' -d $(DESTDIR)$(DBUS_DAEMONDIR); then \
- 		$(mkinstalldirs) $(DESTDIR)$(DBUS_DAEMONDIR); \
- 		chmod 755 $(DESTDIR)$(DBUS_DAEMONDIR); \
- 	fi
+		$(mkinstalldirs) $(DESTDIR)$(DBUS_DAEMONDIR); \
+		chmod 755 $(DESTDIR)$(DBUS_DAEMONDIR); \
+	fi
 	$(INSTALL_PROGRAM) dbus-daemon $(DESTDIR)$(DBUS_DAEMONDIR)
 	$(mkinstalldirs) $(DESTDIR)$(localstatedir)/run/dbus
 	$(mkinstalldirs) $(DESTDIR)$(configdir)/system.d

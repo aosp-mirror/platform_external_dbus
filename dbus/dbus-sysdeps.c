@@ -60,14 +60,20 @@ _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 void
 _dbus_abort (void)
 {
-#ifdef DBUS_ENABLE_VERBOSE_MODE
   const char *s;
-  s = _dbus_getenv ("DBUS_PRINT_BACKTRACE");
+  
+  _dbus_print_backtrace ();
+  
+  s = _dbus_getenv ("DBUS_BLOCK_ON_ABORT");
   if (s && *s)
-    _dbus_print_backtrace ();
-#endif
+    {
+      /* don't use _dbus_warn here since it can _dbus_abort() */
+      fprintf (stderr, "  Process %lu sleeping for gdb attach\n", (unsigned long) _dbus_getpid());
+      _dbus_sleep_milliseconds (1000 * 60);
+    }
+  
   abort ();
-  _dbus_exit (1); /* in case someone manages to ignore SIGABRT */
+  _dbus_exit (1); /* in case someone manages to ignore SIGABRT ? */
 }
 #endif
 

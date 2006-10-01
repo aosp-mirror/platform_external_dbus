@@ -22,17 +22,19 @@ test_names_SOURCES=				\
 	test-names.c
 
 test_names_LDADD=$(top_builddir)/dbus/libdbus-1.la $(top_builddir)/dbus/libdbus-convenience.la
+test_names_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 test_pending_call_dispatch_SOURCES =		\
 	test-pending-call-dispatch.c
 
 test_pending_call_dispatch_LDADD=$(top_builddir)/dbus/libdbus-1.la $(top_builddir)/dbus/libdbus-convenience.la
-
+test_pending_call_dispatch_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 test_threads_init_SOURCES =            \
 	test-threads-init.c
 
 test_threads_init_LDADD=$(top_builddir)/dbus/libdbus-1.la $(top_builddir)/dbus/libdbus-convenience.la
+test_threads_init_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 endif
 

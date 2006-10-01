@@ -190,6 +190,9 @@
  */
 const char _dbus_no_memory_message[] = "Not enough memory";
 
+static dbus_bool_t warn_initted = FALSE;
+static dbus_bool_t fatal_warnings = FALSE;
+
 /**
  * Prints a warning message to stderr.
  *
@@ -199,12 +202,27 @@ void
 _dbus_warn (const char *format,
             ...)
 {
-  /* FIXME not portable enough? */
   va_list args;
 
+  if (!warn_initted)
+    {
+      const char *s;
+      s = _dbus_getenv ("DBUS_FATAL_WARNINGS");
+      if (s && *s)
+        fatal_warnings = TRUE;
+
+      warn_initted = TRUE;
+    }
+  
   va_start (args, format);
   vfprintf (stderr, format, args);
   va_end (args);
+
+  if (fatal_warnings)
+    {
+      fflush (stderr);
+      _dbus_abort ();
+    }
 }
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE

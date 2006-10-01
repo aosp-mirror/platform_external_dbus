@@ -47,6 +47,11 @@ Might as Well for 1.0
 Can Be Post 1.0
 ===
 
+ - _dbus_connection_unref_unlocked() is essentially always broken because
+   the connection finalizer calls non-unlocked functions. One fix is to make 
+   the finalizer run with the lock held, but since it calls out to the app that may 
+   be pretty broken. More likely all the uses of unref_unlocked are just wrong.
+
  - if the GUID is obtained only during authentication, not in the address, 
    we could still share the connection
 
@@ -132,4 +137,8 @@ Should Be Post 1.0
 ===
 
  - look into supporting the concept of a "connection" generically
+   (what does this TODO item mean?)
+
+ - test/name-test should be named test/with-bus or something like that
+
 

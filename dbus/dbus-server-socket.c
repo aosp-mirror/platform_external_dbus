@@ -69,14 +69,6 @@ socket_finalize (DBusServer *server)
   dbus_free (server);
 }
 
-/**
- * @todo unreffing the connection at the end may cause
- * us to drop the last ref to the connection before
- * disconnecting it. That is invalid.
- *
- * @todo doesn't this leak a server refcount if
- * new_connection_function is NULL?
- */
 /* Return value is just for memory, not other failures. */
 static dbus_bool_t
 handle_new_client_fd_and_unlock (DBusServer *server,
@@ -140,10 +132,11 @@ handle_new_client_fd_and_unlock (DBusServer *server,
     {
       (* new_connection_function) (server, connection,
                                    new_connection_data);
-      dbus_server_unref (server);
     }
+  dbus_server_unref (server);
   
   /* If no one grabbed a reference, the connection will die. */
+  _dbus_connection_close_if_only_one_ref (connection);
   dbus_connection_unref (connection);
 
   return TRUE;

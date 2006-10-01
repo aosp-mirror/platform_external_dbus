@@ -158,6 +158,7 @@ init_connections_unlocked (void)
            /* Use default system bus address if none set in environment */
            bus_connection_addresses[DBUS_BUS_SYSTEM] =
              _dbus_strdup (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS);
+
            if (bus_connection_addresses[DBUS_BUS_SYSTEM] == NULL)
              return FALSE;
            
@@ -179,7 +180,8 @@ init_connections_unlocked (void)
 	  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
 	    bus_connection_addresses[DBUS_BUS_SESSION] =
 	      _dbus_strdup (DBUS_SESSION_BUS_DEFAULT_ADDRESS);
-           if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+          
+          if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
              return FALSE;
 
           _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_SESSION] ?
@@ -310,27 +312,32 @@ ensure_bus_data (DBusConnection *connection)
   return bd;
 }
 
-/* internal function that checks to see if this
-   is a shared connection owned by the bus and if it is unref it */
+/**
+ * Internal function that checks to see if this
+ * is a shared connection owned by the bus and if it is unref it.
+ *
+ * @param connection a connection that has been disconnected.
+ */
 void
-_dbus_bus_check_connection_and_unref_unlocked (DBusConnection *connection)
+_dbus_bus_notify_shared_connection_disconnected_unlocked (DBusConnection *connection)
 {
+  int i;
+  
   _DBUS_LOCK (bus);
 
-  if (bus_connections[DBUS_BUS_SYSTEM] == connection)
+  /* We are expecting to have the connection saved in only one of these
+   * slots, but someone could in a pathological case set system and session
+   * bus to the same bus or something. Or set one of them to the starter
+   * bus without setting the starter bus type in the env variable.
+   * So we don't break the loop as soon as we find a match.
+   */
+  for (i = 0; i < N_BUS_TYPES; ++i)
     {
-      bus_connections[DBUS_BUS_SYSTEM] = NULL;
-      _dbus_connection_unref_unlocked (connection);
-    }
-  else if (bus_connections[DBUS_BUS_SESSION] == connection)
-    {
-      bus_connections[DBUS_BUS_SESSION] = NULL;
-      _dbus_connection_unref_unlocked (connection);
-    }
-  else if (bus_connections[DBUS_BUS_STARTER] == connection)
-    {
-      bus_connections[DBUS_BUS_STARTER] = NULL;
-      _dbus_connection_unref_unlocked (connection);
+      if (bus_connections[i] == connection)
+        {
+          bus_connections[i] = NULL;
+          _dbus_connection_unref_unlocked (connection);
+        }
     }
 
   _DBUS_UNLOCK (bus);
@@ -392,7 +399,7 @@ internal_bus_get (DBusBusType  type,
     }
 
   if (private)
-    connection = dbus_connection_open_private(address, error);
+    connection = dbus_connection_open_private (address, error);
   else
     connection = dbus_connection_open (address, error);
   
@@ -412,7 +419,7 @@ internal_bus_get (DBusBusType  type,
   if (!dbus_bus_register (connection, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
-      _dbus_connection_close_internal (connection);
+      _dbus_connection_close_possibly_shared (connection);
       dbus_connection_unref (connection);
 
       _DBUS_UNLOCK (bus);
@@ -432,6 +439,8 @@ internal_bus_get (DBusBusType  type,
   bd->is_well_known = TRUE;
 
   _DBUS_UNLOCK (bus);
+
+  /* Return a reference to the caller */
   return connection;
 }
 
@@ -446,11 +455,22 @@ internal_bus_get (DBusBusType  type,
 /**
  * Connects to a bus daemon and registers the client with it.  If a
  * connection to the bus already exists, then that connection is
- * returned.  Caller owns a reference to the bus.
+ * returned.  The caller of this function owns a reference to the bus.
  *
+ * The caller may NOT call dbus_connection_close() on this connection;
+ * see dbus_connection_open() and dbus_connection_close() for details
+ * on that.
+ *
+ * If this function obtains a new connection object never before
+ * returned from dbus_bus_get(), it will call
+ * dbus_connection_set_exit_on_disconnect(), so the application
+ * will exit if the connection closes. You can undo this
+ * by calling dbus_connection_set_exit_on_disconnect() yourself
+ * after you get the connection.
+ * 
  * @param type bus type
  * @param error address where an error can be returned.
- * @returns a DBusConnection with new ref
+ * @returns a #DBusConnection with new ref
  */
 DBusConnection *
 dbus_bus_get (DBusBusType  type,
@@ -460,10 +480,20 @@ dbus_bus_get (DBusBusType  type,
 }
 
 /**
- * Connects to a bus daemon and registers the client with it.  Unlike
- * dbus_bus_get(), always creates a new connection. This connection
+ * Connects to a bus daemon and registers the client with it as with dbus_bus_register().
+ * Unlike dbus_bus_get(), always creates a new connection. This connection
  * will not be saved or recycled by libdbus. Caller owns a reference
- * to the bus.
+ * to the bus and must either close it or know it to be closed
+ * prior to releasing this reference.
+ *
+ * See dbus_connection_open_private() for more details on when to
+ * close and unref this connection.
+ *
+ * This function calls
+ * dbus_connection_set_exit_on_disconnect() on the new connection, so the application
+ * will exit if the connection closes. You can undo this
+ * by calling dbus_connection_set_exit_on_disconnect() yourself
+ * after you get the connection.
  *
  * @param type bus type
  * @param error address where an error can be returned.
@@ -481,6 +511,9 @@ dbus_bus_get_private (DBusBusType  type,
  * thing an application does when connecting to the message bus.
  * If registration succeeds, the unique name will be set,
  * and can be obtained using dbus_bus_get_unique_name().
+ *
+ * If you use dbus_bus_get() or dbus_bus_get_private() this
+ * function will be called for you.
  * 
  * @param connection the connection
  * @param error place to store errors

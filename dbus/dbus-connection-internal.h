@@ -77,7 +77,8 @@ DBusConnection*   _dbus_connection_new_for_transport           (DBusTransport   
 void              _dbus_connection_do_iteration_unlocked       (DBusConnection     *connection,
                                                                 unsigned int        flags,
                                                                 int                 timeout_milliseconds);
-void              _dbus_connection_close_internal              (DBusConnection *connection);
+void              _dbus_connection_close_possibly_shared       (DBusConnection     *connection);
+void              _dbus_connection_close_if_only_one_ref       (DBusConnection     *connection);
 
 DBusPendingCall*  _dbus_pending_call_new                       (DBusConnection     *connection,
                                                                 int                 timeout_milliseconds,
