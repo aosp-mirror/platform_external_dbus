@@ -516,6 +516,8 @@ dirent_buf_size(DIR * dirp, size_t *size)
 #           else
 	     return FALSE;
 #           endif
+#   elif defined(MAXNAMELEN)
+     name_max = MAXNAMELEN;
 #   else
 #       if defined(NAME_MAX)
 	 name_max = NAME_MAX;

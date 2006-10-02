@@ -1,3 +1,8 @@
+2006-10-02  John (J5) Palmieir  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps-util-unix.c (dirent_buf_size): Add check for
+	MAXNAMELEN for Mac OSX.  (Patch from Jonas B <sanoix at gmail dot com>)
+
 2006-10-02  Thiago Macieira  <thiago@kde.org>
 
 	* tools/dbus-launch.c (main): make it complain and abort
