@@ -53,7 +53,7 @@ _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
  * @addtogroup DBusInternalsUtils
  * @{
  */
-#ifndef DBUS_DISABLE_ASSERT
+
 /**
  * Aborts the program with SIGABRT (dumping core).
  */
@@ -75,7 +75,6 @@ _dbus_abort (void)
   abort ();
   _dbus_exit (1); /* in case someone manages to ignore SIGABRT ? */
 }
-#endif
 
 /**
  * Wrapper for setenv(). If the value is #NULL, unsets

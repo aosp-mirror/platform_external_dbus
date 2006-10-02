@@ -1,5 +1,17 @@
 2006-10-02  John (J5) Palmieir  <johnp@redhat.com>
 
+	* dbus/dbus-sysdeps.c (_dbus_abort): Remove from 
+	#ifndef DBUS_DISABLE_ASSERTS macro to fix distcheck
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_print_backtrace): Remove from
+	#if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
+	macro because _dbus_abort calls it
+
+	* tools/Makefile.am: Add dbus-launch.h to the source list so distcheck
+	works
+
+2006-10-02  John (J5) Palmieir  <johnp@redhat.com>
+
 	* dbus/dbus-sysdeps-util-unix.c (dirent_buf_size): Add check for
 	MAXNAMELEN for Mac OSX.  (Patch from Jonas B <sanoix at gmail dot com>)
 

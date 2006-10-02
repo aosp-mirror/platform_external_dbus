@@ -16,7 +16,8 @@ dbus_monitor_SOURCES=				\
 
 dbus_launch_SOURCES=				\
 	dbus-launch.c				\
-	dbus-launch-x11.c
+	dbus-launch-x11.c			\
+	dbus-launch.h
 
 dbus_cleanup_sockets_SOURCES=			\
 	dbus-cleanup-sockets.c

@@ -2127,7 +2127,6 @@ _dbus_set_fd_nonblocking (int             fd,
   return TRUE;
 }
 
-#if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 /**
  * On GNU libc systems, print a crude backtrace to stderr.  On other
  * systems, print "no backtrace support" and block for possible gdb
@@ -2162,7 +2161,6 @@ _dbus_print_backtrace (void)
   fprintf (stderr, "  D-Bus not compiled with backtrace support so unable to print a backtrace\n");
 #endif
 }
-#endif /* asserts or tests enabled */
 
 /**
  * Creates a full-duplex pipe (as in socketpair()).
