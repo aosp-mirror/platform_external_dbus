@@ -1,3 +1,9 @@
+2006-10-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: define _POSIX_PTHREAD_SEMANTICS on solaris
+	avoid using dirfd on systems that don't have dirfd 
+	(Patch by Brian Cameron <brian dot cameron at sun dot com>) 
+
 2006-10-02  John (J5) Palmieir  <johnp@redhat.com>
 
 	* dbus/dbus-sysdeps.c (_dbus_abort): Remove from 
