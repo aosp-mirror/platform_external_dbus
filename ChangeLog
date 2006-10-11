@@ -1,5 +1,10 @@
 2006-10-11  John (J5) Palmieri  <johnp@redhat.com>
 
+	* test/name-test/Makefile.am: don't link against both libdbus and
+	libdbus-convenience
+
+2006-10-11  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: check for dirfd even if it is a macro
 	(Patch from Timothy Redaelli <drizzt at gufi dot org>)
 
