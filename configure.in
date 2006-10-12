@@ -512,20 +512,19 @@ AC_CHECK_LIB(nsl,gethostbyname)
 
 AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist fpathconf)
 
-AC_CACHE_CHECK([for dirfd],
-		ac_cv_func_dirfd,
-		[AC_TRY_RUN([
+AC_MSG_CHECKING(for dirfd)
+AC_TRY_COMPILE([
 #include <sys/types.h>
 #include <dirent.h>
-int main () {
-	DIR *dirp;
-	dirp = opendir(".");
-	dirfd(dirp);
-	closedir(dirp);
-}],
-		ac_cv_func_dirfd=yes,
-		ac_cv_func_dirfd=no)])
-if test "$ac_cv_func_dirfd" = yes; then
+],[
+DIR *dirp;
+dirp = opendir(".");
+dirfd(dirp);
+closedir(dirp);
+], 
+dbus_have_dirfd=yes, dbus_have_dirfd=no)
+AC_MSG_RESULT($dbus_have_dirfd)
+if test "$dbus_have_dirfd" = yes; then
 	AC_DEFINE(HAVE_DIRFD,1,[Have dirfd function])
 fi
 

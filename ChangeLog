@@ -1,5 +1,9 @@
 2006-10-11  John (J5) Palmieri  <johnp@redhat.com>
 
+	* configure.in: use AC_TRY_COMPILE for dirfd instead of AC_TRY_RUN
+
+2006-10-11  John (J5) Palmieri  <johnp@redhat.com>
+
 	* test/name-test/Makefile.am: don't link against both libdbus and
 	libdbus-convenience
 
