@@ -2619,7 +2619,7 @@ reply_handler_timeout (void *data)
  * 
  * @param connection the connection
  * @param message the message to send
- * @param pending_return return location for a #DBusPendingCall object, or #NULLif connection is disconnected
+ * @param pending_return return location for a #DBusPendingCall object, or #NULL if connection is disconnected
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
  * @returns #FALSE if no memory, #TRUE otherwise.
  *
@@ -3089,7 +3089,11 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
       return NULL;
     }
 
-  _dbus_assert (pending != NULL);
+  if (pending == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_DISCONNECTED, "Connection is closed");
+      return NULL;
+    }
   
   dbus_pending_call_block (pending);
 
