@@ -532,6 +532,11 @@ AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 
 AC_CHECK_HEADERS(errno.h)
 
+# checking for a posix version of getpwnam_r
+# if we are cross compiling and can not run the test
+# assume getpwnam_r is the posix version
+# it is up to the person cross compiling to change
+# this behavior if desired
 AC_CACHE_CHECK([for posix getpwnam_r],
 		ac_cv_func_posix_getpwnam_r,
 		[AC_TRY_RUN([
@@ -548,7 +553,8 @@ int main () {
 	   || error == ENOSYS; 
 }               ],
 	[ac_cv_func_posix_getpwnam_r=yes],
-	[ac_cv_func_posix_getpwnam_r=no])])
+	[ac_cv_func_posix_getpwnam_r=no],
+        [ac_cv_func_posix_getpwnam_r=yes])])
 if test "$ac_cv_func_posix_getpwnam_r" = yes; then
 	AC_DEFINE(HAVE_POSIX_GETPWNAM_R,1,
 		[Have POSIX function getpwnam_r])
