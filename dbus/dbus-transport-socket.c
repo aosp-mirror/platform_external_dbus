@@ -338,17 +338,23 @@ exchange_credentials (DBusTransport *transport,
                       dbus_bool_t    do_writing)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
+  DBusError error;
 
+  _dbus_verbose ("exchange_credentials: do_reading = %d, do_writing = %d\n",
+                  do_reading, do_writing);
+
+  dbus_error_init (&error);
   if (do_writing && transport->send_credentials_pending)
     {
       if (_dbus_send_credentials_unix_socket (socket_transport->fd,
-                                              NULL))
+                                              &error))
         {
           transport->send_credentials_pending = FALSE;
         }
       else
         {
-          _dbus_verbose ("Failed to write credentials\n");
+          _dbus_verbose ("Failed to write credentials: %s\n", error.message);
+          dbus_error_free (&error);
           do_io_error (transport);
         }
     }
@@ -357,13 +363,14 @@ exchange_credentials (DBusTransport *transport,
     {
       if (_dbus_read_credentials_unix_socket (socket_transport->fd,
                                               &transport->credentials,
-                                              NULL))
+                                              &error))
         {
           transport->receive_credentials_pending = FALSE;
         }
       else
         {
-          _dbus_verbose ("Failed to read credentials\n");
+          _dbus_verbose ("Failed to read credentials %s\n", error.message);
+          dbus_error_free (&error);
           do_io_error (transport);
         }
     }

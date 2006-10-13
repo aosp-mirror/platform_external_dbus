@@ -1,5 +1,12 @@
 2006-10-13  John (J5) Palmieri  <johnp@redhat.com>
 
+	* dbus-transport-socket.c (exchange_credentials):
+	Print out more detailed errors if reading or sending
+	credentials fail (Patch from Julio M. Merino Vidal 
+	<jmmv at NetBSD dot org>)
+
+2006-10-13  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: when checking for posix getpwnam_r assume true
 	for cross compiles
 
