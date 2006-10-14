@@ -5,7 +5,7 @@ AC_INIT(dbus/dbus.h)
 
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE(dbus, 0.93.1)
+AM_INIT_AUTOMAKE(dbus, 0.94)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -183,6 +183,14 @@ if test "x$GCC" = "xyes"; then
   *[\ \	]-fno-common[\ \	]*) ;;
   *) if cc_supports_flag -fno-common; then
         CFLAGS="$CFLAGS -fno-common"
+     fi
+     ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-fPIC[\ \	]*) ;;
+  *) if cc_supports_flag -fPIC; then
+        CFLAGS="$CFLAGS -fPIC"
      fi
      ;;
   esac

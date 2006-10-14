@@ -1,3 +1,27 @@
+D-Bus 1.0 RC 2 (0.94) (14 October 2006)
+==
+- dbus-uuidgen binary added for future remote machine identification
+  packagers should call dbus-uuidgen --ensure in their post
+- GetMachineId peer method added to the bus API
+- dbus_connection_set_route_peer_messages API added to let the bus send
+  peer messages directly to an app
+- Autolaunch abilities added to dbus-launch with the --autolaunch flag
+  This feature allows libdbus to start a session bus if none can be found
+  This is an internal feature and should not be used by scripts
+  DBUS_SESSION_BUS_ADDRESS is still the correct way to specify a session bus
+- dbus-launch now prints out a simple key value pairs instead of shell scripts
+  if one of the shell flags aren't used
+- support DBUS_BLOCK_ON_ABORT env variable to cause blocking waiting for gdb
+- weak ref are now held for shared connections so the right things happen
+  this fixes some pretty major bugs with the way connections were handled
+- Some refactoring for Windows (doesn't effect Unix)
+- Solaris build fixes
+- MacOSX build fixes
+- Cross compile build fixes.  We now assume getpwnam_r is posix and va_lists
+  can be copied by value since we can't check this in a cross compile.  If
+  this is not true for a particular target is up to the developer to patch.
+- Bug fixing all around
+
 D-Bus 1.0 RC 1 (0.93) (14 September 2006)
 ==
 - dbus_threads_init_default added for initalizing threads without the need for

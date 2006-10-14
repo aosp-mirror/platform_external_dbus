@@ -1,5 +1,10 @@
 2006-10-14  John (J5) Palmieri  <johnp@redhat.com>
 
+	* configure.in: Released 1.0 RC 2(0.94)
+	Add check for -fPIC and enable it if available
+
+2006-10-14  John (J5) Palmieri  <johnp@redhat.com>
+
 	* doc/TODO: Remove the check TODO item
 
 2006-10-13  John (J5) Palmieri  <johnp@redhat.com>
