@@ -1,10 +1,6 @@
 Important for 1.0
 ===
 
- - Take a look at the issues marked @todo 1.0 or FIXME 1.0.  Ones with
-   Question marks at the ends either need clarification or are not 
-   really needed for 1.0 but would be nice.
-
  - the "break loader" and valid/invalid message tests are all disabled;
    they need to be fixed and re-enabled with the new message args stuff.
    I think I want to drop the .message files thing and just have code
