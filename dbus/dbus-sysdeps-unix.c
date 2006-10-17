@@ -2320,7 +2320,7 @@ _dbus_get_autolaunch_address (DBusString *address,
   ++i;
   argv[i] = "--autolaunch";
   ++i;
-  argv[i] = _dbus_string_get_const_data (&uuid);
+  argv[i] = /* const cast */ (char*) _dbus_string_get_const_data (&uuid);
   ++i;
   argv[i] = "--binary-syntax";
   ++i;

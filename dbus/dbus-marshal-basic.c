@@ -578,8 +578,8 @@ _dbus_marshal_read_basic (const DBusString      *str,
       }
       break;
     default:
-      _dbus_warn ("type %s %d not a basic type\n",
-                  _dbus_type_to_string (type), type);
+      _dbus_warn_check_failed ("type %s %d not a basic type\n",
+                               _dbus_type_to_string (type), type);
       _dbus_assert_not_reached ("not a basic type");
       break;
     }

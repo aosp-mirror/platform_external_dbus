@@ -1007,7 +1007,7 @@ _dbus_type_reader_recurse (DBusTypeReader *reader,
       _dbus_verbose ("recursing into type %s\n", _dbus_type_to_string (t));
 #ifndef DBUS_DISABLE_CHECKS
       if (t == DBUS_TYPE_INVALID)
-        _dbus_warn ("You can't recurse into an empty array or off the end of a message body\n");
+        _dbus_warn_check_failed ("You can't recurse into an empty array or off the end of a message body\n");
 #endif /* DBUS_DISABLE_CHECKS */
 
       _dbus_assert_not_reached ("don't yet handle recursing into this type");
@@ -1645,9 +1645,9 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
 
       if (expected != sub->container_type)
         {
-          _dbus_warn ("Writing an element of type %s, but the expected type here is %s\n",
-                      _dbus_type_to_string (sub->container_type),
-                      _dbus_type_to_string (expected));
+          _dbus_warn_check_failed ("Writing an element of type %s, but the expected type here is %s\n",
+                                   _dbus_type_to_string (sub->container_type),
+                                   _dbus_type_to_string (expected));
           _dbus_assert_not_reached ("bad array element or variant content written");
         }
     }
@@ -1702,8 +1702,8 @@ write_or_verify_typecode (DBusTypeWriter *writer,
 
         if (expected != typecode)
           {
-            _dbus_warn ("Array or variant type requires that type %s be written, but %s was written\n",
-                        _dbus_type_to_string (expected), _dbus_type_to_string (typecode));
+            _dbus_warn_check_failed ("Array or variant type requires that type %s be written, but %s was written\n",
+                                     _dbus_type_to_string (expected), _dbus_type_to_string (typecode));
             _dbus_assert_not_reached ("bad type inserted somewhere inside an array or variant");
           }
       }
@@ -1794,10 +1794,10 @@ writer_recurse_array (DBusTypeWriter   *writer,
                                          writer->type_str,
                                          writer->u.array.element_type_pos + 1))
         {
-          _dbus_warn ("Writing an array of '%s' but this is incompatible with the expected type of elements in the parent array\n",
-                      _dbus_string_get_const_data_len (contained_type,
-                                                       contained_type_start,
-                                                       contained_type_len));
+          _dbus_warn_check_failed ("Writing an array of '%s' but this is incompatible with the expected type of elements in the parent array\n",
+                                   _dbus_string_get_const_data_len (contained_type,
+                                                                    contained_type_start,
+                                                                    contained_type_len));
           _dbus_assert_not_reached ("incompatible type for child array");
         }
     }

@@ -93,7 +93,7 @@ addresses_shutdown_func (void *data)
   while (i < N_BUS_TYPES)
     {
       if (bus_connections[i] != NULL)
-        _dbus_warn ("dbus_shutdown() called but connections were still live!");
+        _dbus_warn_check_failed ("dbus_shutdown() called but connections were still live. This probably means the application did not drop all its references to bus connections.\n");
       
       dbus_free (bus_connection_addresses[i]);
       bus_connection_addresses[i] = NULL;
@@ -547,10 +547,9 @@ dbus_bus_register (DBusConnection *connection,
 
   if (bd->unique_name != NULL)
     {
-      _dbus_warn ("Attempt to register the same DBusConnection with the message bus, but it is already registered\n");
-      /* This isn't an error, it's a programming bug. We'll be nice
-       * and not _dbus_assert_not_reached()
-       */
+      _dbus_warn_check_failed ("Attempt to register the same DBusConnection %s with the message bus a second time.\n",
+                               bd->unique_name);
+      /* This isn't an error, it's a programming bug. so return TRUE */
       return TRUE;
     }
   

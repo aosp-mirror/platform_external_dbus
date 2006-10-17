@@ -2007,11 +2007,10 @@ dbus_connection_unref (DBusConnection *connection)
 #ifndef DBUS_DISABLE_CHECKS
       if (_dbus_transport_get_is_connected (connection->transport))
         {
-          _dbus_warn ("The last reference on a connection was dropped without closing the connection. This is a bug. See dbus_connection_unref() documentation for details.\n");
-          if (connection->shareable)
-            _dbus_warn ("Most likely, the application called unref() too many times and removed a reference belonging to libdbus, since this is a shared connection.\n");
-          else
-            _dbus_warn ("Most likely, the application was supposed to call dbus_connection_close(), since this is a private connection.\n");
+          _dbus_warn_check_failed ("The last reference on a connection was dropped without closing the connection. This is a bug in an application. See dbus_connection_unref() documentation for details.\n%s",
+                                   connection->shareable ?
+                                   "Most likely, the application called unref() too many times and removed a reference belonging to libdbus, since this is a shared connection.\n" : 
+                                    "Most likely, the application was supposed to call dbus_connection_close(), since this is a private connection.\n");
           return;
         }
 #endif
@@ -2128,7 +2127,7 @@ dbus_connection_close (DBusConnection *connection)
     {
       CONNECTION_UNLOCK (connection);
 
-      _dbus_warn ("Applications must not close shared connections - see dbus_connection_close() docs. This is a bug in the application.\n");
+      _dbus_warn_check_failed ("Applications must not close shared connections - see dbus_connection_close() docs. This is a bug in the application.\n");
       return;
     }
 #endif
@@ -4378,8 +4377,8 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
 #ifndef DBUS_DISABLE_CHECKS
   if (connection->watches == NULL)
     {
-      _dbus_warn ("Re-entrant call to %s is not allowed\n",
-                  _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call to %s is not allowed\n",
+                               _DBUS_FUNCTION_NAME);
       return FALSE;
     }
 #endif
@@ -4460,8 +4459,8 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 #ifndef DBUS_DISABLE_CHECKS
   if (connection->timeouts == NULL)
     {
-      _dbus_warn ("Re-entrant call to %s is not allowed\n",
-                  _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call to %s is not allowed\n",
+                               _DBUS_FUNCTION_NAME);
       return FALSE;
     }
 #endif
@@ -4900,8 +4899,8 @@ dbus_connection_remove_filter (DBusConnection            *connection,
 #ifndef DBUS_DISABLE_CHECKS
   if (filter == NULL)
     {
-      _dbus_warn ("Attempt to remove filter function %p user data %p, but no such filter has been added\n",
-                  function, user_data);
+      _dbus_warn_check_failed ("Attempt to remove filter function %p user data %p, but no such filter has been added\n",
+                               function, user_data);
       return;
     }
 #endif

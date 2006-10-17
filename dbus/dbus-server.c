@@ -875,7 +875,7 @@ dbus_server_set_watch_functions (DBusServer              *server,
     }
   else
     {
-      _dbus_warn ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
       result = FALSE;
     }
   server->watches = watches;
@@ -928,7 +928,7 @@ dbus_server_set_timeout_functions (DBusServer                *server,
     }
   else
     {
-      _dbus_warn ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
       result = FALSE;
     }
   server->timeouts = timeouts;
