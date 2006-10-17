@@ -484,7 +484,7 @@ main (int argc, char *argv[])
 
   dbus_message_unref (message);
 
-  dbus_connection_close (connection);
+  dbus_connection_unref (connection);
 
   exit (0);
 }

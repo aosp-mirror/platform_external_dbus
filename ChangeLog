@@ -1,5 +1,10 @@
 2006-10-17  Havoc Pennington  <hp@redhat.com>
 
+	* tools/dbus-send.c (main): don't close shared connection, fix
+	from Timo Hoenig
+
+2006-10-17  Havoc Pennington  <hp@redhat.com>
+
 	* configure.in (CPPFLAGS): don't do -DDBUS_API_SUBJECT_TO_CHANGE here
 
 	* dbus/dbus.h: drop the DBUS_API_SUBJECT_TO_CHANGE requirement,
