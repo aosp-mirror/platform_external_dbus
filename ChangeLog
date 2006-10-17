@@ -1,5 +1,13 @@
 2006-10-17  Havoc Pennington  <hp@redhat.com>
 
+	* configure.in (CPPFLAGS): don't do -DDBUS_API_SUBJECT_TO_CHANGE here
+
+	* dbus/dbus.h: drop the DBUS_API_SUBJECT_TO_CHANGE requirement,
+	since realistically it doesn't look like we'll be changing it
+	anymore.
+
+2006-10-17  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-internals.c (_dbus_warn_check_failed): new function to
 	be used for return_if_fail type warnings; prefixes the pid, and
 	fatal by default.
