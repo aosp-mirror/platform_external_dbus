@@ -437,8 +437,14 @@ if test -n "$dbus_va_copy_func"; then
   AC_DEFINE_UNQUOTED(DBUS_VA_COPY,$dbus_va_copy_func,[A 'va_copy' style function])
 fi
 
-AC_CACHE_CHECK([whether va_lists can be copied by value],dbus_cv_va_val_copy,[
-	AC_TRY_RUN([#include <stdarg.h>
+AC_LANG_PUSH(C)
+AC_CACHE_CHECK([whether va_lists can be copied by value],
+	dbus_cv_va_val_copy,
+	[AC_RUN_IFELSE([AC_LANG_PROGRAM(
+[[
+	#include <stdarg.h>
+]],
+[[
 	void f (int i, ...) {
 	va_list args1, args2;
 	va_start (args1, i);
@@ -450,11 +456,13 @@ AC_CACHE_CHECK([whether va_lists can be copied by value],dbus_cv_va_val_copy,[
 	int main() {
 	  f (0, 42);
 	  return 0;
-	}],
+	}
+]])],
 	[dbus_cv_va_val_copy=yes],
 	[dbus_cv_va_val_copy=no],
 	[dbus_cv_va_val_copy=yes])
 ])
+AC_LANG_POP(C)
 
 if test "x$dbus_cv_va_val_copy" = "xno"; then
   AC_DEFINE(DBUS_VA_COPY_AS_ARRAY,1, ['va_lists' cannot be copies as values])
@@ -543,12 +551,15 @@ AC_CHECK_HEADERS(errno.h)
 # assume getpwnam_r is the posix version
 # it is up to the person cross compiling to change
 # this behavior if desired
+AC_LANG_PUSH(C)
 AC_CACHE_CHECK([for posix getpwnam_r],
 		ac_cv_func_posix_getpwnam_r,
-		[AC_TRY_RUN([
+		[AC_RUN_IFELSE([AC_LANG_PROGRAM(
+[[
 #include <errno.h>
 #include <pwd.h>
-int main () { 
+]],
+[[
     char buffer[10000];
     struct passwd pwd, *pwptr = &pwd;
     int error;
@@ -557,10 +568,13 @@ int main () {
                         sizeof (buffer), &pwptr);
    return (error < 0 && errno == ENOSYS) 
 	   || error == ENOSYS; 
-}               ],
+]])],
 	[ac_cv_func_posix_getpwnam_r=yes],
 	[ac_cv_func_posix_getpwnam_r=no],
-        [ac_cv_func_posix_getpwnam_r=yes])])
+        [ac_cv_func_posix_getpwnam_r=yes]
+)])
+AC_LANG_POP(C)
+
 if test "$ac_cv_func_posix_getpwnam_r" = yes; then
 	AC_DEFINE(HAVE_POSIX_GETPWNAM_R,1,
 		[Have POSIX function getpwnam_r])
@@ -648,9 +662,10 @@ AC_CHECK_FUNCS(getpeerucred getpeereid)
 
 #### Abstract sockets
 
-AC_MSG_CHECKING(abstract socket namespace)
 AC_LANG_PUSH(C)
-AC_RUN_IFELSE([AC_LANG_PROGRAM(
+AC_CACHE_CHECK([abstract socket namespace],
+		ac_cv_have_abstract_sockets,
+		[AC_RUN_IFELSE([AC_LANG_PROGRAM(
 [[
 #include <sys/types.h>
 #include <stdlib.h>
@@ -686,22 +701,22 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM(
   else 
     exit (0);
 ]])],
-              [have_abstract_sockets=yes],
-              [have_abstract_sockets=no])
+              [ac_cv_have_abstract_sockets=yes],
+              [ac_cv_have_abstract_sockets=no]
+)])
 AC_LANG_POP(C)
-AC_MSG_RESULT($have_abstract_sockets)
 
 if test x$enable_abstract_sockets = xyes; then
-    if test x$have_abstract_sockets = xno; then
+    if test x$ac_cv_have_abstract_sockets = xno; then
 	AC_MSG_ERROR([Abstract sockets explicitly required, and support not detected.])
     fi
 fi
 
 if test x$enable_abstract_sockets = xno; then
-   have_abstract_sockets=no;
+   ac_cv_have_abstract_sockets=no;
 fi
 
-if test x$have_abstract_sockets = xyes ; then
+if test x$ac_cv_have_abstract_sockets = xyes ; then
    DBUS_PATH_OR_ABSTRACT=abstract
    AC_DEFINE(HAVE_ABSTRACT_SOCKETS,1,[Have abstract socket namespace])
 else
@@ -1212,7 +1227,7 @@ echo "
         Gettext libs (empty OK):  ${INTLLIBS}
         Using XML parser:         ${with_xml}
         Init scripts style:       ${with_init_scripts}
-        Abstract socket names:    ${have_abstract_sockets}
+        Abstract socket names:    ${ac_cv_have_abstract_sockets}
         System bus socket:        ${DBUS_SYSTEM_SOCKET}
         System bus address:       ${DBUS_SYSTEM_BUS_DEFAULT_ADDRESS}
         System bus PID file:      ${DBUS_SYSTEM_PID_FILE}
