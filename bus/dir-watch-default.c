@@ -35,6 +35,6 @@ bus_drop_all_directory_watches (void)
 }
 
 void
-bus_watch_directory (const char *dir, void *userdata)
+bus_watch_directory (const char *dir, BusContext *context)
 {
 }

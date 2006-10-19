@@ -1,5 +1,16 @@
 2006-10-19  John (J5) Palmieri  <johnp@redhat.com>
 
+	* bus/dir-watch-default.c, bus/dir-watch-dnotify.c, 
+	bus/dir-watch-kqueue.c (bus_watch_directory): Pass in a BusContext 
+	instead of a void *.  kqueue uses this to get the context's loop
+	while the other modules ignore the parameter.  This allows us to
+	avoid platform conditionals
+
+	* bus/bus.c (process_config_postinit): Pass in the context to the 
+	watch
+
+2006-10-19  John (J5) Palmieri  <johnp@redhat.com>
+
 	* bus/messagebus.in, bus/rc.messagebus.in: run dbus-uuidgen --ensure
 	when starting the system bus
 

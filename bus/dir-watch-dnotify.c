@@ -38,7 +38,7 @@ static int fds[MAX_DIRS_TO_WATCH];
 static int num_fds = 0;
 
 void
-bus_watch_directory (const char *dir, void *userdata)
+bus_watch_directory (const char *dir, BusContext *context)
 {
   int fd;
 

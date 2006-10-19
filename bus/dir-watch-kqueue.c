@@ -87,7 +87,7 @@ _handle_kqueue_watch (DBusWatch *watch, unsigned int flags, void *data)
 }
 
 void
-bus_watch_directory (const char *dir, void *userdata)
+bus_watch_directory (const char *dir, BusContext *context)
 {
   int fd;
   struct kevent ev;
@@ -104,7 +104,7 @@ bus_watch_directory (const char *dir, void *userdata)
 	  goto out;
 	}
 
-        loop = userdata;
+        loop = bus_context_get_loop (context);
 
         watch = _dbus_watch_new (kq, DBUS_WATCH_READABLE, TRUE,
                                  _handle_kqueue_watch, NULL, NULL);
