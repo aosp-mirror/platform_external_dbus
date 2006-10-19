@@ -24,6 +24,10 @@
 
 start() {
     echo "Starting system message bus"
+    if [ -x @EXPANDED_BINDIR@/dbus-uuidgen ] ; then
+        @EXPANDED_BINDIR@/dbus-uuidgen --ensure
+    fi
+
     if [ -x @EXPANDED_BINDIR@/dbus-daemon ];then
     	@EXPANDED_BINDIR@/dbus-daemon --system
     fi

@@ -24,6 +24,10 @@ RETVAL=0
 
 start() {
     echo -n $"Starting system message bus: "
+    if [ -x @EXPANDED_BINDIR@/dbus-uuidgen ] ; then
+        @EXPANDED_BINDIR@/dbus-uuidgen --ensure
+    fi
+
     daemon --check $servicename $processname --system
     RETVAL=$?
     echo
