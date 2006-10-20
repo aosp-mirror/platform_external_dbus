@@ -3,6 +3,13 @@ Important for 1.0
 
  - support recursive locks in dbus_threads_init_default()
 
+ - update AUTHORS
+
+ - the README, FAQ, and probably other places talk about 1.0 and ABI guarantees,
+   all these places need updating
+
+ - the spec should say "the protocol will not be changed incompatibly after Month DD, YYYY"
+
 Important for 1.0 GLib Bindings
 ===
 
