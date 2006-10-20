@@ -43,7 +43,7 @@
  * Sets error if the result is not OK.
  * 
  * @param entry an address entry
- * @param a new DBusServer, or #NULL on failure.
+ * @param server_p location to store a new DBusServer, or #NULL on failure.
  * @param error location to store rationale for failure on bad address
  * @returns the outcome
  * 

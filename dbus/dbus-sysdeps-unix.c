@@ -107,6 +107,13 @@ _dbus_open_tcp_socket (int              *fd,
   return _dbus_open_socket(fd, AF_INET, SOCK_STREAM, 0, error);
 }
 
+/**
+ * Opens a UNIX domain socket (as in the socket() call).
+ * Does not bind the socket.
+ * @param fd return location for socket descriptor
+ * @param error return location for an error
+ * @returns #FALSE if error is set
+ */
 dbus_bool_t
 _dbus_open_unix_socket (int              *fd,
                         DBusError        *error)
@@ -114,6 +121,14 @@ _dbus_open_unix_socket (int              *fd,
   return _dbus_open_socket(fd, PF_UNIX, SOCK_STREAM, 0, error);
 }
 
+/**
+ * Closes a socket. Should not be used on non-socket
+ * file descriptors or handles.
+ *
+ * @param fd the socket
+ * @param error return location for an error
+ * @returns #FALSE if error is set
+ */
 dbus_bool_t 
 _dbus_close_socket (int               fd,
                     DBusError        *error)
@@ -121,6 +136,15 @@ _dbus_close_socket (int               fd,
   return _dbus_close (fd, error);
 }
 
+/**
+ * Like _dbus_read(), but only works on sockets so is
+ * available on Windows.
+ *
+ * @param fd the socket
+ * @param buffer string to append data to
+ * @param count max amount of data to read
+ * @returns number of bytes appended to the string
+ */
 int
 _dbus_read_socket (int               fd,
                    DBusString       *buffer,
@@ -129,6 +153,16 @@ _dbus_read_socket (int               fd,
   return _dbus_read (fd, buffer, count);
 }
 
+/**
+ * Like _dbus_write(), but only supports sockets
+ * and is thus available on Windows.
+ *
+ * @param fd the file descriptor to write
+ * @param buffer the buffer to write data from
+ * @param start the first byte in the buffer to write
+ * @param len the number of bytes to try to write
+ * @returns the number of bytes written or -1 on error
+ */
 int
 _dbus_write_socket (int               fd,
                     const DBusString *buffer,
@@ -138,6 +172,19 @@ _dbus_write_socket (int               fd,
   return _dbus_write (fd, buffer, start, len);
 }
 
+/**
+ * Like _dbus_write_two() but only works on sockets and is thus
+ * available on Windows.
+ * 
+ * @param fd the file descriptor
+ * @param buffer1 first buffer
+ * @param start1 first byte to write in first buffer
+ * @param len1 number of bytes to write from first buffer
+ * @param buffer2 second buffer, or #NULL
+ * @param start2 first byte to write in second buffer
+ * @param len2 number of bytes to write in second buffer
+ * @returns total bytes written from both buffers, or -1 on error
+ */
 int
 _dbus_write_socket_two (int               fd,
                         const DBusString *buffer1,
@@ -157,9 +204,12 @@ _dbus_write_socket_two (int               fd,
  * the data it reads to the DBusString buffer. It appends
  * up to the given count, and returns the same value
  * and same errno as read(). The only exception is that
- * _dbus_read() handles EINTR for you. _dbus_read() can
+ * _dbus_read() handles EINTR for you. Also, _dbus_read() can
  * return ENOMEM, even though regular UNIX read doesn't.
  *
+ * Unlike _dbus_read_socket(), _dbus_read() is not available
+ * on Windows.
+ * 
  * @param fd the file descriptor to read from
  * @param buffer the buffer to append data to
  * @param count the amount of data to read
@@ -2441,7 +2491,7 @@ _dbus_get_autolaunch_address (DBusString *address,
  * we might want to use the registry instead of a file for
  * this, and I'm not sure how we'd ensure the uuid gets created.
  *
- * @param guid to init with the machine's uuid
+ * @param machine_id guid to init with the machine's uuid
  * @param create_if_not_found try to create the uuid if it doesn't exist
  * @param error the error return
  * @returns #FALSE if the error is set

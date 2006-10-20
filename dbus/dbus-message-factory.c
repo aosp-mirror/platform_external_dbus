@@ -22,6 +22,8 @@
  */
 #include <config.h>
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-message-factory.h"
 #include "dbus-message-private.h"
@@ -1220,5 +1222,7 @@ _dbus_message_data_iter_get_and_next (DBusMessageDataIter *iter,
   iter->count += 1;
   return TRUE;
 }
+
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 
 #endif /* DBUS_BUILD_TESTS */

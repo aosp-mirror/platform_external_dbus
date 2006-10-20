@@ -1258,6 +1258,14 @@ error:
   return NULL;
 }
 
+/**
+ * Opens a TCP socket transport.
+ * 
+ * @param entry the address entry to try opening as a tcp transport.
+ * @param transport_p return location for the opened transport
+ * @param error error to be set
+ * @returns result of the attempt
+ */
 DBusTransportOpenResult
 _dbus_transport_open_socket(DBusAddressEntry  *entry,
                             DBusTransport    **transport_p,                            

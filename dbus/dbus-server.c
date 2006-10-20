@@ -194,10 +194,13 @@ _dbus_server_finalize_base (DBusServer *server)
 }
 
 
+/** Function to be called in protected_change_watch() with refcount held */
 typedef dbus_bool_t (* DBusWatchAddFunction)     (DBusWatchList *list,
                                                   DBusWatch     *watch);
+/** Function to be called in protected_change_watch() with refcount held */
 typedef void        (* DBusWatchRemoveFunction)  (DBusWatchList *list,
                                                   DBusWatch     *watch);
+/** Function to be called in protected_change_watch() with refcount held */
 typedef void        (* DBusWatchToggleFunction)  (DBusWatchList *list,
                                                   DBusWatch     *watch,
                                                   dbus_bool_t    enabled);
@@ -307,11 +310,13 @@ _dbus_server_toggle_watch (DBusServer  *server,
                           enabled);
 }
 
-
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef dbus_bool_t (* DBusTimeoutAddFunction)    (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout);
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef void        (* DBusTimeoutRemoveFunction) (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout);
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef void        (* DBusTimeoutToggleFunction) (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout,
                                                    dbus_bool_t      enabled);

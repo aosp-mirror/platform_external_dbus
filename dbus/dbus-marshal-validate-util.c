@@ -23,6 +23,9 @@
 
 #include <config.h>
 #ifdef DBUS_BUILD_TESTS
+
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #include "dbus-internals.h"
 #include "dbus-marshal-validate.h"
 #include "dbus-marshal-recursive.h"
@@ -578,5 +581,7 @@ _dbus_marshal_validate_test (void)
   
   return TRUE;
 }
+
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 
 #endif /* DBUS_BUILD_TESTS */

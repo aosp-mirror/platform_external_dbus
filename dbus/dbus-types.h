@@ -85,6 +85,8 @@ typedef dbus_uint32_t  dbus_bool_t;
  * C99 requires a 64-bit type and most likely all interesting
  * compilers support one. GLib for example flat-out requires
  * a 64-bit type.
+ *
+ * You probably want to just assume #DBUS_HAVE_INT64 is always defined.
  */
 
 /**
@@ -96,6 +98,8 @@ typedef dbus_uint32_t  dbus_bool_t;
  * C99 requires a 64-bit type and most likely all interesting
  * compilers support one. GLib for example flat-out requires
  * a 64-bit type.
+ * 
+ * You probably want to just assume #DBUS_HAVE_INT64 is always defined.
  */
 
 /**

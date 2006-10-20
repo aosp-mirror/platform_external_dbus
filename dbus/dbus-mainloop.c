@@ -905,4 +905,4 @@ _dbus_wait_for_memory (void)
   _dbus_sleep_milliseconds (_dbus_get_oom_wait ());
 }
 
-#endif /* DOXYGEN_SHOULD_SKIP_THIS */
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */

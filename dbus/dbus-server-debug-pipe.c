@@ -329,7 +329,7 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
  * Sets error if the result is not OK.
  * 
  * @param entry an address entry
- * @param a new DBusServer, or #NULL on failure.
+ * @param server_p location to store a new DBusServer, or #NULL on failure.
  * @param error location to store rationale for failure on bad address
  * @returns the outcome
  * 
@@ -376,6 +376,14 @@ _dbus_server_listen_debug_pipe (DBusAddressEntry *entry,
     }
 }
 
+/**
+ * Opens a debug pipe transport, used in the test suite.
+ * 
+ * @param entry the address entry to try opening as debug-pipe
+ * @param transport_p return location for the opened transport
+ * @param error error to be set
+ * @returns result of the attempt
+ */
 DBusTransportOpenResult
 _dbus_transport_open_debug_pipe (DBusAddressEntry  *entry,
                                  DBusTransport    **transport_p,

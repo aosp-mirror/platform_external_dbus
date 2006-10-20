@@ -49,8 +49,20 @@ struct DBusAddressEntry
 };
 
 
+/**
+ *
+ * Sets #DBUS_ERROR_BAD_ADDRESS.
+ * If address_problem_type and address_problem_field are not #NULL,
+ * sets an error message about how the field is no good. Otherwise, sets
+ * address_problem_other as the error message.
+ * 
+ * @param error the error to set
+ * @param address_problem_type the address type of the bad address or #NULL
+ * @param address_problem_field the missing field of the bad address or #NULL
+ * @param address_problem_other any other error message or #NULL
+ */
 void
-_dbus_set_bad_address (DBusError *error,
+_dbus_set_bad_address (DBusError  *error,
                        const char *address_problem_type,
                        const char *address_problem_field,
                        const char *address_problem_other)
@@ -65,6 +77,10 @@ _dbus_set_bad_address (DBusError *error,
                     address_problem_other);
 }
 
+/**
+ * #TRUE if the byte need not be escaped when found in a dbus address.
+ * All other bytes are required to be escaped in a valid address.
+ */
 #define _DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE(b)        \
          (((b) >= 'a' && (b) <= 'z') ||                 \
           ((b) >= 'A' && (b) <= 'Z') ||                 \
@@ -615,6 +631,9 @@ dbus_address_unescape_value (const char *value,
 /** @} */ /* End of public API */
 
 #ifdef DBUS_BUILD_TESTS
+
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #include "dbus-test.h"
 #include <stdlib.h>
 
@@ -781,5 +800,7 @@ _dbus_address_test (void)
 
   return TRUE;
 }
+
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 
 #endif

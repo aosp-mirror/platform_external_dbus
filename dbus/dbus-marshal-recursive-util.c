@@ -124,6 +124,9 @@ _dbus_type_reader_equal_values (const DBusTypeReader *lhs,
 }
 
 /* TESTS */
+
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #include "dbus-test.h"
 #include "dbus-list.h"
 #include <stdio.h>
@@ -3556,5 +3559,7 @@ container_destroy (TestTypeNode *node)
       link = next;
     }
 }
+
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 
 #endif /* DBUS_BUILD_TESTS */

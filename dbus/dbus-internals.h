@@ -322,8 +322,8 @@ void          _dbus_set_bad_address        (DBusError         *error,
  */
 union DBusGUID
 {
-  dbus_uint32_t as_uint32s[DBUS_UUID_LENGTH_BYTES / 4];
-  char as_bytes[DBUS_UUID_LENGTH_BYTES];
+  dbus_uint32_t as_uint32s[DBUS_UUID_LENGTH_BYTES / 4]; /**< guid as four uint32 values */
+  char as_bytes[DBUS_UUID_LENGTH_BYTES];                /**< guid as 16 single-byte values */
 };
 
 void        _dbus_generate_uuid  (DBusGUID         *uuid);

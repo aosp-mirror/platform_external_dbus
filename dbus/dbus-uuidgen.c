@@ -70,7 +70,7 @@ return_uuid (DBusGUID   *uuid,
  * @param uuid_p out param to return the uuid
  * @param create_if_not_found whether to create it if not already there
  * @param error error return
- * @param returns #FALSE if error is set
+ * @returns #FALSE if error is set
  */
 dbus_bool_t
 dbus_internal_do_not_use_get_uuid (const char *filename,
@@ -109,7 +109,7 @@ dbus_internal_do_not_use_get_uuid (const char *filename,
  * the libdbus soname.
  *
  * @param uuid_p out param to return the uuid
- * @param returns #FALSE if no memory
+ * @returns #FALSE if no memory
  */
 dbus_bool_t
 dbus_internal_do_not_use_create_uuid (char      **uuid_p)

@@ -1116,8 +1116,8 @@ _dbus_type_reader_get_signature (const DBusTypeReader  *reader,
 
 typedef struct
 {
-  DBusString replacement;
-  int padding;
+  DBusString replacement; /**< Marshaled value including alignment padding */
+  int padding;            /**< How much of the replacement block is padding */
 } ReplacementBlock;
 
 static dbus_bool_t

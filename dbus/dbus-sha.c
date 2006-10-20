@@ -157,7 +157,7 @@ effort (for example the reengineering of a great many Capstone chips).
 #define subRound(a, b, c, d, e, f, k, data) \
    ( e += ROTL( 5, a ) + f( b, c, d ) + k + data, b = ROTL( 30, b ) )
 
-#endif /* DOXYGEN_SHOULD_SKIP_THIS */
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 
 /* Perform the SHA transformation.  Note that this code, like MD5, seems to
    break some optimizing compilers due to the complexity of the expressions

@@ -1141,6 +1141,9 @@ _dbus_decompose_path (const char*     data,
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS
+
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #include "dbus-test.h"
 #include <stdio.h>
 
@@ -1925,5 +1928,7 @@ _dbus_object_tree_test (void)
 
   return TRUE;
 }
+
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 
 #endif /* DBUS_BUILD_TESTS */

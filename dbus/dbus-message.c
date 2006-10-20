@@ -126,6 +126,12 @@ _dbus_message_byteswap (DBusMessage *message)
   _dbus_header_byteswap (&message->header, DBUS_COMPILER_BYTE_ORDER);
 }
 
+/** byte-swap the message if it doesn't match our byte order.
+ *  Called only when we need the message in our own byte order,
+ *  normally when reading arrays of integers or doubles.
+ *  Otherwise should not be called since it would do needless
+ *  work.
+ */
 #define ensure_byte_order(message)                      \
  if (message->byte_order != DBUS_COMPILER_BYTE_ORDER)   \
    _dbus_message_byteswap (message)
@@ -1119,9 +1125,8 @@ dbus_message_unref (DBusMessage *message)
  * #DBUS_MESSAGE_TYPE_METHOD_CALL, #DBUS_MESSAGE_TYPE_METHOD_RETURN,
  * #DBUS_MESSAGE_TYPE_ERROR, #DBUS_MESSAGE_TYPE_SIGNAL, but other
  * types are allowed and all code must silently ignore messages of
- * unknown type. DBUS_MESSAGE_TYPE_INVALID will never be returned,
+ * unknown type. #DBUS_MESSAGE_TYPE_INVALID will never be returned,
  * however.
- *
  *
  * @param message the message
  * @returns the type of the message

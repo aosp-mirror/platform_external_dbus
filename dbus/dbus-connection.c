@@ -373,18 +373,18 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
  *        variable pointer
  */ 
 void 
-_dbus_connection_test_get_locks (DBusConnection *conn,
+_dbus_connection_test_get_locks (DBusConnection *connection,
                                  DBusMutex     **mutex_loc,
                                  DBusMutex     **dispatch_mutex_loc,
                                  DBusMutex     **io_path_mutex_loc,
                                  DBusCondVar   **dispatch_cond_loc,
                                  DBusCondVar   **io_path_cond_loc)
 {
-  *mutex_loc = conn->mutex;
-  *dispatch_mutex_loc = conn->dispatch_mutex;
-  *io_path_mutex_loc = conn->io_path_mutex; 
-  *dispatch_cond_loc = conn->dispatch_cond;
-  *io_path_cond_loc = conn->io_path_cond;
+  *mutex_loc = connection->mutex;
+  *dispatch_mutex_loc = connection->dispatch_mutex;
+  *io_path_mutex_loc = connection->io_path_mutex; 
+  *dispatch_cond_loc = connection->dispatch_cond;
+  *io_path_cond_loc = connection->io_path_cond;
 }
 #endif
 
@@ -578,10 +578,13 @@ _dbus_connection_message_sent (DBusConnection *connection,
   dbus_message_unref (message);
 }
 
+/** Function to be called in protected_change_watch() with refcount held */
 typedef dbus_bool_t (* DBusWatchAddFunction)     (DBusWatchList *list,
                                                   DBusWatch     *watch);
+/** Function to be called in protected_change_watch() with refcount held */
 typedef void        (* DBusWatchRemoveFunction)  (DBusWatchList *list,
                                                   DBusWatch     *watch);
+/** Function to be called in protected_change_watch() with refcount held */
 typedef void        (* DBusWatchToggleFunction)  (DBusWatchList *list,
                                                   DBusWatch     *watch,
                                                   dbus_bool_t    enabled);
@@ -696,10 +699,13 @@ _dbus_connection_toggle_watch_unlocked (DBusConnection *connection,
                           enabled);
 }
 
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef dbus_bool_t (* DBusTimeoutAddFunction)    (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout);
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef void        (* DBusTimeoutRemoveFunction) (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout);
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef void        (* DBusTimeoutToggleFunction) (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout,
                                                    dbus_bool_t      enabled);
@@ -1736,6 +1742,58 @@ _dbus_connection_open_internal (const char     *address,
   return connection;
 }
 
+/**
+ * Closes a shared OR private connection, while dbus_connection_close() can
+ * only be used on private connections. Should only be called by the
+ * dbus code that owns the connection - an owner must be known,
+ * the open/close state is like malloc/free, not like ref/unref.
+ * 
+ * @param connection the connection
+ */
+void
+_dbus_connection_close_possibly_shared (DBusConnection *connection)
+{
+  _dbus_assert (connection != NULL);
+  _dbus_assert (connection->generation == _dbus_current_generation);
+
+  CONNECTION_LOCK (connection);
+  _dbus_connection_close_possibly_shared_and_unlock (connection);
+}
+
+
+/**
+ * Like dbus_connection_send(), but assumes the connection
+ * is already locked on function entry, and unlocks before returning.
+ *
+ * @param connection the connection
+ * @param message the message to send
+ * @param client_serial return location for client serial of sent message
+ * @returns #FALSE on out-of-memory
+ */
+dbus_bool_t
+_dbus_connection_send_and_unlock (DBusConnection *connection,
+				  DBusMessage    *message,
+				  dbus_uint32_t  *client_serial)
+{
+  DBusPreallocatedSend *preallocated;
+
+  _dbus_assert (connection != NULL);
+  _dbus_assert (message != NULL);
+  
+  preallocated = _dbus_connection_preallocate_send_unlocked (connection);
+  if (preallocated == NULL)
+    {
+      CONNECTION_UNLOCK (connection);
+      return FALSE;
+    }
+
+  _dbus_connection_send_preallocated_and_unlock (connection,
+						 preallocated,
+						 message,
+						 client_serial);
+  return TRUE;
+}
+
 /** @} */
 
 /**
@@ -2060,16 +2118,6 @@ _dbus_connection_close_possibly_shared_and_unlock (DBusConnection *connection)
 
   /* Could also call out to user code */
   dbus_connection_unref (connection);
-}
-
-void
-_dbus_connection_close_possibly_shared (DBusConnection *connection)
-{
-  _dbus_assert (connection != NULL);
-  _dbus_assert (connection->generation == _dbus_current_generation);
-
-  CONNECTION_LOCK (connection);
-  _dbus_connection_close_possibly_shared_and_unlock (connection);
 }
 
 /**
@@ -2502,30 +2550,6 @@ _dbus_connection_send_unlocked_no_update (DBusConnection *connection,
                                                          preallocated,
                                                          message,
                                                          client_serial);
-  return TRUE;
-}
-
-dbus_bool_t
-_dbus_connection_send_and_unlock (DBusConnection *connection,
-				  DBusMessage    *message,
-				  dbus_uint32_t  *client_serial)
-{
-  DBusPreallocatedSend *preallocated;
-
-  _dbus_assert (connection != NULL);
-  _dbus_assert (message != NULL);
-  
-  preallocated = _dbus_connection_preallocate_send_unlocked (connection);
-  if (preallocated == NULL)
-    {
-      CONNECTION_UNLOCK (connection);
-      return FALSE;
-    }
-
-  _dbus_connection_send_preallocated_and_unlock (connection,
-						 preallocated,
-						 message,
-						 client_serial);
   return TRUE;
 }
 
@@ -3997,7 +4021,7 @@ _dbus_connection_run_builtin_filters_unlocked_no_update (DBusConnection *connect
  * unrefs the message. Returns a status indicating whether messages/data
  * remain, more memory is needed, or all data has been processed.
  * 
- * Even if the dispatch status is #DBUS_DISPATCH_DATA_REMAINS,
+ * Even if the dispatch status is #DBUS_DISPATCH_DATA_REMAINS
  * does not necessarily dispatch a message, as the data may
  * be part of authentication or the like.
  *

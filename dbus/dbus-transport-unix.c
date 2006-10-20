@@ -108,6 +108,14 @@ _dbus_transport_new_for_domain_socket (const char     *path,
   return NULL;
 }
 
+/**
+ * Opens platform specific transport types.
+ * 
+ * @param entry the address entry to try opening
+ * @param transport_p return location for the opened transport
+ * @param error error to be set
+ * @returns result of the attempt
+ */
 DBusTransportOpenResult
 _dbus_transport_open_platform_specific (DBusAddressEntry  *entry,
                                         DBusTransport    **transport_p,

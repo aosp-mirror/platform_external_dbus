@@ -29,9 +29,9 @@
 
 typedef struct
 { 
-  const char *pos;
-  unsigned int finished : 1;
-  unsigned int in_array : 1;
+  const char *pos;           /**< current position in the signature string */
+  unsigned int finished : 1; /**< true if we are at the end iter */
+  unsigned int in_array : 1; /**< true if we are a subiterator pointing to an array's element type */
 } DBusSignatureRealIter;
 
 /**

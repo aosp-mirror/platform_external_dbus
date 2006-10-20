@@ -151,7 +151,7 @@ _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator,
 /**
  * Deallocates an ID previously allocated with
  * _dbus_data_slot_allocator_alloc().  Existing data stored on
- * existing #DBusDataList objects with this ID will be freed when the
+ * existing #DBusDataSlotList objects with this ID will be freed when the
  * data list is finalized, but may not be retrieved (and may only be
  * replaced if someone else reallocates the slot).
  * The slot value is reset to -1 if this is the last unref.

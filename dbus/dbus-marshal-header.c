@@ -67,8 +67,8 @@ _DBUS_STRING_DEFINE_STATIC(_dbus_local_path_str,       DBUS_PATH_LOCAL);
 
 typedef struct
 {
-  unsigned char code;
-  unsigned char type;
+  unsigned char code; /**< the field code */
+  unsigned char type; /**< the value type */
 } HeaderFieldType;
 
 static const HeaderFieldType

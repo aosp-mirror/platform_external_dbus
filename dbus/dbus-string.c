@@ -2011,7 +2011,7 @@ _dbus_string_skip_white_reverse (const DBusString *str,
  * @todo owen correctly notes that this is a stupid function (it was
  * written purely for test code,
  * e.g. dbus-message-builder.c). Probably should be enforced as test
- * code only with #ifdef DBUS_BUILD_TESTS
+ * code only with ifdef DBUS_BUILD_TESTS
  * 
  * @param source the source string
  * @param dest the destination string (contents are replaced)

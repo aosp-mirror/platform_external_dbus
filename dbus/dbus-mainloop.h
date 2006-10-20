@@ -70,7 +70,7 @@ dbus_bool_t _dbus_loop_dispatch       (DBusLoop            *loop);
 int  _dbus_get_oom_wait    (void);
 void _dbus_wait_for_memory (void);
 
-#endif /* DOXYGEN_SHOULD_SKIP_THIS */
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 
 #endif /* DBUS_MAINLOOP_H */
 

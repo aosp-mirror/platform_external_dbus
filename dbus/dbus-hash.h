@@ -58,6 +58,7 @@ typedef enum
   DBUS_HASH_POINTER,       /**< Hash keys are pointers. */
   DBUS_HASH_ULONG          /**< Hash keys are unsigned long. */
 } DBusHashType;
+
 DBusHashTable* _dbus_hash_table_new                (DBusHashType      type,
                                                     DBusFreeFunction  key_free_function,
                                                     DBusFreeFunction  value_free_function);

@@ -44,7 +44,14 @@
  *
  * Opaque object representing a reply message that we're waiting for.
  */
+
+/**
+ * shorter and more visible way to write _dbus_connection_lock()
+ */
 #define CONNECTION_LOCK(connection)   _dbus_connection_lock(connection)
+/**
+ * shorter and more visible way to write _dbus_connection_unlock()
+ */
 #define CONNECTION_UNLOCK(connection) _dbus_connection_unlock(connection)
 
 struct DBusPendingCall
@@ -189,6 +196,13 @@ _dbus_pending_call_complete (DBusPendingCall *pending)
     }
 }
 
+/**
+ * If the pending call hasn't been timed out, add its timeout
+ * error reply to the connection's incoming message queue.
+ *
+ * @param pending the pending call
+ * @param connection the connection the call was sent to
+ */
 void
 _dbus_pending_call_queue_timeout_error_unlocked (DBusPendingCall *pending, 
                                                  DBusConnection  *connection)

@@ -1,3 +1,7 @@
+2006-10-19  Havoc Pennington  <hp@redhat.com>
+
+	* Fix a pile of Doxygen warnings and missing docs
+
 2006-10-19  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/dir-watch-default.c, bus/dir-watch-dnotify.c, 

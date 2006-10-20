@@ -28,8 +28,12 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* the blurb for this is "D-Bus secret" so it comes after "D-Bus low-level"
+ * which is the blurb for the DBus group, which makes Doxygen show
+ * the public API first on the index page. Yay for lame hacks.
+ */
 /**
- * @defgroup DBusInternals D-Bus internal implementation details
+ * @defgroup DBusInternals D-Bus secret internal implementation details
  * @brief Documentation useful when developing or debugging D-Bus itself.
  * 
  */
@@ -288,6 +292,7 @@ _dbus_warn_check_failed(const char *format,
 static dbus_bool_t verbose_initted = FALSE;
 static dbus_bool_t verbose = TRUE;
 
+/** Whether to show the current thread in verbose messages */
 #define PTHREAD_IN_VERBOSE 0
 #if PTHREAD_IN_VERBOSE
 #include <pthread.h>
@@ -304,6 +309,11 @@ _dbus_verbose_init (void)
     }
 }
 
+/**
+ * Implementation of dbus_is_verbose() macro if built with verbose logging
+ * enabled.
+ * @returns whether verbose logging is active.
+ */
 dbus_bool_t
 _dbus_is_verbose_real (void)
 {
