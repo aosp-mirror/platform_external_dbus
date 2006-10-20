@@ -27,6 +27,9 @@
 #include "dbus-internals.h"
 #include "dbus-test.h"
 
+/**
+ * Implementation details of #DBusSignatureIter, all fields are private
+ */
 typedef struct
 { 
   const char *pos;           /**< current position in the signature string */

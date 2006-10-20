@@ -1,5 +1,10 @@
 2006-10-19  Havoc Pennington  <hp@redhat.com>
 
+	* more Doxygen-related fixes (lots of moving things from the
+	public to internal section in dbus-connection.c)
+
+2006-10-19  Havoc Pennington  <hp@redhat.com>
+
 	* Fix a pile of Doxygen warnings and missing docs
 
 2006-10-19  John (J5) Palmieri  <johnp@redhat.com>

@@ -54,6 +54,9 @@
  */
 #define CONNECTION_UNLOCK(connection) _dbus_connection_unlock(connection)
 
+/**
+ * Implementation details of #DBusPendingCall - all fields are private.
+ */
 struct DBusPendingCall
 {
   DBusAtomic refcount;                            /**< reference count */
