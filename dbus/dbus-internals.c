@@ -28,10 +28,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-/* the blurb for this is "D-Bus secret" so it comes after "D-Bus low-level"
- * which is the blurb for the DBus group, which makes Doxygen show
- * the public API first on the index page. Yay for lame hacks.
- */
 /**
  * @defgroup DBusInternals D-Bus secret internal implementation details
  * @brief Documentation useful when developing or debugging D-Bus itself.
