@@ -1,3 +1,16 @@
+2006-10-20  Havoc Pennington  <hp@redhat.com>
+
+	* doc/TODO: remove the int64 thing from 1.0 since it doesn't
+	matter, and the message-loader-breaker thing since nobody is going
+	to do it.  Add an item to 1.0 about supporting recursive locks
+	in dbus_threads_init_default() though, since it should be easy.
+
+	* dbus/dbus-connection.c (_dbus_connection_read_write_dispatch):
+	Fix this in the !dispatch case to avoid busy-looping after
+	disconnection
+
+        * More misc docs improvements
+
 2006-10-19  Havoc Pennington  <hp@redhat.com>
 
 	* more Doxygen-related fixes (lots of moving things from the

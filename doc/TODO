@@ -1,14 +1,7 @@
 Important for 1.0
 ===
 
- - the "break loader" and valid/invalid message tests are all disabled;
-   they need to be fixed and re-enabled with the new message args stuff.
-   I think I want to drop the .message files thing and just have code
-   that generates messages, more like the tests for
-   dbus-marshal-recursive.c (this is mostly done now, just needs some
-   cleanup)
-
- - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
+ - support recursive locks in dbus_threads_init_default()
 
 Important for 1.0 GLib Bindings
 ===
@@ -128,6 +121,15 @@ Can Be Post 1.0
 
  - Match rules aren't in the spec (probably a lot of methods on the bus
    are not)
+
+ - the "break loader" and valid/invalid message tests are all disabled;
+   they need to be fixed and re-enabled with the new message args stuff.
+   I think I want to drop the .message files thing and just have code
+   that generates messages, more like the tests for
+   dbus-marshal-recursive.c (this is mostly done now, just needs some
+   cleanup)
+
+ - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
 
 Should Be Post 1.0
 ===

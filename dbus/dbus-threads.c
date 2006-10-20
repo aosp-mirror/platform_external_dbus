@@ -501,10 +501,20 @@ init_locks (void)
 /**
  * @defgroup DBusThreads Thread functions
  * @ingroup  DBus
- * @brief dbus_threads_init()
+ * @brief dbus_threads_init() and dbus_threads_init_default()
  *
  * Functions and macros related to threads and thread locks.
  *
+ * If threads are initialized, the D-Bus library has locks on all
+ * global data structures.  In addition, each #DBusConnection has a
+ * lock, so only one thread at a time can touch the connection.  (See
+ * @ref DBusConnection for more on connection locking.)
+ *
+ * Most other objects, however, do not have locks - they can only be
+ * used from a single thread at a time, unless you lock them yourself.
+ * For example, a #DBusMessage can't be modified from two threads
+ * at once.
+ * 
  * @{
  */
 
@@ -969,17 +979,11 @@ static const DBusThreadFunctions internal_functions =
 };
 
 /**
- * 
- * Initializes threads. If this function is not called,
- * the D-Bus library will not lock any data structures.
- * If it is called, D-Bus will do locking, at some cost
- * in efficiency. Note that this function must be called
- * BEFORE the second thread is started.
  *
- * This function may be called more than once.  The first
- * one wins.
+ * Calls dbus_threads_init() with a default set of
+ * #DBusThreadFunctions appropriate for the platform.
  *
- * @returns #TRUE on success, #FALSE if no memory
+ * @returns #TRUE on success, #FALSE if not enough memory
  */
 dbus_bool_t
 dbus_threads_init_default (void)

@@ -95,28 +95,56 @@
  * maintains a queue of incoming messages and a queue of outgoing
  * messages.
  *
- * Incoming messages are normally processed by calling
- * dbus_connection_dispatch(). dbus_connection_dispatch() runs any
- * handlers registered for the topmost message in the message queue,
- * then discards the message, then returns.
+ * Several functions use the following terms:
+ * <ul>
+ * <li><b>read</b> means to fill the incoming message queue by reading from the socket</li>
+ * <li><b>write</b> means to drain the outgoing queue by writing to the socket</li>
+ * <li><b>dispatch</b> means to drain the incoming queue by invoking application-provided message handlers</li>
+ * </ul>
+ *
+ * The function dbus_connection_read_write_dispatch() for example does all
+ * three of these things, offering a simple alternative to a main loop.
+ *
+ * In an application with a main loop, the read/write/dispatch
+ * operations are usually separate.
+ *
+ * The connection provides #DBusWatch and #DBusTimeout objects to
+ * the main loop. These are used to know when reading, writing, or
+ * dispatching should be performed.
+ * 
+ * Incoming messages are processed
+ * by calling dbus_connection_dispatch(). dbus_connection_dispatch()
+ * runs any handlers registered for the topmost message in the message
+ * queue, then discards the message, then returns.
  * 
  * dbus_connection_get_dispatch_status() indicates whether
  * messages are currently in the queue that need dispatching.
  * dbus_connection_set_dispatch_status_function() allows
  * you to set a function to be used to monitor the dispatch status.
- *
+ * 
  * If you're using GLib or Qt add-on libraries for D-Bus, there are
  * special convenience APIs in those libraries that hide
  * all the details of dispatch and watch/timeout monitoring.
  * For example, dbus_connection_setup_with_g_main().
  *
- * If you aren't using these add-on libraries, you have to manually
- * call dbus_connection_set_dispatch_status_function(),
+ * If you aren't using these add-on libraries, but want to process
+ * messages asynchronously, you must manually call
+ * dbus_connection_set_dispatch_status_function(),
  * dbus_connection_set_watch_functions(),
  * dbus_connection_set_timeout_functions() providing appropriate
  * functions to integrate the connection with your application's main
- * loop.
+ * loop. This can be tricky to get right; main loops are not simple.
  *
+ * If you don't need to be asynchronous, you can ignore #DBusWatch,
+ * #DBusTimeout, and dbus_connection_dispatch().  Instead,
+ * dbus_connection_read_write_dispatch() can be used.
+ *
+ * Or, in <em>very</em> simple applications,
+ * xdbus_connection_pop_message() may be all you need, allowing you to
+ * avoid setting up any handler functions (see
+ * dbus_connection_add_filter(),
+ * dbus_connection_register_object_path() for more on handlers).
+ * 
  * When you use dbus_connection_send() or one of its variants to send
  * a message, the message is added to the outgoing queue.  It's
  * actually written to the network later; either in
@@ -138,11 +166,26 @@
  * the last message in the queue (obviously no messages are received
  * after disconnection).
  *
- * #DBusConnection has thread locks and drops them when invoking user
- * callbacks, so in general is transparently threadsafe. However,
- * #DBusMessage does NOT have thread locks; you must not send the same
- * message to multiple #DBusConnection that will be used from
- * different threads.
+ * After calling dbus_threads_init(), #DBusConnection has thread
+ * locks and drops them when invoking user callbacks, so in general is
+ * transparently threadsafe. However, #DBusMessage does NOT have
+ * thread locks; you must not send the same message to multiple
+ * #DBusConnection if those connections will be used from different threads,
+ * for example.
+ *
+ * Also, if you dispatch or pop messages from multiple threads, it
+ * may work in the sense that it won't crash, but it's tough to imagine
+ * sane results; it will be completely unpredictable which messages
+ * go to which threads.
+ *
+ * It's recommended to dispatch from a single thread.
+ *
+ * The most useful function to call from multiple threads at once
+ * is dbus_connection_send_with_reply_and_block(). That is,
+ * multiple threads can make method calls at the same time.
+ *
+ * If you aren't using threads, you can use a main loop and
+ * dbus_pending_call_set_notify() to achieve a similar result.
  */
 
 /**
@@ -3207,32 +3250,10 @@ dbus_connection_flush (DBusConnection *connection)
 }
 
 /**
- * This function is intended for use with applications that don't want
- * to write a main loop and deal with #DBusWatch and #DBusTimeout. An
- * example usage would be:
+ * This function implements dbus_connection_read_write_dispatch() and
+ * dbus_connection_read_write() (they pass a different value for the
+ * dispatch parameter).
  * 
- * @code
- *   while (dbus_connection_read_write_dispatch (connection, -1))
- *     ; // empty loop body
- * @endcode
- * 
- * In this usage you would normally have set up a filter function to look
- * at each message as it is dispatched. The loop terminates when the last
- * message from the connection (the disconnected signal) is processed.
- *
- * If there are messages to dispatch and the dispatch flag is set, this
- * function will dbus_connection_dispatch() once, and return. If there are no
- * messages to dispatch, this function will block until it can read or write,
- * then read or write, then return.
- *
- * The way to think of this function is that it either makes some sort
- * of progress, or it blocks.
- *
- * The return value indicates whether the disconnect message has been
- * processed, NOT whether the connection is connected. This is
- * important because even after disconnecting, you want to process any
- * messages you received prior to the disconnect.
- *
  * @param connection the connection
  * @param timeout_milliseconds max time to block or -1 for infinite
  * @param dispatch dispatch new messages or leave them on the incoming queue
@@ -3244,7 +3265,7 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
                                      dbus_bool_t     dispatch)
 {
   DBusDispatchStatus dstatus;
-  dbus_bool_t dispatched_disconnected;
+  dbus_bool_t no_progress_possible;
   
   dstatus = dbus_connection_get_dispatch_status (connection);
 
@@ -3275,10 +3296,17 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
     }
   
   HAVE_LOCK_CHECK (connection);
-  dispatched_disconnected = connection->n_incoming == 0 &&
-    connection->disconnect_message_link == NULL;
+  /* If we can dispatch, we can make progress until the Disconnected message
+   * has been processed; if we can only read/write, we can make progress
+   * as long as the transport is open.
+   */
+  if (dispatch)
+    no_progress_possible = connection->n_incoming == 0 &&
+      connection->disconnect_message_link == NULL;
+  else
+    no_progress_possible = _dbus_connection_get_is_connected_unlocked (connection);
   CONNECTION_UNLOCK (connection);
-  return !dispatched_disconnected; /* TRUE if we have not processed disconnected */
+  return !no_progress_possible; /* TRUE if we can make more progress */
 }
 
 
@@ -3324,19 +3352,26 @@ dbus_connection_read_write_dispatch (DBusConnection *connection,
 
 /** 
  * This function is intended for use with applications that don't want to
- * write a main loop and deal with #DBusWatch and #DBusTimeout.
+ * write a main loop and deal with #DBusWatch and #DBusTimeout. See also
+ * dbus_connection_read_write_dispatch().
  * 
- * If there are no messages to dispatch, this function will block until it can
- * read or write, then read or write, then return.
+ * As long as the connection is open, this function will block until it can
+ * read or write, then read or write, then return #TRUE.
  *
- * The return value indicates whether the disconnect message has been
- * processed, NOT whether the connection is connected. This is important
- * because even after disconnecting, you want to process any messages you
- * received prior to the disconnect.
+ * If the connection is closed, the function returns #FALSE.
  *
+ * The return value indicates whether reading or writing is still
+ * possible, i.e. whether the connection is connected.
+ *
+ * Note that even after disconnection, messages may remain in the
+ * incoming queue that need to be
+ * processed. dbus_connection_read_write_dispatch() dispatches
+ * incoming messages for you; with dbus_connection_read_write() you
+ * have to arrange to drain the incoming queue yourself.
+ * 
  * @param connection the connection 
  * @param timeout_milliseconds max time to block or -1 for infinite 
- * @returns #TRUE if the disconnect message has not been processed
+ * @returns #TRUE if still connected
  */
 dbus_bool_t 
 dbus_connection_read_write (DBusConnection *connection, 
@@ -3878,9 +3913,26 @@ _dbus_connection_update_dispatch_status_and_unlock (DBusConnection    *connectio
 }
 
 /**
- * Gets the current state (what we would currently return
- * from dbus_connection_dispatch()) but doesn't actually
- * dispatch any messages.
+ * Gets the current state of the incoming message queue.
+ * #DBUS_DISPATCH_DATA_REMAINS indicates that the message queue
+ * may contain messages. #DBUS_DISPATCH_COMPLETE indicates that the
+ * incoming queue is empty. #DBUS_DISPATCH_NEED_MEMORY indicates that
+ * there could be data, but we can't know for sure without more
+ * memory.
+ *
+ * To process the incoming message queue, use dbus_connection_dispatch()
+ * or (in rare cases) dbus_connection_pop_message().
+ *
+ * Note, #DBUS_DISPATCH_DATA_REMAINS really means that either we
+ * have messages in the queue, or we have raw bytes buffered up
+ * that need to be parsed. When these bytes are parsed, they
+ * may not add up to an entire message. Thus, it's possible
+ * to see a status of #DBUS_DISPATCH_DATA_REMAINS but not
+ * have a message yet.
+ *
+ * In particular this happens on initial connection, because all sorts
+ * of authentication protocol stuff has to be parsed before the
+ * first message arrives.
  * 
  * @param connection the connection.
  * @returns current dispatch status
@@ -4016,27 +4068,38 @@ _dbus_connection_run_builtin_filters_unlocked_no_update (DBusConnection *connect
 }
 
 /**
- * Processes data buffered while handling watches, queueing zero or
- * more incoming messages. Then pops the first-received message from
- * the current incoming message queue, runs any handlers for it, and
- * unrefs the message. Returns a status indicating whether messages/data
- * remain, more memory is needed, or all data has been processed.
+ * Processes any incoming data.
+ *
+ * If there are messages in the incoming queue,
+ * dbus_connection_dispatch() removes one message from the queue and
+ * runs any handlers for it (handlers are added with
+ * dbus_connection_add_filter() or
+ * dbus_connection_register_object_path() for example).
+ *
+ * If there's incoming raw data that has not yet been parsed, it is
+ * parsed, which may or may not result in adding messages to the
+ * incoming queue.
  * 
- * Even if the dispatch status is #DBUS_DISPATCH_DATA_REMAINS
- * does not necessarily dispatch a message, as the data may
- * be part of authentication or the like.
+ * The incoming message queue is filled when the connection
+ * reads from its underlying transport (such as a socket).
+ * Reading usually happens in dbus_watch_handle() or
+ * dbus_connection_read_write().
  *
+ * If any data has been read from the underlying transport, but not
+ * yet dispatched, the dispatch status will be
+ * #DBUS_DISPATCH_DATA_REMAINS. See dbus_connection_get_dispatch_status()
+ * for more on dispatch statuses.
+ *
+ * Be careful about calling dbus_connection_dispatch() from inside a
+ * message handler, i.e. calling dbus_connection_dispatch()
+ * recursively.  If threads have been initialized with a recursive
+ * mutex function, then this will not deadlock; however, it can
+ * certainly confuse your application.
+ * 
  * @todo some FIXME in here about handling DBUS_HANDLER_RESULT_NEED_MEMORY
- *
- * @todo FIXME what if we call out to application code to handle a
- * message, holding the dispatch lock, and the application code runs
- * the main loop and dispatches again? Probably deadlocks at the
- * moment. Maybe we want a dispatch status of DBUS_DISPATCH_IN_PROGRESS,
- * and then the GSource etc. could handle the situation? Right now
- * our GSource is NO_RECURSE
  * 
  * @param connection the connection
- * @returns dispatch status
+ * @returns dispatch status, see dbus_connection_get_dispatch_status()
  */
 DBusDispatchStatus
 dbus_connection_dispatch (DBusConnection *connection)

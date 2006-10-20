@@ -35,6 +35,8 @@
 #include "dbus-threads-internal.h"
 #include <string.h>
 
+static void dbus_message_finalize (DBusMessage *message);
+
 /**
  * @defgroup DBusMessageInternals DBusMessage implementation details
  * @ingroup DBusInternals
@@ -354,122 +356,6 @@ _dbus_message_set_signature (DBusMessage *message,
 }
 #endif
 
-/** @} */
-
-/**
- * @defgroup DBusMessage DBusMessage
- * @ingroup  DBus
- * @brief Message to be sent or received over a DBusConnection.
- *
- * A DBusMessage is the most basic unit of communication over a
- * DBusConnection. A DBusConnection represents a stream of messages
- * received from a remote application, and a stream of messages
- * sent to a remote application.
- *
- * @{
- */
-
-/**
- * @typedef DBusMessage
- *
- * Opaque data type representing a message received from or to be
- * sent to another application.
- */
-
-/**
- * Returns the serial of a message or 0 if none has been specified.
- * The message's serial number is provided by the application sending
- * the message and is used to identify replies to this message.  All
- * messages received on a connection will have a serial, but messages
- * you haven't sent yet may return 0.
- *
- * @param message the message
- * @returns the client serial
- */
-dbus_uint32_t
-dbus_message_get_serial (DBusMessage *message)
-{
-  _dbus_return_val_if_fail (message != NULL, 0);
-
-  return _dbus_header_get_serial (&message->header);
-}
-
-/**
- * Sets the reply serial of a message (the client serial
- * of the message this is a reply to).
- *
- * @param message the message
- * @param reply_serial the client serial
- * @returns #FALSE if not enough memory
- */
-dbus_bool_t
-dbus_message_set_reply_serial (DBusMessage   *message,
-                               dbus_uint32_t  reply_serial)
-{
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_fail (!message->locked, FALSE);
-  _dbus_return_val_if_fail (reply_serial != 0, FALSE); /* 0 is invalid */
-
-  return _dbus_header_set_field_basic (&message->header,
-                                       DBUS_HEADER_FIELD_REPLY_SERIAL,
-                                       DBUS_TYPE_UINT32,
-                                       &reply_serial);
-}
-
-/**
- * Returns the serial that the message is a reply to or 0 if none.
- *
- * @param message the message
- * @returns the reply serial
- */
-dbus_uint32_t
-dbus_message_get_reply_serial  (DBusMessage *message)
-{
-  dbus_uint32_t v_UINT32;
-
-  _dbus_return_val_if_fail (message != NULL, 0);
-
-  if (_dbus_header_get_field_basic (&message->header,
-                                    DBUS_HEADER_FIELD_REPLY_SERIAL,
-                                    DBUS_TYPE_UINT32,
-                                    &v_UINT32))
-    return v_UINT32;
-  else
-    return 0;
-}
-
-static void
-free_size_counter (void *element,
-                   void *data)
-{
-  DBusCounter *counter = element;
-  DBusMessage *message = data;
-
-  _dbus_counter_adjust (counter, - message->size_counter_delta);
-
-  _dbus_counter_unref (counter);
-}
-
-static void
-dbus_message_finalize (DBusMessage *message)
-{
-  _dbus_assert (message->refcount.value == 0);
-
-  /* This calls application callbacks! */
-  _dbus_data_slot_list_free (&message->slot_list);
-
-  _dbus_list_foreach (&message->size_counters,
-                      free_size_counter, message);
-  _dbus_list_clear (&message->size_counters);
-
-  _dbus_header_free (&message->header);
-  _dbus_string_free (&message->body);
-
-  _dbus_assert (message->refcount.value == 0);
-  
-  dbus_free (message);
-}
-
 /* Message Cache
  *
  * We cache some DBusMessage to reduce the overhead of allocating
@@ -604,6 +490,18 @@ dbus_message_get_cached (void)
   return message;
 }
 
+static void
+free_size_counter (void *element,
+                   void *data)
+{
+  DBusCounter *counter = element;
+  DBusMessage *message = data;
+
+  _dbus_counter_adjust (counter, - message->size_counter_delta);
+
+  _dbus_counter_unref (counter);
+}
+
 /**
  * Tries to cache a message, otherwise finalize it.
  *
@@ -679,6 +577,110 @@ dbus_message_cache_or_finalize (DBusMessage *message)
   
   if (!was_cached)
     dbus_message_finalize (message);
+}
+
+/** @} */
+
+/**
+ * @defgroup DBusMessage DBusMessage
+ * @ingroup  DBus
+ * @brief Message to be sent or received over a DBusConnection.
+ *
+ * A DBusMessage is the most basic unit of communication over a
+ * DBusConnection. A DBusConnection represents a stream of messages
+ * received from a remote application, and a stream of messages
+ * sent to a remote application.
+ *
+ * @{
+ */
+
+/**
+ * @typedef DBusMessage
+ *
+ * Opaque data type representing a message received from or to be
+ * sent to another application.
+ */
+
+/**
+ * Returns the serial of a message or 0 if none has been specified.
+ * The message's serial number is provided by the application sending
+ * the message and is used to identify replies to this message.  All
+ * messages received on a connection will have a serial, but messages
+ * you haven't sent yet may return 0.
+ *
+ * @param message the message
+ * @returns the client serial
+ */
+dbus_uint32_t
+dbus_message_get_serial (DBusMessage *message)
+{
+  _dbus_return_val_if_fail (message != NULL, 0);
+
+  return _dbus_header_get_serial (&message->header);
+}
+
+/**
+ * Sets the reply serial of a message (the client serial
+ * of the message this is a reply to).
+ *
+ * @param message the message
+ * @param reply_serial the client serial
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_reply_serial (DBusMessage   *message,
+                               dbus_uint32_t  reply_serial)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  _dbus_return_val_if_fail (reply_serial != 0, FALSE); /* 0 is invalid */
+
+  return _dbus_header_set_field_basic (&message->header,
+                                       DBUS_HEADER_FIELD_REPLY_SERIAL,
+                                       DBUS_TYPE_UINT32,
+                                       &reply_serial);
+}
+
+/**
+ * Returns the serial that the message is a reply to or 0 if none.
+ *
+ * @param message the message
+ * @returns the reply serial
+ */
+dbus_uint32_t
+dbus_message_get_reply_serial  (DBusMessage *message)
+{
+  dbus_uint32_t v_UINT32;
+
+  _dbus_return_val_if_fail (message != NULL, 0);
+
+  if (_dbus_header_get_field_basic (&message->header,
+                                    DBUS_HEADER_FIELD_REPLY_SERIAL,
+                                    DBUS_TYPE_UINT32,
+                                    &v_UINT32))
+    return v_UINT32;
+  else
+    return 0;
+}
+
+static void
+dbus_message_finalize (DBusMessage *message)
+{
+  _dbus_assert (message->refcount.value == 0);
+
+  /* This calls application callbacks! */
+  _dbus_data_slot_list_free (&message->slot_list);
+
+  _dbus_list_foreach (&message->size_counters,
+                      free_size_counter, message);
+  _dbus_list_clear (&message->size_counters);
+
+  _dbus_header_free (&message->header);
+  _dbus_string_free (&message->body);
+
+  _dbus_assert (message->refcount.value == 0);
+  
+  dbus_free (message);
 }
 
 static DBusMessage*
