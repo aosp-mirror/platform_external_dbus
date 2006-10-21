@@ -1,5 +1,10 @@
 2006-10-21  Havoc Pennington  <hp@redhat.com>
 
+        * Move all private API into the private Doxygen group sections of
+	the files, so they don't show up in the public API docs
+	
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-message.h: put #ifndef DBUS_DISABLE_DEPRECATED around 
 	dbus_message_iter_get_array_len().
 

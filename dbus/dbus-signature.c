@@ -329,6 +329,8 @@ dbus_type_is_fixed (int typecode)
     }
 }
 
+/** @} */ /* end of DBusSignature group */
+
 #ifdef DBUS_BUILD_TESTS
 
 /**
@@ -505,6 +507,4 @@ _dbus_signature_test (void)
 }
 
 #endif
-
-/** @} */ /* end of DBusSignature group */
 

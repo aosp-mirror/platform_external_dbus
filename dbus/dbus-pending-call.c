@@ -363,26 +363,6 @@ _dbus_pending_call_set_timeout_error_unlocked (DBusPendingCall *pending,
   return TRUE;
 }
 
-/** @} */
-
-/**
- * @defgroup DBusPendingCall DBusPendingCall
- * @ingroup  DBus
- * @brief Pending reply to a method call message
- *
- * A DBusPendingCall is an object representing an
- * expected reply. A #DBusPendingCall can be created
- * when you send a message that should have a reply.
- *
- * @{
- */
-
-/**
- * @typedef DBusPendingCall
- *
- * Opaque data type representing a message pending.
- */
-
 /**
  * Increments the reference count on a pending call,
  * while the lock on its connection is already held.
@@ -398,32 +378,6 @@ _dbus_pending_call_ref_unlocked (DBusPendingCall *pending)
   return pending;
 }
 
-/**
- * Increments the reference count on a pending call.
- *
- * @param pending the pending call object
- * @returns the pending call object
- */
-DBusPendingCall *
-dbus_pending_call_ref (DBusPendingCall *pending)
-{
-  _dbus_return_val_if_fail (pending != NULL, NULL);
-
-  /* The connection lock is better than the global
-   * lock in the atomic increment fallback
-   */
-#ifdef DBUS_HAVE_ATOMIC_INT
-  _dbus_atomic_inc (&pending->refcount);
-#else
-  CONNECTION_LOCK (pending->connection);
-  _dbus_assert (pending->refcount.value > 0);
-
-  pending->refcount.value += 1;
-  CONNECTION_UNLOCK (pending->connection);
-#endif
-  
-  return pending;
-}
 
 static void
 _dbus_pending_call_last_unref (DBusPendingCall *pending)
@@ -488,6 +442,111 @@ _dbus_pending_call_unref_and_unlock (DBusPendingCall *pending)
   CONNECTION_UNLOCK (pending->connection);
   if (last_unref)
     _dbus_pending_call_last_unref (pending);
+}
+
+/**
+ * Checks whether the pending call has received a reply
+ * yet, or not. Assumes connection lock is held.
+ *
+ * @param pending the pending call
+ * @returns #TRUE if a reply has been received
+ */
+dbus_bool_t
+_dbus_pending_call_get_completed_unlocked (DBusPendingCall    *pending)
+{
+  return pending->completed;
+}
+
+static DBusDataSlotAllocator slot_allocator;
+_DBUS_DEFINE_GLOBAL_LOCK (pending_call_slots);
+
+/**
+ * Stores a pointer on a #DBusPendingCall, along
+ * with an optional function to be used for freeing
+ * the data when the data is set again, or when
+ * the pending call is finalized. The slot number
+ * must have been allocated with dbus_pending_call_allocate_data_slot().
+ *
+ * @param pending the pending_call
+ * @param slot the slot number
+ * @param data the data to store
+ * @param free_data_func finalizer function for the data
+ * @returns #TRUE if there was enough memory to store the data
+ */
+dbus_bool_t
+_dbus_pending_call_set_data_unlocked (DBusPendingCall  *pending,
+                                     dbus_int32_t      slot,
+                                     void             *data,
+                                     DBusFreeFunction  free_data_func)
+{
+  DBusFreeFunction old_free_func;
+  void *old_data;
+  dbus_bool_t retval;
+
+  retval = _dbus_data_slot_list_set (&slot_allocator,
+                                     &pending->slot_list,
+                                     slot, data, free_data_func,
+                                     &old_free_func, &old_data);
+
+  /* Drop locks to call out to app code */
+  CONNECTION_UNLOCK (pending->connection);
+  
+  if (retval)
+    {
+      if (old_free_func)
+        (* old_free_func) (old_data);
+    }
+
+  CONNECTION_LOCK (pending->connection);
+  
+  return retval;
+}
+
+/** @} */
+
+/**
+ * @defgroup DBusPendingCall DBusPendingCall
+ * @ingroup  DBus
+ * @brief Pending reply to a method call message
+ *
+ * A DBusPendingCall is an object representing an
+ * expected reply. A #DBusPendingCall can be created
+ * when you send a message that should have a reply.
+ *
+ * @{
+ */
+
+/**
+ * @typedef DBusPendingCall
+ *
+ * Opaque data type representing a message pending.
+ */
+
+/**
+ * Increments the reference count on a pending call.
+ *
+ * @param pending the pending call object
+ * @returns the pending call object
+ */
+DBusPendingCall *
+dbus_pending_call_ref (DBusPendingCall *pending)
+{
+  _dbus_return_val_if_fail (pending != NULL, NULL);
+
+  /* The connection lock is better than the global
+   * lock in the atomic increment fallback
+   */
+#ifdef DBUS_HAVE_ATOMIC_INT
+  _dbus_atomic_inc (&pending->refcount);
+#else
+  CONNECTION_LOCK (pending->connection);
+  _dbus_assert (pending->refcount.value > 0);
+
+  pending->refcount.value += 1;
+  CONNECTION_UNLOCK (pending->connection);
+#endif
+  
+  return pending;
 }
 
 /**
@@ -572,19 +631,6 @@ dbus_pending_call_cancel (DBusPendingCall *pending)
 
 /**
  * Checks whether the pending call has received a reply
- * yet, or not. Assumes connection lock is held.
- *
- * @param pending the pending call
- * @returns #TRUE if a reply has been received
- */
-dbus_bool_t
-_dbus_pending_call_get_completed_unlocked (DBusPendingCall    *pending)
-{
-  return pending->completed;
-}
-
-/**
- * Checks whether the pending call has received a reply
  * yet, or not.
  *
  * @param pending the pending call
@@ -655,9 +701,6 @@ dbus_pending_call_block (DBusPendingCall *pending)
   _dbus_connection_block_pending_call (pending);
 }
 
-static DBusDataSlotAllocator slot_allocator;
-_DBUS_DEFINE_GLOBAL_LOCK (pending_call_slots);
-
 /**
  * Allocates an integer ID to be used for storing application-specific
  * data on any DBusPendingCall. The allocated ID may then be used
@@ -700,48 +743,6 @@ dbus_pending_call_free_data_slot (dbus_int32_t *slot_p)
   _dbus_return_if_fail (*slot_p >= 0);
 
   _dbus_data_slot_allocator_free (&slot_allocator, slot_p);
-}
-
-/**
- * Stores a pointer on a #DBusPendingCall, along
- * with an optional function to be used for freeing
- * the data when the data is set again, or when
- * the pending call is finalized. The slot number
- * must have been allocated with dbus_pending_call_allocate_data_slot().
- *
- * @param pending the pending_call
- * @param slot the slot number
- * @param data the data to store
- * @param free_data_func finalizer function for the data
- * @returns #TRUE if there was enough memory to store the data
- */
-dbus_bool_t
-_dbus_pending_call_set_data_unlocked (DBusPendingCall  *pending,
-                                     dbus_int32_t      slot,
-                                     void             *data,
-                                     DBusFreeFunction  free_data_func)
-{
-  DBusFreeFunction old_free_func;
-  void *old_data;
-  dbus_bool_t retval;
-
-  retval = _dbus_data_slot_list_set (&slot_allocator,
-                                     &pending->slot_list,
-                                     slot, data, free_data_func,
-                                     &old_free_func, &old_data);
-
-  /* Drop locks to call out to app code */
-  CONNECTION_UNLOCK (pending->connection);
-  
-  if (retval)
-    {
-      if (old_free_func)
-        (* old_free_func) (old_data);
-    }
-
-  CONNECTION_LOCK (pending->connection);
-  
-  return retval;
 }
 
 /**

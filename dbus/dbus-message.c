@@ -579,6 +579,52 @@ dbus_message_cache_or_finalize (DBusMessage *message)
     dbus_message_finalize (message);
 }
 
+#ifndef DBUS_DISABLE_CHECKS
+static dbus_bool_t
+_dbus_message_iter_check (DBusMessageRealIter *iter)
+{
+  if (iter == NULL)
+    {
+      _dbus_warn_check_failed ("dbus message iterator is NULL\n");
+      return FALSE;
+    }
+
+  if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_READER)
+    {
+      if (iter->u.reader.byte_order != iter->message->byte_order)
+        {
+          _dbus_warn_check_failed ("dbus message changed byte order since iterator was created\n");
+          return FALSE;
+        }
+      /* because we swap the message into compiler order when you init an iter */
+      _dbus_assert (iter->u.reader.byte_order == DBUS_COMPILER_BYTE_ORDER);
+    }
+  else if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER)
+    {
+      if (iter->u.writer.byte_order != iter->message->byte_order)
+        {
+          _dbus_warn_check_failed ("dbus message changed byte order since append iterator was created\n");
+          return FALSE;
+        }
+      /* because we swap the message into compiler order when you init an iter */
+      _dbus_assert (iter->u.writer.byte_order == DBUS_COMPILER_BYTE_ORDER);
+    }
+  else
+    {
+      _dbus_warn_check_failed ("dbus message iterator looks uninitialized or corrupted\n");
+      return FALSE;
+    }
+
+  if (iter->changed_stamp != iter->message->changed_stamp)
+    {
+      _dbus_warn_check_failed ("dbus message iterator invalid because the message has been modified (or perhaps the iterator is just uninitialized)\n");
+      return FALSE;
+    }
+
+  return TRUE;
+}
+#endif /* DBUS_DISABLE_CHECKS */
+
 /**
  * Implementation of the varargs arg-getting functions.
  * dbus_message_get_args() is the place to go for complete
@@ -1713,52 +1759,6 @@ dbus_message_iter_init (DBusMessage     *message,
 
   return _dbus_type_reader_get_current_type (&real->u.reader) != DBUS_TYPE_INVALID;
 }
-
-#ifndef DBUS_DISABLE_CHECKS
-static dbus_bool_t
-_dbus_message_iter_check (DBusMessageRealIter *iter)
-{
-  if (iter == NULL)
-    {
-      _dbus_warn_check_failed ("dbus message iterator is NULL\n");
-      return FALSE;
-    }
-
-  if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_READER)
-    {
-      if (iter->u.reader.byte_order != iter->message->byte_order)
-        {
-          _dbus_warn_check_failed ("dbus message changed byte order since iterator was created\n");
-          return FALSE;
-        }
-      /* because we swap the message into compiler order when you init an iter */
-      _dbus_assert (iter->u.reader.byte_order == DBUS_COMPILER_BYTE_ORDER);
-    }
-  else if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER)
-    {
-      if (iter->u.writer.byte_order != iter->message->byte_order)
-        {
-          _dbus_warn_check_failed ("dbus message changed byte order since append iterator was created\n");
-          return FALSE;
-        }
-      /* because we swap the message into compiler order when you init an iter */
-      _dbus_assert (iter->u.writer.byte_order == DBUS_COMPILER_BYTE_ORDER);
-    }
-  else
-    {
-      _dbus_warn_check_failed ("dbus message iterator looks uninitialized or corrupted\n");
-      return FALSE;
-    }
-
-  if (iter->changed_stamp != iter->message->changed_stamp)
-    {
-      _dbus_warn_check_failed ("dbus message iterator invalid because the message has been modified (or perhaps the iterator is just uninitialized)\n");
-      return FALSE;
-    }
-
-  return TRUE;
-}
-#endif /* DBUS_DISABLE_CHECKS */
 
 /**
  * Checks if an iterator has any more fields.

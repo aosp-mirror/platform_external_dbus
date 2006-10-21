@@ -423,6 +423,67 @@ _dbus_server_toggle_timeout (DBusServer  *server,
                             enabled);
 }
 
+
+/**
+ * Like dbus_server_ref() but does not acquire the lock (must already be held)
+ *
+ * @param server the server.
+ */
+void
+_dbus_server_ref_unlocked (DBusServer *server)
+{
+  _dbus_assert (server != NULL);
+  _dbus_assert (server->refcount.value > 0);
+  
+  HAVE_LOCK_CHECK (server);
+
+#ifdef DBUS_HAVE_ATOMIC_INT
+  _dbus_atomic_inc (&server->refcount);
+#else
+  _dbus_assert (server->refcount.value > 0);
+
+  server->refcount.value += 1;
+#endif
+}
+
+/**
+ * Like dbus_server_unref() but does not acquire the lock (must already be held)
+ *
+ * @param server the server.
+ */
+void
+_dbus_server_unref_unlocked (DBusServer *server)
+{
+  dbus_bool_t last_unref;
+
+  /* Keep this in sync with dbus_server_unref */
+  
+  _dbus_assert (server != NULL);
+  _dbus_assert (server->refcount.value > 0);
+
+  HAVE_LOCK_CHECK (server);
+  
+#ifdef DBUS_HAVE_ATOMIC_INT
+  last_unref = (_dbus_atomic_dec (&server->refcount) == 1);
+#else
+  _dbus_assert (server->refcount.value > 0);
+
+  server->refcount.value -= 1;
+  last_unref = (server->refcount.value == 0);
+#endif
+  
+  if (last_unref)
+    {
+      _dbus_assert (server->disconnected);
+      
+      SERVER_UNLOCK (server);
+      
+      _dbus_assert (server->vtable->finalize != NULL);
+      
+      (* server->vtable->finalize) (server);
+    }
+}
+
 /** @} */
 
 /**
@@ -634,6 +695,8 @@ void
 dbus_server_unref (DBusServer *server)
 {
   dbus_bool_t last_unref;
+
+  /* keep this in sync with unref_unlocked */
   
   _dbus_return_if_fail (server != NULL);
   _dbus_return_if_fail (server->refcount.value > 0);
@@ -655,64 +718,6 @@ dbus_server_unref (DBusServer *server)
     {
       /* lock not held! */
       _dbus_assert (server->disconnected);
-      
-      _dbus_assert (server->vtable->finalize != NULL);
-      
-      (* server->vtable->finalize) (server);
-    }
-}
-
-/**
- * Like dbus_server_ref() but does not acquire the lock (must already be held)
- *
- * @param server the server.
- */
-void
-_dbus_server_ref_unlocked (DBusServer *server)
-{
-  _dbus_assert (server != NULL);
-  _dbus_assert (server->refcount.value > 0);
-  
-  HAVE_LOCK_CHECK (server);
-
-#ifdef DBUS_HAVE_ATOMIC_INT
-  _dbus_atomic_inc (&server->refcount);
-#else
-  _dbus_assert (server->refcount.value > 0);
-
-  server->refcount.value += 1;
-#endif
-}
-
-/**
- * Like dbus_server_unref() but does not acquire the lock (must already be held)
- *
- * @param server the server.
- */
-void
-_dbus_server_unref_unlocked (DBusServer *server)
-{
-  dbus_bool_t last_unref;
-  
-  _dbus_assert (server != NULL);
-  _dbus_assert (server->refcount.value > 0);
-
-  HAVE_LOCK_CHECK (server);
-  
-#ifdef DBUS_HAVE_ATOMIC_INT
-  last_unref = (_dbus_atomic_dec (&server->refcount) == 1);
-#else
-  _dbus_assert (server->refcount.value > 0);
-
-  server->refcount.value -= 1;
-  last_unref = (server->refcount.value == 0);
-#endif
-  
-  if (last_unref)
-    {
-      _dbus_assert (server->disconnected);
-      
-      SERVER_UNLOCK (server);
       
       _dbus_assert (server->vtable->finalize != NULL);
       
