@@ -36,6 +36,21 @@
  * @ingroup DBus
  * @brief Functions for communicating with the message bus
  *
+ * dbus_bus_get() allows all modules and libraries in a given
+ * process to share the same connection to the bus daemon by storing
+ * the connection globally.
+ *
+ * All other functions in this module are just convenience functions;
+ * most of them invoke methods on the bus daemon, by sending method
+ * call messages to #DBUS_SERVICE_DBUS. These convenience functions
+ * often make blocking method calls. If you don't want to block,
+ * you can send the method call messages manually in the same way
+ * you would any other method call message.
+ *
+ * This module is the only one in libdbus that's specific to
+ * communicating with the message bus daemon. The rest of the API can
+ * also be used for connecting to another application directly.
+ * 
  * @todo right now the default address of the system bus is hardcoded,
  * so if you change it in the global config file suddenly you have to
  * set DBUS_SYSTEM_BUS_ADDRESS env variable.  Might be nice if the
@@ -472,6 +487,11 @@ internal_bus_get (DBusBusType  type,
  * will exit if the connection closes. You can undo this
  * by calling dbus_connection_set_exit_on_disconnect() yourself
  * after you get the connection.
+ *
+ * dbus_bus_get() calls dbus_bus_register() for you.
+ * 
+ * If returning a newly-created connection, this function will block
+ * until authentication and bus registration are complete.
  * 
  * @param type bus type
  * @param error address where an error can be returned.
@@ -485,11 +505,11 @@ dbus_bus_get (DBusBusType  type,
 }
 
 /**
- * Connects to a bus daemon and registers the client with it as with dbus_bus_register().
- * Unlike dbus_bus_get(), always creates a new connection. This connection
- * will not be saved or recycled by libdbus. Caller owns a reference
- * to the bus and must either close it or know it to be closed
- * prior to releasing this reference.
+ * Connects to a bus daemon and registers the client with it as with
+ * dbus_bus_register().  Unlike dbus_bus_get(), always creates a new
+ * connection. This connection will not be saved or recycled by
+ * libdbus. Caller owns a reference to the bus and must either close
+ * it or know it to be closed prior to releasing this reference.
  *
  * See dbus_connection_open_private() for more details on when to
  * close and unref this connection.
@@ -499,6 +519,11 @@ dbus_bus_get (DBusBusType  type,
  * will exit if the connection closes. You can undo this
  * by calling dbus_connection_set_exit_on_disconnect() yourself
  * after you get the connection.
+ *
+ * dbus_bus_get_private() calls dbus_bus_register() for you.
+ *
+ * This function will block until authentication and bus registration
+ * are complete.
  *
  * @param type bus type
  * @param error address where an error can be returned.
@@ -519,6 +544,13 @@ dbus_bus_get_private (DBusBusType  type,
  *
  * If you use dbus_bus_get() or dbus_bus_get_private() this
  * function will be called for you.
+ *
+ * If you open a bus connection with dbus_connection_open() or
+ * dbus_connection_open_private() you will have to dbus_bus_register()
+ * yourself, or make the appropriate registration method calls
+ * yourself.
+ *
+ * This function will block until registration is complete.
  * 
  * @param connection the connection
  * @param error place to store errors
@@ -598,9 +630,11 @@ dbus_bus_register (DBusConnection *connection,
 
 
 /**
- * Sets the unique name of the connection.  Can only be used if you
- * registered with the bus manually (i.e. if you did not call
- * dbus_bus_register()). Can only be called once per connection.
+ * Sets the unique name of the connection, as assigned by the message
+ * bus.  Can only be used if you registered with the bus manually
+ * (i.e. if you did not call dbus_bus_register()). Can only be called
+ * once per connection.  After the unique name is set, you can get it
+ * with dbus_bus_get_unique_name().
  *
  * @param connection the connection
  * @param unique_name the unique name
@@ -626,11 +660,17 @@ dbus_bus_set_unique_name (DBusConnection *connection,
 }
 
 /**
- * Gets the unique name of the connection.  Only possible after the
- * connection has been registered with the message bus.
+ * Gets the unique name of the connection as assigned by the message
+ * bus. Only possible after the connection has been registered with
+ * the message bus.
  *
- * The name remains valid for the duration of the connection and
+ * The name remains valid until the connection is freed, and
  * should not be freed by the caller.
+ *
+ * There are two ways to set the unique name; one is
+ * dbus_bus_register(), the other is dbus_bus_set_unique_name().
+ * You are responsible for calling dbus_bus_set_unique_name()
+ * if you register by hand instead of using dbus_bus_register().
  * 
  * @param connection the connection
  * @returns the unique name or NULL on error
@@ -650,16 +690,22 @@ dbus_bus_get_unique_name (DBusConnection *connection)
 }
 
 /**
- * Asks the bus to return the uid of the named
- * connection.
+ * Asks the bus to return the uid of the named connection.
+ * Only works on UNIX; only works for connections on the same
+ * machine as the bus. If you are not on the same machine
+ * as the bus, then calling this is probably a bad idea,
+ * since the uid will mean little to your application.
  *
- * Not going to work on Windows, the bus should return
- * an error then.
+ * For the system message bus you're guaranteed to be on the same
+ * machine since it only listens on a UNIX domain socket (at least,
+ * as shipped by default).
+ *
+ * This function will just return an error on Windows.
  * 
  * @param connection the connection
  * @param name a name owned by the connection
  * @param error location to store the error
- * @returns a result code, -1 if error is set
+ * @returns the unix user id, or ((unsigned)-1) if error is set
  */ 
 unsigned long
 dbus_bus_get_unix_user (DBusConnection *connection,
@@ -734,17 +780,46 @@ dbus_bus_get_unix_user (DBusConnection *connection,
  * result codes are discussed here, but the specification is the
  * canonical version of this information.
  *
- * The #DBUS_NAME_FLAG_ALLOW_REPLACEMENT flag indicates that the caller
- * will allow other services to take over the name from the current owner.
+ * First you should know that for each bus name, the bus stores
+ * a queue of connections that would like to own it. Only
+ * one owns it at a time - called the primary owner. If the primary
+ * owner releases the name or disconnects, then the next owner in the
+ * queue atomically takes over.
  *
- * The #DBUS_NAME_FLAG_REPLACE_EXISTING flag indicates that the caller
- * would like to take over the name from the current owner.
- * If the current name owner did not use #DBUS_NAME_FLAG_ALLOW_REPLACEMENT
- * then this flag indicates that the caller would like to be placed
- * in the queue to own the name when the current owner lets go.
+ * So for example if you have an application org.freedesktop.TextEditor
+ * and multiple instances of it can be run, you can have all of them
+ * sitting in the queue. The first one to start up will receive messages
+ * sent to org.freedesktop.TextEditor, but if that one exits another
+ * will become the primary owner and receive messages.
+ *
+ * The queue means you don't need to manually watch for the current owner to
+ * disappear and then request the name again.
+ *
+ * When requesting a name, you can specify several flags.
+ * 
+ * #DBUS_NAME_FLAG_ALLOW_REPLACEMENT and #DBUS_NAME_FLAG_DO_NOT_QUEUE
+ * are properties stored by the bus for this connection with respect to
+ * each requested bus name. These properties are stored even if the
+ * connection is queued and does not become the primary owner.
+ * You can update these flags by calling RequestName again (even if
+ * you already own the name).
+ *
+ * #DBUS_NAME_FLAG_ALLOW_REPLACEMENT means that another requestor of the
+ * name can take it away from you by specifying #DBUS_NAME_FLAG_REPLACE_EXISTING.
+ *
+ * #DBUS_NAME_FLAG_DO_NOT_QUEUE means that if you aren't the primary owner,
+ * you don't want to be queued up - you only care about being the
+ * primary owner.
+ *
+ * Unlike the other two flags, #DBUS_NAME_FLAG_REPLACE_EXISTING is a property
+ * of the individual RequestName call, i.e. the bus does not persistently
+ * associate it with the connection-name pair. If a RequestName call includes
+ * the #DBUS_NAME_FLAG_REPLACE_EXISTING flag, and the current primary
+ * owner has #DBUS_NAME_FLAG_ALLOW_REPLACEMENT set, then the current primary
+ * owner will be kicked off.
  *
  * If no flags are given, an application will receive the requested
- * name only if the name is currently unowned; it will NOT give
+ * name only if the name is currently unowned; and it will NOT give
  * up the name if another application asks to take it over using
  * #DBUS_NAME_FLAG_REPLACE_EXISTING.
  *
@@ -770,7 +845,9 @@ dbus_bus_get_unix_user (DBusConnection *connection,
  * #DBUS_NAME_FLAG_REPLACE_EXISTING.
  *
  * #DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER happens if an application
- * requests a name it already owns.
+ * requests a name it already owns. (Re-requesting a name is useful if
+ * you want to change the #DBUS_NAME_FLAG_ALLOW_REPLACEMENT or
+ * #DBUS_NAME_FLAG_DO_NOT_QUEUE settings.)
  *
  * When a service represents an application, say "text editor," then
  * it should specify #DBUS_NAME_FLAG_ALLOW_REPLACEMENT if it wants
@@ -779,7 +856,19 @@ dbus_bus_get_unix_user (DBusConnection *connection,
  * specify #DBUS_NAME_FLAG_REPLACE_EXISTING to either take over
  * (last-started-wins) or be queued up (first-started-wins) according
  * to whether #DBUS_NAME_FLAG_ALLOW_REPLACEMENT was given.
- * 
+ *
+ * Conventionally, single-instance applications often offer a command
+ * line option called --replace which means to replace the current
+ * instance.  To implement this, always set
+ * #DBUS_NAME_FLAG_ALLOW_REPLACEMENT when you request your
+ * application's bus name.  When you lose ownership of your bus name,
+ * you need to exit.  Look for the signal "NameLost" from
+ * #DBUS_SERVICE_DBUS and #DBUS_INTERFACE_DBUS (the signal's first
+ * argument is the bus name that was lost).  If starting up without
+ * --replace, do not specify #DBUS_NAME_FLAG_REPLACE_EXISTING, and
+ * exit if you fail to become the bus name owner. If --replace is
+ * given, ask to replace the old owner.
+ *
  * @param connection the connection
  * @param name the name to request
  * @param flags flags
@@ -855,10 +944,18 @@ dbus_bus_request_name (DBusConnection *connection,
 
 
 /**
- * Asks the bus to unassign the given name to this connection by invoking
- * the ReleaseName method on the bus. This method is fully documented
- * in the D-Bus specification.
+ * Asks the bus to unassign the given name from this connection by
+ * invoking the ReleaseName method on the bus. The "ReleaseName"
+ * method is canonically documented in the D-Bus specification.
  *
+ * Possible results are: #DBUS_RELEASE_NAME_REPLY_RELEASED
+ * which means you owned the name or were in the queue to own it,
+ * and and now you don't own it and aren't in the queue.
+ * #DBUS_RELEASE_NAME_REPLY_NOT_OWNER which means someone else
+ * owns the name so you can't release it.
+ * #DBUS_RELEASE_NAME_REPLY_NON_EXISTENT
+ * which means nobody owned the name.
+ * 
  * @param connection the connection
  * @param name the name to remove 
  * @param error location to store the error
@@ -930,8 +1027,17 @@ dbus_bus_release_name (DBusConnection *connection,
 }
 
 /**
- * Checks whether a certain name has an owner.
+ * Asks the bus whether a certain name has an owner.
  *
+ * Using this can easily result in a race condition,
+ * since an owner can appear or disappear after you
+ * call this.
+ *
+ * If you want to request a name, just request it;
+ * if you want to avoid replacing a current owner,
+ * don't specify #DBUS_NAME_FLAG_REPLACE_EXISTING and
+ * you will get an error if there's already an owner.
+ * 
  * @param connection the connection
  * @param name the name
  * @param error location to store any errors
@@ -1000,6 +1106,12 @@ dbus_bus_name_has_owner (DBusConnection *connection,
  * The flags parameter is for future expansion, currently you should
  * specify 0.
  *
+ * It's often easier to avoid explicitly starting services, and
+ * just send a method call to the service's bus name instead.
+ * Method calls start a service to handle them by default
+ * unless you call dbus_message_set_auto_start() to disable this
+ * behavior.
+ * 
  * @param connection the connection
  * @param name the name we want the new service to request
  * @param flags the flags (should always be 0 for now)
@@ -1119,11 +1231,13 @@ send_no_return_values (DBusConnection *connection,
  * path='/bar/foo',destination=':452345.34'"
  *
  * Possible keys you can match on are type, sender, 
- * interface, member, path, destination and the special
- * arg keys.  Excluding a key from the rule indicates 
- * a wildcard match.  For instance excluding the
+ * interface, member, path, destination and numbered
+ * keys to match message args (keys are 'arg0', 'arg1', etc.).
+ * Omitting a key from the rule indicates 
+ * a wildcard match.  For instance omitting
  * the member from a match rule but adding a sender would
- * let all messages from that sender through.  
+ * let all messages from that sender through regardless of
+ * the member.
  *
  * Matches are inclusive not exclusive so as long as one 
  * rule matches the message will get through.  It is important
@@ -1132,12 +1246,31 @@ send_no_return_values (DBusConnection *connection,
  * can cause performance problems such as draining batteries
  * on embedded platforms.
  *
- * The special arg keys are used for further restricting the 
- * match based on the parameters sent by the signal or method.
- * For instance arg1='foo' will check the first argument, 
- * arg2='bar' the second and so on.  For performance reasons
- * there is a set limit on the highest number parameter that
- * can be checked which is set in dbus-protocol.h
+ * If you match message args ('arg0', 'arg1', and so forth)
+ * only string arguments will match. That is, arg0='5' means
+ * match the string "5" not the integer 5.
+ *
+ * Currently there is no way to match against non-string arguments.
+ *
+ * Matching on interface is tricky because method call
+ * messages only optionally specify the interface.
+ * If a message omits the interface, then it will NOT match
+ * if the rule specifies an interface name. This means match
+ * rules on method calls should not usually give an interface.
+ *
+ * However, signal messages are required to include the interface
+ * so when matching signals usually you should specify the interface
+ * in the match rule.
+ * 
+ * For security reasons, you can match arguments only up to
+ * #DBUS_MAXIMUM_MATCH_RULE_ARG_NUMBER.
+ *
+ * Match rules have a maximum length of #DBUS_MAXIMUM_MATCH_RULE_LENGTH
+ * bytes.
+ *
+ * Both of these maximums are much higher than you're likely to need,
+ * they only exist because the D-Bus bus daemon has fixed limits on
+ * all resource usage.
  *
  * @param connection connection to the message bus
  * @param rule textual form of match rule
@@ -1181,6 +1314,10 @@ dbus_bus_add_match (DBusConnection *connection,
  * recently-added identical rule gets removed).  The "rule" argument
  * is the string form of a match rule.
  *
+ * The bus compares match rules semantically, not textually, so
+ * whitespace and ordering don't have to be identical to
+ * the rule you passed to dbus_bus_add_match().
+ * 
  * If you pass #NULL for the error, this function will not
  * block; otherwise it will. See detailed explanation in
  * docs for dbus_bus_add_match().

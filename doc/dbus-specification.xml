@@ -1184,7 +1184,8 @@
           A signal emission is simply a single message of type <literal>SIGNAL</literal>.
           It must have three header fields: <literal>PATH</literal> giving the object 
           the signal was emitted from, plus <literal>INTERFACE</literal> and <literal>MEMBER</literal> giving
-          the fully-qualified name of the signal.
+          the fully-qualified name of the signal. The <literal>INTERFACE</literal> header is required
+          for signals, though it is optional for method calls.
         </para>
       </sect3>
 
@@ -3014,7 +3015,9 @@
                   <entry><literal>interface</literal></entry>
                   <entry>An interface name (see <xref linkend="message-protocol-names-interface"/>)</entry>
                   <entry>Match messages sent over or to a particular interface.  An example of an
-                  interface match is interface='org.freedesktop.Hal.Manager'</entry>
+                  interface match is interface='org.freedesktop.Hal.Manager'.
+                  If a message omits the interface header, it must not match any rule 
+                  that specifies this key.</entry>
                 </row>
                 <row>
                   <entry><literal>member</literal></entry>
@@ -3035,12 +3038,13 @@
                   example of a destination match is destination=':1.0'</entry>
                 </row>
                 <row>
-                  <entry><literal>arg[1, 2, 3, ...]</literal></entry>
+                  <entry><literal>arg[0, 1, 2, 3, ...]</literal></entry>
                   <entry>Any string</entry>
                   <entry>Arg matches are special and are used for further restricting the 
                   match based on the arguments in the body of a message.  As of this time
                   only string arguments can be matched.  An example of an argument match 
-                  would be arg3='Foo'.</entry>
+                  would be arg3='Foo'. Only argument indexes from 0 to 63 should be 
+                  accepted.</entry>
                 </row>
               </tbody>
             </tgroup>

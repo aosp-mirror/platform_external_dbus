@@ -124,6 +124,9 @@ message_from_error (const char *error)
  *   }
  * @endcode
  *
+ * By convention, all functions allow #NULL instead of a DBusError*,
+ * so callers who don't care about the error can ignore it.
+ * 
  * There are some rules. An error passed to a D-Bus function must
  * always be unset; you can't pass in an error that's already set.  If
  * a function has a return code indicating whether an error occurred,
@@ -137,13 +140,19 @@ message_from_error (const char *error)
  * You can check the specific error that occurred using
  * dbus_error_has_name().
  * 
+ * Errors will not be set for programming errors, such as passing
+ * invalid arguments to the libdbus API. Instead, libdbus will print
+ * warnings, exit on a failed assertion, or even crash in those cases
+ * (in other words, incorrect use of the API results in undefined
+ * behavior, possibly accompanied by helpful debugging output if
+ * you're lucky).
+ * 
  * @{
  */
 
 /**
- * Initializes a DBusError structure. Does not allocate
- * any memory; the error only needs to be freed
- * if it is set at some point. 
+ * Initializes a DBusError structure. Does not allocate any memory;
+ * the error only needs to be freed if it is set at some point.
  *
  * @param error the DBusError.
  */
@@ -190,11 +199,15 @@ dbus_error_free (DBusError *error)
 
 /**
  * Assigns an error name and message to a DBusError.  Does nothing if
- * error is #NULL. The message may be NULL, which means a default
- * message will be deduced from the name. If the error name is unknown
- * to D-Bus the default message will be totally useless, though.
+ * error is #NULL. The message may be #NULL, which means a default
+ * message will be deduced from the name. The default message will be
+ * totally useless, though, so using a #NULL message is not recommended.
  *
- * @param error the error.
+ * Because this function does not copy the error name or message, you
+ * must ensure the name and message are global data that won't be
+ * freed. You probably want dbus_set_error() instead, in most cases.
+ * 
+ * @param error the error.or #NULL
  * @param name the error name (not copied!!!)
  * @param message the error message (not copied!!!)
  */
@@ -297,14 +310,15 @@ dbus_error_is_set (const DBusError *error)
  * Assigns an error name and message to a DBusError.
  * Does nothing if error is #NULL.
  *
- * The format may be NULL, which means a default message will be
- * deduced from the name. If the error name is unknown to D-Bus the
- * default message will be totally useless, though.
+ * The format may be #NULL, which means a (pretty much useless)
+ * default message will be deduced from the name. This is not a good
+ * idea, just go ahead and provide a useful error message. It won't
+ * hurt you.
  *
  * If no memory can be allocated for the error message, 
  * an out-of-memory error message will be set instead.
  *
- * @param error the error.
+ * @param error the error.or #NULL
  * @param name the error name
  * @param format printf-style format string.
  */

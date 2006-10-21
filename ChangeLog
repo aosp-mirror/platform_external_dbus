@@ -1,3 +1,10 @@
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.h: put #ifndef DBUS_DISABLE_DEPRECATED around 
+	dbus_message_iter_get_array_len().
+
+	* throughout: documentation improvements.
+
 2006-10-20  Havoc Pennington  <hp@redhat.com>
 
 	* doc/TODO: remove the int64 thing from 1.0 since it doesn't

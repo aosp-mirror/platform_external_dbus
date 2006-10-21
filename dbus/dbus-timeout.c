@@ -384,6 +384,9 @@ _dbus_timeout_list_toggle_timeout (DBusTimeoutList           *timeout_list,
  * Types and functions related to DBusTimeout. A timeout
  * represents a timeout that the main loop needs to monitor,
  * as in Qt's QTimer or GLib's g_timeout_add().
+ *
+ * Use dbus_connection_set_timeout_functions() or dbus_server_set_timeout_functions()
+ * to be notified when libdbus needs to add or remove timeouts.
  * 
  * @{
  */

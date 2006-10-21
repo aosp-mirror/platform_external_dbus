@@ -2940,16 +2940,19 @@ _dbus_connection_send_unlocked_no_update (DBusConnection *connection,
  * The function will never fail for other reasons; even if the
  * connection is disconnected, you can queue an outgoing message,
  * though obviously it won't be sent.
+ *
+ * The message serial is used by the remote application to send a
+ * reply; see dbus_message_get_serial() or the D-Bus specification.
  * 
  * @param connection the connection.
  * @param message the message to write.
- * @param client_serial return location for client serial.
+ * @param serial return location for message serial, or #NULL if you don't care
  * @returns #TRUE on success.
  */
 dbus_bool_t
 dbus_connection_send (DBusConnection *connection,
                       DBusMessage    *message,
-                      dbus_uint32_t  *client_serial)
+                      dbus_uint32_t  *serial)
 {
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (message != NULL, FALSE);
@@ -2958,7 +2961,7 @@ dbus_connection_send (DBusConnection *connection,
 
   return _dbus_connection_send_and_unlock (connection,
 					   message,
-					   client_serial);
+					   serial);
 }
 
 static dbus_bool_t

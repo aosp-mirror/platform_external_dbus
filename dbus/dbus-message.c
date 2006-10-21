@@ -579,1183 +579,8 @@ dbus_message_cache_or_finalize (DBusMessage *message)
     dbus_message_finalize (message);
 }
 
-/** @} */
-
 /**
- * @defgroup DBusMessage DBusMessage
- * @ingroup  DBus
- * @brief Message to be sent or received over a DBusConnection.
- *
- * A DBusMessage is the most basic unit of communication over a
- * DBusConnection. A DBusConnection represents a stream of messages
- * received from a remote application, and a stream of messages
- * sent to a remote application.
- *
- * @{
- */
-
-/**
- * @typedef DBusMessage
- *
- * Opaque data type representing a message received from or to be
- * sent to another application.
- */
-
-/**
- * Returns the serial of a message or 0 if none has been specified.
- * The message's serial number is provided by the application sending
- * the message and is used to identify replies to this message.  All
- * messages received on a connection will have a serial, but messages
- * you haven't sent yet may return 0.
- *
- * @param message the message
- * @returns the client serial
- */
-dbus_uint32_t
-dbus_message_get_serial (DBusMessage *message)
-{
-  _dbus_return_val_if_fail (message != NULL, 0);
-
-  return _dbus_header_get_serial (&message->header);
-}
-
-/**
- * Sets the reply serial of a message (the client serial
- * of the message this is a reply to).
- *
- * @param message the message
- * @param reply_serial the client serial
- * @returns #FALSE if not enough memory
- */
-dbus_bool_t
-dbus_message_set_reply_serial (DBusMessage   *message,
-                               dbus_uint32_t  reply_serial)
-{
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_fail (!message->locked, FALSE);
-  _dbus_return_val_if_fail (reply_serial != 0, FALSE); /* 0 is invalid */
-
-  return _dbus_header_set_field_basic (&message->header,
-                                       DBUS_HEADER_FIELD_REPLY_SERIAL,
-                                       DBUS_TYPE_UINT32,
-                                       &reply_serial);
-}
-
-/**
- * Returns the serial that the message is a reply to or 0 if none.
- *
- * @param message the message
- * @returns the reply serial
- */
-dbus_uint32_t
-dbus_message_get_reply_serial  (DBusMessage *message)
-{
-  dbus_uint32_t v_UINT32;
-
-  _dbus_return_val_if_fail (message != NULL, 0);
-
-  if (_dbus_header_get_field_basic (&message->header,
-                                    DBUS_HEADER_FIELD_REPLY_SERIAL,
-                                    DBUS_TYPE_UINT32,
-                                    &v_UINT32))
-    return v_UINT32;
-  else
-    return 0;
-}
-
-static void
-dbus_message_finalize (DBusMessage *message)
-{
-  _dbus_assert (message->refcount.value == 0);
-
-  /* This calls application callbacks! */
-  _dbus_data_slot_list_free (&message->slot_list);
-
-  _dbus_list_foreach (&message->size_counters,
-                      free_size_counter, message);
-  _dbus_list_clear (&message->size_counters);
-
-  _dbus_header_free (&message->header);
-  _dbus_string_free (&message->body);
-
-  _dbus_assert (message->refcount.value == 0);
-  
-  dbus_free (message);
-}
-
-static DBusMessage*
-dbus_message_new_empty_header (void)
-{
-  DBusMessage *message;
-  dbus_bool_t from_cache;
-
-  message = dbus_message_get_cached ();
-
-  if (message != NULL)
-    {
-      from_cache = TRUE;
-    }
-  else
-    {
-      from_cache = FALSE;
-      message = dbus_new (DBusMessage, 1);
-      if (message == NULL)
-        return NULL;
-#ifndef DBUS_DISABLE_CHECKS
-      message->generation = _dbus_current_generation;
-#endif
-    }
-  
-  message->refcount.value = 1;
-  message->byte_order = DBUS_COMPILER_BYTE_ORDER;
-  message->locked = FALSE;
-#ifndef DBUS_DISABLE_CHECKS
-  message->in_cache = FALSE;
-#endif
-  message->size_counters = NULL;
-  message->size_counter_delta = 0;
-  message->changed_stamp = 0;
-
-  if (!from_cache)
-    _dbus_data_slot_list_init (&message->slot_list);
-
-  if (from_cache)
-    {
-      _dbus_header_reinit (&message->header, message->byte_order);
-      _dbus_string_set_length (&message->body, 0);
-    }
-  else
-    {
-      if (!_dbus_header_init (&message->header, message->byte_order))
-        {
-          dbus_free (message);
-          return NULL;
-        }
-
-      if (!_dbus_string_init_preallocated (&message->body, 32))
-        {
-          _dbus_header_free (&message->header);
-          dbus_free (message);
-          return NULL;
-        }
-    }
-
-  return message;
-}
-
-/**
- * Constructs a new message of the given message type.
- * Types include #DBUS_MESSAGE_TYPE_METHOD_CALL,
- * #DBUS_MESSAGE_TYPE_SIGNAL, and so forth.
- *
- * @param message_type type of message
- * @returns new message or #NULL If no memory
- */
-DBusMessage*
-dbus_message_new (int message_type)
-{
-  DBusMessage *message;
-
-  _dbus_return_val_if_fail (message_type != DBUS_MESSAGE_TYPE_INVALID, NULL);
-
-  message = dbus_message_new_empty_header ();
-  if (message == NULL)
-    return NULL;
-
-  if (!_dbus_header_create (&message->header,
-                            message_type,
-                            NULL, NULL, NULL, NULL, NULL))
-    {
-      dbus_message_unref (message);
-      return NULL;
-    }
-
-  return message;
-}
-
-/**
- * Constructs a new message to invoke a method on a remote
- * object. Returns #NULL if memory can't be allocated for the
- * message. The destination may be #NULL in which case no destination
- * is set; this is appropriate when using D-Bus in a peer-to-peer
- * context (no message bus). The interface may be #NULL, which means
- * that if multiple methods with the given name exist it is undefined
- * which one will be invoked.
-  *
- * @param destination name that the message should be sent to or #NULL
- * @param path object path the message should be sent to
- * @param interface interface to invoke method on
- * @param method method to invoke
- *
- * @returns a new DBusMessage, free with dbus_message_unref()
- * @see dbus_message_unref()
- */
-DBusMessage*
-dbus_message_new_method_call (const char *destination,
-                              const char *path,
-                              const char *interface,
-                              const char *method)
-{
-  DBusMessage *message;
-
-  _dbus_return_val_if_fail (path != NULL, NULL);
-  _dbus_return_val_if_fail (method != NULL, NULL);
-  _dbus_return_val_if_fail (destination == NULL ||
-                            _dbus_check_is_valid_bus_name (destination), NULL);
-  _dbus_return_val_if_fail (_dbus_check_is_valid_path (path), NULL);
-  _dbus_return_val_if_fail (interface == NULL ||
-                            _dbus_check_is_valid_interface (interface), NULL);
-  _dbus_return_val_if_fail (_dbus_check_is_valid_member (method), NULL);
-
-  message = dbus_message_new_empty_header ();
-  if (message == NULL)
-    return NULL;
-
-  if (!_dbus_header_create (&message->header,
-                            DBUS_MESSAGE_TYPE_METHOD_CALL,
-                            destination, path, interface, method, NULL))
-    {
-      dbus_message_unref (message);
-      return NULL;
-    }
-
-  return message;
-}
-
-/**
- * Constructs a message that is a reply to a method call. Returns
- * #NULL if memory can't be allocated for the message.
- *
- * @param method_call the message which the created
- * message is a reply to.
- * @returns a new DBusMessage, free with dbus_message_unref()
- * @see dbus_message_new_method_call(), dbus_message_unref()
- */
-DBusMessage*
-dbus_message_new_method_return (DBusMessage *method_call)
-{
-  DBusMessage *message;
-  const char *sender;
-
-  _dbus_return_val_if_fail (method_call != NULL, NULL);
-
-  sender = dbus_message_get_sender (method_call);
-
-  /* sender is allowed to be null here in peer-to-peer case */
-
-  message = dbus_message_new_empty_header ();
-  if (message == NULL)
-    return NULL;
-
-  if (!_dbus_header_create (&message->header,
-                            DBUS_MESSAGE_TYPE_METHOD_RETURN,
-                            sender, NULL, NULL, NULL, NULL))
-    {
-      dbus_message_unref (message);
-      return NULL;
-    }
-
-  dbus_message_set_no_reply (message, TRUE);
-
-  if (!dbus_message_set_reply_serial (message,
-                                      dbus_message_get_serial (method_call)))
-    {
-      dbus_message_unref (message);
-      return NULL;
-    }
-
-  return message;
-}
-
-/**
- * Constructs a new message representing a signal emission. Returns
- * #NULL if memory can't be allocated for the message.  A signal is
- * identified by its originating interface, and the name of the
- * signal.
- *
- * @param path the path to the object emitting the signal
- * @param interface the interface the signal is emitted from
- * @param name name of the signal
- * @returns a new DBusMessage, free with dbus_message_unref()
- * @see dbus_message_unref()
- */
-DBusMessage*
-dbus_message_new_signal (const char *path,
-                         const char *interface,
-                         const char *name)
-{
-  DBusMessage *message;
-
-  _dbus_return_val_if_fail (path != NULL, NULL);
-  _dbus_return_val_if_fail (interface != NULL, NULL);
-  _dbus_return_val_if_fail (name != NULL, NULL);
-  _dbus_return_val_if_fail (_dbus_check_is_valid_path (path), NULL);
-  _dbus_return_val_if_fail (_dbus_check_is_valid_interface (interface), NULL);
-  _dbus_return_val_if_fail (_dbus_check_is_valid_member (name), NULL);
-
-  message = dbus_message_new_empty_header ();
-  if (message == NULL)
-    return NULL;
-
-  if (!_dbus_header_create (&message->header,
-                            DBUS_MESSAGE_TYPE_SIGNAL,
-                            NULL, path, interface, name, NULL))
-    {
-      dbus_message_unref (message);
-      return NULL;
-    }
-
-  dbus_message_set_no_reply (message, TRUE);
-
-  return message;
-}
-
-/**
- * Creates a new message that is an error reply to a certain message.
- * Error replies are possible in response to method calls primarily.
- *
- * @param reply_to the original message
- * @param error_name the error name
- * @param error_message the error message string or #NULL for none
- * @returns a new error message
- */
-DBusMessage*
-dbus_message_new_error (DBusMessage *reply_to,
-                        const char  *error_name,
-                        const char  *error_message)
-{
-  DBusMessage *message;
-  const char *sender;
-  DBusMessageIter iter;
-
-  _dbus_return_val_if_fail (reply_to != NULL, NULL);
-  _dbus_return_val_if_fail (error_name != NULL, NULL);
-  _dbus_return_val_if_fail (_dbus_check_is_valid_error_name (error_name), NULL);
-
-  sender = dbus_message_get_sender (reply_to);
-
-  /* sender may be NULL for non-message-bus case or
-   * when the message bus is dealing with an unregistered
-   * connection.
-   */
-  message = dbus_message_new_empty_header ();
-  if (message == NULL)
-    return NULL;
-
-  if (!_dbus_header_create (&message->header,
-                            DBUS_MESSAGE_TYPE_ERROR,
-                            sender, NULL, NULL, NULL, error_name))
-    {
-      dbus_message_unref (message);
-      return NULL;
-    }
-
-  dbus_message_set_no_reply (message, TRUE);
-
-  if (!dbus_message_set_reply_serial (message,
-                                      dbus_message_get_serial (reply_to)))
-    {
-      dbus_message_unref (message);
-      return NULL;
-    }
-
-  if (error_message != NULL)
-    {
-      dbus_message_iter_init_append (message, &iter);
-      if (!dbus_message_iter_append_basic (&iter,
-                                           DBUS_TYPE_STRING,
-                                           &error_message))
-        {
-          dbus_message_unref (message);
-          return NULL;
-        }
-    }
-
-  return message;
-}
-
-/**
- * Creates a new message that is an error reply to a certain message.
- * Error replies are possible in response to method calls primarily.
- *
- * @param reply_to the original message
- * @param error_name the error name
- * @param error_format the error message format as with printf
- * @param ... format string arguments
- * @returns a new error message
- */
-DBusMessage*
-dbus_message_new_error_printf (DBusMessage *reply_to,
-			       const char  *error_name,
-			       const char  *error_format,
-			       ...)
-{
-  va_list args;
-  DBusString str;
-  DBusMessage *message;
-
-  _dbus_return_val_if_fail (reply_to != NULL, NULL);
-  _dbus_return_val_if_fail (error_name != NULL, NULL);
-  _dbus_return_val_if_fail (_dbus_check_is_valid_error_name (error_name), NULL);
-
-  if (!_dbus_string_init (&str))
-    return NULL;
-
-  va_start (args, error_format);
-
-  if (_dbus_string_append_printf_valist (&str, error_format, args))
-    message = dbus_message_new_error (reply_to, error_name,
-				      _dbus_string_get_const_data (&str));
-  else
-    message = NULL;
-
-  _dbus_string_free (&str);
-
-  va_end (args);
-
-  return message;
-}
-
-
-/**
- * Creates a new message that is an exact replica of the message
- * specified, except that its refcount is set to 1, its message serial
- * is reset to 0, and if the original message was "locked" (in the
- * outgoing message queue and thus not modifiable) the new message
- * will not be locked.
- *
- * @param message the message.
- * @returns the new message.
- */
-DBusMessage *
-dbus_message_copy (const DBusMessage *message)
-{
-  DBusMessage *retval;
-
-  _dbus_return_val_if_fail (message != NULL, NULL);
-
-  retval = dbus_new0 (DBusMessage, 1);
-  if (retval == NULL)
-    return NULL;
-
-  retval->refcount.value = 1;
-  retval->byte_order = message->byte_order;
-  retval->locked = FALSE;
-#ifndef DBUS_DISABLE_CHECKS
-  retval->generation = message->generation;
-#endif
-
-  if (!_dbus_header_copy (&message->header, &retval->header))
-    {
-      dbus_free (retval);
-      return NULL;
-    }
-
-  if (!_dbus_string_init_preallocated (&retval->body,
-                                       _dbus_string_get_length (&message->body)))
-    {
-      _dbus_header_free (&retval->header);
-      dbus_free (retval);
-      return NULL;
-    }
-
-  if (!_dbus_string_copy (&message->body, 0,
-			  &retval->body, 0))
-    goto failed_copy;
-
-  return retval;
-
- failed_copy:
-  _dbus_header_free (&retval->header);
-  _dbus_string_free (&retval->body);
-  dbus_free (retval);
-
-  return NULL;
-}
-
-
-/**
- * Increments the reference count of a DBusMessage.
- *
- * @param message The message
- * @returns the message
- * @see dbus_message_unref
- */
-DBusMessage *
-dbus_message_ref (DBusMessage *message)
-{
-  dbus_int32_t old_refcount;
-
-  _dbus_return_val_if_fail (message != NULL, NULL);
-  _dbus_return_val_if_fail (message->generation == _dbus_current_generation, NULL);
-  _dbus_return_val_if_fail (!message->in_cache, NULL);
-  
-  old_refcount = _dbus_atomic_inc (&message->refcount);
-  _dbus_assert (old_refcount >= 1);
-
-  return message;
-}
-
-/**
- * Decrements the reference count of a DBusMessage.
- *
- * @param message The message
- * @see dbus_message_ref
- */
-void
-dbus_message_unref (DBusMessage *message)
-{
- dbus_int32_t old_refcount;
-
-  _dbus_return_if_fail (message != NULL);
-  _dbus_return_if_fail (message->generation == _dbus_current_generation);
-  _dbus_return_if_fail (!message->in_cache);
-
-  old_refcount = _dbus_atomic_dec (&message->refcount);
-
-  _dbus_assert (old_refcount >= 0);
-
-  if (old_refcount == 1)
-    {
-      /* Calls application callbacks! */
-      dbus_message_cache_or_finalize (message);
-    }
-}
-
-/**
- * Gets the type of a message. Types include
- * #DBUS_MESSAGE_TYPE_METHOD_CALL, #DBUS_MESSAGE_TYPE_METHOD_RETURN,
- * #DBUS_MESSAGE_TYPE_ERROR, #DBUS_MESSAGE_TYPE_SIGNAL, but other
- * types are allowed and all code must silently ignore messages of
- * unknown type. #DBUS_MESSAGE_TYPE_INVALID will never be returned,
- * however.
- *
- * @param message the message
- * @returns the type of the message
- */
-int
-dbus_message_get_type (DBusMessage *message)
-{
-  _dbus_return_val_if_fail (message != NULL, DBUS_MESSAGE_TYPE_INVALID);
-
-  return _dbus_header_get_message_type (&message->header);
-}
-
-/**
- * Appends fields to a message given a variable argument list. The
- * variable argument list should contain the type of each argument
- * followed by the value to append. Appendable types are basic types,
- * and arrays of fixed-length basic types. To append variable-length
- * basic types, or any more complex value, you have to use an iterator
- * rather than this function.
- *
- * To append a basic type, specify its type code followed by the
- * address of the value. For example:
- *
- * @code
- *
- * dbus_int32_t v_INT32 = 42;
- * const char *v_STRING = "Hello World";
- * DBUS_TYPE_INT32, &v_INT32,
- * DBUS_TYPE_STRING, &v_STRING,
- * @endcode
- *
- * To append an array of fixed-length basic types, pass in the
- * DBUS_TYPE_ARRAY typecode, the element typecode, the address of
- * the array pointer, and a 32-bit integer giving the number of
- * elements in the array. So for example:
- * @code
- * const dbus_int32_t array[] = { 1, 2, 3 };
- * const dbus_int32_t *v_ARRAY = array;
- * DBUS_TYPE_ARRAY, DBUS_TYPE_INT32, &v_ARRAY, 3
- * @endcode
- *
- * @warning in C, given "int array[]", "&array == array" (the
- * comp.lang.c FAQ says otherwise, but gcc and the FAQ don't agree).
- * So if you're using an array instead of a pointer you have to create
- * a pointer variable, assign the array to it, then take the address
- * of the pointer variable. For strings it works to write
- * const char *array = "Hello" and then use &array though.
- *
- * The last argument to this function must be #DBUS_TYPE_INVALID,
- * marking the end of the argument list.
- *
- * String/signature/path arrays should be passed in as "const char***
- * address_of_array" and "int n_elements"
- *
- * @todo support DBUS_TYPE_STRUCT and DBUS_TYPE_VARIANT and complex arrays
- *
- * @todo If this fails due to lack of memory, the message is hosed and
- * you have to start over building the whole message.
- *
- * @param message the message
- * @param first_arg_type type of the first argument
- * @param ... value of first argument, list of additional type-value pairs
- * @returns #TRUE on success
- */
-dbus_bool_t
-dbus_message_append_args (DBusMessage *message,
-			  int          first_arg_type,
-			  ...)
-{
-  dbus_bool_t retval;
-  va_list var_args;
-
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-
-  va_start (var_args, first_arg_type);
-  retval = dbus_message_append_args_valist (message,
-					    first_arg_type,
-					    var_args);
-  va_end (var_args);
-
-  return retval;
-}
-
-/**
- * This function takes a va_list for use by language bindings.
- * It's otherwise the same as dbus_message_append_args().
- *
- * @todo for now, if this function fails due to OOM it will leave
- * the message half-written and you have to discard the message
- * and start over.
- *
- * @see dbus_message_append_args.
- * @param message the message
- * @param first_arg_type type of first argument
- * @param var_args value of first argument, then list of type/value pairs
- * @returns #TRUE on success
- */
-dbus_bool_t
-dbus_message_append_args_valist (DBusMessage *message,
-				 int          first_arg_type,
-				 va_list      var_args)
-{
-  int type;
-  DBusMessageIter iter;
-
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-
-  type = first_arg_type;
-
-  dbus_message_iter_init_append (message, &iter);
-
-  while (type != DBUS_TYPE_INVALID)
-    {
-      if (dbus_type_is_basic (type))
-        {
-          const DBusBasicValue *value;
-          value = va_arg (var_args, const DBusBasicValue*);
-
-          if (!dbus_message_iter_append_basic (&iter,
-                                               type,
-                                               value))
-            goto failed;
-        }
-      else if (type == DBUS_TYPE_ARRAY)
-        {
-          int element_type;
-          DBusMessageIter array;
-          char buf[2];
-
-          element_type = va_arg (var_args, int);
-              
-          buf[0] = element_type;
-          buf[1] = '\0';
-          if (!dbus_message_iter_open_container (&iter,
-                                                 DBUS_TYPE_ARRAY,
-                                                 buf,
-                                                 &array))
-            goto failed;
-          
-          if (dbus_type_is_fixed (element_type))
-            {
-              const DBusBasicValue **value;
-              int n_elements;
-
-              value = va_arg (var_args, const DBusBasicValue**);
-              n_elements = va_arg (var_args, int);
-              
-              if (!dbus_message_iter_append_fixed_array (&array,
-                                                         element_type,
-                                                         value,
-                                                         n_elements))
-                goto failed;
-            }
-          else if (element_type == DBUS_TYPE_STRING ||
-                   element_type == DBUS_TYPE_SIGNATURE ||
-                   element_type == DBUS_TYPE_OBJECT_PATH)
-            {
-              const char ***value_p;
-              const char **value;
-              int n_elements;
-              int i;
-              
-              value_p = va_arg (var_args, const char***);
-              n_elements = va_arg (var_args, int);
-
-              value = *value_p;
-              
-              i = 0;
-              while (i < n_elements)
-                {
-                  if (!dbus_message_iter_append_basic (&array,
-                                                       element_type,
-                                                       &value[i]))
-                    goto failed;
-                  ++i;
-                }
-            }
-          else
-            {
-              _dbus_warn ("arrays of %s can't be appended with %s for now\n",
-                          _dbus_type_to_string (element_type),
-                          _DBUS_FUNCTION_NAME);
-              goto failed;
-            }
-
-          if (!dbus_message_iter_close_container (&iter, &array))
-            goto failed;
-        }
-#ifndef DBUS_DISABLE_CHECKS
-      else
-        {
-          _dbus_warn ("type %s isn't supported yet in %s\n",
-                      _dbus_type_to_string (type), _DBUS_FUNCTION_NAME);
-          goto failed;
-        }
-#endif
-
-      type = va_arg (var_args, int);
-    }
-
-  return TRUE;
-
- failed:
-  return FALSE;
-}
-
-/**
- * Gets arguments from a message given a variable argument list.  The
- * supported types include those supported by
- * dbus_message_append_args(); that is, basic types and arrays of
- * fixed-length basic types.  The arguments are the same as they would
- * be for dbus_message_iter_get_basic() or
- * dbus_message_iter_get_fixed_array().
- *
- * In addition to those types, arrays of string, object path, and
- * signature are supported; but these are returned as allocated memory
- * and must be freed with dbus_free_string_array(), while the other
- * types are returned as const references. To get a string array
- * pass in "char ***array_location" and "int *n_elements"
- *
- * The variable argument list should contain the type of the argument
- * followed by a pointer to where the value should be stored. The list
- * is terminated with #DBUS_TYPE_INVALID.
- *
- * The returned values are constant; do not free them. They point
- * into the #DBusMessage.
- *
- * If the requested arguments are not present, or do not have the
- * requested types, then an error will be set.
- *
- * @todo support DBUS_TYPE_STRUCT and DBUS_TYPE_VARIANT and complex arrays
- *
- * @param message the message
- * @param error error to be filled in on failure
- * @param first_arg_type the first argument type
- * @param ... location for first argument value, then list of type-location pairs
- * @returns #FALSE if the error was set
- */
-dbus_bool_t
-dbus_message_get_args (DBusMessage     *message,
-                       DBusError       *error,
-		       int              first_arg_type,
-		       ...)
-{
-  dbus_bool_t retval;
-  va_list var_args;
-
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_error_is_set (error, FALSE);
-
-  va_start (var_args, first_arg_type);
-  retval = dbus_message_get_args_valist (message, error, first_arg_type, var_args);
-  va_end (var_args);
-
-  return retval;
-}
-
-/**
- * This function takes a va_list for use by language bindings. It is
- * otherwise the same as dbus_message_get_args().
- *
- * @see dbus_message_get_args
- * @param message the message
- * @param error error to be filled in
- * @param first_arg_type type of the first argument
- * @param var_args return location for first argument, followed by list of type/location pairs
- * @returns #FALSE if error was set
- */
-dbus_bool_t
-dbus_message_get_args_valist (DBusMessage     *message,
-                              DBusError       *error,
-			      int              first_arg_type,
-			      va_list          var_args)
-{
-  DBusMessageIter iter;
-
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_error_is_set (error, FALSE);
-
-  dbus_message_iter_init (message, &iter);
-  return _dbus_message_iter_get_args_valist (&iter, error, first_arg_type, var_args);
-}
-
-static void
-_dbus_message_iter_init_common (DBusMessage         *message,
-                                DBusMessageRealIter *real,
-                                int                  iter_type)
-{
-  _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
-
-  /* Since the iterator will read or write who-knows-what from the
-   * message, we need to get in the right byte order
-   */
-  ensure_byte_order (message);
-  
-  real->message = message;
-  real->changed_stamp = message->changed_stamp;
-  real->iter_type = iter_type;
-  real->sig_refcount = 0;
-}
-
-/**
- * Initializes a #DBusMessageIter for reading the arguments of the
- * message passed in.
- *
- * @param message the message
- * @param iter pointer to an iterator to initialize
- * @returns #FALSE if the message has no arguments
- */
-dbus_bool_t
-dbus_message_iter_init (DBusMessage     *message,
-			DBusMessageIter *iter)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-  const DBusString *type_str;
-  int type_pos;
-
-  _dbus_return_val_if_fail (message != NULL, FALSE);
-  _dbus_return_val_if_fail (iter != NULL, FALSE);
-
-  get_const_signature (&message->header, &type_str, &type_pos);
-
-  _dbus_message_iter_init_common (message, real,
-                                  DBUS_MESSAGE_ITER_TYPE_READER);
-
-  _dbus_type_reader_init (&real->u.reader,
-                          message->byte_order,
-                          type_str, type_pos,
-                          &message->body,
-                          0);
-
-  return _dbus_type_reader_get_current_type (&real->u.reader) != DBUS_TYPE_INVALID;
-}
-
-#ifndef DBUS_DISABLE_CHECKS
-static dbus_bool_t
-_dbus_message_iter_check (DBusMessageRealIter *iter)
-{
-  if (iter == NULL)
-    {
-      _dbus_warn ("dbus message iterator is NULL\n");
-      return FALSE;
-    }
-
-  if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_READER)
-    {
-      if (iter->u.reader.byte_order != iter->message->byte_order)
-        {
-          _dbus_warn ("dbus message changed byte order since iterator was created\n");
-          return FALSE;
-        }
-      /* because we swap the message into compiler order when you init an iter */
-      _dbus_assert (iter->u.reader.byte_order == DBUS_COMPILER_BYTE_ORDER);
-    }
-  else if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER)
-    {
-      if (iter->u.writer.byte_order != iter->message->byte_order)
-        {
-          _dbus_warn ("dbus message changed byte order since append iterator was created\n");
-          return FALSE;
-        }
-      /* because we swap the message into compiler order when you init an iter */
-      _dbus_assert (iter->u.writer.byte_order == DBUS_COMPILER_BYTE_ORDER);
-    }
-  else
-    {
-      _dbus_warn ("dbus message iterator looks uninitialized or corrupted\n");
-      return FALSE;
-    }
-
-  if (iter->changed_stamp != iter->message->changed_stamp)
-    {
-      _dbus_warn ("dbus message iterator invalid because the message has been modified (or perhaps the iterator is just uninitialized)\n");
-      return FALSE;
-    }
-
-  return TRUE;
-}
-#endif /* DBUS_DISABLE_CHECKS */
-
-/**
- * Checks if an iterator has any more fields.
- *
- * @param iter the message iter
- * @returns #TRUE if there are more fields
- * following
- */
-dbus_bool_t
-dbus_message_iter_has_next (DBusMessageIter *iter)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-
-  _dbus_return_val_if_fail (_dbus_message_iter_check (real), FALSE);
-  _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, FALSE);
-
-  return _dbus_type_reader_has_next (&real->u.reader);
-}
-
-/**
- * Moves the iterator to the next field, if any. If there's no next
- * field, returns #FALSE. If the iterator moves forward, returns
- * #TRUE.
- *
- * @param iter the message iter
- * @returns #TRUE if the iterator was moved to the next field
- */
-dbus_bool_t
-dbus_message_iter_next (DBusMessageIter *iter)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-
-  _dbus_return_val_if_fail (_dbus_message_iter_check (real), FALSE);
-  _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, FALSE);
-
-  return _dbus_type_reader_next (&real->u.reader);
-}
-
-/**
- * Returns the argument type of the argument that the message iterator
- * points to. If the iterator is at the end of the message, returns
- * #DBUS_TYPE_INVALID. You can thus write a loop as follows:
- *
- * @code
- * dbus_message_iter_init (&iter);
- * while ((current_type = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
- *   dbus_message_iter_next (&iter);
- * @endcode
- *
- * @param iter the message iter
- * @returns the argument type
- */
-int
-dbus_message_iter_get_arg_type (DBusMessageIter *iter)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-
-  _dbus_return_val_if_fail (_dbus_message_iter_check (real), DBUS_TYPE_INVALID);
-  _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, FALSE);
-
-  return _dbus_type_reader_get_current_type (&real->u.reader);
-}
-
-/**
- * Returns the element type of the array that the message iterator
- * points to. Note that you need to check that the iterator points to
- * an array prior to using this function.
- *
- * @param iter the message iter
- * @returns the array element type
- */
-int
-dbus_message_iter_get_element_type (DBusMessageIter *iter)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-
-  _dbus_return_val_if_fail (_dbus_message_iter_check (real), DBUS_TYPE_INVALID);
-  _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, DBUS_TYPE_INVALID);
-  _dbus_return_val_if_fail (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_ARRAY, DBUS_TYPE_INVALID);
-
-  return _dbus_type_reader_get_element_type (&real->u.reader);
-}
-
-/**
- * Recurses into a container value when reading values from a message,
- * initializing a sub-iterator to use for traversing the child values
- * of the container.
- *
- * Note that this recurses into a value, not a type, so you can only
- * recurse if the value exists. The main implication of this is that
- * if you have for example an empty array of array of int32, you can
- * recurse into the outermost array, but it will have no values, so
- * you won't be able to recurse further. There's no array of int32 to
- * recurse into.
- *
- * @param iter the message iterator
- * @param sub the sub-iterator to initialize
- */
-void
-dbus_message_iter_recurse (DBusMessageIter  *iter,
-                           DBusMessageIter  *sub)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-  DBusMessageRealIter *real_sub = (DBusMessageRealIter *)sub;
-
-  _dbus_return_if_fail (_dbus_message_iter_check (real));
-  _dbus_return_if_fail (sub != NULL);
-
-  *real_sub = *real;
-  _dbus_type_reader_recurse (&real->u.reader, &real_sub->u.reader);
-}
-
-/**
- * Returns the current signature of a message iterator.  This
- * is useful primarily for dealing with variants; one can
- * recurse into a variant and determine the signature of
- * the variant's value.
- *
- * @param iter the message iterator
- * @returns the contained signature, or NULL if out of memory
- */
-char *
-dbus_message_iter_get_signature (DBusMessageIter *iter)
-{
-  const DBusString *sig;
-  DBusString retstr;
-  char *ret;
-  int start, len;
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-
-  _dbus_return_val_if_fail (_dbus_message_iter_check (real), NULL);
-
-  if (!_dbus_string_init (&retstr))
-    return NULL;
-
-  _dbus_type_reader_get_signature (&real->u.reader, &sig,
-				   &start, &len);
-  if (!_dbus_string_append_len (&retstr,
-				_dbus_string_get_const_data (sig) + start,
-				len))
-    return NULL;
-  if (!_dbus_string_steal_data (&retstr, &ret))
-    return NULL;
-  _dbus_string_free (&retstr);
-  return ret;
-}
-
-/**
- * Reads a basic-typed value from the message iterator.
- * Basic types are the non-containers such as integer and string.
- *
- * The value argument should be the address of a location to store
- * the returned value. So for int32 it should be a "dbus_int32_t*"
- * and for string a "const char**". The returned value is
- * by reference and should not be freed.
- *
- * All returned values are guaranteed to fit in 8 bytes. So you can
- * write code like this:
- *
- * @code
- * #ifdef DBUS_HAVE_INT64
- * dbus_uint64_t value;
- * int type;
- * dbus_message_iter_get_basic (&read_iter, &value);
- * type = dbus_message_iter_get_arg_type (&read_iter);
- * dbus_message_iter_append_basic (&write_iter, type, &value);
- * #endif
- * @endcode
- *
- * To avoid the #DBUS_HAVE_INT64 conditional, create a struct or
- * something that occupies at least 8 bytes, e.g. you could use a
- * struct with two int32 values in it. dbus_uint64_t is just one
- * example of a type that's large enough to hold any possible value.
- *
- * Be sure you have somehow checked that
- * dbus_message_iter_get_arg_type() matches the type you are
- * expecting, or you'll crash when you try to use an integer as a
- * string or something.
- *
- * @param iter the iterator
- * @param value location to store the value
- */
-void
-dbus_message_iter_get_basic (DBusMessageIter  *iter,
-                             void             *value)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-
-  _dbus_return_if_fail (_dbus_message_iter_check (real));
-  _dbus_return_if_fail (value != NULL);
-
-  _dbus_type_reader_read_basic (&real->u.reader,
-                                value);
-}
-
-/**
- * Returns the number of elements in the array;
- *
- * @param iter the iterator
- * @returns the number of elements in the array
- */
-int
-dbus_message_iter_get_array_len (DBusMessageIter *iter)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-
-  _dbus_return_val_if_fail (_dbus_message_iter_check (real), 0);
-
-  return _dbus_type_reader_get_array_length (&real->u.reader);
-}
-
-/**
- * Reads a block of fixed-length values from the message iterator.
- * Fixed-length values are those basic types that are not string-like,
- * such as integers, bool, double. The block read will be from the
- * current position in the array until the end of the array.
- *
- * This function should only be used if #dbus_type_is_fixed returns
- * #TRUE for the element type.
- *
- * The value argument should be the address of a location to store the
- * returned array. So for int32 it should be a "const dbus_int32_t**"
- * The returned value is by reference and should not be freed.
- *
- * @param iter the iterator
- * @param value location to store the block
- * @param n_elements number of elements in the block
- */
-void
-dbus_message_iter_get_fixed_array (DBusMessageIter  *iter,
-                                   void             *value,
-                                   int              *n_elements)
-{
-  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
-  int subtype = _dbus_type_reader_get_current_type(&real->u.reader);
-
-  _dbus_return_if_fail (_dbus_message_iter_check (real));
-  _dbus_return_if_fail (value != NULL);
-  _dbus_return_if_fail ((subtype == DBUS_TYPE_INVALID) ||
-                         dbus_type_is_fixed (subtype));
-
-  _dbus_type_reader_read_fixed_multi (&real->u.reader,
-                                      value, n_elements);
-}
-
-/**
- * This function takes a va_list for use by language bindings and is
- * otherwise the same as dbus_message_iter_get_args().
+ * Implementation of the varargs arg-getting functions.
  * dbus_message_get_args() is the place to go for complete
  * documentation.
  *
@@ -1943,13 +768,1268 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
   return retval;
 }
 
+/** @} */
+
+/**
+ * @defgroup DBusMessage DBusMessage
+ * @ingroup  DBus
+ * @brief Message to be sent or received over a #DBusConnection.
+ *
+ * A DBusMessage is the most basic unit of communication over a
+ * DBusConnection. A DBusConnection represents a stream of messages
+ * received from a remote application, and a stream of messages
+ * sent to a remote application.
+ *
+ * A message has a message type, returned from
+ * dbus_message_get_type().  This indicates whether the message is a
+ * method call, a reply to a method call, a signal, or an error reply.
+ *
+ * A message has header fields such as the sender, destination, method
+ * or signal name, and so forth. DBusMessage has accessor functions for
+ * these, such as dbus_message_get_member().
+ *
+ * Convenience functions dbus_message_is_method_call(), dbus_message_is_signal(),
+ * and dbus_message_is_error() check several header fields at once and are
+ * slightly more efficient than checking the header fields with individual
+ * accessor functions.
+ *
+ * Finally, a message has arguments. The number and types of arguments
+ * are in the message's signature header field (accessed with
+ * dbus_message_get_signature()).  Simple argument values are usually
+ * retrieved with dbus_message_get_args() but more complex values such
+ * as structs may require the use of #DBusMessageIter.
+ *
+ * The D-Bus specification goes into some more detail about header fields and
+ * message types.
+ * 
+ * @{
+ */
+
+/**
+ * @typedef DBusMessage
+ *
+ * Opaque data type representing a message received from or to be
+ * sent to another application.
+ */
+
+/**
+ * Returns the serial of a message or 0 if none has been specified.
+ * The message's serial number is provided by the application sending
+ * the message and is used to identify replies to this message.
+ *
+ * All messages received on a connection will have a serial provided
+ * by the remote application.
+ *
+ * For messages you're sending, dbus_connection_send() will assign a
+ * serial and return it to you.
+ *
+ * @param message the message
+ * @returns the serial
+ */
+dbus_uint32_t
+dbus_message_get_serial (DBusMessage *message)
+{
+  _dbus_return_val_if_fail (message != NULL, 0);
+
+  return _dbus_header_get_serial (&message->header);
+}
+
+/**
+ * Sets the reply serial of a message (the serial of the message this
+ * is a reply to).
+ *
+ * @param message the message
+ * @param reply_serial the serial we're replying to
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_message_set_reply_serial (DBusMessage   *message,
+                               dbus_uint32_t  reply_serial)
+{
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (!message->locked, FALSE);
+  _dbus_return_val_if_fail (reply_serial != 0, FALSE); /* 0 is invalid */
+
+  return _dbus_header_set_field_basic (&message->header,
+                                       DBUS_HEADER_FIELD_REPLY_SERIAL,
+                                       DBUS_TYPE_UINT32,
+                                       &reply_serial);
+}
+
+/**
+ * Returns the serial that the message is a reply to or 0 if none.
+ *
+ * @param message the message
+ * @returns the reply serial
+ */
+dbus_uint32_t
+dbus_message_get_reply_serial  (DBusMessage *message)
+{
+  dbus_uint32_t v_UINT32;
+
+  _dbus_return_val_if_fail (message != NULL, 0);
+
+  if (_dbus_header_get_field_basic (&message->header,
+                                    DBUS_HEADER_FIELD_REPLY_SERIAL,
+                                    DBUS_TYPE_UINT32,
+                                    &v_UINT32))
+    return v_UINT32;
+  else
+    return 0;
+}
+
+static void
+dbus_message_finalize (DBusMessage *message)
+{
+  _dbus_assert (message->refcount.value == 0);
+
+  /* This calls application callbacks! */
+  _dbus_data_slot_list_free (&message->slot_list);
+
+  _dbus_list_foreach (&message->size_counters,
+                      free_size_counter, message);
+  _dbus_list_clear (&message->size_counters);
+
+  _dbus_header_free (&message->header);
+  _dbus_string_free (&message->body);
+
+  _dbus_assert (message->refcount.value == 0);
+  
+  dbus_free (message);
+}
+
+static DBusMessage*
+dbus_message_new_empty_header (void)
+{
+  DBusMessage *message;
+  dbus_bool_t from_cache;
+
+  message = dbus_message_get_cached ();
+
+  if (message != NULL)
+    {
+      from_cache = TRUE;
+    }
+  else
+    {
+      from_cache = FALSE;
+      message = dbus_new (DBusMessage, 1);
+      if (message == NULL)
+        return NULL;
+#ifndef DBUS_DISABLE_CHECKS
+      message->generation = _dbus_current_generation;
+#endif
+    }
+  
+  message->refcount.value = 1;
+  message->byte_order = DBUS_COMPILER_BYTE_ORDER;
+  message->locked = FALSE;
+#ifndef DBUS_DISABLE_CHECKS
+  message->in_cache = FALSE;
+#endif
+  message->size_counters = NULL;
+  message->size_counter_delta = 0;
+  message->changed_stamp = 0;
+
+  if (!from_cache)
+    _dbus_data_slot_list_init (&message->slot_list);
+
+  if (from_cache)
+    {
+      _dbus_header_reinit (&message->header, message->byte_order);
+      _dbus_string_set_length (&message->body, 0);
+    }
+  else
+    {
+      if (!_dbus_header_init (&message->header, message->byte_order))
+        {
+          dbus_free (message);
+          return NULL;
+        }
+
+      if (!_dbus_string_init_preallocated (&message->body, 32))
+        {
+          _dbus_header_free (&message->header);
+          dbus_free (message);
+          return NULL;
+        }
+    }
+
+  return message;
+}
+
+/**
+ * Constructs a new message of the given message type.
+ * Types include #DBUS_MESSAGE_TYPE_METHOD_CALL,
+ * #DBUS_MESSAGE_TYPE_SIGNAL, and so forth.
+ *
+ * Usually you want to use dbus_message_new_method_call(),
+ * dbus_message_new_method_return(), dbus_message_new_signal(),
+ * or dbus_message_new_error() instead.
+ * 
+ * @param message_type type of message
+ * @returns new message or #NULL if no memory
+ */
+DBusMessage*
+dbus_message_new (int message_type)
+{
+  DBusMessage *message;
+
+  _dbus_return_val_if_fail (message_type != DBUS_MESSAGE_TYPE_INVALID, NULL);
+
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+
+  if (!_dbus_header_create (&message->header,
+                            message_type,
+                            NULL, NULL, NULL, NULL, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  return message;
+}
+
+/**
+ * Constructs a new message to invoke a method on a remote
+ * object. Returns #NULL if memory can't be allocated for the
+ * message. The destination may be #NULL in which case no destination
+ * is set; this is appropriate when using D-Bus in a peer-to-peer
+ * context (no message bus). The interface may be #NULL, which means
+ * that if multiple methods with the given name exist it is undefined
+ * which one will be invoked.
+ *
+ * The path and method names may not be #NULL.
+ *
+ * Destination, path, interface, and method name can't contain
+ * any invalid characters (see the D-Bus specification).
+ * 
+ * @param destination name that the message should be sent to or #NULL
+ * @param path object path the message should be sent to
+ * @param interface interface to invoke method on, or #NULL
+ * @param method method to invoke
+ *
+ * @returns a new DBusMessage, free with dbus_message_unref()
+ */
+DBusMessage*
+dbus_message_new_method_call (const char *destination,
+                              const char *path,
+                              const char *interface,
+                              const char *method)
+{
+  DBusMessage *message;
+
+  _dbus_return_val_if_fail (path != NULL, NULL);
+  _dbus_return_val_if_fail (method != NULL, NULL);
+  _dbus_return_val_if_fail (destination == NULL ||
+                            _dbus_check_is_valid_bus_name (destination), NULL);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_path (path), NULL);
+  _dbus_return_val_if_fail (interface == NULL ||
+                            _dbus_check_is_valid_interface (interface), NULL);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_member (method), NULL);
+
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+
+  if (!_dbus_header_create (&message->header,
+                            DBUS_MESSAGE_TYPE_METHOD_CALL,
+                            destination, path, interface, method, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  return message;
+}
+
+/**
+ * Constructs a message that is a reply to a method call. Returns
+ * #NULL if memory can't be allocated for the message.
+ *
+ * @param method_call the message being replied to
+ * @returns a new DBusMessage, free with dbus_message_unref()
+ */
+DBusMessage*
+dbus_message_new_method_return (DBusMessage *method_call)
+{
+  DBusMessage *message;
+  const char *sender;
+
+  _dbus_return_val_if_fail (method_call != NULL, NULL);
+
+  sender = dbus_message_get_sender (method_call);
+
+  /* sender is allowed to be null here in peer-to-peer case */
+
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+
+  if (!_dbus_header_create (&message->header,
+                            DBUS_MESSAGE_TYPE_METHOD_RETURN,
+                            sender, NULL, NULL, NULL, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  dbus_message_set_no_reply (message, TRUE);
+
+  if (!dbus_message_set_reply_serial (message,
+                                      dbus_message_get_serial (method_call)))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  return message;
+}
+
+/**
+ * Constructs a new message representing a signal emission. Returns
+ * #NULL if memory can't be allocated for the message.  A signal is
+ * identified by its originating object path, interface, and the name
+ * of the signal.
+ *
+ * Path, interface, and signal name must all be valid (the D-Bus
+ * specification defines the syntax of these fields).
+ * 
+ * @param path the path to the object emitting the signal
+ * @param interface the interface the signal is emitted from
+ * @param name name of the signal
+ * @returns a new DBusMessage, free with dbus_message_unref()
+ */
+DBusMessage*
+dbus_message_new_signal (const char *path,
+                         const char *interface,
+                         const char *name)
+{
+  DBusMessage *message;
+
+  _dbus_return_val_if_fail (path != NULL, NULL);
+  _dbus_return_val_if_fail (interface != NULL, NULL);
+  _dbus_return_val_if_fail (name != NULL, NULL);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_path (path), NULL);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_interface (interface), NULL);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_member (name), NULL);
+
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+
+  if (!_dbus_header_create (&message->header,
+                            DBUS_MESSAGE_TYPE_SIGNAL,
+                            NULL, path, interface, name, NULL))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  dbus_message_set_no_reply (message, TRUE);
+
+  return message;
+}
+
+/**
+ * Creates a new message that is an error reply to another message.
+ * Error replies are most common in response to method calls, but
+ * can be returned in reply to any message.
+ *
+ * The error name must be a valid error name according to the syntax
+ * given in the D-Bus specification. If you don't want to make
+ * up an error name just use #DBUS_ERROR_FAILED.
+ *
+ * @param reply_to the message we're replying to
+ * @param error_name the error name
+ * @param error_message the error message string (or #NULL for none, but please give a message)
+ * @returns a new error message object, free with dbus_message_unref()
+ */
+DBusMessage*
+dbus_message_new_error (DBusMessage *reply_to,
+                        const char  *error_name,
+                        const char  *error_message)
+{
+  DBusMessage *message;
+  const char *sender;
+  DBusMessageIter iter;
+
+  _dbus_return_val_if_fail (reply_to != NULL, NULL);
+  _dbus_return_val_if_fail (error_name != NULL, NULL);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_error_name (error_name), NULL);
+
+  sender = dbus_message_get_sender (reply_to);
+
+  /* sender may be NULL for non-message-bus case or
+   * when the message bus is dealing with an unregistered
+   * connection.
+   */
+  message = dbus_message_new_empty_header ();
+  if (message == NULL)
+    return NULL;
+
+  if (!_dbus_header_create (&message->header,
+                            DBUS_MESSAGE_TYPE_ERROR,
+                            sender, NULL, NULL, NULL, error_name))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  dbus_message_set_no_reply (message, TRUE);
+
+  if (!dbus_message_set_reply_serial (message,
+                                      dbus_message_get_serial (reply_to)))
+    {
+      dbus_message_unref (message);
+      return NULL;
+    }
+
+  if (error_message != NULL)
+    {
+      dbus_message_iter_init_append (message, &iter);
+      if (!dbus_message_iter_append_basic (&iter,
+                                           DBUS_TYPE_STRING,
+                                           &error_message))
+        {
+          dbus_message_unref (message);
+          return NULL;
+        }
+    }
+
+  return message;
+}
+
+/**
+ * Creates a new message that is an error reply to another message, allowing
+ * you to use printf formatting.
+ *
+ * See dbus_message_new_error() for details - this function is the same
+ * aside from the printf formatting.
+ *
+ * @param reply_to the original message
+ * @param error_name the error name
+ * @param error_format the error message format as with printf
+ * @param ... format string arguments
+ * @returns a new error message
+ */
+DBusMessage*
+dbus_message_new_error_printf (DBusMessage *reply_to,
+			       const char  *error_name,
+			       const char  *error_format,
+			       ...)
+{
+  va_list args;
+  DBusString str;
+  DBusMessage *message;
+
+  _dbus_return_val_if_fail (reply_to != NULL, NULL);
+  _dbus_return_val_if_fail (error_name != NULL, NULL);
+  _dbus_return_val_if_fail (_dbus_check_is_valid_error_name (error_name), NULL);
+
+  if (!_dbus_string_init (&str))
+    return NULL;
+
+  va_start (args, error_format);
+
+  if (_dbus_string_append_printf_valist (&str, error_format, args))
+    message = dbus_message_new_error (reply_to, error_name,
+				      _dbus_string_get_const_data (&str));
+  else
+    message = NULL;
+
+  _dbus_string_free (&str);
+
+  va_end (args);
+
+  return message;
+}
+
+
+/**
+ * Creates a new message that is an exact replica of the message
+ * specified, except that its refcount is set to 1, its message serial
+ * is reset to 0, and if the original message was "locked" (in the
+ * outgoing message queue and thus not modifiable) the new message
+ * will not be locked.
+ *
+ * @param message the message
+ * @returns the new message.or #NULL if not enough memory
+ */
+DBusMessage *
+dbus_message_copy (const DBusMessage *message)
+{
+  DBusMessage *retval;
+
+  _dbus_return_val_if_fail (message != NULL, NULL);
+
+  retval = dbus_new0 (DBusMessage, 1);
+  if (retval == NULL)
+    return NULL;
+
+  retval->refcount.value = 1;
+  retval->byte_order = message->byte_order;
+  retval->locked = FALSE;
+#ifndef DBUS_DISABLE_CHECKS
+  retval->generation = message->generation;
+#endif
+
+  if (!_dbus_header_copy (&message->header, &retval->header))
+    {
+      dbus_free (retval);
+      return NULL;
+    }
+
+  if (!_dbus_string_init_preallocated (&retval->body,
+                                       _dbus_string_get_length (&message->body)))
+    {
+      _dbus_header_free (&retval->header);
+      dbus_free (retval);
+      return NULL;
+    }
+
+  if (!_dbus_string_copy (&message->body, 0,
+			  &retval->body, 0))
+    goto failed_copy;
+
+  return retval;
+
+ failed_copy:
+  _dbus_header_free (&retval->header);
+  _dbus_string_free (&retval->body);
+  dbus_free (retval);
+
+  return NULL;
+}
+
+
+/**
+ * Increments the reference count of a DBusMessage.
+ *
+ * @param message the message
+ * @returns the message
+ * @see dbus_message_unref
+ */
+DBusMessage *
+dbus_message_ref (DBusMessage *message)
+{
+  dbus_int32_t old_refcount;
+
+  _dbus_return_val_if_fail (message != NULL, NULL);
+  _dbus_return_val_if_fail (message->generation == _dbus_current_generation, NULL);
+  _dbus_return_val_if_fail (!message->in_cache, NULL);
+  
+  old_refcount = _dbus_atomic_inc (&message->refcount);
+  _dbus_assert (old_refcount >= 1);
+
+  return message;
+}
+
+/**
+ * Decrements the reference count of a DBusMessage, freeing the
+ * message if the count reaches 0.
+ *
+ * @param message the message
+ * @see dbus_message_ref
+ */
+void
+dbus_message_unref (DBusMessage *message)
+{
+ dbus_int32_t old_refcount;
+
+  _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (message->generation == _dbus_current_generation);
+  _dbus_return_if_fail (!message->in_cache);
+
+  old_refcount = _dbus_atomic_dec (&message->refcount);
+
+  _dbus_assert (old_refcount >= 0);
+
+  if (old_refcount == 1)
+    {
+      /* Calls application callbacks! */
+      dbus_message_cache_or_finalize (message);
+    }
+}
+
+/**
+ * Gets the type of a message. Types include
+ * #DBUS_MESSAGE_TYPE_METHOD_CALL, #DBUS_MESSAGE_TYPE_METHOD_RETURN,
+ * #DBUS_MESSAGE_TYPE_ERROR, #DBUS_MESSAGE_TYPE_SIGNAL, but other
+ * types are allowed and all code must silently ignore messages of
+ * unknown type. #DBUS_MESSAGE_TYPE_INVALID will never be returned.
+ *
+ * @param message the message
+ * @returns the type of the message
+ */
+int
+dbus_message_get_type (DBusMessage *message)
+{
+  _dbus_return_val_if_fail (message != NULL, DBUS_MESSAGE_TYPE_INVALID);
+
+  return _dbus_header_get_message_type (&message->header);
+}
+
+/**
+ * Appends fields to a message given a variable argument list. The
+ * variable argument list should contain the type of each argument
+ * followed by the value to append. Appendable types are basic types,
+ * and arrays of fixed-length basic types. To append variable-length
+ * basic types, or any more complex value, you have to use an iterator
+ * rather than this function.
+ *
+ * To append a basic type, specify its type code followed by the
+ * address of the value. For example:
+ *
+ * @code
+ *
+ * dbus_int32_t v_INT32 = 42;
+ * const char *v_STRING = "Hello World";
+ * dbus_message_append_args (message,
+ *                           DBUS_TYPE_INT32, &v_INT32,
+ *                           DBUS_TYPE_STRING, &v_STRING,
+ *                           DBUS_TYPE_INVALID);
+ * @endcode
+ *
+ * To append an array of fixed-length basic types, pass in the
+ * DBUS_TYPE_ARRAY typecode, the element typecode, the address of
+ * the array pointer, and a 32-bit integer giving the number of
+ * elements in the array. So for example:
+ * @code
+ * const dbus_int32_t array[] = { 1, 2, 3 };
+ * const dbus_int32_t *v_ARRAY = array;
+ * dbus_message_append_args (message,
+ *                           DBUS_TYPE_ARRAY, DBUS_TYPE_INT32, &v_ARRAY, 3,
+ *                           DBUS_TYPE_INVALID);
+ * @endcode
+ *
+ * @warning in C, given "int array[]", "&array == array" (the
+ * comp.lang.c FAQ says otherwise, but gcc and the FAQ don't agree).
+ * So if you're using an array instead of a pointer you have to create
+ * a pointer variable, assign the array to it, then take the address
+ * of the pointer variable. For strings it works to write
+ * const char *array = "Hello" and then use &array though.
+ *
+ * The last argument to this function must be #DBUS_TYPE_INVALID,
+ * marking the end of the argument list. If you don't do this
+ * then libdbus won't know to stop and will read invalid memory.
+ *
+ * String/signature/path arrays should be passed in as "const char***
+ * address_of_array" and "int n_elements"
+ *
+ * @todo support DBUS_TYPE_STRUCT and DBUS_TYPE_VARIANT and complex arrays
+ *
+ * @todo If this fails due to lack of memory, the message is hosed and
+ * you have to start over building the whole message.
+ *
+ * @param message the message
+ * @param first_arg_type type of the first argument
+ * @param ... value of first argument, list of additional type-value pairs
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_args (DBusMessage *message,
+			  int          first_arg_type,
+			  ...)
+{
+  dbus_bool_t retval;
+  va_list var_args;
+
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+
+  va_start (var_args, first_arg_type);
+  retval = dbus_message_append_args_valist (message,
+					    first_arg_type,
+					    var_args);
+  va_end (var_args);
+
+  return retval;
+}
+
+/**
+ * Like dbus_message_append_args() but takes a va_list for use by language bindings.
+ *
+ * @todo for now, if this function fails due to OOM it will leave
+ * the message half-written and you have to discard the message
+ * and start over.
+ *
+ * @see dbus_message_append_args.
+ * @param message the message
+ * @param first_arg_type type of first argument
+ * @param var_args value of first argument, then list of type/value pairs
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+dbus_message_append_args_valist (DBusMessage *message,
+				 int          first_arg_type,
+				 va_list      var_args)
+{
+  int type;
+  DBusMessageIter iter;
+
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+
+  type = first_arg_type;
+
+  dbus_message_iter_init_append (message, &iter);
+
+  while (type != DBUS_TYPE_INVALID)
+    {
+      if (dbus_type_is_basic (type))
+        {
+          const DBusBasicValue *value;
+          value = va_arg (var_args, const DBusBasicValue*);
+
+          if (!dbus_message_iter_append_basic (&iter,
+                                               type,
+                                               value))
+            goto failed;
+        }
+      else if (type == DBUS_TYPE_ARRAY)
+        {
+          int element_type;
+          DBusMessageIter array;
+          char buf[2];
+
+          element_type = va_arg (var_args, int);
+              
+          buf[0] = element_type;
+          buf[1] = '\0';
+          if (!dbus_message_iter_open_container (&iter,
+                                                 DBUS_TYPE_ARRAY,
+                                                 buf,
+                                                 &array))
+            goto failed;
+          
+          if (dbus_type_is_fixed (element_type))
+            {
+              const DBusBasicValue **value;
+              int n_elements;
+
+              value = va_arg (var_args, const DBusBasicValue**);
+              n_elements = va_arg (var_args, int);
+              
+              if (!dbus_message_iter_append_fixed_array (&array,
+                                                         element_type,
+                                                         value,
+                                                         n_elements))
+                goto failed;
+            }
+          else if (element_type == DBUS_TYPE_STRING ||
+                   element_type == DBUS_TYPE_SIGNATURE ||
+                   element_type == DBUS_TYPE_OBJECT_PATH)
+            {
+              const char ***value_p;
+              const char **value;
+              int n_elements;
+              int i;
+              
+              value_p = va_arg (var_args, const char***);
+              n_elements = va_arg (var_args, int);
+
+              value = *value_p;
+              
+              i = 0;
+              while (i < n_elements)
+                {
+                  if (!dbus_message_iter_append_basic (&array,
+                                                       element_type,
+                                                       &value[i]))
+                    goto failed;
+                  ++i;
+                }
+            }
+          else
+            {
+              _dbus_warn ("arrays of %s can't be appended with %s for now\n",
+                          _dbus_type_to_string (element_type),
+                          _DBUS_FUNCTION_NAME);
+              goto failed;
+            }
+
+          if (!dbus_message_iter_close_container (&iter, &array))
+            goto failed;
+        }
+#ifndef DBUS_DISABLE_CHECKS
+      else
+        {
+          _dbus_warn ("type %s isn't supported yet in %s\n",
+                      _dbus_type_to_string (type), _DBUS_FUNCTION_NAME);
+          goto failed;
+        }
+#endif
+
+      type = va_arg (var_args, int);
+    }
+
+  return TRUE;
+
+ failed:
+  return FALSE;
+}
+
+/**
+ * Gets arguments from a message given a variable argument list.  The
+ * supported types include those supported by
+ * dbus_message_append_args(); that is, basic types and arrays of
+ * fixed-length basic types.  The arguments are the same as they would
+ * be for dbus_message_iter_get_basic() or
+ * dbus_message_iter_get_fixed_array().
+ *
+ * In addition to those types, arrays of string, object path, and
+ * signature are supported; but these are returned as allocated memory
+ * and must be freed with dbus_free_string_array(), while the other
+ * types are returned as const references. To get a string array
+ * pass in "char ***array_location" and "int *n_elements"
+ *
+ * The variable argument list should contain the type of the argument
+ * followed by a pointer to where the value should be stored. The list
+ * is terminated with #DBUS_TYPE_INVALID.
+ *
+ * Except for string arrays, the returned values are constant; do not
+ * free them. They point into the #DBusMessage.
+ *
+ * If the requested arguments are not present, or do not have the
+ * requested types, then an error will be set.
+ *
+ * If more arguments than requested are present, the requested
+ * arguments are returned and the extra arguments are ignored.
+ * 
+ * @todo support DBUS_TYPE_STRUCT and DBUS_TYPE_VARIANT and complex arrays
+ *
+ * @param message the message
+ * @param error error to be filled in on failure
+ * @param first_arg_type the first argument type
+ * @param ... location for first argument value, then list of type-location pairs
+ * @returns #FALSE if the error was set
+ */
+dbus_bool_t
+dbus_message_get_args (DBusMessage     *message,
+                       DBusError       *error,
+		       int              first_arg_type,
+		       ...)
+{
+  dbus_bool_t retval;
+  va_list var_args;
+
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
+
+  va_start (var_args, first_arg_type);
+  retval = dbus_message_get_args_valist (message, error, first_arg_type, var_args);
+  va_end (var_args);
+
+  return retval;
+}
+
+/**
+ * Like dbus_message_get_args but takes a va_list for use by language bindings.
+ *
+ * @see dbus_message_get_args
+ * @param message the message
+ * @param error error to be filled in
+ * @param first_arg_type type of the first argument
+ * @param var_args return location for first argument, followed by list of type/location pairs
+ * @returns #FALSE if error was set
+ */
+dbus_bool_t
+dbus_message_get_args_valist (DBusMessage     *message,
+                              DBusError       *error,
+			      int              first_arg_type,
+			      va_list          var_args)
+{
+  DBusMessageIter iter;
+
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_error_is_set (error, FALSE);
+
+  dbus_message_iter_init (message, &iter);
+  return _dbus_message_iter_get_args_valist (&iter, error, first_arg_type, var_args);
+}
+
+static void
+_dbus_message_iter_init_common (DBusMessage         *message,
+                                DBusMessageRealIter *real,
+                                int                  iter_type)
+{
+  _dbus_assert (sizeof (DBusMessageRealIter) <= sizeof (DBusMessageIter));
+
+  /* Since the iterator will read or write who-knows-what from the
+   * message, we need to get in the right byte order
+   */
+  ensure_byte_order (message);
+  
+  real->message = message;
+  real->changed_stamp = message->changed_stamp;
+  real->iter_type = iter_type;
+  real->sig_refcount = 0;
+}
+
+/**
+ * Initializes a #DBusMessageIter for reading the arguments of the
+ * message passed in.
+ *
+ * When possible, dbus_message_get_args() is much more convenient.
+ * Some types of argument can only be read with #DBusMessageIter
+ * however.
+ *
+ * The easiest way to iterate is like this: 
+ * @code
+ * dbus_message_iter_init (&iter);
+ * while ((current_type = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
+ *   dbus_message_iter_next (&iter);
+ * @endcode
+ *
+ * #DBusMessageIter contains no allocated memory; it need not be
+ * freed, and can be copied by assignment or memcpy().
+ * 
+ * @param message the message
+ * @param iter pointer to an iterator to initialize
+ * @returns #FALSE if the message has no arguments
+ */
+dbus_bool_t
+dbus_message_iter_init (DBusMessage     *message,
+			DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  const DBusString *type_str;
+  int type_pos;
+
+  _dbus_return_val_if_fail (message != NULL, FALSE);
+  _dbus_return_val_if_fail (iter != NULL, FALSE);
+
+  get_const_signature (&message->header, &type_str, &type_pos);
+
+  _dbus_message_iter_init_common (message, real,
+                                  DBUS_MESSAGE_ITER_TYPE_READER);
+
+  _dbus_type_reader_init (&real->u.reader,
+                          message->byte_order,
+                          type_str, type_pos,
+                          &message->body,
+                          0);
+
+  return _dbus_type_reader_get_current_type (&real->u.reader) != DBUS_TYPE_INVALID;
+}
+
+#ifndef DBUS_DISABLE_CHECKS
+static dbus_bool_t
+_dbus_message_iter_check (DBusMessageRealIter *iter)
+{
+  if (iter == NULL)
+    {
+      _dbus_warn_check_failed ("dbus message iterator is NULL\n");
+      return FALSE;
+    }
+
+  if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_READER)
+    {
+      if (iter->u.reader.byte_order != iter->message->byte_order)
+        {
+          _dbus_warn_check_failed ("dbus message changed byte order since iterator was created\n");
+          return FALSE;
+        }
+      /* because we swap the message into compiler order when you init an iter */
+      _dbus_assert (iter->u.reader.byte_order == DBUS_COMPILER_BYTE_ORDER);
+    }
+  else if (iter->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER)
+    {
+      if (iter->u.writer.byte_order != iter->message->byte_order)
+        {
+          _dbus_warn_check_failed ("dbus message changed byte order since append iterator was created\n");
+          return FALSE;
+        }
+      /* because we swap the message into compiler order when you init an iter */
+      _dbus_assert (iter->u.writer.byte_order == DBUS_COMPILER_BYTE_ORDER);
+    }
+  else
+    {
+      _dbus_warn_check_failed ("dbus message iterator looks uninitialized or corrupted\n");
+      return FALSE;
+    }
+
+  if (iter->changed_stamp != iter->message->changed_stamp)
+    {
+      _dbus_warn_check_failed ("dbus message iterator invalid because the message has been modified (or perhaps the iterator is just uninitialized)\n");
+      return FALSE;
+    }
+
+  return TRUE;
+}
+#endif /* DBUS_DISABLE_CHECKS */
+
+/**
+ * Checks if an iterator has any more fields.
+ *
+ * @param iter the message iter
+ * @returns #TRUE if there are more fields following
+ */
+dbus_bool_t
+dbus_message_iter_has_next (DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (_dbus_message_iter_check (real), FALSE);
+  _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, FALSE);
+
+  return _dbus_type_reader_has_next (&real->u.reader);
+}
+
+/**
+ * Moves the iterator to the next field, if any. If there's no next
+ * field, returns #FALSE. If the iterator moves forward, returns
+ * #TRUE.
+ *
+ * @param iter the message iter
+ * @returns #TRUE if the iterator was moved to the next field
+ */
+dbus_bool_t
+dbus_message_iter_next (DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (_dbus_message_iter_check (real), FALSE);
+  _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, FALSE);
+
+  return _dbus_type_reader_next (&real->u.reader);
+}
+
+/**
+ * Returns the argument type of the argument that the message iterator
+ * points to. If the iterator is at the end of the message, returns
+ * #DBUS_TYPE_INVALID. You can thus write a loop as follows:
+ *
+ * @code
+ * dbus_message_iter_init (&iter);
+ * while ((current_type = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
+ *   dbus_message_iter_next (&iter);
+ * @endcode
+ *
+ * @param iter the message iter
+ * @returns the argument type
+ */
+int
+dbus_message_iter_get_arg_type (DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (_dbus_message_iter_check (real), DBUS_TYPE_INVALID);
+  _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, FALSE);
+
+  return _dbus_type_reader_get_current_type (&real->u.reader);
+}
+
+/**
+ * Returns the element type of the array that the message iterator
+ * points to. Note that you need to check that the iterator points to
+ * an array prior to using this function.
+ *
+ * @param iter the message iter
+ * @returns the array element type
+ */
+int
+dbus_message_iter_get_element_type (DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (_dbus_message_iter_check (real), DBUS_TYPE_INVALID);
+  _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_READER, DBUS_TYPE_INVALID);
+  _dbus_return_val_if_fail (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_ARRAY, DBUS_TYPE_INVALID);
+
+  return _dbus_type_reader_get_element_type (&real->u.reader);
+}
+
+/**
+ * Recurses into a container value when reading values from a message,
+ * initializing a sub-iterator to use for traversing the child values
+ * of the container.
+ *
+ * Note that this recurses into a value, not a type, so you can only
+ * recurse if the value exists. The main implication of this is that
+ * if you have for example an empty array of array of int32, you can
+ * recurse into the outermost array, but it will have no values, so
+ * you won't be able to recurse further. There's no array of int32 to
+ * recurse into.
+ *
+ * @param iter the message iterator
+ * @param sub the sub-iterator to initialize
+ */
+void
+dbus_message_iter_recurse (DBusMessageIter  *iter,
+                           DBusMessageIter  *sub)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  DBusMessageRealIter *real_sub = (DBusMessageRealIter *)sub;
+
+  _dbus_return_if_fail (_dbus_message_iter_check (real));
+  _dbus_return_if_fail (sub != NULL);
+
+  *real_sub = *real;
+  _dbus_type_reader_recurse (&real->u.reader, &real_sub->u.reader);
+}
+
+/**
+ * Returns the current signature of a message iterator.  This
+ * is useful primarily for dealing with variants; one can
+ * recurse into a variant and determine the signature of
+ * the variant's value.
+ *
+ * The returned string must be freed with dbus_free().
+ * 
+ * @param iter the message iterator
+ * @returns the contained signature, or NULL if out of memory
+ */
+char *
+dbus_message_iter_get_signature (DBusMessageIter *iter)
+{
+  const DBusString *sig;
+  DBusString retstr;
+  char *ret;
+  int start, len;
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (_dbus_message_iter_check (real), NULL);
+
+  if (!_dbus_string_init (&retstr))
+    return NULL;
+
+  _dbus_type_reader_get_signature (&real->u.reader, &sig,
+				   &start, &len);
+  if (!_dbus_string_append_len (&retstr,
+				_dbus_string_get_const_data (sig) + start,
+				len))
+    return NULL;
+  if (!_dbus_string_steal_data (&retstr, &ret))
+    return NULL;
+  _dbus_string_free (&retstr);
+  return ret;
+}
+
+/**
+ * Reads a basic-typed value from the message iterator.
+ * Basic types are the non-containers such as integer and string.
+ *
+ * The value argument should be the address of a location to store
+ * the returned value. So for int32 it should be a "dbus_int32_t*"
+ * and for string a "const char**". The returned value is
+ * by reference and should not be freed.
+ *
+ * All returned values are guaranteed to fit in 8 bytes. So you can
+ * write code like this:
+ *
+ * @code
+ * #ifdef DBUS_HAVE_INT64
+ * dbus_uint64_t value;
+ * int type;
+ * dbus_message_iter_get_basic (&read_iter, &value);
+ * type = dbus_message_iter_get_arg_type (&read_iter);
+ * dbus_message_iter_append_basic (&write_iter, type, &value);
+ * #endif
+ * @endcode
+ *
+ * You can skip the #DBUS_HAVE_INT64 conditional unless you care about
+ * some sort of really obscure platform. If you do know about such a
+ * platform and want your code to work on it, create a struct
+ * that occupies at least 8 bytes. dbus_uint64_t is just
+ * one example of a type that's large enough to hold any possible
+ * value.
+ *
+ * Be sure you have somehow checked that
+ * dbus_message_iter_get_arg_type() matches the type you are
+ * expecting, or you'll crash when you try to use an integer as a
+ * string or something.
+ *
+ * @param iter the iterator
+ * @param value location to store the value
+ */
+void
+dbus_message_iter_get_basic (DBusMessageIter  *iter,
+                             void             *value)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_if_fail (_dbus_message_iter_check (real));
+  _dbus_return_if_fail (value != NULL);
+
+  _dbus_type_reader_read_basic (&real->u.reader,
+                                value);
+}
+
+/**
+ * Returns the number of bytes in the array as marshaled in the wire
+ * protocol. The iterator must currently be inside an array-typed
+ * value.
+ *
+ * This function is deprecated on the grounds that it is stupid.  Why
+ * would you want to know how many bytes are in the array as marshaled
+ * in the wire protocol?  For now, use the n_elements returned from
+ * dbus_message_iter_get_fixed_array() instead, or iterate over the
+ * array values and count them.
+ *
+ * @todo introduce a variant of this get_n_elements that returns
+ * the number of elements, though with a non-fixed array it will not
+ * be very efficient, so maybe it's not good.
+ * 
+ * @param iter the iterator
+ * @returns the number of bytes in the array
+ */
+int
+dbus_message_iter_get_array_len (DBusMessageIter *iter)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+
+  _dbus_return_val_if_fail (_dbus_message_iter_check (real), 0);
+
+  return _dbus_type_reader_get_array_length (&real->u.reader);
+}
+
+/**
+ * Reads a block of fixed-length values from the message iterator.
+ * Fixed-length values are those basic types that are not string-like,
+ * such as integers, bool, double. The block read will be from the
+ * current position in the array until the end of the array.
+ *
+ * This function should only be used if dbus_type_is_fixed() returns
+ * #TRUE for the element type.
+ *
+ * The value argument should be the address of a location to store the
+ * returned array. So for int32 it should be a "const dbus_int32_t**"
+ * The returned value is by reference and should not be freed.
+ *
+ * Because the array is not copied, this function runs in
+ * constant time and is fast; it's much preferred over walking the
+ * entire array with an iterator.
+ * 
+ * @param iter the iterator
+ * @param value location to store the block
+ * @param n_elements number of elements in the block
+ */
+void
+dbus_message_iter_get_fixed_array (DBusMessageIter  *iter,
+                                   void             *value,
+                                   int              *n_elements)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  int subtype = _dbus_type_reader_get_current_type(&real->u.reader);
+
+  _dbus_return_if_fail (_dbus_message_iter_check (real));
+  _dbus_return_if_fail (value != NULL);
+  _dbus_return_if_fail ((subtype == DBUS_TYPE_INVALID) ||
+                         dbus_type_is_fixed (subtype));
+
+  _dbus_type_reader_read_fixed_multi (&real->u.reader,
+                                      value, n_elements);
+}
+
 /**
  * Initializes a #DBusMessageIter for appending arguments to the end
  * of a message.
  *
  * @todo If appending any of the arguments fails due to lack of
- * memory, generally the message is hosed and you have to start over
- * building the whole message.
+ * memory, the message is hosed and you have to start over building
+ * the whole message.
  *
  * @param message the message
  * @param iter pointer to an iterator to initialize
@@ -2099,7 +2179,7 @@ _dbus_message_iter_append_check (DBusMessageRealIter *iter)
 
   if (iter->message->locked)
     {
-      _dbus_warn ("dbus append iterator can't be used: message is locked (has already been sent)\n");
+      _dbus_warn_check_failed ("dbus append iterator can't be used: message is locked (has already been sent)\n");
       return FALSE;
     }
 
@@ -2322,6 +2402,11 @@ dbus_message_iter_close_container (DBusMessageIter *iter,
  * message successfully arrived at the remote end. Normally you know a
  * message was received when you receive the reply to it.
  *
+ * The flag is #FALSE by default, that is by default the other end is
+ * required to reply.
+ *
+ * On the protocol level this toggles #DBUS_HEADER_FLAG_NO_REPLY_EXPECTED
+ * 
  * @param message the message
  * @param no_reply #TRUE if no reply is desired
  */
@@ -2360,6 +2445,10 @@ dbus_message_get_no_reply (DBusMessage *message)
  * starting up, or fails to start up. In case of failure, the reply
  * will be an error.
  *
+ * The flag is set to #TRUE by default, i.e. auto starting is the default.
+ *
+ * On the protocol level this toggles #DBUS_HEADER_FLAG_NO_AUTO_START
+ * 
  * @param message the message
  * @param auto_start #TRUE if auto-starting is desired
  */
@@ -2397,6 +2486,9 @@ dbus_message_get_auto_start (DBusMessage *message)
  * DBUS_MESSAGE_TYPE_METHOD_CALL) or the one a signal is being
  * emitted from (for DBUS_MESSAGE_TYPE_SIGNAL).
  *
+ * The path must contain only valid characters as defined
+ * in the D-Bus specification.
+ *
  * @param message the message
  * @param object_path the path or #NULL to unset
  * @returns #FALSE if not enough memory
@@ -2422,6 +2514,11 @@ dbus_message_set_path (DBusMessage   *message,
  * DBUS_MESSAGE_TYPE_METHOD_CALL) or being emitted from (for
  * DBUS_MESSAGE_TYPE_SIGNAL). Returns #NULL if none.
  *
+ * See also dbus_message_get_path_decomposed().
+ *
+ * The returned string becomes invalid if the message is
+ * modified, since it points into the wire-marshaled message data.
+ * 
  * @param message the message
  * @returns the path (should not be freed) or #NULL
  */
@@ -2441,7 +2538,9 @@ dbus_message_get_path (DBusMessage   *message)
 }
 
 /**
- * Checks if the message has a path
+ * Checks if the message has a particular object path.  The object
+ * path is the destination object for a method call or the emitting
+ * object for a signal.
  *
  * @param message the message
  * @param path the path name
@@ -2482,6 +2581,8 @@ dbus_message_has_path (DBusMessage   *message,
  * So the path "/foo/bar" becomes { "foo", "bar", NULL }
  * and the path "/" becomes { NULL }.
  *
+ * See also dbus_message_get_path().
+ * 
  * @todo this could be optimized by using the len from the message
  * instead of calling strlen() again
  *
@@ -2516,6 +2617,9 @@ dbus_message_get_path_decomposed (DBusMessage   *message,
  * the interface a signal is being emitted from
  * (for DBUS_MESSAGE_TYPE_SIGNAL).
  *
+ * The interface name must contain only valid characters as defined
+ * in the D-Bus specification.
+ * 
  * @param message the message
  * @param interface the interface or #NULL to unset
  * @returns #FALSE if not enough memory
@@ -2543,6 +2647,9 @@ dbus_message_set_interface (DBusMessage  *message,
  * The interface name is fully-qualified (namespaced).
  * Returns #NULL if none.
  *
+ * The returned string becomes invalid if the message is
+ * modified, since it points into the wire-marshaled message data.
+ *
  * @param message the message
  * @returns the message interface (should not be freed) or #NULL
  */
@@ -2566,7 +2673,7 @@ dbus_message_get_interface (DBusMessage *message)
  *
  * @param message the message
  * @param interface the interface name
- * @returns #TRUE if there is a interface field in the header
+ * @returns #TRUE if the interface field in the header matches
  */
 dbus_bool_t
 dbus_message_has_interface (DBusMessage   *message,
@@ -2597,7 +2704,9 @@ dbus_message_has_interface (DBusMessage   *message,
  * Sets the interface member being invoked
  * (DBUS_MESSAGE_TYPE_METHOD_CALL) or emitted
  * (DBUS_MESSAGE_TYPE_SIGNAL).
- * The interface name is fully-qualified (namespaced).
+ *
+ * The member name must contain only valid characters as defined
+ * in the D-Bus specification.
  *
  * @param message the message
  * @param member the member or #NULL to unset
@@ -2624,6 +2733,9 @@ dbus_message_set_member (DBusMessage  *message,
  * (DBUS_MESSAGE_TYPE_METHOD_CALL) or emitted
  * (DBUS_MESSAGE_TYPE_SIGNAL). Returns #NULL if none.
  *
+ * The returned string becomes invalid if the message is
+ * modified, since it points into the wire-marshaled message data.
+ * 
  * @param message the message
  * @returns the member name (should not be freed) or #NULL
  */
@@ -2678,6 +2790,9 @@ dbus_message_has_member (DBusMessage   *message,
  * Sets the name of the error (DBUS_MESSAGE_TYPE_ERROR).
  * The name is fully-qualified (namespaced).
  *
+ * The error name must contain only valid characters as defined
+ * in the D-Bus specification.
+ *
  * @param message the message
  * @param error_name the name or #NULL to unset
  * @returns #FALSE if not enough memory
@@ -2702,6 +2817,9 @@ dbus_message_set_error_name (DBusMessage  *message,
  * Gets the error name (DBUS_MESSAGE_TYPE_ERROR only)
  * or #NULL if none.
  *
+ * The returned string becomes invalid if the message is
+ * modified, since it points into the wire-marshaled message data.
+ * 
  * @param message the message
  * @returns the error name (should not be freed) or #NULL
  */
@@ -2726,6 +2844,9 @@ dbus_message_get_error_name (DBusMessage *message)
  * assigned by the bus to each connection, or a well-known name
  * specified in advance.
  *
+ * The destination name must contain only valid characters as defined
+ * in the D-Bus specification.
+ * 
  * @param message the message
  * @param destination the destination name or #NULL to unset
  * @returns #FALSE if not enough memory
@@ -2749,6 +2870,9 @@ dbus_message_set_destination (DBusMessage  *message,
 /**
  * Gets the destination of a message or #NULL if there is none set.
  *
+ * The returned string becomes invalid if the message is
+ * modified, since it points into the wire-marshaled message data.
+ *
  * @param message the message
  * @returns the message destination (should not be freed) or #NULL
  */
@@ -2769,6 +2893,13 @@ dbus_message_get_destination (DBusMessage *message)
 
 /**
  * Sets the message sender.
+ *
+ * The sender must be a valid bus name as defined in the D-Bus
+ * specification.
+ *
+ * Usually you don't want to call this. The message bus daemon will
+ * call it to set the origin of each message. If you aren't implementing
+ * a message bus daemon you shouldn't need to set the sender.
  *
  * @param message the message
  * @param sender the sender or #NULL to unset
@@ -2795,6 +2926,13 @@ dbus_message_set_sender (DBusMessage  *message,
  * message, or #NULL if unknown or inapplicable. The sender is filled
  * in by the message bus.
  *
+ * Note, the returned sender is always the unique bus name.
+ * Connections may own multiple other bus names, but those
+ * are not found in the sender field.
+ * 
+ * The returned string becomes invalid if the message is
+ * modified, since it points into the wire-marshaled message data.
+ *
  * @param message the message
  * @returns the unique name of the sender or #NULL
  */
@@ -2818,12 +2956,15 @@ dbus_message_get_sender (DBusMessage *message)
  * message payload. The signature includes only "in" arguments for
  * #DBUS_MESSAGE_TYPE_METHOD_CALL and only "out" arguments for
  * #DBUS_MESSAGE_TYPE_METHOD_RETURN, so is slightly different from
- * what you might expect (it does not include the signature of the
+ * what you might expect (that is, it does not include the signature of the
  * entire C++-style method).
  *
  * The signature is a string made up of type codes such as
  * #DBUS_TYPE_INT32. The string is terminated with nul (nul is also
  * the value of #DBUS_TYPE_INVALID).
+ *
+ * The returned string becomes invalid if the message is
+ * modified, since it points into the wire-marshaled message data.
  *
  * @param message the message
  * @returns the type signature
@@ -2907,9 +3048,7 @@ dbus_message_is_method_call (DBusMessage *message,
 /**
  * Checks whether the message is a signal with the given interface and
  * member fields.  If the message is not #DBUS_MESSAGE_TYPE_SIGNAL, or
- * has a different interface or member field, returns #FALSE.  If the
- * interface field in the message is missing, it is assumed to match
- * any interface you pass in to this function.
+ * has a different interface or member field, returns #FALSE.
  *
  * @param message the message
  * @param interface the name to check (must not be #NULL)
@@ -3064,7 +3203,7 @@ dbus_message_has_signature (DBusMessage   *message,
 /**
  * Sets a #DBusError based on the contents of the given
  * message. The error is only set if the message
- * is an error message, as in DBUS_MESSAGE_TYPE_ERROR.
+ * is an error message, as in #DBUS_MESSAGE_TYPE_ERROR.
  * The name of the error is set to the name of the message,
  * and the error message is set to the first argument
  * if the argument exists and is a string.
@@ -3081,7 +3220,7 @@ dbus_message_has_signature (DBusMessage   *message,
  *
  * @param error the error to set
  * @param message the message to set it from
- * @returns #TRUE if dbus_message_get_is_error() returns #TRUE for the message
+ * @returns #TRUE if the message had type #DBUS_MESSAGE_TYPE_ERROR
  */
 dbus_bool_t
 dbus_set_error_from_message (DBusError   *error,

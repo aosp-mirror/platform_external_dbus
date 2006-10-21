@@ -560,7 +560,7 @@ array_reader_next (DBusTypeReader *reader,
   _dbus_assert (reader->value_pos >= reader->u.array.start_pos);
 
   switch (_dbus_first_type_in_signature (reader->type_str,
-                                   reader->type_pos))
+                                         reader->type_pos))
     {
     case DBUS_TYPE_DICT_ENTRY:
     case DBUS_TYPE_STRUCT:
@@ -875,10 +875,10 @@ _dbus_type_reader_read_basic (const DBusTypeReader    *reader,
 }
 
 /**
- * Returns the number of values remaining in the current array reader.
+ * Returns the number of bytes in the array.
  *
  * @param reader the reader to read from
- * @returns the number of elements remaining in the array
+ * @returns the number of bytes in the array
  */
 int
 _dbus_type_reader_get_array_length (const DBusTypeReader  *reader)

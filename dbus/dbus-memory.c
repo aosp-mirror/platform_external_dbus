@@ -430,6 +430,9 @@ set_guards (void       *real_block,
  * on all platforms. Returns #NULL if the allocation fails.
  * The memory must be released with dbus_free().
  *
+ * dbus_malloc() memory is NOT safe to free with regular free() from
+ * the C library. Free it with dbus_free() only.
+ *
  * @param bytes number of bytes to allocate
  * @return allocated memory, or #NULL if the allocation fails.
  */
@@ -480,6 +483,9 @@ dbus_malloc (size_t bytes)
  * all bytes are initialized to zero as with calloc(). Guaranteed to
  * return #NULL if bytes is zero on all platforms. Returns #NULL if the
  * allocation fails.  The memory must be released with dbus_free().
+ *
+ * dbus_malloc0() memory is NOT safe to free with regular free() from
+ * the C library. Free it with dbus_free() only.
  *
  * @param bytes number of bytes to allocate
  * @return allocated memory, or #NULL if the allocation fails.
@@ -741,16 +747,41 @@ _dbus_register_shutdown_func (DBusShutdownFunction  func,
  */
 
 /**
- * The D-Bus library keeps some internal global variables, for example
- * to cache the username of the current process.  This function is
- * used to free these global variables.  It is really useful only for
- * leak-checking cleanliness and the like. WARNING: this function is
- * NOT thread safe, it must be called while NO other threads are using
- * D-Bus. You cannot continue using D-Bus after calling this function,
- * as it does things like free global mutexes created by
- * dbus_threads_init(). To use a D-Bus function after calling
- * dbus_shutdown(), you have to start over from scratch, e.g. calling
- * dbus_threads_init() again.
+ * Frees all memory allocated internally by libdbus and
+ * reverses the effects of dbus_threads_init(). libdbus keeps internal
+ * global variables, for example caches and thread locks, and it
+ * can be useful to free these internal data structures.
+ *
+ * dbus_shutdown() does NOT free memory that was returned
+ * to the application. It only returns libdbus-internal
+ * data structures.
+ *
+ * You MUST free all memory and release all reference counts
+ * returned to you by libdbus prior to calling dbus_shutdown().
+ *
+ * You can't continue to use any D-Bus objects, such as connections,
+ * that were allocated prior to dbus_shutdown(). You can, however,
+ * start over; call dbus_threads_init() again, create new connections,
+ * and so forth.
+ *
+ * WARNING: dbus_shutdown() is NOT thread safe, it must be called
+ * while NO other threads are using D-Bus. (Remember, you have to free
+ * all D-Bus objects and memory before you call dbus_shutdown(), so no
+ * thread can be using libdbus.)
+ *
+ * The purpose of dbus_shutdown() is to allow applications to get
+ * clean output from memory leak checkers. dbus_shutdown() may also be
+ * useful if you want to dlopen() libdbus instead of linking to it,
+ * and want to be able to unload the library again.
+ *
+ * There is absolutely no requirement to call dbus_shutdown() - in fact,
+ * most applications won't bother and should not feel guilty.
+ * 
+ * You have to know that nobody is using libdbus in your application's
+ * process before you can call dbus_shutdown(). One implication of this
+ * is that calling dbus_shutdown() from a library is almost certainly
+ * wrong, since you don't know what the rest of the app is up to.
+ * 
  */
 void
 dbus_shutdown (void)
