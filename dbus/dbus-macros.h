@@ -50,6 +50,12 @@
 #  endif /* !__cplusplus */
 #endif
 
+#if  __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
+#define DBUS_GNUC_DEPRECATED __attribute__((__deprecated__))
+#else
+#define DBUS_GNUC_DEPRECATED
+#endif
+
 /* Normally docs are in .c files, but there isn't a .c file for this. */
 /**
  * @defgroup DBusMacros Utility macros
@@ -67,6 +73,9 @@
  * Macro used prior to declaring functions in the D-Bus header
  * files. Expands to "extern "C"" when using a C++ compiler,
  * and expands to nothing when using a C compiler.
+ *
+ * Please don't use this in your own code, consider it
+ * D-Bus internal.
  */
 /**
  * @def DBUS_END_DECLS
@@ -74,6 +83,9 @@
  * Macro used after declaring functions in the D-Bus header
  * files. Expands to "}" when using a C++ compiler,
  * and expands to nothing when using a C compiler.
+ *
+ * Please don't use this in your own code, consider it
+ * D-Bus internal.
  */
 /**
  * @def TRUE
@@ -89,6 +101,20 @@
  * @def NULL
  *
  * A null pointer, defined appropriately for C or C++.
+ */
+/**
+ * @def DBUS_GNUC_DEPRECATED
+ *
+ * Tells gcc to warn about a function or type if it's used.
+ * Code marked in this way should also be enclosed in
+ * @code
+ * #ifndef DBUS_DISABLE_DEPRECATED
+ *  deprecated stuff here
+ * #endif
+ * @endcode
+ *
+ * Please don't use this in your own code, consider it
+ * D-Bus internal.
  */
 
 /** @} */
