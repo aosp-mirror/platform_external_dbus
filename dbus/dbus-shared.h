@@ -40,9 +40,12 @@ extern "C" {
  * @defgroup DBusShared Shared constants 
  * @ingroup  DBus
  *
- * Shared constants.
+ * @brief Shared header included by both libdbus and C/C++ bindings such as the GLib bindings.
  *
- * @brief Stuff used by both dbus/dbus.h low-level and C/C++ binding APIs 
+ * Usually a C/C++ binding such as the GLib or Qt binding won't want to include dbus.h in its
+ * public headers. However, a few constants and macros may be useful to include; those are
+ * found here and in dbus-protocol.h
+ *
  * @{
  */
 

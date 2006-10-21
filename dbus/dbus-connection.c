@@ -533,7 +533,10 @@ _dbus_connection_has_messages_to_send_unlocked (DBusConnection *connection)
 
 /**
  * Checks whether there are messages in the outgoing message queue.
- *
+ * Use dbus_connection_flush() to block until all outgoing
+ * messages have been written to the underlying transport
+ * (such as a socket).
+ * 
  * @param connection the connection.
  * @returns #TRUE if the outgoing queue is non-empty.
  */

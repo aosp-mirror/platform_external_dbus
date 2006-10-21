@@ -520,18 +520,44 @@ init_locks (void)
 
 /**
  * 
- * Initializes threads. If this function is not called,
- * the D-Bus library will not lock any data structures.
- * If it is called, D-Bus will do locking, at some cost
- * in efficiency. Note that this function must be called
- * BEFORE the second thread is started.
+ * Initializes threads. If this function is not called, the D-Bus
+ * library will not lock any data structures.  If it is called, D-Bus
+ * will do locking, at some cost in efficiency. Note that this
+ * function must be called BEFORE the second thread is started.
  *
- * Use dbus_threads_init_default() if you don't need a
- * particular thread implementation.
+ * Almost always, you should use dbus_threads_init_default() instead.
+ * The raw dbus_threads_init() is only useful if you require a
+ * particular thread implementation for some reason.
  *
- * This function may be called more than once.  The first
- * one wins.
+ * A possible reason to use dbus_threads_init() rather than
+ * dbus_threads_init_default() is to insert debugging checks or print
+ * statements.
  *
+ * dbus_threads_init() may be called more than once.  The first one
+ * wins and subsequent calls are ignored. (Unless you use
+ * dbus_shutdown() to reset libdbus, which will let you re-init
+ * threads.)
+ *
+ * Either recursive or nonrecursive mutex functions must be specified,
+ * but not both. New code should provide only the recursive functions
+ * - specifying the nonrecursive ones is deprecated.
+ *
+ * Because this function effectively sets global state, all code
+ * running in a given application must agree on the thread
+ * implementation. Most code won't care which thread implementation is
+ * used, so there's no problem. However, usually libraries should not
+ * call dbus_threads_init() or dbus_threads_init_default(), instead
+ * leaving this policy choice to applications.
+ *
+ * The exception is for application frameworks (GLib, Qt, etc.)  and
+ * D-Bus bindings based on application frameworks. These frameworks
+ * define a cross-platform thread abstraction and can assume
+ * applications using the framework are OK with using that thread
+ * abstraction.
+ *
+ * However, even these app frameworks may find it easier to simply call
+ * dbus_threads_init_default(), and there's no reason they shouldn't.
+ * 
  * @param functions functions for using threads
  * @returns #TRUE on success, #FALSE if no memory
  */
@@ -983,6 +1009,14 @@ static const DBusThreadFunctions internal_functions =
  * Calls dbus_threads_init() with a default set of
  * #DBusThreadFunctions appropriate for the platform.
  *
+ * Most applications should use this rather than dbus_threads_init().
+ *
+ * It's safe to call dbus_threads_init_default() as many times as you
+ * want, but only the first time will have an effect.
+ *
+ * dbus_shutdown() reverses the effects of this function when it
+ * resets all global state in libdbus.
+ * 
  * @returns #TRUE on success, #FALSE if not enough memory
  */
 dbus_bool_t

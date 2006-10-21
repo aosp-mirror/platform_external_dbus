@@ -59,11 +59,15 @@ typedef enum
 {
   DBUS_WATCH_READABLE = 1 << 0, /**< As in POLLIN */
   DBUS_WATCH_WRITABLE = 1 << 1, /**< As in POLLOUT */
-  DBUS_WATCH_ERROR    = 1 << 2, /**< As in POLLERR (can't watch for this, but
-                                 *   the flag can be passed to dbus_watch_handle()).
+  DBUS_WATCH_ERROR    = 1 << 2, /**< As in POLLERR (can't watch for
+                                 *   this, but can be present in
+                                 *   current state passed to
+                                 *   dbus_watch_handle()).
                                  */
-  DBUS_WATCH_HANGUP   = 1 << 3  /**< As in POLLHUP (can't watch for it, but
-                                 *   can be present in current state).
+  DBUS_WATCH_HANGUP   = 1 << 3  /**< As in POLLHUP (can't watch for
+                                 *   it, but can be present in current
+                                 *   state passed to
+                                 *   dbus_watch_handle()).
                                  */
 } DBusWatchFlags;
 

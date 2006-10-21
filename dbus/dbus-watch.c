@@ -483,6 +483,9 @@ _dbus_watch_set_handler (DBusWatch        *watch,
 /**
  * Gets the file descriptor that should be watched.
  *
+ * On Windows, this will be a socket. On UNIX right now it will be a
+ * socket but in principle it could be something else.
+ * 
  * @param watch the DBusWatch object.
  * @returns the file descriptor to watch.
  */

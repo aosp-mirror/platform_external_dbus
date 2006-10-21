@@ -41,9 +41,10 @@ extern "C" {
  * @defgroup DBusProtocol Protocol constants
  * @ingroup  DBus
  *
- * D-Bus protocol constants
+ * @brief Defines constants which are part of the D-Bus protocol
  *
- * @brief  Defines constants which are part of the D-Bus protocol
+ * This header is intended for use by any library, not only libdbus.
+ *
  * @{
  */
 
@@ -349,7 +350,11 @@ extern "C" {
 #define DBUS_ERROR_AUTH_FAILED                "org.freedesktop.DBus.Error.AuthFailed"
 /** Unable to connect to server (probably caused by ECONNREFUSED on a socket). */
 #define DBUS_ERROR_NO_SERVER                  "org.freedesktop.DBus.Error.NoServer"
-/** Certain timeout errors, possibly ETIMEDOUT on a socket. Note that #DBUS_ERROR_NO_REPLY is used for message reply timeouts. */
+/** Certain timeout errors, possibly ETIMEDOUT on a socket.
+ * Note that #DBUS_ERROR_NO_REPLY is used for message reply timeouts.
+ * @warning this is confusingly-named given that #DBUS_ERROR_TIMED_OUT also exists. We can't fix
+ * it for compatibility reasons so just be careful.
+ */
 #define DBUS_ERROR_TIMEOUT                    "org.freedesktop.DBus.Error.Timeout"
 /** No network access (probably ENETUNREACH on a socket). */
 #define DBUS_ERROR_NO_NETWORK                 "org.freedesktop.DBus.Error.NoNetwork"
@@ -365,7 +370,10 @@ extern "C" {
 #define DBUS_ERROR_FILE_EXISTS                "org.freedesktop.DBus.Error.FileExists"
 /** Method name you invoked isn't known by the object you invoked it on. */
 #define DBUS_ERROR_UNKNOWN_METHOD             "org.freedesktop.DBus.Error.UnknownMethod"
-/** Certain other timeout errors, e.g. while starting a service. @todo redundant with #DBUS_ERROR_TIMEOUT */
+/** Certain timeout errors, e.g. while starting a service.
+ * @warning this is confusingly-named given that #DBUS_ERROR_TIMEOUT also exists. We can't fix
+ * it for compatibility reasons so just be careful.
+ */
 #define DBUS_ERROR_TIMED_OUT                  "org.freedesktop.DBus.Error.TimedOut"
 /** Tried to remove or modify a match rule that didn't exist. */
 #define DBUS_ERROR_MATCH_RULE_NOT_FOUND       "org.freedesktop.DBus.Error.MatchRuleNotFound"

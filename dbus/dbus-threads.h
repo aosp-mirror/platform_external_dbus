@@ -37,29 +37,61 @@ DBUS_BEGIN_DECLS
  * @{
  */
 
+/** An opaque mutex type provided by the #DBusThreadFunctions implementation installed by dbus_threads_init(). */
 typedef struct DBusMutex DBusMutex;
+/** An opaque condition variable type provided by the #DBusThreadFunctions implementation installed by dbus_threads_init(). */
 typedef struct DBusCondVar DBusCondVar;
 
+/** Deprecated, provide DBusRecursiveMutexNewFunction instead. */
 typedef DBusMutex*  (* DBusMutexNewFunction)    (void);
+/** Deprecated, provide DBusRecursiveMutexFreeFunction instead. */
 typedef void        (* DBusMutexFreeFunction)   (DBusMutex *mutex);
+/** Deprecated, provide DBusRecursiveMutexLockFunction instead. */
 typedef dbus_bool_t (* DBusMutexLockFunction)   (DBusMutex *mutex);
+/** Deprecated, provide DBusRecursiveMutexUnlockFunction instead. */
 typedef dbus_bool_t (* DBusMutexUnlockFunction) (DBusMutex *mutex);
 
+/** Creates a new recursively-lockable mutex, or returns #NULL if not enough memory.
+ * Found in #DBusThreadFunctions
+ */
 typedef DBusMutex*  (* DBusRecursiveMutexNewFunction)    (void);
+/** Frees a recursively-lockable mutex.  Found in #DBusThreadFunctions.
+ */
 typedef void        (* DBusRecursiveMutexFreeFunction)   (DBusMutex *mutex);
+/** Locks a recursively-lockable mutex.  Found in #DBusThreadFunctions.
+ */
 typedef void        (* DBusRecursiveMutexLockFunction)   (DBusMutex *mutex);
+/** Unlocks a recursively-lockable mutex.  Found in #DBusThreadFunctions.
+ */
 typedef void        (* DBusRecursiveMutexUnlockFunction) (DBusMutex *mutex);
 
+/** Creates a new condition variable.  Found in #DBusThreadFunctions.
+ */
 typedef DBusCondVar*  (* DBusCondVarNewFunction)         (void);
+/** Frees a condition variable.  Found in #DBusThreadFunctions.
+ */
 typedef void          (* DBusCondVarFreeFunction)        (DBusCondVar *cond);
+/** Waits on a condition variable.  Found in #DBusThreadFunctions.
+ */
 typedef void          (* DBusCondVarWaitFunction)        (DBusCondVar *cond,
 							  DBusMutex   *mutex);
+/** Waits on a condition variable with a timeout.  Found in #DBusThreadFunctions.
+ */
 typedef dbus_bool_t   (* DBusCondVarWaitTimeoutFunction) (DBusCondVar *cond,
 							  DBusMutex   *mutex,
 							  int          timeout_milliseconds);
+/** Wakes one waiting thread on a condition variable.  Found in #DBusThreadFunctions.
+ */
 typedef void          (* DBusCondVarWakeOneFunction) (DBusCondVar *cond);
+/** Wakes all waiting threads on a condition variable.  Found in #DBusThreadFunctions.
+ */
 typedef void          (* DBusCondVarWakeAllFunction) (DBusCondVar *cond);
 
+/**
+ * Flags indicating which functions are present in #DBusThreadFunctions. Used to allow
+ * the library to detect older callers of dbus_threads_init() if new possible functions
+ * are added to #DBusThreadFunctions.
+ */
 typedef enum 
 {
   DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK      = 1 << 0,
@@ -80,17 +112,18 @@ typedef enum
 } DBusThreadFunctionsMask;
 
 /**
- * Functions that must be implemented to make the D-Bus
- * library thread-aware. 
+ * Functions that must be implemented to make the D-Bus library
+ * thread-aware. The recursive mutex functions should be specified
+ * rather than the old, deprecated nonrecursive ones.
  */
 typedef struct
 {
   unsigned int mask; /**< Mask indicating which functions are present. */
 
-  DBusMutexNewFunction mutex_new; /**< Function to create a mutex */
-  DBusMutexFreeFunction mutex_free; /**< Function to free a mutex */
-  DBusMutexLockFunction mutex_lock; /**< Function to lock a mutex */
-  DBusMutexUnlockFunction mutex_unlock; /**< Function to unlock a mutex */
+  DBusMutexNewFunction mutex_new; /**< Function to create a mutex; optional and deprecated. */
+  DBusMutexFreeFunction mutex_free; /**< Function to free a mutex; optional and deprecated. */
+  DBusMutexLockFunction mutex_lock; /**< Function to lock a mutex; optional and deprecated. */
+  DBusMutexUnlockFunction mutex_unlock; /**< Function to unlock a mutex; optional and deprecated. */
 
   DBusCondVarNewFunction condvar_new; /**< Function to create a condition variable */
   DBusCondVarFreeFunction condvar_free; /**< Function to free a condition variable */
