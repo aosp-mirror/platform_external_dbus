@@ -32,6 +32,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusMemory
+ * @{
+ */
+
 void* dbus_malloc        (size_t bytes);
 void* dbus_malloc0       (size_t bytes);
 void* dbus_realloc       (void  *memory,
@@ -46,6 +51,8 @@ void dbus_free_string_array (char **str_array);
 typedef void (* DBusFreeFunction) (void *memory);
 
 void dbus_shutdown (void);
+
+/** @} */
 
 DBUS_END_DECLS
 

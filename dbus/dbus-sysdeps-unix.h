@@ -34,6 +34,13 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @defgroup DBusSysdepsUnix UNIX-specific internal API
+ * @ingroup DBusInternals
+ * @brief Internal system-dependent API available on UNIX only
+ * @{
+ */
+
 dbus_bool_t 
 _dbus_close     (int               fd,
                  DBusError        *error);
@@ -63,6 +70,8 @@ int _dbus_connect_unix_socket (const char     *path,
 int _dbus_listen_unix_socket  (const char     *path,
                                dbus_bool_t     abstract,
                                DBusError      *error);
+
+/** @} */
 
 DBUS_END_DECLS
 

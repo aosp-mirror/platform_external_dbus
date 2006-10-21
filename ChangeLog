@@ -1,4 +1,11 @@
 2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* Clean up Doxygen group markers for public API so Doxygen finds
+	everything (not comprehensively fixed for private API).
+	Means all remaining Doxygen warnings are just about missing docs
+	and thus pretty simple to resolve.
+	
+2006-10-21  Havoc Pennington  <hp@redhat.com>
 	
 	* dbus/dbus-macros.h: add DBUS_GNUC_DEPRECATED macro
 

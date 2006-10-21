@@ -36,9 +36,9 @@
 #include "dbus-sysdeps.h"
 
 /**
- * @defgroup DBusString string class
+ * @defgroup DBusString DBusString class
  * @ingroup  DBusInternals
- * @brief DBusString data structure
+ * @brief DBusString data structure for safer string handling
  *
  * Types and functions related to DBusString. DBusString is intended
  * to be a string class that makes it hard to mess up security issues

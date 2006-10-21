@@ -30,6 +30,13 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>
 
+DBUS_BEGIN_DECLS
+
+/**
+ * @addtogroup DBusAddress
+ * @{
+ */
+
 typedef struct DBusAddressEntry DBusAddressEntry;
 
 dbus_bool_t dbus_parse_address            (const char         *address,
@@ -44,6 +51,10 @@ void        dbus_address_entries_free     (DBusAddressEntry  **entries);
 char* dbus_address_escape_value   (const char *value);
 char* dbus_address_unescape_value (const char *value,
                                    DBusError  *error);
+
+/** @} */
+
+DBUS_END_DECLS
 
 #endif /* DBUS_ADDRESS_H */
 

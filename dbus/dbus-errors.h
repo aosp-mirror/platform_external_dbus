@@ -33,6 +33,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusErrors
+ * @{
+ */
+
 typedef struct DBusError DBusError;
 
 /**
@@ -66,6 +71,8 @@ void        dbus_move_error      (DBusError       *src,
 dbus_bool_t dbus_error_has_name  (const DBusError *error,
                                   const char      *name);
 dbus_bool_t dbus_error_is_set    (const DBusError *error);
+
+/** @} */
 
 DBUS_END_DECLS
 

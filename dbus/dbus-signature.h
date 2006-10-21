@@ -34,6 +34,11 @@
 DBUS_BEGIN_DECLS
 
 /**
+ * @addtogroup DBusSignature
+ * @{
+ */
+
+/**
  * DBusSignatureIter struct; contains no public fields 
  */
 typedef struct
@@ -68,6 +73,8 @@ dbus_bool_t     dbus_signature_validate_single       (const char       *signatur
 dbus_bool_t     dbus_type_is_basic                   (int            typecode);
 dbus_bool_t     dbus_type_is_container               (int            typecode);
 dbus_bool_t     dbus_type_is_fixed                   (int            typecode);
+
+/** @} */
 
 DBUS_END_DECLS
 

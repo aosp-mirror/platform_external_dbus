@@ -41,6 +41,12 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusSysdeps
+ *
+ * @{
+ */
+
 /* The idea of this file is to encapsulate everywhere that we're
  * relying on external libc features, for ease of security
  * auditing. The idea is from vsftpd. This also gives us a chance to
@@ -385,6 +391,8 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
                                              dbus_bool_t       create_if_not_found,
                                              DBusError        *error);
 
+
+/** @} */
 
 DBUS_END_DECLS
 

@@ -31,6 +31,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusBus
+ * @{
+ */
+
 DBusConnection *dbus_bus_get              (DBusBusType     type,
 					   DBusError      *error);
 DBusConnection *dbus_bus_get_private      (DBusBusType     type,
@@ -69,6 +74,8 @@ void            dbus_bus_remove_match     (DBusConnection *connection,
                                            DBusError      *error);
 
 void           _dbus_bus_notify_shared_connection_disconnected_unlocked (DBusConnection *connection);
+
+/** @} */
 
 DBUS_END_DECLS
 

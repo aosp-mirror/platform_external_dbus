@@ -29,6 +29,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusHashTable
+ * @{
+ */
+
 /** Hash iterator object. The iterator is on the stack, but its real
  * fields are hidden privately.
  */
@@ -128,6 +133,7 @@ void                  _dbus_hash_table_insert_string_preallocated (DBusHashTable
                                                                    char                 *key,
                                                                    void                 *value);
 
+/** @} */
 
 DBUS_END_DECLS
 

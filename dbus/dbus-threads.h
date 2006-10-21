@@ -32,6 +32,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusThreads
+ * @{
+ */
+
 typedef struct DBusMutex DBusMutex;
 typedef struct DBusCondVar DBusCondVar;
 
@@ -108,6 +113,8 @@ typedef struct
 
 dbus_bool_t  dbus_threads_init         (const DBusThreadFunctions *functions);
 dbus_bool_t  dbus_threads_init_default (void);
+
+/** @} */
 
 DBUS_END_DECLS
 

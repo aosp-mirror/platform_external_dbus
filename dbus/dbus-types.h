@@ -103,6 +103,22 @@ typedef dbus_uint32_t  dbus_bool_t;
  */
 
 /**
+ * @def DBUS_HAVE_INT64
+ *
+ * Defined if 64-bit integers are available. Will be defined
+ * on any platform you care about, unless you care about
+ * some truly ancient UNIX, or some bizarre embedded platform.
+ *
+ * C99 requires a 64-bit type and most likely all interesting
+ * compilers support one. GLib for example flat-out requires
+ * a 64-bit type.
+ *
+ * You should feel comfortable ignoring this macro and just using
+ * int64 unconditionally.
+ * 
+ */
+
+/**
  * @def DBUS_INT64_CONSTANT
  *
  * Declare a 64-bit signed integer constant. The macro

@@ -28,6 +28,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusWatchInternals
+ * @{
+ */
+
 /* Public methods on DBusWatch are in dbus-connection.h */
 
 typedef struct DBusWatchList DBusWatchList;
@@ -69,6 +74,7 @@ void           _dbus_watch_list_toggle_watch  (DBusWatchList           *watch_li
                                                DBusWatch               *watch,
                                                dbus_bool_t              enabled);
 
+/** @} */
 
 DBUS_END_DECLS
 

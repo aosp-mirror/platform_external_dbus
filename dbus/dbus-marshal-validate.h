@@ -31,6 +31,12 @@
 #endif
 
 /**
+ * @addtogroup DBusMarshal
+ *
+ * @{
+ */
+
+/**
  * This is used rather than a bool for high visibility
  */
 typedef enum
@@ -49,11 +55,11 @@ typedef enum
 typedef enum
 {
 #define _DBUS_NEGATIVE_VALIDITY_COUNT 4
-  DBUS_VALIDITY_UNKNOWN_OOM_ERROR = -4,
+  DBUS_VALIDITY_UNKNOWN_OOM_ERROR = -4, /**< can't determine validity due to OOM */
   DBUS_INVALID_FOR_UNKNOWN_REASON = -3,
   DBUS_VALID_BUT_INCOMPLETE = -2,
   DBUS_VALIDITY_UNKNOWN = -1,
-  DBUS_VALID = 0,
+  DBUS_VALID = 0, /**< the data is valid */
   DBUS_INVALID_UNKNOWN_TYPECODE = 1,
   DBUS_INVALID_MISSING_ARRAY_ELEMENT_TYPE = 2,
   DBUS_INVALID_SIGNATURE_TOO_LONG = 3, /* this one is impossible right now since
@@ -67,7 +73,7 @@ typedef enum
   DBUS_INVALID_ALIGNMENT_PADDING_NOT_NUL = 9,
   DBUS_INVALID_BOOLEAN_NOT_ZERO_OR_ONE = 10,
   DBUS_INVALID_NOT_ENOUGH_DATA = 11,
-  DBUS_INVALID_TOO_MUCH_DATA = 12,
+  DBUS_INVALID_TOO_MUCH_DATA = 12, /**< trailing junk makes it invalid */
   DBUS_INVALID_BAD_BYTE_ORDER = 13,
   DBUS_INVALID_BAD_PROTOCOL_VERSION = 14,
   DBUS_INVALID_BAD_MESSAGE_TYPE = 15,
@@ -183,5 +189,7 @@ DECLARE_DBUS_NAME_CHECK(member);
 DECLARE_DBUS_NAME_CHECK(error_name);
 DECLARE_DBUS_NAME_CHECK(bus_name);
 DECLARE_DBUS_NAME_CHECK(signature);
+
+/** @} */
 
 #endif /* DBUS_MARSHAL_VALIDATE_H */

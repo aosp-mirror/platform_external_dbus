@@ -73,11 +73,6 @@
 #define socklen_t int
 #endif
 
-/**
- * @addtogroup DBusInternalsUtils
- * @{
- */
-
 static dbus_bool_t
 _dbus_open_socket (int              *fd,
                    int               domain,
@@ -2505,7 +2500,5 @@ _dbus_read_local_machine_uuid (DBusGUID   *machine_id,
   _dbus_string_init_const (&filename, DBUS_MACHINE_UUID_FILE);
   return _dbus_read_uuid_file (&filename, machine_id, create_if_not_found, error);
 }
-
-/** @} end of sysdeps */
 
 /* tests in dbus-sysdeps-util.c */

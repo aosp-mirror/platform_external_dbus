@@ -34,6 +34,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusConnection
+ * @{
+ */
+
 typedef struct DBusWatch DBusWatch;
 typedef struct DBusTimeout DBusTimeout;
 typedef struct DBusPreallocatedSend DBusPreallocatedSend;
@@ -261,6 +266,8 @@ dbus_bool_t dbus_connection_get_socket             (DBusConnection              
                                                     int                         *fd);
 
 char*       dbus_get_local_machine_id              (void);
+
+/** @} */
 
 DBUS_END_DECLS
 

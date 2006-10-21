@@ -28,9 +28,14 @@
 
 DBUS_BEGIN_DECLS
 
-typedef struct DBusTimeoutList DBusTimeoutList;
+/**
+ * @addtogroup DBusTimeoutInternals
+ * @{
+ */
 
 /* Public methods on DBusTimeout are in dbus-connection.h */
+
+typedef struct DBusTimeoutList DBusTimeoutList;
 
 typedef dbus_bool_t (* DBusTimeoutHandler) (void *data);
 
@@ -61,6 +66,8 @@ void             _dbus_timeout_list_toggle_timeout (DBusTimeoutList           *t
                                                     DBusTimeout               *timeout,
                                                     dbus_bool_t                enabled);
 
+
+/** @} */
 
 DBUS_END_DECLS
 

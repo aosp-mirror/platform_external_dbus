@@ -34,6 +34,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusServer
+ * @{
+ */
+
 typedef struct DBusServer DBusServer;
 
 typedef void (* DBusNewConnectionFunction) (DBusServer     *server,
@@ -74,6 +79,8 @@ dbus_bool_t dbus_server_set_data           (DBusServer       *server,
                                             DBusFreeFunction  free_data_func);
 void*       dbus_server_get_data           (DBusServer       *server,
                                             int               slot);
+
+/** @} */
 
 DBUS_END_DECLS
 

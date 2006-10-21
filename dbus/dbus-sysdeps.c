@@ -50,7 +50,16 @@ _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
 /**
- * @addtogroup DBusInternalsUtils
+ * @defgroup DBusSysdeps Internal system-dependent API
+ * @ingroup DBusInternals
+ * @brief Internal system-dependent API available on UNIX and Windows
+ *
+ * The system-dependent API has a dual purpose. First, it encapsulates
+ * all usage of operating system APIs for ease of auditing and to
+ * avoid cluttering the rest of the code with bizarre OS quirks and
+ * headers. Second, it abstracts different operating system APIs for
+ * portability.
+ * 
  * @{
  */
 
