@@ -223,24 +223,6 @@ void               dbus_connection_set_route_peer_messages      (DBusConnection 
                                                                  dbus_bool_t                 value);
 
 
-int          dbus_watch_get_fd      (DBusWatch        *watch);
-unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
-void*        dbus_watch_get_data    (DBusWatch        *watch);
-void         dbus_watch_set_data    (DBusWatch        *watch,
-                                     void             *data,
-                                     DBusFreeFunction  free_data_function);
-dbus_bool_t  dbus_watch_handle      (DBusWatch        *watch,
-                                     unsigned int      flags);
-dbus_bool_t  dbus_watch_get_enabled (DBusWatch        *watch);
-
-int         dbus_timeout_get_interval (DBusTimeout      *timeout);
-void*       dbus_timeout_get_data     (DBusTimeout      *timeout);
-void        dbus_timeout_set_data     (DBusTimeout      *timeout,
-                                       void             *data,
-                                       DBusFreeFunction  free_data_function);
-dbus_bool_t dbus_timeout_handle       (DBusTimeout      *timeout);
-dbus_bool_t dbus_timeout_get_enabled  (DBusTimeout      *timeout);
-
 /* Filters */
 
 dbus_bool_t dbus_connection_add_filter    (DBusConnection            *connection,
@@ -340,6 +322,39 @@ dbus_bool_t dbus_connection_get_socket             (DBusConnection              
                                                     int                         *fd);
 
 char*       dbus_get_local_machine_id              (void);
+
+/** @} */
+
+
+/**
+ * @addtogroup DBusWatch
+ * @{
+ */
+
+int          dbus_watch_get_fd      (DBusWatch        *watch);
+unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
+void*        dbus_watch_get_data    (DBusWatch        *watch);
+void         dbus_watch_set_data    (DBusWatch        *watch,
+                                     void             *data,
+                                     DBusFreeFunction  free_data_function);
+dbus_bool_t  dbus_watch_handle      (DBusWatch        *watch,
+                                     unsigned int      flags);
+dbus_bool_t  dbus_watch_get_enabled (DBusWatch        *watch);
+
+/** @} */
+
+/**
+ * @addtogroup DBusTimeout
+ * @{
+ */
+
+int         dbus_timeout_get_interval (DBusTimeout      *timeout);
+void*       dbus_timeout_get_data     (DBusTimeout      *timeout);
+void        dbus_timeout_set_data     (DBusTimeout      *timeout,
+                                       void             *data,
+                                       DBusFreeFunction  free_data_function);
+dbus_bool_t dbus_timeout_handle       (DBusTimeout      *timeout);
+dbus_bool_t dbus_timeout_get_enabled  (DBusTimeout      *timeout);
 
 /** @} */
 
