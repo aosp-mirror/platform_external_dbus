@@ -140,7 +140,7 @@
  * dbus_connection_read_write_dispatch() can be used.
  *
  * Or, in <em>very</em> simple applications,
- * xdbus_connection_pop_message() may be all you need, allowing you to
+ * dbus_connection_pop_message() may be all you need, allowing you to
  * avoid setting up any handler functions (see
  * dbus_connection_add_filter(),
  * dbus_connection_register_object_path() for more on handlers).
