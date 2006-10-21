@@ -123,6 +123,8 @@ dbus_bool_t    _dbus_hash_table_insert_ulong       (DBusHashTable    *table,
 int            _dbus_hash_table_get_n_entries      (DBusHashTable    *table);
 
 /* Preallocation */
+
+/** A preallocated hash entry */
 typedef struct DBusPreallocatedHash DBusPreallocatedHash;
 
 DBusPreallocatedHash *_dbus_hash_table_preallocate_entry          (DBusHashTable        *table);

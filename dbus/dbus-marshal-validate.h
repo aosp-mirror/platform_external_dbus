@@ -183,11 +183,17 @@ _dbus_check_is_valid_##what (const char *name)                          \
 }
 #endif /* !DBUS_DISABLE_CHECKS */
 
+/** defines _dbus_check_is_valid_path() */
 DECLARE_DBUS_NAME_CHECK(path);
+/** defines _dbus_check_is_valid_interface() */
 DECLARE_DBUS_NAME_CHECK(interface);
+/** defines _dbus_check_is_valid_member() */
 DECLARE_DBUS_NAME_CHECK(member);
+/** defines _dbus_check_is_valid_error_name() */
 DECLARE_DBUS_NAME_CHECK(error_name);
+/** defines _dbus_check_is_valid_bus_name() */
 DECLARE_DBUS_NAME_CHECK(bus_name);
+/** defines _dbus_check_is_valid_signature() */
 DECLARE_DBUS_NAME_CHECK(signature);
 
 /** @} */

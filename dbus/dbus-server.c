@@ -36,12 +36,11 @@
  * @ingroup  DBus
  * @brief Server that listens for new connections.
  *
- * Types and functions related to DBusServer.
  * A DBusServer represents a server that other applications
  * can connect to. Each connection from another application
- * is represented by a DBusConnection.
+ * is represented by a #DBusConnection.
  *
- * @todo Thread safety hasn't been looked at for #DBusServer
+ * @todo Thread safety hasn't been tested much for #DBusServer
  * @todo Need notification to apps of disconnection, may matter for some transports
  */
 
@@ -518,20 +517,23 @@ static const struct {
 };
 
 /**
- * Listens for new connections on the given address.
- * If there are multiple address entries in the address,
- * tries each one and listens on the first one that
- * works.
+ * Listens for new connections on the given address.  If there are
+ * multiple semicolon-separated address entries in the address, tries
+ * each one and listens on the first one that works.
  * 
  * Returns #NULL and sets error if listening fails for any reason.
  * Otherwise returns a new #DBusServer.
- * dbus_server_set_new_connection_function() and
- * dbus_server_set_watch_functions() should be called
- * immediately to render the server fully functional.
+ * dbus_server_set_new_connection_function(),
+ * dbus_server_set_watch_functions(), and
+ * dbus_server_set_timeout_functions() should be called immediately to
+ * render the server fully functional.
+ *
+ * To free the server, applications must call first
+ * dbus_server_disconnect() and then dbus_server_unref().
  * 
  * @param address the address of this server.
- * @param error location to store rationale for failure.
- * @returns a new DBusServer, or #NULL on failure.
+ * @param error location to store reason for failure.
+ * @returns a new #DBusServer, or #NULL on failure.
  * 
  */
 DBusServer*
@@ -841,7 +843,7 @@ dbus_server_set_new_connection_function (DBusServer                *server,
 }
 
 /**
- * Sets the watch functions for the connection. These functions are
+ * Sets the watch functions for the server. These functions are
  * responsible for making the application's main loop aware of file
  * descriptors that need to be monitored for events.
  *
@@ -895,7 +897,7 @@ dbus_server_set_watch_functions (DBusServer              *server,
 }
 
 /**
- * Sets the timeout functions for the connection. These functions are
+ * Sets the timeout functions for the server. These functions are
  * responsible for making the application's main loop aware of timeouts.
  *
  * This function behaves exactly like dbus_connection_set_timeout_functions();
@@ -948,10 +950,13 @@ dbus_server_set_timeout_functions (DBusServer                *server,
 }
 
 /**
- * Sets the authentication mechanisms that this server offers
- * to clients, as a list of SASL mechanisms. This function
- * only affects connections created *after* it is called.
- * Pass #NULL instead of an array to use all available mechanisms.
+ * Sets the authentication mechanisms that this server offers to
+ * clients, as a #NULL-terminated array of mechanism names. This
+ * function only affects connections created <em>after</em> it is
+ * called.  Pass #NULL instead of an array to use all available
+ * mechanisms (this is the default behavior).
+ *
+ * The D-Bus specification describes some of the supported mechanisms.
  *
  * @param server the server
  * @param mechanisms #NULL-terminated array of mechanisms

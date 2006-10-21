@@ -116,8 +116,8 @@ typedef enum
 #define DBUS_RELEASE_NAME_REPLY_NOT_OWNER       3 /**< Service is not an owner of the given name */
 
 /* Replies to service starts */
-#define DBUS_START_REPLY_SUCCESS         1 /**< service was auto started */
-#define DBUS_START_REPLY_ALREADY_RUNNING 2 /**< service was already running */
+#define DBUS_START_REPLY_SUCCESS         1 /**< Service was auto started */
+#define DBUS_START_REPLY_ALREADY_RUNNING 2 /**< Service was already running */
 
 /** @} */
 

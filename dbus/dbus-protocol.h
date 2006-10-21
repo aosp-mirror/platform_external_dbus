@@ -50,10 +50,10 @@ extern "C" {
 
 
 /* Message byte order */
-#define DBUS_LITTLE_ENDIAN ('l')  /**< LSB first */
-#define DBUS_BIG_ENDIAN    ('B')  /**< MSB first */
+#define DBUS_LITTLE_ENDIAN ('l')  /**< Code marking LSB-first byte order in the wire protocol. */
+#define DBUS_BIG_ENDIAN    ('B')  /**< Code marking MSB-first byte order in the wire protocol. */
 
-/** Protocol version */
+/** Protocol version. */
 #define DBUS_MAJOR_PROTOCOL_VERSION 1
 
 /** Type code that is never equal to a legitimate type code */

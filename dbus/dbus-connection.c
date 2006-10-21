@@ -2992,23 +2992,19 @@ reply_handler_timeout (void *data)
 }
 
 /**
- * Queues a message to send, as with dbus_connection_send_message(),
+ * Queues a message to send, as with dbus_connection_send(),
  * but also returns a #DBusPendingCall used to receive a reply to the
  * message. If no reply is received in the given timeout_milliseconds,
  * this function expires the pending reply and generates a synthetic
  * error reply (generated in-process, not by the remote application)
  * indicating that a timeout occurred.
  *
- * A #DBusPendingCall will see a reply message after any filters, but
- * before any object instances or other handlers. A #DBusPendingCall
- * will always see exactly one reply message, unless it's cancelled
- * with dbus_pending_call_cancel().
- * 
- * If a filter filters out the reply before the handler sees it, the
- * reply is immediately timed out and a timeout error reply is
- * generated. If a filter removes the timeout error reply then the
- * #DBusPendingCall will get confused. Filtering the timeout error
- * is thus considered a bug and will print a warning.
+ * A #DBusPendingCall will see a reply message before any filters or
+ * registered object path handlers. See dbus_connection_dispatch() for
+ * details on when handlers are run.
+ *
+ * A #DBusPendingCall will always see exactly one reply message,
+ * unless it's cancelled with dbus_pending_call_cancel().
  * 
  * If #NULL is passed for the pending_return, the #DBusPendingCall
  * will still be generated internally, and used to track
@@ -3019,7 +3015,11 @@ reply_handler_timeout (void *data)
  * is typically the best value for the timeout for this reason, unless
  * you want a very short or very long timeout.  There is no way to
  * avoid a timeout entirely, other than passing INT_MAX for the
- * timeout to postpone it indefinitely.
+ * timeout to mean "very long timeout." libdbus clamps an INT_MAX
+ * timeout down to a few hours timeout though.
+ *
+ * @warning if the connection is disconnected, the #DBusPendingCall
+ * will be set to #NULL, so be careful with this.
  * 
  * @param connection the connection
  * @param message the message to send
@@ -3123,16 +3123,24 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
  * Sends a message and blocks a certain time period while waiting for
  * a reply.  This function does not reenter the main loop,
  * i.e. messages other than the reply are queued up but not
- * processed. This function is used to do non-reentrant "method
- * calls."
+ * processed. This function is used to invoke method calls on a
+ * remote object.
  * 
  * If a normal reply is received, it is returned, and removed from the
  * incoming message queue. If it is not received, #NULL is returned
  * and the error is set to #DBUS_ERROR_NO_REPLY.  If an error reply is
  * received, it is converted to a #DBusError and returned as an error,
- * then the reply message is deleted. If something else goes wrong,
- * result is set to whatever is appropriate, such as
- * #DBUS_ERROR_NO_MEMORY or #DBUS_ERROR_DISCONNECTED.
+ * then the reply message is deleted and #NULL is returned. If
+ * something else goes wrong, result is set to whatever is
+ * appropriate, such as #DBUS_ERROR_NO_MEMORY or
+ * #DBUS_ERROR_DISCONNECTED.
+ *
+ * @warning While this function blocks the calling thread will not be
+ * processing the incoming message queue. This means you can end up
+ * deadlocked if the application you're talking to needs you to reply
+ * to a method. To solve this, either avoid the situation, block in a
+ * separate thread from the main connection-dispatching thread, or use
+ * dbus_pending_call_set_notify() to avoid blocking.
  *
  * @param connection the connection
  * @param message the message to send
@@ -4076,25 +4084,33 @@ _dbus_connection_run_builtin_filters_unlocked_no_update (DBusConnection *connect
 /**
  * Processes any incoming data.
  *
- * If there are messages in the incoming queue,
- * dbus_connection_dispatch() removes one message from the queue and
- * runs any handlers for it (handlers are added with
- * dbus_connection_add_filter() or
- * dbus_connection_register_object_path() for example).
- *
  * If there's incoming raw data that has not yet been parsed, it is
  * parsed, which may or may not result in adding messages to the
  * incoming queue.
- * 
- * The incoming message queue is filled when the connection
- * reads from its underlying transport (such as a socket).
- * Reading usually happens in dbus_watch_handle() or
- * dbus_connection_read_write().
  *
- * If any data has been read from the underlying transport, but not
- * yet dispatched, the dispatch status will be
- * #DBUS_DISPATCH_DATA_REMAINS. See dbus_connection_get_dispatch_status()
- * for more on dispatch statuses.
+ * The incoming data buffer is filled when the connection reads from
+ * its underlying transport (such as a socket).  Reading usually
+ * happens in dbus_watch_handle() or dbus_connection_read_write().
+ * 
+ * If there are complete messages in the incoming queue,
+ * dbus_connection_dispatch() removes one message from the queue and
+ * processes it. Processing has three steps.
+ *
+ * First, any method replies are passed to #DBusPendingCall or
+ * dbus_connection_send_with_reply_and_block() in order to
+ * complete the pending method call.
+ * 
+ * Second, any filters registered with dbus_connection_add_filter()
+ * are run. If any filter returns #DBUS_HANDLER_RESULT_HANDLED
+ * then processing stops after that filter.
+ *
+ * Third, if the message is a method call it is forwarded to
+ * any registered object path handlers added with
+ * dbus_connection_register_object_path() or
+ * dbus_connection_register_fallback().
+ *
+ * A single call to dbus_connection_dispatch() will process at most
+ * one message; it will not clear the entire message queue.
  *
  * Be careful about calling dbus_connection_dispatch() from inside a
  * message handler, i.e. calling dbus_connection_dispatch()

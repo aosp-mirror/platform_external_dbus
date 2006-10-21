@@ -321,7 +321,7 @@ skip_one_complete_type (const DBusString *type_str,
  * type position is stored in the same variable.
  *
  * @param type_str a type signature (must be valid)
- * @param type_pos an integer position in the type signtaure (in and out)
+ * @param type_pos an integer position in the type signature (in and out)
  */
 void
 _dbus_type_signature_next (const char       *type_str,

@@ -1,5 +1,10 @@
 2006-10-21  Havoc Pennington  <hp@redhat.com>
 
+	* Documentation! Whee! Doxygen now 100% silent. If you make it
+	angry again, you will be punished.
+	
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
 	* More documentation - all public API now documented according to
 	Doxygen
 

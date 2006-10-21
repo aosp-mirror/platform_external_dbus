@@ -37,6 +37,14 @@ typedef struct
   unsigned int in_array : 1; /**< true if we are a subiterator pointing to an array's element type */
 } DBusSignatureRealIter;
 
+/** macro that checks whether a typecode is a container type */
+#define TYPE_IS_CONTAINER(typecode)             \
+    ((typecode) == DBUS_TYPE_STRUCT ||          \
+     (typecode) == DBUS_TYPE_DICT_ENTRY ||      \
+     (typecode) == DBUS_TYPE_VARIANT ||         \
+     (typecode) == DBUS_TYPE_ARRAY)
+
+
 /**
  * @defgroup DBusSignature Type signature parsing
  * @ingroup  DBus
@@ -73,10 +81,10 @@ dbus_signature_iter_init (DBusSignatureIter *iter,
  * character such as '(' for a structure, the corresponding type for
  * the container will be returned, e.g.  DBUS_TYPE_STRUCT, not '('.
  * In this case, you should initialize a sub-iterator with
- * dbus_signature_iter_recurse to parse the container type.
+ * dbus_signature_iter_recurse() to parse the container type.
  *
  * @param iter pointer to an iterator 
- * @returns current type (e.g. DBUS_TYPE_STRING, DBUS_TYPE_ARRAY)
+ * @returns current type (e.g. #DBUS_TYPE_STRING, #DBUS_TYPE_ARRAY)
  */
 int
 dbus_signature_iter_get_current_type (const DBusSignatureIter *iter)
@@ -87,11 +95,16 @@ dbus_signature_iter_get_current_type (const DBusSignatureIter *iter)
 }
 
 /**
- * Returns the full type signature represented by the current
- * iterator as a C string.
+ * Returns the signature of the single complete type starting at the
+ * given iterator.
+ *
+ * For example, if the iterator is pointing at the start of "(ii)ii"
+ * (which is "a struct of two ints, followed by an int, followed by an
+ * int"), then "(ii)" would be returned. If the iterator is pointing at
+ * one of the "i" then just that "i" would be returned.
  *
  * @param iter pointer to an iterator 
- * @returns current signature; or NULL on OOM.  Should be freed with #dbus_free
+ * @returns current signature; or #NULL if no memory.  Should be freed with dbus_free()
  */
 char *
 dbus_signature_iter_get_signature (const DBusSignatureIter *iter)
@@ -121,8 +134,8 @@ dbus_signature_iter_get_signature (const DBusSignatureIter *iter)
  * This function allows you to avoid initializing a sub-iterator and
  * getting its current type.
  *
- * It is an error to invoke this function if the current type of the
- * iterator is not DBUS_TYPE_ARRAY.
+ * Undefined behavior results if you invoke this function when the
+ * current type of the iterator is not #DBUS_TYPE_ARRAY.
  *
  * @param iter pointer to an iterator 
  * @returns current array element type
@@ -139,7 +152,7 @@ dbus_signature_iter_get_element_type (const DBusSignatureIter *iter)
 
 /**
  * Skip to the next value on this "level". e.g. the next field in a
- * struct, the next value in an array. Returns FALSE at the end of the
+ * struct, the next value in an array. Returns #FALSE at the end of the
  * current container.
  *
  * @param iter the iterator
@@ -178,9 +191,12 @@ dbus_signature_iter_next (DBusSignatureIter *iter)
 }
 
 /**
- * Initialize a new iterator pointing to the first type current
- * container. It's an error to call this if the current type is a
- * non-container (i.e. if dbus_type_is_container returns FALSE).
+ * Initialize a new iterator pointing to the first type in the current
+ * container.
+ * 
+ * The results are undefined when calling this if the current type is
+ * a non-container (i.e. if dbus_type_is_container() returns #FALSE
+ * for the result of dbus_signature_iter_get_current_type()).
  *
  * @param iter the current interator
  * @param subiter an iterator to initialize pointing to the first child
@@ -203,11 +219,13 @@ dbus_signature_iter_recurse (const DBusSignatureIter *iter,
 }
 
 /**
- * Check a type signature for validity.
+ * Check a type signature for validity. Remember that #NULL can always
+ * be passed instead of a DBusError*, if you don't care about having
+ * an error name and message.
  *
  * @param signature a potentially invalid type signature
  * @param error error return
- * @returns TRUE iif signature is valid
+ * @returns #TRUE if signature is valid or #FALSE if an error is set
  */
 dbus_bool_t
 dbus_signature_validate (const char       *signature,
@@ -224,12 +242,15 @@ dbus_signature_validate (const char       *signature,
 }
 
 /**
- * Check that a type signature is both valid and contains exactly
- * one complete type.
+ * Check that a type signature is both valid and contains exactly one
+ * complete type. "One complete type" means a single basic type,
+ * array, struct, or dictionary, though the struct or array may be
+ * arbitrarily recursive and complex. More than one complete type
+ * would mean for example "ii" or two integers in sequence.
  *
  * @param signature a potentially invalid type signature
  * @param error error return
- * @returns TRUE iif signature is valid and has exactly one complete type
+ * @returns #TRUE if signature is valid and has exactly one complete type
  */
 dbus_bool_t
 dbus_signature_validate_single (const char       *signature,
@@ -250,16 +271,10 @@ dbus_signature_validate_single (const char       *signature,
   return FALSE;
 }
 
-/** macro that checks whether a typecode is a container type */
-#define TYPE_IS_CONTAINER(typecode)             \
-    ((typecode) == DBUS_TYPE_STRUCT ||          \
-     (typecode) == DBUS_TYPE_DICT_ENTRY ||      \
-     (typecode) == DBUS_TYPE_VARIANT ||         \
-     (typecode) == DBUS_TYPE_ARRAY)
-
 /**
  * A "container type" can contain basic types, or nested
  * container types. #DBUS_TYPE_INVALID is not a container type.
+ *
  * This function will crash if passed a typecode that isn't
  * in dbus-protocol.h
  *
@@ -275,15 +290,15 @@ dbus_type_is_container (int typecode)
 }
 
 /**
- * A "basic type" is a somewhat arbitrary concept, but the intent
- * is to include those types that are fully-specified by a single
- * typecode, with no additional type information or nested
- * values. So all numbers and strings are basic types and
- * structs, arrays, and variants are not basic types.
- * #DBUS_TYPE_INVALID is not a basic type.
+ * A "basic type" is a somewhat arbitrary concept, but the intent is
+ * to include those types that are fully-specified by a single
+ * typecode, with no additional type information or nested values. So
+ * all numbers and strings are basic types and structs, arrays, and
+ * variants are not basic types.  #DBUS_TYPE_INVALID is not a basic
+ * type.
  *
  * This function will crash if passed a typecode that isn't
- * in dbus-protocol.h
+ * in dbus-protocol.h 
  *
  * @returns #TRUE if type is basic
  */
@@ -304,14 +319,25 @@ dbus_type_is_basic (int typecode)
  * first byte of the old and new value would be in the same location,
  * so alignment padding is not a factor.
  *
- * This function is useful to determine whether #dbus_message_iter_get_fixed_array
- * may be used.
+ * This function is useful to determine whether
+ * dbus_message_iter_get_fixed_array() may be used.
  *
+ * Some structs are fixed-size (if they contain only fixed-size types)
+ * but struct is not considered a fixed type for purposes of this
+ * function.
+ *
+ * This function will crash if passed a typecode that isn't
+ * in dbus-protocol.h
+ * 
  * @returns #FALSE if the type can occupy different lengths
  */
 dbus_bool_t
 dbus_type_is_fixed (int typecode)
 {
+  /* only reasonable (non-line-noise) typecodes are allowed */
+  _dbus_return_val_if_fail (_dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
+			    FALSE);
+  
   switch (typecode)
     {
     case DBUS_TYPE_BYTE:

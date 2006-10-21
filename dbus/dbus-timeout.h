@@ -37,6 +37,7 @@ DBUS_BEGIN_DECLS
 
 typedef struct DBusTimeoutList DBusTimeoutList;
 
+/** function to run when the timeout is handled */
 typedef dbus_bool_t (* DBusTimeoutHandler) (void *data);
 
 DBusTimeout* _dbus_timeout_new          (int                 interval,

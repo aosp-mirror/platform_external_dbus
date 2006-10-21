@@ -56,23 +56,25 @@ DBUS_BEGIN_DECLS
  * dbus-memory.c)
  */
 
+/** An opaque string type */
 typedef struct DBusString DBusString;
 
 #if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
 #define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
   __attribute__((__format__ (__printf__, format_idx, arg_idx)))
-#define _DBUS_GNUC_SCANF( format_idx, arg_idx )     \
-  __attribute__((__format__ (__scanf__, format_idx, arg_idx)))
-#define _DBUS_GNUC_FORMAT( arg_idx )                \
-  __attribute__((__format_arg__ (arg_idx)))
 #define _DBUS_GNUC_NORETURN                         \
   __attribute__((__noreturn__))
 #else   /* !__GNUC__ */
 #define _DBUS_GNUC_PRINTF( format_idx, arg_idx )
-#define _DBUS_GNUC_SCANF( format_idx, arg_idx )
-#define _DBUS_GNUC_FORMAT( arg_idx )
 #define _DBUS_GNUC_NORETURN
 #endif  /* !__GNUC__ */
+
+/** @def _DBUS_GNUC_PRINTF
+ * used to tell gcc about printf format strings
+ */
+/** @def _DBUS_GNUC_NORETURN
+ * used to tell gcc about functions that never return, such as _dbus_abort()
+ */
 
 void _dbus_abort (void) _DBUS_GNUC_NORETURN;
 
@@ -80,17 +82,25 @@ const char* _dbus_getenv (const char *varname);
 dbus_bool_t _dbus_setenv (const char *varname,
 			  const char *value);
 
-
+/** A process ID */
 typedef unsigned long dbus_pid_t;
+/** A user ID */
 typedef unsigned long dbus_uid_t;
+/** A group ID */
 typedef unsigned long dbus_gid_t;
 
+/** an invalid PID used to represent an uninitialized dbus_pid_t field */
 #define DBUS_PID_UNSET ((dbus_pid_t) -1)
+/** an invalid UID used to represent an uninitialized dbus_uid_t field */
 #define DBUS_UID_UNSET ((dbus_uid_t) -1)
+/** an invalid GID used to represent an uninitialized dbus_gid_t field */
 #define DBUS_GID_UNSET ((dbus_gid_t) -1)
 
+/** an appropriate printf format for dbus_pid_t */
 #define DBUS_PID_FORMAT "%lu"
+/** an appropriate printf format for dbus_uid_t */
 #define DBUS_UID_FORMAT "%lu"
+/** an appropriate printf format for dbus_gid_t */
 #define DBUS_GID_FORMAT "%lu"
 
 
@@ -156,7 +166,9 @@ dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expec
                                                     const DBusCredentials *provided_credentials);
 
 
+/** Information about a UNIX user */
 typedef struct DBusUserInfo  DBusUserInfo;
+/** Information about a UNIX group */
 typedef struct DBusGroupInfo DBusGroupInfo;
 
 /**
@@ -202,10 +214,13 @@ unsigned long _dbus_getpid (void);
 dbus_uid_t    _dbus_getuid (void);
 dbus_gid_t    _dbus_getgid (void);
 
+/** Opaque type representing an atomically-modifiable integer
+ * that can be used from multiple threads.
+ */
 typedef struct DBusAtomic DBusAtomic;
 
 /**
- * An atomic integer.
+ * An atomic integer safe to increment or decrement from multiple threads.
  */
 struct DBusAtomic
 {
@@ -215,12 +230,18 @@ struct DBusAtomic
 dbus_int32_t _dbus_atomic_inc (DBusAtomic *atomic);
 dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
 
-#define _DBUS_POLLIN      0x0001    /* There is data to read */
-#define _DBUS_POLLPRI     0x0002    /* There is urgent data to read */
-#define _DBUS_POLLOUT     0x0004    /* Writing now will not block */
-#define _DBUS_POLLERR     0x0008    /* Error condition */
-#define _DBUS_POLLHUP     0x0010    /* Hung up */
-#define _DBUS_POLLNVAL    0x0020    /* Invalid request: fd not open */
+/** There is data to read */
+#define _DBUS_POLLIN      0x0001
+/** There is urgent data to read */
+#define _DBUS_POLLPRI     0x0002
+/** Writing now will not block */
+#define _DBUS_POLLOUT     0x0004
+/** Error condition */
+#define _DBUS_POLLERR     0x0008
+/** Hung up */
+#define _DBUS_POLLHUP     0x0010
+/** Invalid request: fd not open */
+#define _DBUS_POLLNVAL    0x0020
 
 /**
  * A portable struct pollfd wrapper. 
@@ -267,6 +288,7 @@ dbus_bool_t _dbus_string_get_dirname  (const DBusString *filename,
                                        DBusString       *dirname);
 dbus_bool_t _dbus_path_is_absolute    (const DBusString *filename);
 
+/** Opaque type for reading a directory listing */
 typedef struct DBusDirIter DBusDirIter;
 
 DBusDirIter* _dbus_directory_open          (const DBusString *filename,
@@ -295,7 +317,6 @@ dbus_bool_t _dbus_generate_random_bytes        (DBusString *str,
 dbus_bool_t _dbus_generate_random_ascii        (DBusString *str,
                                                 int         n_bytes);
 
-const char *_dbus_errno_to_string  (int errnum);
 const char* _dbus_error_from_errno (int error_number);
 
 void _dbus_disable_sigpipe (void);
@@ -342,6 +363,7 @@ dbus_bool_t _dbus_change_identity (unsigned long     uid,
                                    unsigned long     gid,
                                    DBusError        *error);
 
+/** A UNIX signal handler */
 typedef void (* DBusSignalHandler) (int sig);
 
 void _dbus_set_signal_handler (int               sig,
@@ -363,12 +385,18 @@ dbus_bool_t _dbus_user_at_console (const char *username,
 #  endif /* va_list is a pointer */
 #endif /* !DBUS_VA_COPY */
 
-/* On x86 there is an 80-bit FPU, and if you do "a == b" it may have a
- * or b in an 80-bit register, thus failing to compare the two 64-bit
- * doubles for bitwise equality.
+
+/**
+ * Casts a primitive C type to a byte array and then indexes
+ * a particular byte of the array.
  */
 #define _DBUS_BYTE_OF_PRIMITIVE(p, i) \
     (((const char*)&(p))[(i)])
+/** On x86 there is an 80-bit FPU, and if you do "a == b" it may have a
+ * or b in an 80-bit register, thus failing to compare the two 64-bit
+ * doubles for bitwise equality. So this macro compares the two doubles
+ * bitwise.
+ */
 #define _DBUS_DOUBLES_BITWISE_EQUAL(a, b)                                       \
      (_DBUS_BYTE_OF_PRIMITIVE (a, 0) == _DBUS_BYTE_OF_PRIMITIVE (b, 0) &&       \
       _DBUS_BYTE_OF_PRIMITIVE (a, 1) == _DBUS_BYTE_OF_PRIMITIVE (b, 1) &&       \
@@ -385,6 +413,9 @@ dbus_bool_t _dbus_parse_uid (const DBusString  *uid_str,
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
 					  DBusError *error);
 
+/** Type representing a universally unique ID
+ * @todo rename to UUID instead of GUID
+ */
 typedef union DBusGUID DBusGUID;
 
 dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,

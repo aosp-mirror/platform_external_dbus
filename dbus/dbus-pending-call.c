@@ -615,8 +615,14 @@ dbus_pending_call_set_notify (DBusPendingCall              *pending,
  * Cancels the pending call, such that any reply or error received
  * will just be ignored.  Drops the dbus library's internal reference
  * to the #DBusPendingCall so will free the call if nobody else is
- * holding a reference. However you usually get a reference
- * from dbus_connection_send() so probably your app owns a ref also.
+ * holding a reference. However you usually get a reference from
+ * dbus_connection_send_with_reply() so probably your app owns a ref
+ * also.
+ *
+ * Note that canceling a pending call will <em>not</em> simulate a
+ * timed-out call; if a call times out, then a timeout error reply is
+ * received. If you cancel the call, no reply is received unless the
+ * the reply was already received before you canceled.
  * 
  * @param pending the pending call
  */
