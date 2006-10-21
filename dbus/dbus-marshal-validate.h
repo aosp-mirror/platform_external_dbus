@@ -161,7 +161,7 @@ dbus_bool_t _dbus_validate_signature  (const DBusString *str,
 #else /* !DBUS_DISABLE_CHECKS */
 
 /** A name check is used in _dbus_return_if_fail(), it's not suitable
- * for validating untrusted data. use _dbus_validate_##what for that.
+ * for validating untrusted data. use _dbus_validate_whatever for that.
  */
 #define DECLARE_DBUS_NAME_CHECK(what) \
 dbus_bool_t _dbus_check_is_valid_##what (const char *name)

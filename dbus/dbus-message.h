@@ -42,6 +42,7 @@ DBUS_BEGIN_DECLS
  */
 
 typedef struct DBusMessage DBusMessage;
+/** Opaque type representing a message iterator. Can be copied by value, and contains no allocated memory so never needs to be freed and can be allocated on the stack. */
 typedef struct DBusMessageIter DBusMessageIter;
 
 /**

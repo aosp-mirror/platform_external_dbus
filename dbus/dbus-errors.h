@@ -38,6 +38,7 @@ DBUS_BEGIN_DECLS
  * @{
  */
 
+/** Mostly-opaque type representing an error that occurred */
 typedef struct DBusError DBusError;
 
 /**
@@ -45,8 +46,8 @@ typedef struct DBusError DBusError;
  */
 struct DBusError
 {
-  const char *name;    /**< error name */
-  const char *message; /**< error message */
+  const char *name;    /**< public error name field */
+  const char *message; /**< public error message field */
 
   unsigned int dummy1 : 1; /**< placeholder */
   unsigned int dummy2 : 1; /**< placeholder */

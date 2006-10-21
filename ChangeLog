@@ -1,5 +1,9 @@
 2006-10-21  Havoc Pennington  <hp@redhat.com>
 
+	* Document a bunch of undocumented stuff
+	
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
 	* Clean up Doxygen group markers for public API so Doxygen finds
 	everything (not comprehensively fixed for private API).
 	Means all remaining Doxygen warnings are just about missing docs

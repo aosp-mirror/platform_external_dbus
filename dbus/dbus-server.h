@@ -41,6 +41,9 @@ DBUS_BEGIN_DECLS
 
 typedef struct DBusServer DBusServer;
 
+/** Called when a new connection to the server is available. Must reference and save the new
+ * connection, or close the new connection. Set with dbus_server_set_new_connection_function().
+ */
 typedef void (* DBusNewConnectionFunction) (DBusServer     *server,
                                             DBusConnection *new_connection,
                                             void           *data);

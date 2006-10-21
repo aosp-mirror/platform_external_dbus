@@ -214,7 +214,9 @@ create_entry (void)
 }
 
 /**
- * Returns the method string of an address entry.
+ * Returns the method string of an address entry.  For example, given
+ * the address entry "tcp:host=example.com" it would return the string
+ * "tcp"
  *
  * @param entry the entry.
  * @returns a string describing the method. This string
@@ -227,8 +229,12 @@ dbus_address_entry_get_method (DBusAddressEntry *entry)
 }
 
 /**
- * Returns a value from a key of an entry.
+ * Returns a value from a key of an entry. For example,
+ * given the address "tcp:host=example.com,port=8073" if you asked
+ * for the key "host" you would get the value "example.com"
  *
+ * The returned value is already unescaped.
+ * 
  * @param entry the entry.
  * @param key the key.
  * @returns the key value. This string must not be freed.
@@ -342,6 +348,9 @@ append_unescaped_value (DBusString       *unescaped,
  * method:key=value,key=value;method:key=value
  *
  * See the D-Bus specification for complete docs on the format.
+ *
+ * When connecting to an address, the first address entries
+ * in the semicolon-separated list should be tried first.
  * 
  * @param address the address.
  * @param entry return location to an array of entries.
@@ -589,7 +598,8 @@ dbus_address_escape_value (const char *value)
 
 /**
  * Unescapes the given string as a value in a key=value pair
- * for a D-Bus address.
+ * for a D-Bus address. Note that dbus_address_entry_get_value()
+ * returns an already-unescaped value.
  *
  * @param value the escaped value
  * @param error error to set if the unescaping fails

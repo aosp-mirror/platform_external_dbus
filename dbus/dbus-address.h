@@ -37,6 +37,7 @@ DBUS_BEGIN_DECLS
  * @{
  */
 
+/** Opaque type representing one of the semicolon-separated items in an address */
 typedef struct DBusAddressEntry DBusAddressEntry;
 
 dbus_bool_t dbus_parse_address            (const char         *address,

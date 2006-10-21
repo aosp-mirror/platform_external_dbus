@@ -4578,13 +4578,13 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 }
 
 /**
- * Sets the mainloop wakeup function for the connection. This function is
- * responsible for waking up the main loop (if its sleeping) when some some
- * change has happened to the connection that the mainloop needs to reconsider
- * (e.g. a message has been queued for writing).
- * When using Qt, this typically results in a call to QEventLoop::wakeUp().
- * When using GLib, it would call g_main_context_wakeup().
- *
+ * Sets the mainloop wakeup function for the connection. This function
+ * is responsible for waking up the main loop (if its sleeping in
+ * another thread) when some some change has happened to the
+ * connection that the mainloop needs to reconsider (e.g. a message
+ * has been queued for writing).  When using Qt, this typically
+ * results in a call to QEventLoop::wakeUp().  When using GLib, it
+ * would call g_main_context_wakeup().
  *
  * @param connection the connection.
  * @param wakeup_main_function function to wake up the mainloop
@@ -4627,6 +4627,10 @@ dbus_connection_set_wakeup_main_function (DBusConnection            *connection,
  * the DBusDispatchStatusFunction should simply save an indication
  * that messages should be dispatched later, when the main loop
  * is re-entered.
+ *
+ * If you don't set a dispatch status function, you have to be sure to
+ * dispatch on every iteration of your main loop, especially if
+ * dbus_watch_handle() or dbus_timeout_handle() were called.
  *
  * @param connection the connection
  * @param function function to call on dispatch status changes
