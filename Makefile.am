@@ -9,7 +9,8 @@ DISTCLEANFILES = 		\
 
 EXTRA_DIST =			\
 	HACKING			\
-	dbus-1.pc.in
+	dbus-1.pc.in		\
+	cleanup-man-pages.sh
 
 all-local: Doxyfile
 

@@ -1,5 +1,16 @@
 2006-10-21  Havoc Pennington  <hp@redhat.com>
 
+	* Makefile.am (EXTRA_DIST): dist cleanup-man-pages.sh so it's in
+	the tarball if packagers want to run it
+
+	* cleanup-man-pages.sh: Add a script which munges all the internal
+	API man pages out of the Doxygen output. This reduces the size of
+	the installed man pages from 7 to 2 megs, and avoids
+	namespace-polluting pages. Right now (like Doxygen) this script
+	isn't in the build, it's something packagers can do manually.
+
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-connection.h: don't include the watch/timeout
 	functions in connection section
 
