@@ -1,3 +1,10 @@
+2006-10-22  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection-internal.h: move prototype of
+	_dbus_bus_notify_shared_connection_disconnected_unlocked() here so
+	it isn't in a public header and doesn't end up in the DBusBus
+	group in Doxygen
+
 2006-10-21  Havoc Pennington  <hp@redhat.com>
 
 	* Makefile.am (EXTRA_DIST): dist cleanup-man-pages.sh so it's in

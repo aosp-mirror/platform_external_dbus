@@ -102,6 +102,19 @@ void              _dbus_connection_test_get_locks                 (DBusConnectio
                                                                    DBusCondVar **dispatch_cond_loc,
                                                                    DBusCondVar **io_path_cond_loc);
 
+/* This _dbus_bus_* stuff doesn't really belong here, but dbus-bus-internal.h seems
+ * silly for one function
+ */
+/**
+ * @addtogroup DBusBusInternals
+ * @{
+ */
+
+void           _dbus_bus_notify_shared_connection_disconnected_unlocked (DBusConnection *connection);
+
+/** @} */
+
+
 DBUS_END_DECLS
 
 #endif /* DBUS_CONNECTION_INTERNAL_H */
