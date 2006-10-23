@@ -1,3 +1,17 @@
+2006-10-23  David Zeuthen  <davidz@redhat.com>
+
+	* dbus/dbus-memory.c: Use atomic variable to protect
+	n_blocks_outstanding otherwise OOM will be reported using SMP on
+	some arches
+	
+	* bus/dispatch.c: Add missing end of line characters
+
+	* bus/desktop-file.c (parse_section_start, parse_key_value) 
+	(bus_desktop_file_load): Propertly handle OOM
+
+	* dbus/dbus-threads.c (init_uninitialized_locks): Check that
+	thread_init_generation equals _dbus_current_generation, not 0
+
 2006-10-22  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-connection-internal.h: move prototype of

@@ -581,7 +581,7 @@ check_service_owner_changed_foreach (DBusConnection *connection,
           || (d->expected_kind == OWNER_CHANGED   && (!old_owner[0] || !new_owner[0]))
           || (d->expected_kind == SERVICE_DELETED && (!old_owner[0] ||  new_owner[0])))
         {
-          _dbus_warn ("inconsistent NameOwnerChanged arguments");
+          _dbus_warn ("inconsistent NameOwnerChanged arguments\n");
           goto out;
         }
 
@@ -2359,7 +2359,7 @@ check_got_service_info (DBusMessage *message)
             }
           else
             {
-              _dbus_warn ("unexpected arguments for NameOwnerChanged message");
+              _dbus_warn ("unexpected arguments for NameOwnerChanged message\n");
               message_kind = GOT_SOMETHING_ELSE;
             }
         }
@@ -2556,12 +2556,13 @@ check_existent_service_no_auto_start (BusContext     *context,
             if (message_kind != GOT_ERROR)
               {
                 block_connection_until_message_from_bus (context, connection, "error about service exiting");
-              
+		
                 /* and process everything again */
                 bus_test_run_everything (context);
               
                 if (!check_got_error (context, connection,
                                       DBUS_ERROR_SPAWN_CHILD_EXITED,
+				      DBUS_ERROR_NO_MEMORY,
                                       NULL))
                   goto out;
               }
@@ -3109,7 +3110,7 @@ check_existent_service_auto_start (BusContext     *context,
       if (message == NULL)
         {
           _dbus_warn ("No message after auto activation "
-                      "(should be a service announcement)");
+                      "(should be a service announcement)\n");
           dbus_connection_return_message (connection, message);
           message = NULL;
           goto out;
@@ -3398,7 +3399,7 @@ check_shell_service_success_auto_start (BusContext     *context,
       if (message == NULL)
         {
           _dbus_warn ("No message after auto activation "
-                      "(should be a service announcement)");
+                      "(should be a service announcement)\n");
           dbus_connection_return_message (connection, message);
           message = NULL;
           goto out;
@@ -3489,7 +3490,7 @@ check_shell_service_success_auto_start (BusContext     *context,
                                        DBUS_TYPE_STRING, &argv[6],
                                        DBUS_TYPE_INVALID))
     {
-      _dbus_warn ("Error getting arguments from return");
+      _dbus_warn ("Error getting arguments from return\n");
       goto out;
     }
 
@@ -3498,42 +3499,42 @@ check_shell_service_success_auto_start (BusContext     *context,
    */
   if (strcmp("-test", argv[1]) != 0)
     {
-      _dbus_warn ("Unexpected argv[1] in shell success service test (expected: %s, got: %s)", 
+      _dbus_warn ("Unexpected argv[1] in shell success service test (expected: %s, got: %s)\n", 
                   "-test", argv[1]);
       goto out;
     } 
 
   if (strcmp("that", argv[2]) != 0)
     {
-      _dbus_warn ("Unexpected argv[2] in shell success service test (expected: %s, got: %s)", 
+      _dbus_warn ("Unexpected argv[2] in shell success service test (expected: %s, got: %s)\n", 
                    "that", argv[2]);
       goto out;
     } 
 
   if (strcmp("we get", argv[3]) != 0)
     {
-      _dbus_warn ("Unexpected argv[3] in shell success service test (expected: %s, got: %s)", 
+      _dbus_warn ("Unexpected argv[3] in shell success service test (expected: %s, got: %s)\n", 
                    "we get", argv[3]);
       goto out;
     } 
    
   if (strcmp("back", argv[4]) != 0)
     {
-      _dbus_warn ("Unexpected argv[4] in shell success service test (expected: %s, got: %s)", 
+      _dbus_warn ("Unexpected argv[4] in shell success service test (expected: %s, got: %s)\n", 
                    "back", argv[4]);
       goto out;
     } 
 
   if (strcmp("--what", argv[5]) != 0)
     {
-      _dbus_warn ("Unexpected argv[5] in shell success service test (expected: %s, got: %s)", 
+      _dbus_warn ("Unexpected argv[5] in shell success service test (expected: %s, got: %s)\n", 
                    "--what", argv[5]);
       goto out;
     } 
 
   if (strcmp("we put in", argv[6]) != 0)
     {
-      _dbus_warn ("Unexpected argv[6] in shell success service test (expected: %s, got: %s)", 
+      _dbus_warn ("Unexpected argv[6] in shell success service test (expected: %s, got: %s)\n", 
                    "we put in", argv[6]);
       goto out;
     } 
@@ -3880,7 +3881,7 @@ check_list_services (BusContext     *context,
 	case GOT_ERROR:
 	case GOT_SERVICE_DELETED:
 	  _dbus_warn ("Unexpected message after ActivateService "
-		      "(should be an error or a service announcement");
+		      "(should be an error or a service announcement)\n");
 	  goto out;
 
 	case GOT_SERVICE_CREATED:
@@ -3955,7 +3956,7 @@ check_oom_check2_func (void *data)
   
   if (!check_no_leftovers (d->context))
     {
-      _dbus_warn ("Messages were left over, should be covered by test suite");
+      _dbus_warn ("Messages were left over, should be covered by test suite\n");
       return FALSE;
     }
 
@@ -4057,7 +4058,7 @@ bus_dispatch_test (const DBusString *test_data_dir)
   
   if (!check_no_leftovers (context))
     {
-      _dbus_warn ("Messages were left over after setting up initial connections");
+      _dbus_warn ("Messages were left over after setting up initial connections\n");
       _dbus_assert_not_reached ("initial connection setup failed");
     }
   

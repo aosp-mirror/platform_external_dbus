@@ -430,6 +430,8 @@ parse_section_start (BusDesktopFileParser *parser, DBusError *error)
   if (open_section (parser, section_name) == NULL)
     {
       dbus_free (section_name);
+      parser_free (parser);
+      BUS_SET_OOM (error);
       return FALSE;
     }
 
@@ -527,6 +529,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
     {
       dbus_free (value);
       parser_free (parser);
+      BUS_SET_OOM (error);
       return FALSE;
     }
   
@@ -534,21 +537,26 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
     {
       dbus_free (value);
       parser_free (parser);
+      BUS_SET_OOM (error);
       return FALSE;
     }
   
   if (!_dbus_string_copy_len (&parser->data, key_start, key_end - key_start,
                               &key, 0))
     {
+      _dbus_string_free (&key);
       dbus_free (value);
       parser_free (parser);
+      BUS_SET_OOM (error);
       return FALSE;
     }
   
   if (!_dbus_string_steal_data (&key, &tmp))
     {
+      _dbus_string_free (&key);
       dbus_free (value);
       parser_free (parser);
+      BUS_SET_OOM (error);
       return FALSE;
     }
   
@@ -633,7 +641,10 @@ bus_desktop_file_load (DBusString *filename,
     }
   
   if (!_dbus_string_init (&str))
-    return NULL;
+    {
+      BUS_SET_OOM (error);
+      return NULL;
+    }
   
   if (!_dbus_file_get_contents (&str, filename, error))
     {

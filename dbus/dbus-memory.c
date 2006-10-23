@@ -105,7 +105,7 @@ static int n_failures_this_failure = 0;
 static dbus_bool_t guards = FALSE;
 static dbus_bool_t disable_mem_pools = FALSE;
 static dbus_bool_t backtrace_on_fail_alloc = FALSE;
-static int n_blocks_outstanding = 0;
+static DBusAtomic n_blocks_outstanding = {0};
 
 /** value stored in guard padding for debugging buffer overrun */
 #define GUARD_VALUE 0xdeadbeef
@@ -283,7 +283,7 @@ _dbus_decrement_fail_alloc_counter (void)
 int
 _dbus_get_malloc_blocks_outstanding (void)
 {
-  return n_blocks_outstanding;
+  return n_blocks_outstanding.value;
 }
 
 /**
@@ -445,11 +445,10 @@ dbus_malloc (size_t bytes)
   if (_dbus_decrement_fail_alloc_counter ())
     {
       _dbus_verbose (" FAILING malloc of %ld bytes\n", (long) bytes);
-      
       return NULL;
     }
 #endif
-  
+
   if (bytes == 0) /* some system mallocs handle this, some don't */
     return NULL;
 #ifdef DBUS_BUILD_TESTS
@@ -461,7 +460,7 @@ dbus_malloc (size_t bytes)
 
       block = malloc (bytes + GUARD_EXTRA_SIZE);
       if (block)
-        n_blocks_outstanding += 1;
+	_dbus_atomic_inc (&n_blocks_outstanding);
       
       return set_guards (block, bytes, SOURCE_MALLOC);
     }
@@ -472,7 +471,7 @@ dbus_malloc (size_t bytes)
       mem = malloc (bytes);
 #ifdef DBUS_BUILD_TESTS
       if (mem)
-        n_blocks_outstanding += 1;
+	_dbus_atomic_inc (&n_blocks_outstanding);
 #endif
       return mem;
     }
@@ -503,7 +502,7 @@ dbus_malloc0 (size_t bytes)
       return NULL;
     }
 #endif
-
+  
   if (bytes == 0)
     return NULL;
 #ifdef DBUS_BUILD_TESTS
@@ -515,7 +514,7 @@ dbus_malloc0 (size_t bytes)
 
       block = calloc (bytes + GUARD_EXTRA_SIZE, 1);
       if (block)
-        n_blocks_outstanding += 1;
+	_dbus_atomic_inc (&n_blocks_outstanding);
       return set_guards (block, bytes, SOURCE_MALLOC_ZERO);
     }
 #endif
@@ -525,7 +524,7 @@ dbus_malloc0 (size_t bytes)
       mem = calloc (bytes, 1);
 #ifdef DBUS_BUILD_TESTS
       if (mem)
-        n_blocks_outstanding += 1;
+	_dbus_atomic_inc (&n_blocks_outstanding);
 #endif
       return mem;
     }
@@ -590,7 +589,7 @@ dbus_realloc (void  *memory,
           block = malloc (bytes + GUARD_EXTRA_SIZE);
 
           if (block)
-            n_blocks_outstanding += 1;
+	    _dbus_atomic_inc (&n_blocks_outstanding);
           
           return set_guards (block, bytes, SOURCE_REALLOC_NULL);   
         }
@@ -602,7 +601,7 @@ dbus_realloc (void  *memory,
       mem = realloc (memory, bytes);
 #ifdef DBUS_BUILD_TESTS
       if (memory == NULL && mem != NULL)
-        n_blocks_outstanding += 1;
+	    _dbus_atomic_inc (&n_blocks_outstanding);
 #endif
       return mem;
     }
@@ -623,9 +622,9 @@ dbus_free (void  *memory)
       check_guards (memory, TRUE);
       if (memory)
         {
-          n_blocks_outstanding -= 1;
+	  _dbus_atomic_dec (&n_blocks_outstanding);
           
-          _dbus_assert (n_blocks_outstanding >= 0);
+	  _dbus_assert (n_blocks_outstanding.value >= 0);
           
           free (((unsigned char*)memory) - GUARD_START_OFFSET);
         }
@@ -637,9 +636,9 @@ dbus_free (void  *memory)
   if (memory) /* we guarantee it's safe to free (NULL) */
     {
 #ifdef DBUS_BUILD_TESTS
-      n_blocks_outstanding -= 1;
+      _dbus_atomic_dec (&n_blocks_outstanding);
       
-      _dbus_assert (n_blocks_outstanding >= 0);
+      _dbus_assert (n_blocks_outstanding.value >= 0);
 #endif
 
       free (memory);
