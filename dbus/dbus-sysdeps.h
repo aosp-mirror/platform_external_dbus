@@ -273,6 +273,9 @@ dbus_bool_t _dbus_string_save_to_file (const DBusString *str,
                                        const DBusString *filename,
                                        DBusError        *error);
 
+dbus_bool_t _dbus_make_file_world_readable   (const DBusString *filename,
+                                              DBusError *error);
+
 dbus_bool_t    _dbus_create_file_exclusively (const DBusString *filename,
                                               DBusError        *error);
 dbus_bool_t    _dbus_delete_file             (const DBusString *filename,

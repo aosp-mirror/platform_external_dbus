@@ -639,6 +639,8 @@ _dbus_create_uuid_file_exclusively (const DBusString *filename,
   if (!_dbus_string_save_to_file (&encoded, filename, error))
     goto error;
 
+  if (!_dbus_make_file_world_readable (filename, error))
+    goto error;
 
   _dbus_string_free (&encoded);
 

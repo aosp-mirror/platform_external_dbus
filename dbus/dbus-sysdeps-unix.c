@@ -1802,6 +1802,33 @@ _dbus_string_save_to_file (const DBusString *str,
   return retval;
 }
 
+/** Makes the file readable by every user in the system.
+ *
+ * @param filename the filename
+ * @param error error location
+ * @returns #TRUE if the file's permissions could be changed.
+ */
+dbus_bool_t
+_dbus_make_file_world_readable(const DBusString *filename,
+                               DBusError *error)
+{
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  filename_c = _dbus_string_get_const_data (filename);
+  if (chmod (filename_c, 0644) == -1)
+    {
+      dbus_set_error (error,
+                      DBUS_ERROR_FAILED,
+                      "Could not change permissions of file %s: %s\n",
+                      filename_c,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+  return TRUE;
+}
+
 /** Creates the given file, failing if the file already exists.
  *
  * @param filename the filename
@@ -2361,11 +2388,11 @@ _dbus_get_autolaunch_address (DBusString *address,
     }
   
   i = 0;
-  argv[i] = DBUS_BINDIR "/dbus-launch";
+  argv[i] = "dbus-launch";
   ++i;
   argv[i] = "--autolaunch";
   ++i;
-  argv[i] = /* const cast */ (char*) _dbus_string_get_const_data (&uuid);
+  argv[i] = _dbus_string_get_data (&uuid);
   ++i;
   argv[i] = "--binary-syntax";
   ++i;
@@ -2423,10 +2450,9 @@ _dbus_get_autolaunch_address (DBusString *address,
       close (fd);
       close (address_pipe[WRITE_END]);
 
-      execv (argv[0], argv);
+      execv (DBUS_BINDIR "/dbus-launch", argv);
 
       /* failed, try searching PATH */
-      argv[0] = "dbus-launch";
       execvp ("dbus-launch", argv);
 
       /* still nothing, we failed */

@@ -1,3 +1,16 @@
+2006-10-24  Thiago Macieira  <thiago@kde.org>
+
+	* dbus/dbus-sysdeps.h:
+	* dbus/dbus-sysdeps-unix.c: Add function
+	_dbus_make_file_world_readable that chmods a file to 0644.
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_get_autolaunch_address):
+        Avoid writing to the static "argv" array, thereby avoiding a
+        COW on the child process.
+
+	* dbus/dbus-internals.c (_dbus_create_uuid_file_exclusively):
+        call _dbus_make_file_world_readable on the created file.
+
 2006-10-23  David Zeuthen  <davidz@redhat.com>
 
 	* dbus/dbus-memory.c: Use atomic variable to protect
