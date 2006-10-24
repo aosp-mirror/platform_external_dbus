@@ -350,7 +350,7 @@ init_uninitialized_locks (void)
 {
   DBusList *link;
 
-  _dbus_assert (thread_init_generation == _dbus_current_generation);
+  _dbus_assert (thread_init_generation != _dbus_current_generation);
 
   link = uninitialized_mutex_list;
   while (link != NULL)
