@@ -25,7 +25,7 @@ script of a D-Bus package like this:
 .fi
 
 .PP
-This will ensure that /etc/dbus-1/machine-id exists and has the uuid in it.
+This will ensure that /var/lib/dbus/machine-id exists and has the uuid in it.
 It won't overwrite an existing uuid, since this id should remain fixed
 for a single machine until the next reboot at least.
 
@@ -50,31 +50,24 @@ The D-Bus UUID has no relationship to RFC 4122 and does not generate
 UUIDs compatible with that spec.
 
 .PP
-If you try to change an existing /etc/dbus-1/machine-id on a running
-system, it will probably result in bad things happening. Don't try 
-to change this file. Also, don't make it the same on two different 
-systems; it needs to be different anytime there are two different 
-kernels running.
-
-.PP
-If you need to share /etc between two different kernels, a possible solution
-is to symlink the machine ID to /var, and run "dbus-uuidgen
---ensure=/var/whatever" from an early boot script or the system
-message bus boot script.
+If you try to change an existing machine-id on a running system, it will
+probably result in bad things happening. Don't try to change this file. Also,
+don't make it the same on two different systems; it needs to be different
+anytime there are two different kernels running.
 
 .SH OPTIONS
 The following options are supported:
 .TP
 .I "--get[=FILENAME]"
-If a filename is not given, defaults to sysconfdir/dbus-1/machine-id
-(sysconfdir is usually /etc). If this file exists and is valid, the
+If a filename is not given, defaults to localstatedir/lib/dbus/machine-id
+(localstatedir is usually /var). If this file exists and is valid, the
 uuid in the file is printed on stdout. Otherwise, the command exits 
 with a nonzero status.
 
 .TP
 .I "--ensure[=FILENAME]"
-If a filename is not given, defaults to sysconfdir/dbus-1/machine-id
-(sysconfdir is usually /etc). If this file exists then it will be
+If a filename is not given, defaults to localstatedir/lib/dbus/machine-id
+(localstatedir is usually /var). If this file exists then it will be
 validated, and a failure code returned if it contains the wrong thing.
 If the file does not exist, it will be created with a new uuid in it.
 On success, prints no output.

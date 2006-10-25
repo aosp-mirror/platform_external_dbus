@@ -1,3 +1,10 @@
+2006-10-25  Sjoerd Simons  <sjoerd@luon.net>
+
+	* dbus/Makefile.am:
+	* tools/Makefile.am:
+	* toos/dbus-uuidgen.1:
+		Move the machine-id file to /var/lib/dbus 
+
 2006-10-24  David Zeuthen  <davidz@redhat.com>
 
 	* dbus/dbus-threads.c (init_uninitialized_locks): Fix typo so it's
