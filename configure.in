@@ -1138,6 +1138,10 @@ TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
 TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
 
+AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon",
+                   [Full path to the daemon in the builddir])
+AC_SUBST(TEST_BUS_BINARY)
+
 #### Find socket directories
 if ! test -z "$TMPDIR" ; then
    DEFAULT_SOCKET_DIR=$TMPDIR

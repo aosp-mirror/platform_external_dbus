@@ -1,3 +1,14 @@
+2006-10-26  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/dbus-launch.c (main): run the dbus-daemon in the builddir
+	if tests are enabled and the DBUS_USE_TEST_BINARY env variable is set
+
+	* tools/run-with-tmp-session-bus.sh: set DBUS_USE_TEST_BINARY
+	before we run dbus-launch
+
+	* configure.in: define TEST_BUS_BINARY to be the full path to 
+	dbus-daemon in the build root 
+
 2006-10-25  Sjoerd Simons  <sjoerd@luon.net>
 
 	* dbus/Makefile.am:

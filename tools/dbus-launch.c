@@ -886,7 +886,26 @@ main (int argc, char **argv)
                "%d", bus_address_to_launcher_pipe[WRITE_END]);
 
       verbose ("Calling exec()\n");
-      
+ 
+#ifdef DBUS_BUILD_TESTS 
+      /* exec from testdir */
+      if (getenv("DBUS_USE_TEST_BINARY") != NULL)
+        {
+          execl (TEST_BUS_BINARY,
+                 TEST_BUS_BINARY,
+                 "--fork",
+                 "--print-pid", write_pid_fd_as_string,
+                 "--print-address", write_address_fd_as_string,
+                 config_file ? "--config-file" : "--session",
+                 config_file, /* has to be last in this varargs list */
+                 NULL); 
+
+          fprintf (stderr,
+                   "Failed to execute test message bus daemon %s: %s. Will try again with the system path.\n",
+                   TEST_BUS_BINARY, strerror (errno));
+        }
+ #endif /* DBUS_BUILD_TESTS */
+
       execl (DBUS_DAEMONDIR"/dbus-daemon",
              DBUS_DAEMONDIR"/dbus-daemon",
              "--fork",

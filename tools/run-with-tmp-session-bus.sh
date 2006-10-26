@@ -47,6 +47,7 @@ unset DBUS_SESSION_BUS_PID
 
 echo "Running $DBUS_TOP_BUILDDIR/tools/dbus-launch --sh-syntax --config-file=$CONFIG_FILE" >&2
 
+export DBUS_USE_TEST_BINARY=1 
 eval `$DBUS_TOP_BUILDDIR/tools/dbus-launch --sh-syntax --config-file=$CONFIG_FILE`
 
 if test -z "$DBUS_SESSION_BUS_PID" ; then
