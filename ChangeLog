@@ -1,3 +1,12 @@
+2006-10-26  Thiago Macieira  <thiago@kde.org>
+
+	* tools/dbus-launch-x11.c (get_session_file, init_x_atoms):
+        check if get_machine_uuid() returns NULL before proceeding any
+        further: we can't init the X atoms or create a session file
+        name if there is no machine ID.
+	This solves a crash reported by some users if
+        --exit-with-session was used without --autolaunch=<machine-id>
+
 2006-10-26  John (J5) Palmieri  <johnp@redhat.com>
 
 	* tools/dbus-launch.c (main): run the dbus-daemon in the builddir

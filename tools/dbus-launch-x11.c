@@ -98,6 +98,10 @@ get_session_file (void)
   char *result;
   char *p;
 
+  machine = get_machine_uuid ();
+  if (machine == NULL)
+    return NULL;
+
   display = xstrdup (getenv ("DISPLAY"));
   if (display == NULL)
     {
@@ -143,8 +147,6 @@ get_session_file (void)
         *p = '_';
     }
   
-  machine = get_machine_uuid ();
-
   home = get_homedir ();
   
   result = malloc (strlen (home) + strlen (prefix) + strlen (machine) +
@@ -237,6 +239,10 @@ init_x_atoms (Display *display)
   if (init)
     return TRUE;
 
+  machine = get_machine_uuid ();
+  if (machine == NULL)
+    return FALSE;
+
   user = getpwuid (getuid ());
   if (user == NULL)
     {
@@ -244,8 +250,6 @@ init_x_atoms (Display *display)
       return FALSE;
     }
   user_name = xstrdup(user->pw_name);
-
-  machine = get_machine_uuid ();
 
   atom_name = malloc (strlen (machine) + strlen (user_name) + 2 +
                       MAX (strlen (selection_prefix),
