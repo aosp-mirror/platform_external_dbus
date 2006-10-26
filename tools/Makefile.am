@@ -25,16 +25,16 @@ dbus_cleanup_sockets_SOURCES=			\
 dbus_uuidgen_SOURCES=				\
 	dbus-uuidgen.c
 
-dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la
+dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la $(DBUS_CLIENT_LIBS)
 dbus_send_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
-dbus_monitor_LDADD= $(top_builddir)/dbus/libdbus-1.la
+dbus_monitor_LDADD= $(top_builddir)/dbus/libdbus-1.la $(DBUS_CLIENT_LIBS)
 dbus_monitor_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
-dbus_uuidgen_LDADD= $(top_builddir)/dbus/libdbus-1.la
+dbus_uuidgen_LDADD= $(top_builddir)/dbus/libdbus-1.la $(DBUS_CLIENT_LIBS)
 dbus_uuidgen_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
-dbus_launch_LDADD= $(DBUS_X_LIBS)
+dbus_launch_LDADD= $(DBUS_X_LIBS) $(DBUS_CLIENT_LIBS)
 dbus_launch_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 man_MANS = dbus-send.1 dbus-monitor.1 dbus-launch.1 dbus-cleanup-sockets.1 dbus-uuidgen.1

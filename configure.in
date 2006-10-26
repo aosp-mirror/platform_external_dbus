@@ -526,6 +526,8 @@ AC_CHECK_FUNC(gethostbyname,,[AC_CHECK_LIB(nsl,gethostbyname)])
 
 AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist fpathconf)
 
+
+
 AC_MSG_CHECKING(for dirfd)
 AC_TRY_COMPILE([
 #include <sys/types.h>
@@ -776,6 +778,10 @@ if $dbus_use_libxml; then
    XML_CFLAGS=$LIBXML_CFLAGS
 fi
 
+# Thread lib detection
+AC_CHECK_FUNC(pthread_cond_timedwait,,[AC_CHECK_LIB(pthread,pthread_cond_timedwait,
+                                                    [THREAD_LIBS="-lpthread"])])
+
 # SELinux detection
 if test x$enable_selinux = xno ; then
     have_selinux=no;
@@ -810,7 +816,12 @@ fi
 AM_CONDITIONAL(HAVE_SELINUX, test x$have_selinux = xyes)
 
 if test x$have_selinux = xyes ; then
-    SELINUX_LIBS="-lselinux -lpthread"
+    # the selinux code creates threads
+    # which requires libpthread even on linux
+    AC_CHECK_FUNC(pthread_create,,[AC_CHECK_LIB(pthread,pthread_create,
+                                                [SELINUX_THREAD_LIBS="-lpthread"])])
+
+    SELINUX_LIBS="-lselinux $SELINUX_THREAD_LIBS"
     AC_DEFINE(HAVE_SELINUX,1,[SELinux support])
 else
     SELINUX_LIBS=
@@ -872,17 +883,17 @@ AM_CONDITIONAL(HAVE_CONSOLE_OWNER_FILE, test x$have_console_owner_file = xyes)
 
 #### Set up final flags
 DBUS_CLIENT_CFLAGS=
-DBUS_CLIENT_LIBS=
+DBUS_CLIENT_LIBS="$THREAD_LIBS"
 AC_SUBST(DBUS_CLIENT_CFLAGS)
 AC_SUBST(DBUS_CLIENT_LIBS)
 
 DBUS_BUS_CFLAGS=$XML_CFLAGS
-DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS $INTLLIBS"
+DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS $INTLLIBS $THREAD_LIBS"
 AC_SUBST(DBUS_BUS_CFLAGS)
 AC_SUBST(DBUS_BUS_LIBS)
 
 DBUS_TEST_CFLAGS=
-DBUS_TEST_LIBS=
+DBUS_TEST_LIBS="$THREAD_LIBS"
 AC_SUBST(DBUS_TEST_CFLAGS)
 AC_SUBST(DBUS_TEST_LIBS)
 

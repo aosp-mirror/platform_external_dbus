@@ -185,7 +185,7 @@ noinst_PROGRAMS=$(TESTS)
 dbus_test_SOURCES=				\
 	dbus-test-main.c
 
-dbus_test_LDADD=libdbus-convenience.la
+dbus_test_LDADD=libdbus-convenience.la $(DBUS_TEST_LIBS)
 dbus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 ## mop up the gcov files

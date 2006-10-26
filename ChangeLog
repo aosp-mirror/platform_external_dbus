@@ -1,3 +1,9 @@
+2006-10-26  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in, dbus-1.pc.in: Check to see if thread methods 
+	are in glibc or libpthread and add -lpthread to the link stage 
+	if it is the latter
+
 2006-10-26  Thiago Macieira  <thiago@kde.org>
 
 	* dbus/dbus-connection.c (_dbus_connection_open_internal): Fix
