@@ -515,7 +515,11 @@ _dbus_set_local_creds (int fd, dbus_bool_t on)
 {
   dbus_bool_t retval = TRUE;
 
-#if defined(LOCAL_CREDS) && !defined(HAVE_CMSGCRED)
+#if defined(HAVE_CMSGCRED)
+  /* NOOP just to make sure only one codepath is used 
+   *      and to prefer CMSGCRED
+   */
+#elif defined(LOCAL_CREDS) 
   int val = on ? 1 : 0;
   if (setsockopt (fd, 0, LOCAL_CREDS, &val, sizeof (val)) < 0)
     {
@@ -828,16 +832,13 @@ write_credentials_byte (int             server_fd,
 {
   int bytes_written;
   char buf[1] = { '\0' };
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
+#if defined(HAVE_CMSGCRED) 
   struct {
 	  struct cmsghdr hdr;
 	  struct cmsgcred cred;
   } cmsg;
   struct iovec iov;
   struct msghdr msg;
-#endif
-
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
   iov.iov_base = buf;
   iov.iov_len = 1;
 
@@ -857,7 +858,7 @@ write_credentials_byte (int             server_fd,
   
  again:
 
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
+#if defined(HAVE_CMSGCRED) 
   bytes_written = sendmsg (server_fd, &msg, 0);
 #else
   bytes_written = write (server_fd, buf, 1);

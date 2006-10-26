@@ -42,6 +42,10 @@ Might as Well for 1.0
 
 Can Be Post 1.0
 ===
+ - clean up the creds issue on *BSD's in dbus/dbus-sysdeps-unix.c.
+   They should work as is but we need to rearange it to make it
+   clearer which method is being used.  configure.in should
+   be fixed up to make that decition.
 
  - _dbus_connection_unref_unlocked() is essentially always broken because
    the connection finalizer calls non-unlocked functions. One fix is to make 
