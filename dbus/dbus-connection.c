@@ -1725,41 +1725,31 @@ _dbus_connection_open_internal (const char     *address,
           connection = connection_try_from_address_entry (entries[i],
                                                           &tmp_error);
 
-          if (connection != NULL)
+          if (connection != NULL && shared)
             {
+              const char *guid;
+                  
+              connection->shareable = TRUE;
+                  
+              /* guid may be NULL */
+              guid = dbus_address_entry_get_value (entries[i], "guid");
+                  
               CONNECTION_LOCK (connection);
           
-              if (shared)
+              if (!connection_record_shared_unlocked (connection, guid))
                 {
-                  const char *guid;
-                  
-                  connection->shareable = TRUE;
-                  
-                  /* guid may be NULL */
-                  guid = dbus_address_entry_get_value (entries[i], "guid");
-                  
-                  if (!connection_record_shared_unlocked (connection, guid))
-                    {
-                      _DBUS_SET_OOM (&tmp_error);
-                      _dbus_connection_close_possibly_shared_and_unlock (connection);
-                      dbus_connection_unref (connection);
-                      connection = NULL;
-                    }
-                  
-                  /* Note: as of now the connection is possibly shared
-                   * since another thread could have pulled it from the table.
-                   * However, we still have it locked so that thread isn't
-                   * doing anything more than blocking on the lock.
-                   */
+                  _DBUS_SET_OOM (&tmp_error);
+                  _dbus_connection_close_possibly_shared_and_unlock (connection);
+                  dbus_connection_unref (connection);
+                  connection = NULL;
                 }
+              else
+                CONNECTION_UNLOCK (connection);
             }
         }
       
       if (connection)
-        {
-          HAVE_LOCK_CHECK (connection);
-          break;
-        }
+        break;
 
       _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
       
@@ -1778,11 +1768,7 @@ _dbus_connection_open_internal (const char     *address,
       dbus_move_error (&first_error, error);
     }
   else
-    {
-      dbus_error_free (&first_error);
-
-      CONNECTION_UNLOCK (connection);
-    }
+    dbus_error_free (&first_error);
   
   dbus_address_entries_free (entries);
   return connection;
@@ -3344,7 +3330,10 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
  * write, then read or write, then return.
  *
  * The way to think of this function is that it either makes some sort
- * of progress, or it blocks.
+ * of progress, or it blocks. Note that, while it is blocked on I/O, it
+ * cannot be interrupted (even by other threads), which makes this function
+ * unsuitable for applications that do more than just react to received
+ * messages.
  *
  * The return value indicates whether the disconnect message has been
  * processed, NOT whether the connection is connected. This is

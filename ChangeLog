@@ -1,5 +1,13 @@
 2006-10-26  Thiago Macieira  <thiago@kde.org>
 
+	* dbus/dbus-connection.c (_dbus_connection_open_internal): Fix
+        bug 8780: the connection lock is only required while recording
+        the shared connection, so protect only that code
+        section. Don't require connection_lookup_shared to return a
+        locked connection.
+
+2006-10-26  Thiago Macieira  <thiago@kde.org>
+
 	* tools/dbus-launch-x11.c (get_session_file, init_x_atoms):
         check if get_machine_uuid() returns NULL before proceeding any
         further: we can't init the X atoms or create a session file
