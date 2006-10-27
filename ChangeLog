@@ -1,4 +1,12 @@
 2006-10-26  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-sysdeps-pthread.c (_dbus_pthread_mutex_lock): change
+	to be recursive
+	(_dbus_pthread_mutex_unlock): make it recursive
+	(_dbus_pthread_condvar_wait): save/restore the recursion count
+	(_dbus_pthread_condvar_wait_timeout): save/restore the recursion count
+
+2006-10-26  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-specification.xml: clarify the UUID text slightly
 

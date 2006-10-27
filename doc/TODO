@@ -1,8 +1,6 @@
 Important for 1.0
 ===
 
- - support recursive locks in dbus_threads_init_default()
-
  - update AUTHORS
 
  - the README, FAQ, and probably other places talk about 1.0 and ABI guarantees,
@@ -141,6 +139,8 @@ Can Be Post 1.0
    cleanup)
 
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
+
+ - Windows port needs recursive mutexes
 
 Should Be Post 1.0
 ===
