@@ -1,3 +1,13 @@
+2006-10-27  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/config-parser.c (service_dirs_find_dir, 
+	service_dirs_append_unique_or_free, 
+	service_dirs_append_link_unique_or_free): New static methods
+	for only appending unique service directory names into
+	the service directory list
+	(merge_included, bus_config_parser_content): Only add unique
+	service directory names into the list
+
 2006-10-27  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps-pthread.c: make the "count" and "holder"

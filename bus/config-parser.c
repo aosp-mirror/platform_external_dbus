@@ -287,6 +287,52 @@ merge_service_context_hash (DBusHashTable *dest,
 }
 
 static dbus_bool_t
+service_dirs_find_dir (DBusList **service_dirs,
+                       const char *dir)
+{
+  DBusList *link;
+
+  _dbus_assert (dir != NULL);
+
+  for (link = *service_dirs; link; link = link->next)
+    {
+      const char *link_dir;
+      
+      link_dir = (const char *)link->data;
+      if (strcmp (dir, link_dir) == 0)
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
+static dbus_bool_t
+service_dirs_append_unique_or_free (DBusList **service_dirs,
+                                    char *dir)
+{
+  if (!service_dirs_find_dir (service_dirs, dir))
+    return _dbus_list_append (service_dirs, dir);  
+
+  dbus_free (dir);
+  return TRUE;
+}
+
+static void 
+service_dirs_append_link_unique_or_free (DBusList **service_dirs,
+                                         DBusList *dir_link)
+{
+  if (!service_dirs_find_dir (service_dirs, dir_link->data))
+    {
+      _dbus_list_append_link (service_dirs, dir_link);
+    }
+  else
+    {
+      dbus_free (dir_link->data);
+      _dbus_list_free_link (dir_link);
+    }
+}
+
+static dbus_bool_t
 merge_included (BusConfigParser *parser,
                 BusConfigParser *included,
                 DBusError       *error)
@@ -338,7 +384,7 @@ merge_included (BusConfigParser *parser,
     _dbus_list_append_link (&parser->mechanisms, link);
 
   while ((link = _dbus_list_pop_first_link (&included->service_dirs)))
-    _dbus_list_append_link (&parser->service_dirs, link);
+    service_dirs_append_link_unique_or_free (&parser->service_dirs, link);
 
   while ((link = _dbus_list_pop_first_link (&included->conf_dirs)))
     _dbus_list_append_link (&parser->conf_dirs, link);
@@ -2312,7 +2358,7 @@ bus_config_parser_content (BusConfigParser   *parser,
             goto nomem;
           }
 
-        if (!_dbus_list_append (&parser->service_dirs, s))
+        if (!service_dirs_append_unique_or_free (&parser->service_dirs, s))
           {
             _dbus_string_free (&full_path);
             dbus_free (s);
