@@ -991,7 +991,7 @@ _dbus_connection_remove_pending_call (DBusConnection  *connection,
  */
 static dbus_bool_t
 _dbus_connection_acquire_io_path (DBusConnection *connection,
-				  int timeout_milliseconds)
+				  int             timeout_milliseconds)
 {
   dbus_bool_t we_acquired;
   
@@ -1017,9 +1017,20 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
         {
           _dbus_verbose ("%s waiting %d for IO path to be acquirable\n",
                          _DBUS_FUNCTION_NAME, timeout_milliseconds);
-          _dbus_condvar_wait_timeout (connection->io_path_cond,
-                                      connection->io_path_mutex,
-                                      timeout_milliseconds);
+
+          if (!_dbus_condvar_wait_timeout (connection->io_path_cond,
+                                           connection->io_path_mutex,
+                                           timeout_milliseconds))
+            {
+              /* We timed out before anyone signaled. */
+              /* (writing the loop to handle the !timedout case by
+               * waiting longer if needed is a pain since dbus
+               * wraps pthread_cond_timedwait to take a relative
+               * time instead of absolute, something kind of stupid
+               * on our part. for now it doesn't matter, we will just
+               * end up back here eventually.)
+               */
+            }
         }
       else
         {

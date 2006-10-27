@@ -425,6 +425,12 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
                                              dbus_bool_t       create_if_not_found,
                                              DBusError        *error);
 
+/**
+ * Initialize threads as in dbus_threads_init_default(), appropriately
+ * for the platform.
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t _dbus_threads_init_platform_specific (void);
 
 /** @} */
 

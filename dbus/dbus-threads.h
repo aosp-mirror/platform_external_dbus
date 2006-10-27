@@ -46,13 +46,16 @@ typedef struct DBusCondVar DBusCondVar;
 typedef DBusMutex*  (* DBusMutexNewFunction)    (void);
 /** Deprecated, provide DBusRecursiveMutexFreeFunction instead. */
 typedef void        (* DBusMutexFreeFunction)   (DBusMutex *mutex);
-/** Deprecated, provide DBusRecursiveMutexLockFunction instead. */
+/** Deprecated, provide DBusRecursiveMutexLockFunction instead. Return value is lock success, but gets ignored in practice. */
 typedef dbus_bool_t (* DBusMutexLockFunction)   (DBusMutex *mutex);
-/** Deprecated, provide DBusRecursiveMutexUnlockFunction instead. */
+/** Deprecated, provide DBusRecursiveMutexUnlockFunction instead. Return value is unlock success, but gets ignored in practice. */
 typedef dbus_bool_t (* DBusMutexUnlockFunction) (DBusMutex *mutex);
 
 /** Creates a new recursively-lockable mutex, or returns #NULL if not enough memory.
- * Found in #DBusThreadFunctions
+ * Found in #DBusThreadFunctions. Do not just use PTHREAD_MUTEX_RECURSIVE for this, because
+ * it does not save/restore the recursion count when waiting on a condition. libdbus
+ * requires the Java-style behavior where the mutex is fully unlocked to wait on
+ * a condition.
  */
 typedef DBusMutex*  (* DBusRecursiveMutexNewFunction)    (void);
 /** Frees a recursively-lockable mutex.  Found in #DBusThreadFunctions.
@@ -71,11 +74,21 @@ typedef DBusCondVar*  (* DBusCondVarNewFunction)         (void);
 /** Frees a condition variable.  Found in #DBusThreadFunctions.
  */
 typedef void          (* DBusCondVarFreeFunction)        (DBusCondVar *cond);
-/** Waits on a condition variable.  Found in #DBusThreadFunctions.
+
+/** Waits on a condition variable.  Found in
+ * #DBusThreadFunctions. Must work with either a recursive or
+ * nonrecursive mutex, whichever the thread implementation
+ * provides. Note that PTHREAD_MUTEX_RECURSIVE does not work with
+ * condition variables (does not save/restore the recursion count) so
+ * don't try using simply pthread_cond_wait() and a
+ * PTHREAD_MUTEX_RECURSIVE to implement this, it won't work right.
  */
 typedef void          (* DBusCondVarWaitFunction)        (DBusCondVar *cond,
 							  DBusMutex   *mutex);
-/** Waits on a condition variable with a timeout.  Found in #DBusThreadFunctions.
+
+/** Waits on a condition variable with a timeout.  Found in
+ *  #DBusThreadFunctions. Returns #TRUE if the wait did not
+ *  time out, and #FALSE if it did.
  */
 typedef dbus_bool_t   (* DBusCondVarWaitTimeoutFunction) (DBusCondVar *cond,
 							  DBusMutex   *mutex,
@@ -115,6 +128,22 @@ typedef enum
  * Functions that must be implemented to make the D-Bus library
  * thread-aware. The recursive mutex functions should be specified
  * rather than the old, deprecated nonrecursive ones.
+ *
+ * The condition variable functions have to work with recursive
+ * mutexes if you provide those, or with nonrecursive mutexes if you
+ * provide those.
+ *
+ * If implementing threads using pthreads, be aware that
+ * PTHREAD_MUTEX_RECURSIVE is broken in combination with condition
+ * variables. libdbus relies on the Java-style behavior that when
+ * waiting on a condition, the recursion count is saved and restored,
+ * and the mutex is completely unlocked, not just decremented one
+ * level of recursion.
+ *
+ * Thus with pthreads you probably have to roll your own emulated
+ * recursive mutexes, you can't use PTHREAD_MUTEX_RECURSIVE. This is
+ * what dbus_threads_init_default() does on platforms that use
+ * pthreads.
  */
 typedef struct
 {

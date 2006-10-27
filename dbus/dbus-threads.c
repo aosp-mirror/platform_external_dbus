@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-threads.h  D-Bus threads handling
  *
- * Copyright (C) 2002, 2003 Red Hat Inc.
+ * Copyright (C) 2002, 2003, 2006 Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -25,17 +25,6 @@
 #include "dbus-threads-internal.h"
 #include "dbus-list.h"
 
-#if defined(__WIN32) || defined(__CYGWIN__)
-#define USE_WIN32_THREADS
-#endif
-
-#ifdef USE_WIN32_THREADS
-#include <windows.h>
-#else
-#include <sys/time.h>
-#include <pthread.h>
-#endif
-
 static DBusThreadFunctions thread_functions =
 {
   0,
@@ -45,15 +34,6 @@ static DBusThreadFunctions thread_functions =
   
   NULL, NULL, NULL, NULL
 };
-
-#ifdef USE_WIN32_THREADS
-struct DBusCondVar {
-  DBusList *list;
-  CRITICAL_SECTION lock;
-};
-
-static DWORD dbus_cond_event_tls = TLS_OUT_OF_INDEXES;
-#endif
 
 static int thread_init_generation = 0;
  
@@ -275,16 +255,15 @@ _dbus_condvar_wait (DBusCondVar *cond,
 }
 
 /**
- * Atomically unlocks the mutex and waits for the conditions
- * variable to be signalled, or for a timeout. Locks the
- * mutex again before returning.
- * Does nothing if passed a #NULL pointer.
+ * Atomically unlocks the mutex and waits for the conditions variable
+ * to be signalled, or for a timeout. Locks the mutex again before
+ * returning.  Does nothing if passed a #NULL pointer.  Return value
+ * is #FALSE if we timed out, #TRUE otherwise.
  *
  * @param cond the condition variable
  * @param mutex the mutex
  * @param timeout_milliseconds the maximum time to wait
- * @returns TRUE if the condition was reached, or FALSE if the
- * timeout was reached.
+ * @returns #FALSE if the timeout occurred, #TRUE if not
  */
 dbus_bool_t
 _dbus_condvar_wait_timeout (DBusCondVar               *cond,
@@ -672,338 +651,6 @@ dbus_threads_init (const DBusThreadFunctions *functions)
 
 /* Default thread implemenation */
 
-static DBusMutex*   _dbus_internal_mutex_new            (void);
-static void         _dbus_internal_mutex_free           (DBusMutex   *mutex);
-static dbus_bool_t  _dbus_internal_mutex_lock           (DBusMutex   *mutex);
-static dbus_bool_t  _dbus_internal_mutex_unlock         (DBusMutex   *mutex);
-static DBusCondVar *_dbus_internal_condvar_new          (void);
-static void         _dbus_internal_condvar_free         (DBusCondVar *cond);
-static void         _dbus_internal_condvar_wait         (DBusCondVar *cond,
-							 DBusMutex   *mutex);
-static dbus_bool_t  _dbus_internal_condvar_wait_timeout (DBusCondVar *cond,
-							 DBusMutex   *mutex,
-							 int          timeout_milliseconds);
-static void         _dbus_internal_condvar_wake_one     (DBusCondVar *cond);
-static void         _dbus_internal_condvar_wake_all     (DBusCondVar *cond);
-
-#ifdef USE_WIN32_THREADS
-
-BOOL WINAPI DllMain (HINSTANCE hinstDLL,
-		     DWORD     fdwReason,
-		     LPVOID    lpvReserved);
-
-/* We need this to free the TLS events on thread exit */
-BOOL WINAPI
-DllMain (HINSTANCE hinstDLL,
-	 DWORD     fdwReason,
-	 LPVOID    lpvReserved)
-{
-  HANDLE event;
-  switch (fdwReason) 
-    { 
-    case DLL_THREAD_DETACH:
-      if (dbus_cond_event_tls != TLS_OUT_OF_INDEXES)
-	{
-	  event = TlsGetValue(dbus_cond_event_tls);
-	  CloseHandle (event);
-	  TlsSetValue(dbus_cond_event_tls, NULL);
-	}
-      break;
-    case DLL_PROCESS_DETACH: 
-      if (dbus_cond_event_tls != TLS_OUT_OF_INDEXES)
-	{
-	  event = TlsGetValue(dbus_cond_event_tls);
-	  CloseHandle (event);
-	  TlsSetValue(dbus_cond_event_tls, NULL);
-
-	  TlsFree(dbus_cond_event_tls); 
-	}
-      break;
-    default: 
-      break; 
-    }
-  return TRUE;
-}
-
-static DBusMutex*
-_dbus_internal_mutex_new (void)
-{
-  HANDLE handle;
-  handle = CreateMutex (NULL, FALSE, NULL);
-  return (DBusMutex *) handle;
-}
-
-static void
-_dbus_internal_mutex_free (DBusMutex *mutex)
-{
-  CloseHandle ((HANDLE *) mutex);
-}
-
-static dbus_bool_t
-_dbus_internal_mutex_lock (DBusMutex *mutex)
-{
-  return WaitForSingleObject ((HANDLE *) mutex, INFINITE) != WAIT_FAILED;
-}
-
-static dbus_bool_t
-_dbus_internal_mutex_unlock (DBusMutex *mutex)
-{
-  return ReleaseMutex ((HANDLE *) mutex) != 0;
-}
-
-static DBusCondVar *
-_dbus_internal_condvar_new (void)
-{
-  DBusCondVar *cond;
-    
-  cond = dbus_new (DBusCondVar, 1);
-  if (cond == NULL)
-    return NULL;
-  
-  cond->list = NULL;
-  
-  InitializeCriticalSection (&cond->lock);
-  return (DBusCondVar *) cond;
-}
-
-static void
-_dbus_internal_condvar_free (DBusCondVar *cond)
-{
-  DeleteCriticalSection (&cond->lock);
-  _dbus_list_clear (&cond->list);
-  dbus_free (cond);
-}
-
-static dbus_bool_t
-_dbus_condvar_wait_win32 (DBusCondVar *cond,
-			  DBusMutex *mutex,
-			  int milliseconds)
-{
-  DWORD retval;
-  dbus_bool_t ret;
-  HANDLE event = TlsGetValue (dbus_cond_event_tls);
-
-  if (!event)
-    {
-      event = CreateEvent (0, FALSE, FALSE, NULL);
-      if (event == 0)
-	return FALSE;
-      TlsSetValue (dbus_cond_event_tls, event);
-    }
-
-  EnterCriticalSection (&cond->lock);
-
-  /* The event must not be signaled. Check this */
-  _dbus_assert (WaitForSingleObject (event, 0) == WAIT_TIMEOUT);
-
-  ret = _dbus_list_append (&cond->list, event);
-  
-  LeaveCriticalSection (&cond->lock);
-  
-  if (!ret)
-    return FALSE; /* Prepend failed */
-
-  _dbus_mutex_unlock (mutex);
-  retval = WaitForSingleObject (event, milliseconds);
-  _dbus_mutex_lock (mutex);
-  
-  if (retval == WAIT_TIMEOUT)
-    {
-      EnterCriticalSection (&cond->lock);
-      _dbus_list_remove (&cond->list, event);
-
-      /* In the meantime we could have been signaled, so we must again
-       * wait for the signal, this time with no timeout, to reset
-       * it. retval is set again to honour the late arrival of the
-       * signal */
-      retval = WaitForSingleObject (event, 0);
-
-      LeaveCriticalSection (&cond->lock);
-    }
-
-#ifndef DBUS_DISABLE_ASSERT
-  EnterCriticalSection (&cond->lock);
-
-  /* Now event must not be inside the array, check this */
-  _dbus_assert (_dbus_list_remove (cond->list, event) == FALSE);
-
-  LeaveCriticalSection (&cond->lock);
-#endif /* !G_DISABLE_ASSERT */
-
-  return retval != WAIT_TIMEOUT;
-}
-
-static void
-_dbus_internal_condvar_wait (DBusCondVar *cond,
-                    DBusMutex   *mutex)
-{
-  _dbus_condvar_wait_win32 (cond, mutex, INFINITE);
-}
-
-static dbus_bool_t
-_dbus_internal_condvar_wait_timeout (DBusCondVar               *cond,
-				     DBusMutex                 *mutex,
-				     int                        timeout_milliseconds)
-{
-  return _dbus_condvar_wait_win32 (cond, mutex, timeout_milliseconds);
-}
-
-static void
-_dbus_internal_condvar_wake_one (DBusCondVar *cond)
-{
-  EnterCriticalSection (&cond->lock);
-  
-  if (cond->list != NULL)
-    SetEvent (_dbus_list_pop_first (&cond->list));
-    
-  LeaveCriticalSection (&cond->lock);
-}
-
-static void
-_dbus_internal_condvar_wake_all (DBusCondVar *cond)
-{
-  EnterCriticalSection (&cond->lock);
-
-  while (cond->list != NULL)
-    SetEvent (_dbus_list_pop_first (&cond->list));
-  
-  LeaveCriticalSection (&cond->lock);
-}
-
-
-#else /* Posix threads */
-
-static DBusMutex*
-_dbus_internal_mutex_new (void)
-{
-  pthread_mutex_t *retval;
-  
-  retval = dbus_new (pthread_mutex_t, 1);
-  if (retval == NULL)
-    return NULL;
-  
-  if (pthread_mutex_init (retval, NULL))
-    {
-      dbus_free (retval);
-      return NULL;
-    }
-  return (DBusMutex *) retval;
-}
-
-static void
-_dbus_internal_mutex_free (DBusMutex *mutex)
-{
-  pthread_mutex_destroy ((pthread_mutex_t *) mutex);
-  dbus_free (mutex);
-}
-
-static dbus_bool_t
-_dbus_internal_mutex_lock (DBusMutex *mutex)
-{
-  return pthread_mutex_lock ((pthread_mutex_t *) mutex) == 0;
-}
-
-static dbus_bool_t
-_dbus_internal_mutex_unlock (DBusMutex *mutex)
-{
-  return pthread_mutex_unlock ((pthread_mutex_t *) mutex) == 0;
-}
-
-static DBusCondVar *
-_dbus_internal_condvar_new (void)
-{
-  pthread_cond_t *retval;
-  
-  retval = dbus_new (pthread_cond_t, 1);
-  if (retval == NULL)
-    return NULL;
-  
-  if (pthread_cond_init (retval, NULL))
-    {
-      dbus_free (retval);
-      return NULL;
-    }
-  return (DBusCondVar *) retval;
-}
-
-static void
-_dbus_internal_condvar_free (DBusCondVar *cond)
-{
-  pthread_cond_destroy ((pthread_cond_t *) cond);
-  dbus_free (cond);
-}
-
-static void
-_dbus_internal_condvar_wait (DBusCondVar *cond,
-                    DBusMutex   *mutex)
-{
-  pthread_cond_wait ((pthread_cond_t *)cond,
-		     (pthread_mutex_t *) mutex);
-}
-
-static dbus_bool_t
-_dbus_internal_condvar_wait_timeout (DBusCondVar               *cond,
-				     DBusMutex                 *mutex,
-				     int                        timeout_milliseconds)
-{
-  struct timeval time_now;
-  struct timespec end_time;
-  int result;
-  
-  gettimeofday (&time_now, NULL);
-  
-  end_time.tv_sec = time_now.tv_sec + timeout_milliseconds / 1000;
-  end_time.tv_nsec = (time_now.tv_usec + (timeout_milliseconds % 1000) * 1000) * 1000;
-  if (end_time.tv_nsec > 1000*1000*1000)
-    {
-      end_time.tv_sec += 1;
-      end_time.tv_nsec -= 1000*1000*1000;
-    }
-  
-  result = pthread_cond_timedwait ((pthread_cond_t *) cond,
-				   (pthread_mutex_t *) mutex,
-				   &end_time);
-  return result == ETIMEDOUT;
-}
-
-static void
-_dbus_internal_condvar_wake_one (DBusCondVar *cond)
-{
-  pthread_cond_signal ((pthread_cond_t *)cond);
-}
-
-static void
-_dbus_internal_condvar_wake_all (DBusCondVar *cond)
-{
-  pthread_cond_broadcast ((pthread_cond_t *)cond);
-}
-
-#endif
-
-static const DBusThreadFunctions internal_functions =
-{
-  DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK |
-  DBUS_THREAD_FUNCTIONS_MUTEX_FREE_MASK |
-  DBUS_THREAD_FUNCTIONS_MUTEX_LOCK_MASK |
-  DBUS_THREAD_FUNCTIONS_MUTEX_UNLOCK_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK|
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK,
-  _dbus_internal_mutex_new,
-  _dbus_internal_mutex_free,
-  _dbus_internal_mutex_lock,
-  _dbus_internal_mutex_unlock,
-  _dbus_internal_condvar_new,
-  _dbus_internal_condvar_free,
-  _dbus_internal_condvar_wait,
-  _dbus_internal_condvar_wait_timeout,
-  _dbus_internal_condvar_wake_one,
-  _dbus_internal_condvar_wake_all
-};
-
 /**
  *
  * Calls dbus_threads_init() with a default set of
@@ -1022,19 +669,7 @@ static const DBusThreadFunctions internal_functions =
 dbus_bool_t
 dbus_threads_init_default (void)
 {
-#ifdef USE_WIN32_THREADS
-  /* We reuse this over several generations, because we can't
-   * free the events once they are in use
-   */
-  if (dbus_cond_event_tls == TLS_OUT_OF_INDEXES)
-    {
-      dbus_cond_event_tls = TlsAlloc ();
-      if (dbus_cond_event_tls == TLS_OUT_OF_INDEXES)
-	return FALSE;
-    }
-#endif
-  
-  return dbus_threads_init (&internal_functions);
+  return _dbus_threads_init_platform_specific ();
 }
 
 

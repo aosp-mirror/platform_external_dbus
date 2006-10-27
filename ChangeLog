@@ -1,3 +1,16 @@
+2006-10-26  Havoc Pennington  <hp@redhat.com>
+
+        * dbus/dbus-threads.[hc]: Documentation improvements. Clarify how 
+	condition variables relate to recursive mutexes.
+	
+        * dbus/dbus-sysdeps-pthread.c, dbus/dbus-sysdeps-win-thread.c, 
+	dbus/dbus-threads.c: Split the platforms-specific thread 
+	implementations into their own files.
+	
+	* dbus/dbus-sysdeps-pthread.c
+	(_dbus_pthread_condvar_wait_timeout): invert the return value, it
+	was backward. Not that anything uses it.
+
 2006-10-26  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus-sysdeps-unix.c (_dbus_set_local_creds): Clean up the

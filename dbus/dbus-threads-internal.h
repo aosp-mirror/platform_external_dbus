@@ -43,10 +43,10 @@ void         _dbus_condvar_wait              (DBusCondVar       *cond,
 dbus_bool_t  _dbus_condvar_wait_timeout      (DBusCondVar       *cond,
                                               DBusMutex         *mutex,
                                               int                timeout_milliseconds);
-void          _dbus_condvar_wake_one         (DBusCondVar       *cond);
-void          _dbus_condvar_wake_all         (DBusCondVar       *cond);
-void          _dbus_condvar_new_at_location  (DBusCondVar      **location_p);
-void          _dbus_condvar_free_at_location (DBusCondVar      **location_p);
+void         _dbus_condvar_wake_one          (DBusCondVar       *cond);
+void         _dbus_condvar_wake_all          (DBusCondVar       *cond);
+void         _dbus_condvar_new_at_location   (DBusCondVar      **location_p);
+void         _dbus_condvar_free_at_location  (DBusCondVar      **location_p);
 
 DBUS_END_DECLS
 
