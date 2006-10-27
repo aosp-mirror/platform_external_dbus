@@ -27,81 +27,138 @@
 
 #include <sys/time.h>
 #include <pthread.h>
+#include <string.h>
 
+typedef struct {
+  pthread_mutex_t lock;
+} DBusMutexPThread;
+
+typedef struct {
+  pthread_cond_t cond;
+} DBusCondVarPThread;
+
+#define DBUS_MUTEX(m)         ((DBusMutex*) m)
+#define DBUS_MUTEX_PTHREAD(m) ((DBusMutexPThread*) m)
+
+#define DBUS_COND_VAR(c)         ((DBusCondVar*) c)
+#define DBUS_COND_VAR_PTHREAD(c) ((DBusCondVarPThread*) c)
+
+
+#define PTHREAD_CHECK(func_name, result_or_call) do {                                  \
+    int tmp = (result_or_call);                                                        \
+    if (tmp != 0) {                                                                    \
+      _dbus_warn_check_failed ("pthread function %s failed with %d %s in %s\n",        \
+                               func_name, tmp, strerror(tmp), _DBUS_FUNCTION_NAME);    \
+    }                                                                                  \
+} while (0)
+            
 static DBusMutex*
 _dbus_pthread_mutex_new (void)
 {
-  pthread_mutex_t *retval;
+  DBusMutexPThread *pmutex;
+  int result;
   
-  retval = dbus_new (pthread_mutex_t, 1);
-  if (retval == NULL)
+  pmutex = dbus_new (DBusMutexPThread, 1);
+  if (pmutex == NULL)
     return NULL;
-  
-  if (pthread_mutex_init (retval, NULL))
+
+  result = pthread_mutex_init (&pmutex->lock, NULL);
+
+  if (result == ENOMEM || result == EAGAIN)
     {
-      dbus_free (retval);
+      dbus_free (pmutex);
       return NULL;
     }
+  else
+    {
+      PTHREAD_CHECK ("pthread_mutex_init", result);
+    }
 
-  return (DBusMutex *) retval;
+  return DBUS_MUTEX (pmutex);
 }
 
 static void
 _dbus_pthread_mutex_free (DBusMutex *mutex)
 {
-  pthread_mutex_destroy ((pthread_mutex_t *) mutex);
-  dbus_free (mutex);
+  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
+  
+  PTHREAD_CHECK ("pthread_mutex_destroy", pthread_mutex_destroy (&pmutex->lock));
+
+  dbus_free (pmutex);
 }
 
 static dbus_bool_t
 _dbus_pthread_mutex_lock (DBusMutex *mutex)
 {
-  return pthread_mutex_lock ((pthread_mutex_t *) mutex) == 0;
+  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
+
+  PTHREAD_CHECK ("pthread_mutex_lock", pthread_mutex_lock (&pmutex->lock));
+
+  return TRUE;
 }
 
 static dbus_bool_t
 _dbus_pthread_mutex_unlock (DBusMutex *mutex)
 {
-  return pthread_mutex_unlock ((pthread_mutex_t *) mutex) == 0;
+  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
+
+  PTHREAD_CHECK ("pthread_mutex_unlock", pthread_mutex_unlock (&pmutex->lock));
+
+  return TRUE;
 }
 
 static DBusCondVar *
 _dbus_pthread_condvar_new (void)
 {
-  pthread_cond_t *retval;
+  DBusCondVarPThread *pcond;
+  int result;
   
-  retval = dbus_new (pthread_cond_t, 1);
-  if (retval == NULL)
+  pcond = dbus_new (DBusCondVarPThread, 1);
+  if (pcond == NULL)
     return NULL;
-  
-  if (pthread_cond_init (retval, NULL))
+
+  result = pthread_cond_init (&pcond->cond, NULL);
+
+  if (result == EAGAIN || result == ENOMEM)
     {
-      dbus_free (retval);
+      dbus_free (pcond);
       return NULL;
     }
-  return (DBusCondVar *) retval;
+  else
+    {
+      PTHREAD_CHECK ("pthread_cond_init", result);
+    }
+  
+  return DBUS_COND_VAR (pcond);
 }
 
 static void
 _dbus_pthread_condvar_free (DBusCondVar *cond)
-{
-  pthread_cond_destroy ((pthread_cond_t *) cond);
-  dbus_free (cond);
+{  
+  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
+  
+  PTHREAD_CHECK ("pthread_cond_destroy", pthread_cond_destroy (&pcond->cond));
+
+  dbus_free (pcond);
 }
 
 static void
 _dbus_pthread_condvar_wait (DBusCondVar *cond,
-                    DBusMutex   *mutex)
+                            DBusMutex   *mutex)
 {
-  pthread_cond_wait ((pthread_cond_t *)cond,
-		     (pthread_mutex_t *) mutex);
+  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
+  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
+  
+  PTHREAD_CHECK ("pthread_cond_wait", pthread_cond_wait (&pcond->cond, &pmutex->lock));
 }
 
 static dbus_bool_t
 _dbus_pthread_condvar_wait_timeout (DBusCondVar               *cond,
-				     DBusMutex                 *mutex,
-				     int                        timeout_milliseconds)
+                                    DBusMutex                 *mutex,
+                                    int                        timeout_milliseconds)
 {
+  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
+  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
   struct timeval time_now;
   struct timespec end_time;
   int result;
@@ -115,10 +172,13 @@ _dbus_pthread_condvar_wait_timeout (DBusCondVar               *cond,
       end_time.tv_sec += 1;
       end_time.tv_nsec -= 1000*1000*1000;
     }
-  
-  result = pthread_cond_timedwait ((pthread_cond_t *) cond,
-				   (pthread_mutex_t *) mutex,
-				   &end_time);
+
+  result = pthread_cond_timedwait (&pcond->cond, &pmutex->lock, &end_time);
+
+  if (result != ETIMEDOUT)
+    {
+      PTHREAD_CHECK ("pthread_cond_timedwait", result);
+    }
   
   /* return true if we did not time out */
   return result != ETIMEDOUT;
@@ -127,13 +187,17 @@ _dbus_pthread_condvar_wait_timeout (DBusCondVar               *cond,
 static void
 _dbus_pthread_condvar_wake_one (DBusCondVar *cond)
 {
-  pthread_cond_signal ((pthread_cond_t *)cond);
+  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
+
+  PTHREAD_CHECK ("pthread_cond_signal", pthread_cond_signal (&pcond->cond));
 }
 
 static void
 _dbus_pthread_condvar_wake_all (DBusCondVar *cond)
 {
-  pthread_cond_broadcast ((pthread_cond_t *)cond);
+  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
+  
+  PTHREAD_CHECK ("pthread_cond_broadcast", pthread_cond_broadcast (&pcond->cond));
 }
 
 static const DBusThreadFunctions pthread_functions =

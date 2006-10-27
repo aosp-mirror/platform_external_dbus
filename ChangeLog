@@ -1,5 +1,14 @@
 2006-10-26  Havoc Pennington  <hp@redhat.com>
 
+	* doc/dbus-specification.xml: clarify the UUID text slightly
+
+	* dbus/dbus-sysdeps-pthread.c: check for and mostly abort on
+	pthread errors. Add DBusMutexPThread and DBusCondVarPThread 
+	in preparation for being able to extend them for e.g. recursive
+	mutexes.
+
+2006-10-26  Havoc Pennington  <hp@redhat.com>
+
         * dbus/dbus-threads.[hc]: Documentation improvements. Clarify how 
 	condition variables relate to recursive mutexes.
 	
