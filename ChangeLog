@@ -1,3 +1,11 @@
+2006-10-27  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps-pthread.c: make the "count" and "holder"
+	variables volatile, suggested by Thiago. Document struct fields.
+	(PTHREAD_CHECK): remove pthread error checking if assertions are
+	disabled, should reduce the no-assertions case to the bare
+	minimum code.
+
 2006-10-26  Havoc Pennington  <hp@redhat.com>
 	
 	* dbus/dbus-sysdeps-pthread.c (_dbus_pthread_mutex_lock): change

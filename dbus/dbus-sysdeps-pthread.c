@@ -30,13 +30,16 @@
 #include <string.h>
 
 typedef struct {
-  pthread_mutex_t lock;
-  int count;
-  pthread_t holder;
+  pthread_mutex_t lock; /**< lock protecting count field */
+  volatile int count;   /**< count of how many times lock holder has recursively locked */
+  volatile pthread_t holder; /**< holder of the lock if count >0,
+                                valid but arbitrary thread if count
+                                has ever been >0, uninitialized memory
+                                if count has never been >0 */
 } DBusMutexPThread;
 
 typedef struct {
-  pthread_cond_t cond;
+  pthread_cond_t cond; /**< the condition */
 } DBusCondVarPThread;
 
 #define DBUS_MUTEX(m)         ((DBusMutex*) m)
@@ -46,6 +49,10 @@ typedef struct {
 #define DBUS_COND_VAR_PTHREAD(c) ((DBusCondVarPThread*) c)
 
 
+#ifdef DBUS_DISABLE_ASSERT
+#define PTHREAD_CHECK(func_name, result_or_call) do {                                  \
+    do { (result_or_call) } while (0)
+#else
 #define PTHREAD_CHECK(func_name, result_or_call) do {                                  \
     int tmp = (result_or_call);                                                        \
     if (tmp != 0) {                                                                    \
@@ -53,7 +60,8 @@ typedef struct {
                                func_name, tmp, strerror(tmp), _DBUS_FUNCTION_NAME);    \
     }                                                                                  \
 } while (0)
-            
+#endif /* !DBUS_DISABLE_ASSERT */
+
 static DBusMutex*
 _dbus_pthread_mutex_new (void)
 {
@@ -118,8 +126,9 @@ _dbus_pthread_mutex_lock (DBusMutex *mutex)
       
       PTHREAD_CHECK ("pthread_mutex_lock", pthread_mutex_lock (&pmutex->lock));
 
-      /* We now have the lock. Count must be 0 since it was before when we
-       * did not have the lock, and we have not changed it in this thread.
+      /* We now have the lock. Count must be 0 since it must be 0 when
+       * the lock is released by another thread, and we just now got
+       * the lock.
        */
       _dbus_assert (pmutex->count == 0);
       
@@ -130,13 +139,14 @@ _dbus_pthread_mutex_lock (DBusMutex *mutex)
     {
       /* We know someone had the lock, possibly us. Thus
        * pmutex->holder is not pointing to junk, though it may not be
-       * the lock holder anymore if the lock holder is not us.
-       * If the lock holder is us, then we definitely have the lock.
+       * the lock holder anymore if the lock holder is not us.  If the
+       * lock holder is us, then we definitely have the lock.
        */
 
       if (pthread_equal (pmutex->holder, self))
         {
           /* We already have the lock. */
+          _dbus_assert (pmutex->count > 0);
         }
       else
         {
