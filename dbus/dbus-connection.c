@@ -2381,6 +2381,11 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
  * Because this connection is shared, no user of the connection
  * may call dbus_connection_close(). However, when you are done with the
  * connection you should call dbus_connection_unref().
+ *
+ * @note Prefer dbus_connection_open() to dbus_connection_open_private()
+ * unless you have good reason; connections are expensive enough
+ * that it's wasteful to create lots of connections to the same
+ * server.
  * 
  * @param address the address.
  * @param error address where an error can be returned.
@@ -2419,7 +2424,12 @@ dbus_connection_open (const char     *address,
  * (The dbus_connection_close() can be skipped if the
  * connection is already known to be disconnected, for example
  * if you are inside a handler for the Disconnected signal.)
- * 
+ *
+ * @note Prefer dbus_connection_open() to dbus_connection_open_private()
+ * unless you have good reason; connections are expensive enough
+ * that it's wasteful to create lots of connections to the same
+ * server.
+ *
  * @param address the address.
  * @param error address where an error can be returned.
  * @returns new connection, or #NULL on failure.

@@ -1,4 +1,9 @@
 2006-10-27  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-connection.c (dbus_connection_open_private): document
+	how to choose shared vs. private connections
+
+2006-10-27  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-test.c: enclose more of the file in the
 	DBUS_BUILD_TESTS check.
