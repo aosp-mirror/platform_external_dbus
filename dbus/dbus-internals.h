@@ -287,21 +287,25 @@ extern int _dbus_current_generation;
 #define _DBUS_LOCK(name)                _dbus_mutex_lock   (_dbus_lock_##name)
 #define _DBUS_UNLOCK(name)              _dbus_mutex_unlock (_dbus_lock_##name)
 
+/* 1-5 */
 _DBUS_DECLARE_GLOBAL_LOCK (list);
 _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (server_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (message_slots);
+/* 5-10 */
 _DBUS_DECLARE_GLOBAL_LOCK (atomic);
 _DBUS_DECLARE_GLOBAL_LOCK (bus);
+_DBUS_DECLARE_GLOBAL_LOCK (bus_datas);
 _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 _DBUS_DECLARE_GLOBAL_LOCK (system_users);
+/* 10-15 */
 _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
 _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
 _DBUS_DECLARE_GLOBAL_LOCK (win_fds);
 _DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
 _DBUS_DECLARE_GLOBAL_LOCK (machine_uuid);
-#define _DBUS_N_GLOBAL_LOCKS (14)
+#define _DBUS_N_GLOBAL_LOCKS (15)
 
 dbus_bool_t _dbus_threads_init_debug (void);
 

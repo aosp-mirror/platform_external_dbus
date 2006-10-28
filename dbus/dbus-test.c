@@ -50,8 +50,6 @@ check_memleaks (void)
     }
 }
 
-#endif /* DBUS_BUILD_TESTS */
-
 typedef dbus_bool_t (*TestFunc)(void);
 typedef dbus_bool_t (*TestDataFunc)(const char *data);
 
@@ -85,6 +83,8 @@ run_data_test (const char             *test_name,
 
   check_memleaks ();
 }
+
+#endif /* DBUS_BUILD_TESTS */
 
 /**
  * An exported symbol to be run in order to execute
@@ -179,3 +179,4 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir, const char *speci
   printf ("Not compiled with unit tests, not running any\n");
 #endif
 }
+

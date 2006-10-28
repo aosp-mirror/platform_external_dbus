@@ -50,8 +50,9 @@ typedef struct {
 
 
 #ifdef DBUS_DISABLE_ASSERT
-#define PTHREAD_CHECK(func_name, result_or_call) do {                                  \
-    do { (result_or_call) } while (0)
+/* (tmp != 0) is a no-op usage to silence compiler */
+#define PTHREAD_CHECK(func_name, result_or_call)    \
+    do { int tmp = (result_or_call); if (tmp != 0) {;} } while (0)
 #else
 #define PTHREAD_CHECK(func_name, result_or_call) do {                                  \
     int tmp = (result_or_call);                                                        \

@@ -426,6 +426,7 @@ init_locks (void)
     LOCK_ADDR (message_slots),
     LOCK_ADDR (atomic),
     LOCK_ADDR (bus),
+    LOCK_ADDR (bus_datas),
     LOCK_ADDR (shutdown_funcs),
     LOCK_ADDR (system_users),
     LOCK_ADDR (message_cache),

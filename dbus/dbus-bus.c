@@ -99,6 +99,14 @@ static dbus_bool_t initialized = FALSE;
  */
 _DBUS_DEFINE_GLOBAL_LOCK (bus);
 
+/**
+ * Global lock covering all BusData on any connection. The bet is
+ * that some lock contention is better than more memory
+ * for a per-connection lock, but it's tough to imagine it mattering
+ * either way.
+ */
+_DBUS_DEFINE_GLOBAL_LOCK (bus_datas);
+
 static void
 addresses_shutdown_func (void *data)
 {
@@ -452,12 +460,15 @@ internal_bus_get (DBusBusType  type,
        */
       bus_connections[type] = connection;
     }
-  
+
+  _DBUS_LOCK (bus_datas);
   bd = ensure_bus_data (connection);
-  _dbus_assert (bd != NULL);
-
+  _dbus_assert (bd != NULL); /* it should have been created on
+                                register, so OOM not possible */
   bd->is_well_known = TRUE;
+  _DBUS_UNLOCK (bus_datas);
 
+  
   _DBUS_UNLOCK (bus);
 
   /* Return a reference to the caller */
@@ -542,15 +553,44 @@ dbus_bus_get_private (DBusBusType  type,
  * If registration succeeds, the unique name will be set,
  * and can be obtained using dbus_bus_get_unique_name().
  *
+ * This function will block until registration is complete.
+ *
+ * If the connection has already registered with the bus
+ * (determined by checking whether dbus_bus_get_unique_name()
+ * returns a non-#NULL value), then this function does nothing.
+ *
  * If you use dbus_bus_get() or dbus_bus_get_private() this
  * function will be called for you.
+ * 
+ * @note Just use dbus_bus_get() or dbus_bus_get_private() instead of
+ * dbus_bus_register() and save yourself some pain. Using
+ * dbus_bus_register() manually is only useful if you have your
+ * own custom message bus not found in #DBusBusType.
  *
  * If you open a bus connection with dbus_connection_open() or
  * dbus_connection_open_private() you will have to dbus_bus_register()
  * yourself, or make the appropriate registration method calls
- * yourself.
+ * yourself. If you send the method calls yourself, call
+ * dbus_bus_set_unique_name() with the unique bus name you get from
+ * the bus.
  *
- * This function will block until registration is complete.
+ * For shared connections (created with dbus_connection_open()) in a
+ * multithreaded application, you can't really make the registration
+ * calls yourself, because you don't know whether some other thread is
+ * also registering, and the bus will kick you off if you send two
+ * registration messages.
+ *
+ * If you use dbus_bus_register() however, there is a lock that
+ * keeps both apps from registering at the same time.
+ *
+ * The rule in a multithreaded app, then, is that dbus_bus_register()
+ * must be used to register, or you need to have your own locks that
+ * all threads in the app will respect.
+ *
+ * In a single-threaded application you can register by hand instead
+ * of using dbus_bus_register(), as long as you check
+ * dbus_bus_get_unique_name() to see if a unique name has already been
+ * stored by another thread before you send the registration messages.
  * 
  * @param connection the connection
  * @param error place to store errors
@@ -569,19 +609,24 @@ dbus_bus_register (DBusConnection *connection,
   _dbus_return_val_if_error_is_set (error, FALSE);
 
   retval = FALSE;
-  
+
+  _DBUS_LOCK (bus_datas);
+
   bd = ensure_bus_data (connection);
   if (bd == NULL)
     {
       _DBUS_SET_OOM (error);
+      _DBUS_UNLOCK (bus_datas);
       return FALSE;
     }
 
   if (bd->unique_name != NULL)
     {
-      _dbus_warn_check_failed ("Attempt to register the same DBusConnection %s with the message bus a second time.\n",
-                               bd->unique_name);
-      /* This isn't an error, it's a programming bug. so return TRUE */
+      _dbus_verbose ("Ignoring attempt to register the same DBusConnection %s with the message bus a second time.\n",
+                     bd->unique_name);
+      _DBUS_UNLOCK (bus_datas);
+
+      /* Success! */
       return TRUE;
     }
   
@@ -593,6 +638,8 @@ dbus_bus_register (DBusConnection *connection,
   if (!message)
     {
       _DBUS_SET_OOM (error);
+
+      _DBUS_UNLOCK (bus_datas);
       return FALSE;
     }
   
@@ -624,6 +671,8 @@ dbus_bus_register (DBusConnection *connection,
 
   if (!retval)
     _DBUS_ASSERT_ERROR_IS_SET (error);
+
+  _DBUS_UNLOCK (bus_datas);
   
   return retval;
 }
@@ -636,6 +685,29 @@ dbus_bus_register (DBusConnection *connection,
  * once per connection.  After the unique name is set, you can get it
  * with dbus_bus_get_unique_name().
  *
+ * The only reason to use this function is to re-implement the
+ * equivalent of dbus_bus_register() yourself. One (probably unusual)
+ * reason to do that might be to do the bus registration call
+ * asynchronously instead of synchronously.
+ *
+ * @note Just use dbus_bus_get() or dbus_bus_get_private(), or worst
+ * case dbus_bus_register(), instead of messing with this
+ * function. There's really no point creating pain for yourself by
+ * doing things manually.
+ *
+ * It's hard to use this function safely on shared connections
+ * (created by dbus_connection_open()) in a multithreaded application,
+ * because only one registration attempt can be sent to the bus. If
+ * two threads are both sending the registration message, there is no
+ * mechanism in libdbus itself to avoid sending it twice.
+ *
+ * Thus, you need a way to coordinate which thread sends the
+ * registration attempt; which also means you know which thread
+ * will call dbus_bus_set_unique_name(). If you don't know
+ * about all threads in the app (for example, if some libraries
+ * you're using might start libdbus-using threads), then you
+ * need to avoid using this function on shared connections.
+ *
  * @param connection the connection
  * @param unique_name the unique name
  * @returns #FALSE if not enough memory
@@ -645,9 +717,12 @@ dbus_bus_set_unique_name (DBusConnection *connection,
                           const char     *unique_name)
 {
   BusData *bd;
+  dbus_bool_t success;
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (unique_name != NULL, FALSE);
+
+  _DBUS_LOCK (bus_datas);
   
   bd = ensure_bus_data (connection);
   if (bd == NULL)
@@ -656,51 +731,69 @@ dbus_bus_set_unique_name (DBusConnection *connection,
   _dbus_assert (bd->unique_name == NULL);
   
   bd->unique_name = _dbus_strdup (unique_name);
-  return bd->unique_name != NULL;
+  success = bd->unique_name != NULL;
+  
+  _DBUS_UNLOCK (bus_datas);
+  
+  return success;
 }
 
 /**
  * Gets the unique name of the connection as assigned by the message
  * bus. Only possible after the connection has been registered with
- * the message bus.
+ * the message bus. All connections returned by dbus_bus_get() or
+ * dbus_bus_get_private() have been successfully registered.
  *
  * The name remains valid until the connection is freed, and
  * should not be freed by the caller.
  *
- * There are two ways to set the unique name; one is
- * dbus_bus_register(), the other is dbus_bus_set_unique_name().
- * You are responsible for calling dbus_bus_set_unique_name()
- * if you register by hand instead of using dbus_bus_register().
+ * Other than dbus_bus_get(), there are two ways to set the unique
+ * name; one is dbus_bus_register(), the other is
+ * dbus_bus_set_unique_name().  You are responsible for calling
+ * dbus_bus_set_unique_name() if you register by hand instead of using
+ * dbus_bus_register().
  * 
  * @param connection the connection
- * @returns the unique name or NULL on error
+ * @returns the unique name or #NULL on error
  */
 const char*
 dbus_bus_get_unique_name (DBusConnection *connection)
 {
   BusData *bd;
+  const char *unique_name;
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
+
+  _DBUS_LOCK (bus_datas);
   
   bd = ensure_bus_data (connection);
   if (bd == NULL)
     return NULL;
+
+  unique_name = bd->unique_name;
+
+  _DBUS_UNLOCK (bus_datas);
   
-  return bd->unique_name;
+  return unique_name;
 }
 
 /**
- * Asks the bus to return the uid of the named connection.
- * Only works on UNIX; only works for connections on the same
- * machine as the bus. If you are not on the same machine
- * as the bus, then calling this is probably a bad idea,
- * since the uid will mean little to your application.
+ * Asks the bus to return the UID the named connection authenticated
+ * as, if any.  Only works on UNIX; only works for connections on the
+ * same machine as the bus. If you are not on the same machine as the
+ * bus, then calling this is probably a bad idea, since the UID will
+ * mean little to your application.
  *
  * For the system message bus you're guaranteed to be on the same
  * machine since it only listens on a UNIX domain socket (at least,
  * as shipped by default).
  *
- * This function will just return an error on Windows.
+ * This function only works for connections that authenticated as
+ * a UNIX user, right now that includes all bus connections, but
+ * it's very possible to have connections with no associated UID.
+ * So check for errors and do something sensible if they happen.
+ * 
+ * This function will always return an error on Windows.
  * 
  * @param connection the connection
  * @param name a name owned by the connection

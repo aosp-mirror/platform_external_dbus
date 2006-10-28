@@ -1,3 +1,24 @@
+2006-10-27  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-test.c: enclose more of the file in the
+	DBUS_BUILD_TESTS check.
+
+	* dbus/dbus-sysdeps-pthread.c (PTHREAD_CHECK): fix for
+	DBUS_DISABLE_ASSERT case.
+
+	* dbus/dbus-connection.c (dbus_connection_get_unix_user): document
+	that it only works on the server side
+
+	* dbus/dbus-bus.c: add a global lock covering the BusData we
+	attach to each connection
+	(internal_bus_get): lock our access to the BusData
+	(dbus_bus_register): lock the entire registration process
+	with _DBUS_LOCK(bus_datas). If we get the lock and 
+	registration is already complete, silently return (vs. previous
+	behavior of aborting).
+	(dbus_bus_set_unique_name): lock the BusData
+	(dbus_bus_get_unique_name): lock the BusData
+
 2006-10-27  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/config-parser.c (service_dirs_find_dir, 
