@@ -118,6 +118,11 @@ DBUS_SESSION_BUS_ADDRESS="something:,autolaunch:" - in that case if
 the first address doesn't work, processes will autolaunch. (The bus
 address variable contains a comma-separated list of addresses to try.)
 
+.PP
+The --autolaunch option is considered an internal implementation
+detail of libdbus, and in fact there are plans to change it. There's
+no real reason to use it outside of the libdbus implementation anyhow.
+
 .SH OPTIONS
 The following options are supported:
 .TP
@@ -152,7 +157,8 @@ This option implies that \fIdbus-launch\fP should scan for a
 previously-started session and reuse the values found there. If no
 session is found, it will start a new session. The
 \-\-exit-with-session option is implied if \-\-autolaunch is given.
-This option is used by libdbus, you probably do not want to use it manually.
+This option is for the exclusive use of libdbus, you do not want to
+use it manually. It may change in the future.
 
 .TP
 .I "--sh-syntax"
