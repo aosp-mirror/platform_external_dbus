@@ -1,3 +1,33 @@
+2006-11-01  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: expose DBUS_DATADIR
+	
+	* bus/config-parser.c: add the standard_session_servicedirs element
+	to the parser
+	(bus_config_parser_content): process the standard_session_servicedirs
+	element by getting the standard directories from sysdeps and merging
+	them into the service directory list
+	(test_default_session_servicedirs): make sure we get what we expect
+
+	* bus/session.conf.in: replace the servicedir tag with the 
+	standard_session_servicedirs tag
+
+	* dbus/dbus-list.h: remove the typedef of DBusList and place it in
+	dbus-sysdeps.h to avoid circular header dependencies
+
+	* dbus/dbus-sysdeps.h: add the typedef of DBusList
+
+	* dbus/dbus-sysdeps-unix.c (split_paths_and_append): utility function
+	which takes a string of directories delimited by colons, parses them 
+	out, appends a suffix and puts them in a list ignoring empty elements
+	(_dbus_get_standard_session_servicedirs): returns the standard 
+	directories for a session bus to look for service activation files
+	on Unix which includes the XDG_DATA_HOME, XDG_DATA_DIRS and 
+	DBUS_DATADIR directories
+
+	* test/data/valid-config-files/many-rules.conf: add the 
+	standard_session_servicedirs tag to the valid config file tests
+
 2006-10-30  Havoc Pennington  <hp@redhat.com>
 
 	* tools/dbus-launch.1, doc/TODO: capture intent to change the

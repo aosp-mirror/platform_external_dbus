@@ -10,7 +10,7 @@
 
   <listen>unix:tmpdir=@DBUS_SESSION_SOCKET_DIR@</listen>
 
-  <servicedir>@EXPANDED_DATADIR@/dbus-1/services</servicedir>
+  <standard_session_servicedirs />
 
   <policy context="default">
     <!-- Allow everything to be sent -->

@@ -27,10 +27,9 @@
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-sysdeps.h>
 
 DBUS_BEGIN_DECLS
-
-typedef struct DBusList DBusList;
 
 struct DBusList
 {

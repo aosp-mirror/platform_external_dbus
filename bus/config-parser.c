@@ -47,7 +47,8 @@ typedef enum
   ELEMENT_INCLUDEDIR,
   ELEMENT_TYPE,
   ELEMENT_SELINUX,
-  ELEMENT_ASSOCIATE
+  ELEMENT_ASSOCIATE,
+  ELEMENT_STANDARD_SESSION_SERVICEDIRS
 } ElementType;
 
 typedef enum
@@ -161,6 +162,8 @@ element_type_to_name (ElementType type)
       return "fork";
     case ELEMENT_PIDFILE:
       return "pidfile";
+    case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
+      return "standard_session_servicedirs";
     case ELEMENT_SERVICEDIR:
       return "servicedir";
     case ELEMENT_INCLUDEDIR:
@@ -793,6 +796,19 @@ start_busconfig_child (BusConfigParser   *parser,
         return FALSE;
 
       if (push_element (parser, ELEMENT_INCLUDEDIR) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      return TRUE;
+    }
+  else if (strcmp (element_name, "standard_session_servicedirs") == 0)
+    {
+      if (!check_no_attributes (parser, "standard_session_servicedirs", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_STANDARD_SESSION_SERVICEDIRS) == NULL)
         {
           BUS_SET_OOM (error);
           return FALSE;
@@ -1927,6 +1943,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_FORK:
     case ELEMENT_SELINUX:
     case ELEMENT_ASSOCIATE:
+    case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
       break;
     }
 
@@ -2333,6 +2350,19 @@ bus_config_parser_content (BusConfigParser   *parser,
             dbus_free (s);
             goto nomem;
           }
+      }
+      break;
+    case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
+      {
+        DBusList *link;
+        DBusList *dirs;
+        dirs = NULL;
+
+        if (!_dbus_get_standard_session_servicedirs (&dirs))
+          goto nomem;
+
+        while ((link = _dbus_list_pop_first_link (&dirs)))
+          service_dirs_append_link_unique_or_free (&parser->service_dirs, link);
       }
       break;
 
@@ -3032,6 +3062,91 @@ process_test_equiv_subdir (const DBusString *test_base_dir,
   return retval;
   
 }
+
+static const char *test_service_dir_matches[] = 
+        {
+         "/testusr/testlocal/testshare/dbus-1/services",
+         "/testusr/testshare/dbus-1/services",
+         DBUS_DATADIR"/dbus-1/services",
+         "/testhome/foo/.testlocal/testshare/dbus-1/services",         
+         NULL
+        };
+
+static dbus_bool_t
+test_default_session_servicedirs (void)
+{
+  DBusList *dirs;
+  DBusList *link;
+  int i;
+
+  dirs = NULL;
+
+  printf ("Testing retriving the default session service directories\n");
+  if (!_dbus_get_standard_session_servicedirs (&dirs))
+    _dbus_assert_not_reached ("couldn't get stardard dirs");
+
+  /* make sure our defaults end with share/dbus-1/service */
+  while ((link = _dbus_list_pop_first_link (&dirs)))
+    {
+      DBusString path;
+      
+      printf ("    default service dir: %s\n", (char *)link->data);
+      _dbus_string_init_const (&path, (char *)link->data);
+      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
+        {
+          printf ("error with default session service directories\n");
+          return FALSE;
+        }
+ 
+      dbus_free (link->data);
+      _dbus_list_free_link (link);
+    }
+
+  if (!_dbus_setenv ("XDG_DATA_HOME", "/testhome/foo/.testlocal/testshare"))
+    _dbus_assert_not_reached ("couldn't setenv XDG_DATA_HOME");
+
+  if (!_dbus_setenv ("XDG_DATA_DIRS", ":/testusr/testlocal/testshare: :/testusr/testshare:"))
+    _dbus_assert_not_reached ("couldn't setenv XDG_DATA_DIRS");
+
+  if (!_dbus_get_standard_session_servicedirs (&dirs))
+    _dbus_assert_not_reached ("couldn't get stardard dirs");
+
+  /* make sure we read and parse the env variable correctly */
+  i = 0;
+  while ((link = _dbus_list_pop_first_link (&dirs)))
+    {
+      printf ("    test service dir: %s\n", (char *)link->data);
+      if (test_service_dir_matches[i] == NULL)
+        {
+          printf ("more directories parsed than in match set\n");
+          return FALSE;
+        }
+ 
+      if (strcmp (test_service_dir_matches[i], 
+                  (char *)link->data) != 0)
+        {
+          printf ("%s directory does not match %s in the match set\n", 
+                  (char *)link->data,
+                  test_service_dir_matches[i]);
+          return FALSE;
+        }
+
+      ++i;
+
+      dbus_free (link->data);
+      _dbus_list_free_link (link);
+    }
+  
+  if (test_service_dir_matches[i] != NULL)
+    {
+      printf ("extra data %s in the match set was not matched\n",
+              test_service_dir_matches[i]);
+
+      return FALSE;
+    }
+    
+  return TRUE;
+}
 			   
 dbus_bool_t
 bus_config_parser_test (const DBusString *test_data_dir)
@@ -3042,6 +3157,9 @@ bus_config_parser_test (const DBusString *test_data_dir)
       printf ("No test data\n");
       return TRUE;
     }
+
+  if (!test_default_session_servicedirs())
+    return FALSE;
 
   if (!process_test_valid_subdir (test_data_dir, "valid-config-files", VALID))
     return FALSE;

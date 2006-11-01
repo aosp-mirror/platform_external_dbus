@@ -59,6 +59,9 @@ DBUS_BEGIN_DECLS
 /** An opaque string type */
 typedef struct DBusString DBusString;
 
+/** avoid circular includes with DBusList */
+typedef struct DBusList DBusList; 
+
 #if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
 #define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
   __attribute__((__format__ (__printf__, format_idx, arg_idx)))
@@ -290,6 +293,8 @@ dbus_bool_t _dbus_concat_dir_and_file (DBusString       *dir,
 dbus_bool_t _dbus_string_get_dirname  (const DBusString *filename,
                                        DBusString       *dirname);
 dbus_bool_t _dbus_path_is_absolute    (const DBusString *filename);
+
+dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
 
 /** Opaque type for reading a directory listing */
 typedef struct DBusDirIter DBusDirIter;

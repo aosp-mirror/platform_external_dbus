@@ -1118,6 +1118,11 @@ fi
 AC_SUBST(DBUS_USER)
 AC_DEFINE_UNQUOTED(DBUS_USER,"$DBUS_USER", [User for running the system BUS daemon])
 
+#### Direcotry to install data files into
+DBUS_DATADIR=$EXPANDED_DATADIR
+AC_SUBST(DBUS_DATADIR)
+AC_DEFINE_UNQUOTED(DBUS_DATADIR,"$DBUS_DATADIR", [Directory for installing DBUS data files])
+
 #### Directory to install dbus-daemon
 if test -z "$with_dbus_daemondir" ; then
     DBUS_DAEMONDIR=$EXPANDED_BINDIR
