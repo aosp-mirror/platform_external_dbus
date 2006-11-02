@@ -247,6 +247,27 @@ They are primarily used with the per-user-session bus,
 not the systemwide bus.
 
 .TP
+.I "<standard_session_servicedirs/>"
+
+.PP
+<standard_session_servicedirs/> is equivalent to specifying a series
+of <servicedir/> elements for each of the data directories in the "XDG
+Base Directory Specification" with the subdirectory "dbus-1/services",
+so for example "/usr/share/dbus-1/services" would be among the
+directories searched.
+
+.PP
+The "XDG Base Directory Specification" can be found at
+http://freedesktop.org/wiki/Standards/basedir-spec if it hasn't moved,
+otherwise try your favorite search engine.
+
+.PP
+The <standard_session_servicedirs/> option is only relevant to the
+per-user-session bus daemon defined in
+@EXPANDED_SYSCONFDIR@/dbus-1/session.conf. Putting it in any other
+configuration file would probably be nonsense.
+
+.TP
 .I "<limit>"
 
 .PP

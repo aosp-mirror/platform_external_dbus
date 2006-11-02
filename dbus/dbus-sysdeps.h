@@ -41,6 +41,14 @@
 
 DBUS_BEGIN_DECLS
 
+/* Forward declarations */
+
+/** An opaque string type */
+typedef struct DBusString DBusString;
+
+/** An opaque list type */
+typedef struct DBusList DBusList;
+
 /**
  * @addtogroup DBusSysdeps
  *
@@ -55,12 +63,6 @@ DBUS_BEGIN_DECLS
  * outside of this file and a limited number of others (such as
  * dbus-memory.c)
  */
-
-/** An opaque string type */
-typedef struct DBusString DBusString;
-
-/** avoid circular includes with DBusList */
-typedef struct DBusList DBusList; 
 
 #if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
 #define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
