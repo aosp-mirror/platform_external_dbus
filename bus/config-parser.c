@@ -297,7 +297,7 @@ service_dirs_find_dir (DBusList **service_dirs,
 
   _dbus_assert (dir != NULL);
 
-  for (link = *service_dirs; link; link = link->next)
+  for (link = *service_dirs; link; link = _dbus_list_get_next_link(service_dirs, link))
     {
       const char *link_dir;
       
@@ -805,6 +805,10 @@ start_busconfig_child (BusConfigParser   *parser,
     }
   else if (strcmp (element_name, "standard_session_servicedirs") == 0)
     {
+      DBusList *link;
+      DBusList *dirs;
+      dirs = NULL;
+
       if (!check_no_attributes (parser, "standard_session_servicedirs", attribute_names, attribute_values, error))
         return FALSE;
 
@@ -813,6 +817,15 @@ start_busconfig_child (BusConfigParser   *parser,
           BUS_SET_OOM (error);
           return FALSE;
         }
+
+      if (!_dbus_get_standard_session_servicedirs (&dirs))
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+        while ((link = _dbus_list_pop_first_link (&dirs)))
+          service_dirs_append_link_unique_or_free (&parser->service_dirs, link);
 
       return TRUE;
     }
@@ -2191,6 +2204,7 @@ bus_config_parser_content (BusConfigParser   *parser,
     case ELEMENT_ALLOW:
     case ELEMENT_DENY:
     case ELEMENT_FORK:
+    case ELEMENT_STANDARD_SESSION_SERVICEDIRS:    
     case ELEMENT_SELINUX:
     case ELEMENT_ASSOCIATE:
       if (all_whitespace (content))
@@ -2350,19 +2364,6 @@ bus_config_parser_content (BusConfigParser   *parser,
             dbus_free (s);
             goto nomem;
           }
-      }
-      break;
-    case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
-      {
-        DBusList *link;
-        DBusList *dirs;
-        dirs = NULL;
-
-        if (!_dbus_get_standard_session_servicedirs (&dirs))
-          goto nomem;
-
-        while ((link = _dbus_list_pop_first_link (&dirs)))
-          service_dirs_append_link_unique_or_free (&parser->service_dirs, link);
       }
       break;
 

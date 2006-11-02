@@ -1,5 +1,19 @@
 2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
 
+	* bus/config-parser.c (service_dirs_find_dir): use 
+	_dbus_list_get_next_link so we don't get stuck in an infinite loop
+	(start_busconfig_child): move processing of standard_session_servicedirs
+	tags here because they have no content
+	(bus_config_parser_content): check we don't have content in 
+	standard_session_servicedirs tag
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/Makefile.am: Make sure the /var/lib/dbus directory is created
+	Packagers need to own this directory
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
 	* tools/run-with-tmp-session-bus.sh: fixed script to replace the 
 	<standard_session_servicedirs> tag with a <sevicedir> tag that
 	points to the test service directory
