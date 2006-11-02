@@ -1,3 +1,11 @@
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: Add a check for DIR *dirp->dd_fd
+
+	* dbus/dbus-sysdeps-util-unix: if HAVE_DDFD is defined use 
+	DIR *dirp->dd_fd else use DIR *dirp->__dd_fd.  This takes care
+	of both Solaris and Irix
+
 2006-11-01  Havoc Pennington  <hp@redhat.com>
 
 	* bus/dbus-daemon.1.in: document standard_session_servicedirs

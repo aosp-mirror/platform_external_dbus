@@ -526,10 +526,8 @@ AC_CHECK_FUNC(gethostbyname,,[AC_CHECK_LIB(nsl,gethostbyname)])
 
 AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist fpathconf)
 
-
-
 AC_MSG_CHECKING(for dirfd)
-AC_TRY_COMPILE([
+AC_TRY_LINK([
 #include <sys/types.h>
 #include <dirent.h>
 ],[
@@ -542,6 +540,23 @@ dbus_have_dirfd=yes, dbus_have_dirfd=no)
 AC_MSG_RESULT($dbus_have_dirfd)
 if test "$dbus_have_dirfd" = yes; then
 	AC_DEFINE(HAVE_DIRFD,1,[Have dirfd function])
+else
+	AC_MSG_CHECKING(for DIR *dirp->dd_fd)    
+	AC_TRY_LINK([
+#include <sys/types.h>
+#include <dirent.h>
+	],[
+DIR *dirp;
+int fd;
+dirp = opendir(".");
+fd = dirp->dd_fd;
+closedir(dirp);
+	],
+	dbus_have_ddfd=yes, dbus_have_ddfd=no)
+	AC_MSG_RESULT($dbus_have_ddfd)
+	if test "$dbus_have_ddfd" = yes; then
+		AC_DEFINE(HAVE_DDFD,1,[Have the ddfd member of DIR])
+	fi
 fi
 
 AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])

@@ -510,8 +510,10 @@ dirent_buf_size(DIR * dirp, size_t *size)
 #   if defined(HAVE_FPATHCONF) && defined(_PC_NAME_MAX)
 #      if defined(HAVE_DIRFD)
           name_max = fpathconf(dirfd(dirp), _PC_NAME_MAX);
-#      else
+#      elif defined(HAVE_DDFD)
           name_max = fpathconf(dirp->dd_fd, _PC_NAME_MAX);
+#      else
+          name_max = fpathconf(dirp->__dd_fd, _PC_NAME_MAX);
 #      endif /* HAVE_DIRFD */
      if (name_max == -1)
 #           if defined(NAME_MAX)
