@@ -1,5 +1,11 @@
 2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
 
+	* tools/run-with-tmp-session-bus.sh: fixed script to replace the 
+	<standard_session_servicedirs> tag with a <sevicedir> tag that
+	points to the test service directory
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: Add a check for DIR *dirp->dd_fd
 
 	* dbus/dbus-sysdeps-util-unix: if HAVE_DDFD is defined use 
