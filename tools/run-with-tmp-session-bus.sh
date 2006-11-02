@@ -28,7 +28,7 @@ echo "escaped service dir is: $ESCAPED_SERVICE_DIR" >&2
 
 ## create a configuration file based on the standard session.conf
 cat $DBUS_TOP_BUILDDIR/bus/session.conf |  \
-    sed -e 's/<servicedir>.*$/<servicedir>'$ESCAPED_SERVICE_DIR'<\/servicedir>/g' |  \
+    sed -e 's/<standard_session_servicedirs.*$/<servicedir>'$ESCAPED_SERVICE_DIR'<\/servicedir>/g' |  \
     sed -e 's/<include.*$//g'                \
   > $CONFIG_FILE
 
