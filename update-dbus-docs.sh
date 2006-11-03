@@ -7,7 +7,7 @@ function die()
 }
 
 CHECKOUTDIR=/tmp/dbus-for-docs
-export CVSROOT=:ext:hp@cvs.freedesktop.org:/cvs/dbus
+export CVSROOT=:ext:johnp@cvs.freedesktop.org:/cvs/dbus
 
 cd $CHECKOUTDIR || die "could not changedir to $CHECKOUTDIR"
 
@@ -42,6 +42,6 @@ find doc -not -type d | grep -v CVS | grep -v -E '.~[0-9.]+~' | grep -v Makefile
 diff -u filesystem.list tarball.list || die "some files were not included"
 
 echo "Uploading docs to server"
-scp dbus-docs.tar.gz pdx.freedesktop.org:
-ssh hp@pdx.freedesktop.org '(cd /srv/dbus.freedesktop.org/www/ && /bin/cp -f ~/dbus-docs.tar.gz . && tar zxf dbus-docs.tar.gz && echo "Successfully unpacked tarball on server")'
+scp dbus-docs.tar.gz johnp@pdx.freedesktop.org:
+ssh johnp@pdx.freedesktop.org '(cd /srv/dbus.freedesktop.org/www/ && /bin/cp -f ~/dbus-docs.tar.gz . && tar zxf dbus-docs.tar.gz && echo "Successfully unpacked tarball on server")'
 
