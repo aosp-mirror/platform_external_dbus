@@ -1,3 +1,29 @@
+D-Bus 1.0 RC 3 (0.95) (02 November 2006)
+==
+- DBUS_API_SUBJECT_TO_CHANGE no longer needs to be defined when building apps
+- ./configure checks now work when cross compiling
+- dbus-uuidgen --ensure is now run in the init script so there is no need to
+  run it in a post script
+- dbus-uuidgen now writes out to /var/lib/dbus to work with systems that do not
+  have a writable /etc. Packages should install and own the /var/lib/dbus 
+  directory
+- recursive locks are now used when dbus_threads_init_default is called
+- standard_session_servicedirs tag added to the session.conf
+  under a normal build this specifies these service directories:
+    /usr/local/share/dbus-1/services
+    /usr/share/dbus-1/services
+    $HOME/.local/share/dbus-1/services
+- fixed crash when a service directory is specified more than once
+- fixed a crash in *BSD when watching config directories for changes
+- fixed Irix build by using dirp->__dd_fd to get the file descriptor
+- cleaned up the LOCAL_CREDS vs CMGCRED credential code so *BSD's don't 
+  crash here anymore
+- dbus_message_iter_get_array_len deprecated
+- cleanup-man-pages.sh added so packagers can clean up Doxygen man page output
+  from 7 to 2 megs
+- large documentation improvements
+- numerous bug fixes
+
 D-Bus 1.0 RC 2 (0.94) (14 October 2006)
 ==
 - dbus-uuidgen binary added for future remote machine identification
