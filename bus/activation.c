@@ -736,9 +736,15 @@ bus_activation_new (BusContext        *context,
           goto failed;
         }
 
+      /* only fail on OOM, it is ok if we can't read the directory */
       if (!update_directory (activation, s_dir, error))
-        goto failed;
-      
+        { 
+          if (dbus_error_has_name (error, DBUS_ERROR_NO_MEMORY)) 
+            goto failed;
+          else
+            dbus_error_free (error);
+        }
+
       link = _dbus_list_get_next_link (directories, link);
     }
 

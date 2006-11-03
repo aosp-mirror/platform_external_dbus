@@ -1,5 +1,10 @@
 2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
 
+	* bus/activation.c (bus_activation_new): don't fail if we can not read
+	the directory as it may not exist
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
 	* bus/config-parser.c (service_dirs_find_dir): use 
 	_dbus_list_get_next_link so we don't get stuck in an infinite loop
 	(start_busconfig_child): move processing of standard_session_servicedirs
