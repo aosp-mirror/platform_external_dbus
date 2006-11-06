@@ -1,3 +1,7 @@
+2006-11-06  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/bus.c: Missed patch - pass in the context to the directory watch
+
 2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Released D-Bus 1.0 RC 3(0.95)

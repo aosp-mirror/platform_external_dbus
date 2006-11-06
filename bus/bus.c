@@ -517,7 +517,7 @@ process_config_postinit (BusContext      *context,
   /* Watch all conf directories */
   _dbus_list_foreach (bus_config_parser_get_conf_dirs (parser),
 		      (DBusForeachFunction) bus_watch_directory,
-		      NULL);
+		      context);
 
   return TRUE;
 }
