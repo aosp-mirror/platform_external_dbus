@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-Bus FAQ</title>
-    <releaseinfo>Version 0.1</releaseinfo>
-    <date>22 January 2005</date>
+    <releaseinfo>Version 0.2</releaseinfo>
+    <date>07 November 2006</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -38,10 +38,14 @@
       </question>
       <answer>
         <para>
-          This is probably best answered by reading the D-Bus <ulink url="dbus-tutorial.html">tutorial</ulink>. In
+          This is probably best answered by reading the D-Bus <ulink url="dbus-tutorial.html">tutorial</ulink> or
+          the introduction to the <ulink url="dbus-specification.html">specification</ulink>. In
           short, it is a system consisting of 1) a wire protocol for exposing a
           typical object-oriented language/framework to other applications; and
           2) a bus daemon that allows applications to find and monitor one another.
+          Phrased differently, D-Bus is 1) an interprocess communication (IPC) system and 2) some higher-level 
+          structure (lifecycle tracking, service activation, security policy) provided by two bus daemons,
+          one systemwide and one per-user-session.
         </para>
       </answer>
     </qandaentry>
@@ -54,12 +58,13 @@
       </question>
       <answer>
         <para>
-          D-Bus has not yet reached 1.0. The <ulink url="README">README</ulink>
-          file has a discussion of the API/ABI stability guarantees before and
-          after 1.0. In short, there are no guarantees before 1.0, and stability
-          of both protocol and reference library will be maintained after 1.0.
-          As of January 2005 we don't expect major protocol or API changes prior
-          to the 1.0 release, but anything is possible.
+          The low-level library "libdbus" and the protocol specification are considered 
+          ABI stable. The <ulink url="README">README</ulink>
+          file has a discussion of the API/ABI stability guarantees.
+          Higher-level bindings (such as those for Qt, GLib, Python, Java, C#) each 
+          have their own release schedules and degree of maturity, not linked to 
+          the low-level library and bus daemon release. Check the project page for
+          the binding you're considering to understand that project's policies.
         </para>
       </answer>
     </qandaentry>
@@ -143,6 +148,13 @@
           to provide some functionality to other programs. Services
           are normally launched according to the bus name they will 
           have.
+        </para>
+        <para>
+          People often misuse the word "service" for any 
+          bus name, but this tends to be ambiguous and confusing so is discouraged.
+          In the D-Bus docs we try to use "service" only when talking about 
+          programs the bus knows how to launch, i.e. a service always has a 
+          .service file.
         </para>
       </answer>
     </qandaentry>

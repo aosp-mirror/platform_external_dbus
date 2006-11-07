@@ -1,17 +1,64 @@
-D-BUS is a simple IPC library based on messages.
+Sections in this file describe:
+ - introduction and overview
+ - low-level vs. high-level API
+ - version numbers
+ - options to the configure script
+ - ABI stability policy
 
-See also the file HACKING for notes of interest to developers working on D-BUS.
+Introduction
+===
+
+D-Bus is a simple system for interprocess communication and coordination.
+
+The "and coordination" part is important; D-Bus provides a bus daemon that does things like:
+ - notify applications when other apps exit
+ - start services on demand
+ - support single-instance applications
 
 See http://www.freedesktop.org/software/dbus/ for lots of documentation, 
 mailing lists, etc.
 
-Note
+See also the file HACKING for notes of interest to developers working on D-Bus.
+
+If you're considering D-Bus for use in a project, you should be aware
+that D-Bus was designed for a couple of specific use cases, a "system
+bus" and a "desktop session bus." These are documented in more detail
+in the D-Bus specification and FAQ available on the web site.
+
+If your use-case isn't one of these, D-Bus may still be useful, but
+only by accident; so you should evaluate carefully whether D-Bus makes
+sense for your project.
+
+Note: low-level API vs. high-level binding APIs
 ===
 
-A core concept of the D-BUS implementation is that "libdbus" is
-intended to be a low-level API, similar to Xlib. Most programmers are
-intended to use the bindings to GLib, Qt, Python, Mono, Java, or
-whatever. These bindings have varying levels of completeness.
+A core concept of the D-Bus implementation is that "libdbus" is
+intended to be a low-level API. Most programmers are intended to use
+the bindings to GLib, Qt, Python, Mono, Java, or whatever. These
+bindings have varying levels of completeness and are maintained as
+separate projects from the main D-Bus package. The main D-Bus package
+contains the low-level libdbus, the bus daemon, and a few command-line
+tools such as dbus-launch.
+
+If you use the low-level API directly, you're signing up for some
+pain. Think of the low-level API as analogous to Xlib or GDI, and the
+high-level API as analogous to Qt/GTK+/HTML.
+
+Version numbers
+===
+
+D-Bus uses the common "Linux kernel" versioning system, where
+even-numbered minor versions are stable and odd-numbered minor
+versions are development snapshots.
+
+So for example, development snapshots: 1.1.1, 1.1.2, 1.1.3, 1.3.4
+Stable versions: 1.0, 1.0.1, 1.0.2, 1.2.1, 1.2.3
+
+All pre-1.0 versions were development snapshots.
+
+Development snapshots make no ABI stability guarantees for new ABI
+introduced since the last stable release. Development snapshots are
+likely to have more bugs than stable releases, obviously.
 
 Configuration flags
 ===
@@ -48,15 +95,9 @@ the ./configure program.
 API/ABI Policy
 ===
 
-D-BUS API/ABI and protocol necessarily remain in flux until we are
-sure it will meet the various needs it's intended to meet. This means
-we need to see some significant sample usage in the contexts of GNOME,
-KDE, desktop applications, and systemwide uses such as print queue
-monitoring, hotplug events, or whatever. We need the flexibility to
-incorporate feedback from this sample usage.
-
-Once we feel confident in the protocol and the API, we will release a 
-version 1.0. At that point, the intent is:
+Now that D-Bus has reached version 1.0, the objective is that all
+applications dynamically linked to libdbus will continue working
+indefinitely with the most recent system and session bus daemons.
 
  - The protocol will never be broken again; any message bus should 
    work with any client forever. However, extensions are possible
@@ -67,23 +108,47 @@ version 1.0. At that point, the intent is:
    it will always be possible to compile against and use the older 
    API, and apps will always get the API they expect.
 
-Until 1.0 is released, feedback that requires API changes may be
-incorporated into D-BUS. This may break the API, the ABI, the
-protocol, or all three.
+Interfaces can and probably will be _added_. This means both new
+functions and types in libdbus, and new methods exported to
+applications by the bus daemon.
 
-To avoid a huge soname, the plan is to increment the soname only
-between official stable releases, not with every development snapshot.
-Versions numbered 0.x are considered development snapshots.
+The above policy is intended to make D-Bus as API-stable as other
+widely-used libraries (such as GTK+, Qt, Xlib, or your favorite
+example). If you have questions or concerns they are very welcome on
+the D-Bus mailing list.
 
-Until 1.0 is released, you have to define -DDBUS_API_SUBJECT_TO_CHANGE
-just as a safety check to be sure everyone is aware of this API/ABI
-policy and has the right expectations.
+NOTE ABOUT DEVELOPMENT SNAPSHOTS AND VERSIONING
 
-We do need people to test the APIs, so please do use the development
-snapshots of D-BUS. They are intended to work and we do actively
-address bugs.
+Odd-numbered minor releases (1.1.x, 1.3.x, 2.1.x, etc. -
+major.minor.micro) are devel snapshots for testing, and any new ABI
+they introduce relative to the last stable version is subject to
+change during the development cycle.
 
-However, if you're shipping a commercial binary-only application that
-needs to keep running on M future versions of N operating systems, you
-might want to include your own copy of D-BUS rather than relying on
-the installed copy, for example.
+Any ABI found in a stable release, however, is frozen.
+
+ABI will not be added in a stable series if we can help it. i.e. the
+ABI of 1.2.0 and 1.2.5 you can expect to be the same, while the ABI of
+1.4.x may add more stuff not found in 1.2.x.
+
+NOTE ABOUT STATIC LINKING
+
+We are not yet firmly freezing all runtime dependencies of the libdbus
+library. For example, the library may read certain files as part of
+its implementation, and these files may move around between versions.
+
+As a result, we don't yet recommend statically linking to
+libdbus. Also, reimplementations of the protocol from scratch might
+have to work to stay in sync with how libdbus behaves.
+
+To lock things down and declare static linking and reimplementation to
+be safe, we'd like to see all the internal dependencies of libdbus
+(for example, files read) well-documented in the specification, and
+we'd like to have a high degree of confidence that these dependencies
+are supportable over the long term and extensible where required.
+
+NOTE ABOUT HIGH-LEVEL BINDINGS
+
+Note that the high-level bindings are _separate projects_ from the
+main D-Bus package, and have their own release cycles, levels of
+maturity, and ABI stability policies. Please consult the documentation
+for your binding.

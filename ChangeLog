@@ -1,3 +1,9 @@
+2006-11-07  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml, doc/dbus-faq.xml, README: various
+	documentation updates. Bump faq/spec versions (not to 1.0; I don't
+	think the spec will be "finished"/1.0 when we ship the 1.0 library).
+
 2006-11-06  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/bus.c: Missed patch - pass in the context to the directory watch

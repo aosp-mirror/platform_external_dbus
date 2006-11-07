@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-Bus Specification</title>
-    <releaseinfo>Version 0.11</releaseinfo>
-    <date>6 February 2005</date>
+    <releaseinfo>Version 0.12</releaseinfo>
+    <date>7 November 2006</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -114,9 +114,20 @@
       </itemizedlist>
       D-Bus is not intended to be a generic IPC system for any possible 
       application, and intentionally omits many features found in other 
-      IPC systems for this reason. D-Bus may turn out to be useful 
-      in unanticipated applications, but future versions of this 
-      spec and the reference implementation probably will not 
+      IPC systems for this reason.
+    </para>
+
+    <para>
+      At the same time, the bus daemons offer a number of features not found in
+      other IPC systems, such as single-owner "bus names" (similar to X
+      selections), on-demand startup of services, and security policies.
+      In many ways, these features are the primary motivation for developing 
+      D-Bus; other systems would have sufficed if IPC were the only goal.
+    </para>
+
+    <para>
+      D-Bus may turn out to be useful in unanticipated applications, but future
+      versions of this spec and the reference implementation probably will not
       incorporate features that interfere with the core use cases.
     </para>
 

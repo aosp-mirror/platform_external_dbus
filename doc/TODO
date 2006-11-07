@@ -8,6 +8,8 @@ Important for 1.0
 
  - the spec should say "the protocol will not be changed incompatibly after Month DD, YYYY"
 
+ - the README documents the configure flags, should check this for being in sync with reality
+
 Important for 1.0 GLib Bindings
 ===
 
