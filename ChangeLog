@@ -1,5 +1,12 @@
 2006-11-07  Havoc Pennington  <hp@redhat.com>
 
+	* HACKING: Update release instructions to include stuff about
+	stable releases, branching, etc. May not be totally correct,
+	please fix if needed, but keep instructions up-to-date so we do
+	each stable release consistently in the future.
+
+2006-11-07  Havoc Pennington  <hp@redhat.com>
+
 	* doc/dbus-specification.xml, doc/dbus-faq.xml, README: various
 	documentation updates. Bump faq/spec versions (not to 1.0; I don't
 	think the spec will be "finished"/1.0 when we ship the 1.0 library).
