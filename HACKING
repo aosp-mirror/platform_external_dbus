@@ -140,7 +140,7 @@ then create the branch from that tag:
  cvs rtag -b -r DBUS_X_Y_BRANCHPOINT DBUS_X_Y_BRANCH dbus
 
 Note that DBUS_X_Y_BRANCHPOINT may not tag the same revision as the
-DBUS_X_Y_Z release, since we may not branch immediately.
+DBUS_X_Y_0 release, since we may not branch immediately.
 
 Environment variables
 ===
