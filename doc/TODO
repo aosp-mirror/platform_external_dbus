@@ -1,14 +1,7 @@
 Important for 1.0
 ===
 
- - update AUTHORS
-
- - the README, FAQ, and probably other places talk about 1.0 and ABI guarantees,
-   all these places need updating
-
  - the spec should say "the protocol will not be changed incompatibly after Month DD, YYYY"
-
- - the README documents the configure flags, should check this for being in sync with reality
 
 Important for 1.0 GLib Bindings
 ===

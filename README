@@ -67,7 +67,6 @@ These are the dbus-specific configuration flags that can be given to
 the ./configure program.
 
   --enable-tests          enable unit test code
-  --enable-ansi           enable -ansi -pedantic gcc flags
   --enable-verbose-mode   support verbose debug mode
   --enable-asserts        include assertion checks
   --enable-checks         include sanity checks on public API
