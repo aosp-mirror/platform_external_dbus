@@ -8,7 +8,7 @@ dbus-monitor \- debug probe to print message bus messages
 .SH SYNOPSIS
 .PP
 .B dbus-monitor
-[\-\-system | \-\-session]
+[\-\-system | \-\-session] [\-\-profile | \-\-monitor]
 [watch expressions]
 
 .SH DESCRIPTION
@@ -27,6 +27,14 @@ monitor the system or session buses respectively.  If neither is
 specified, \fIdbus-monitor\fP monitors the session bus.
 
 .PP
+\fIdbus-monitor\fP has two different output modes, the 'classic'-style
+monitoring mode and profiling mode. The profiling format is a compact
+format with a single line per message and microsecond-resolution timing
+information. The \-\-profile and \-\-monitor options select the profiling
+and monitoring output format respectively. If neither is specified,
+\fIdbus-monitor\fP uses the monitoring output format.
+
+.PP
 In order to get \fIdbus-monitor\fP to see the messages you are interested
 in, you should specify a set of watch expressions as you would expect to
 be passed to the \fIdbus_bus_add_watch\fP function.
@@ -42,6 +50,12 @@ Monitor the system message bus.
 .TP
 .I "--session"
 Monitor the session message bus.  (This is the default.)
+.TP
+.I "--profile"
+Use the profiling output format.
+.TP
+.I "--monitor"
+Use the monitoring output format.  (This is the default.)
 
 .SH EXAMPLE
 Here is an example of using dbus-monitor to watch for the gnome typing
@@ -54,6 +68,7 @@ monitor to say things
 
 .SH AUTHOR
 dbus-monitor was written by Philip Blundell.
+The profiling output mode was added by Olli Salli.
 
 .SH BUGS
 Please send bug reports to the D-Bus mailing list or bug tracker,

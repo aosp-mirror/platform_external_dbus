@@ -1,5 +1,10 @@
 2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
 
+	* tools/dbus-monitor.1: update the manpage for dbus-monitor
+	(Patch from Olli Salli <olli dot salli at collabora dot co dot uk>)
+
+2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
+
 	* AUTHORS: Update with all people listed in the ChangeLog
 
 2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
