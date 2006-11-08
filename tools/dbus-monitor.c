@@ -26,6 +26,8 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include <signal.h>
+
 #include "dbus-print-message.h"
 
 static DBusHandlerResult
@@ -163,6 +165,14 @@ usage (char *name, int ecode)
   exit (ecode);
 }
 
+dbus_bool_t sigint_received = FALSE;
+
+static void
+sigint_handler (int signum)
+{
+  sigint_received = TRUE;
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -254,7 +264,11 @@ main (int argc, char *argv[])
     fprintf (stderr, "Couldn't add filter!\n");
     exit (1);
   }
-  while (dbus_connection_read_write_dispatch(connection, -1))
+
+  /* we handle SIGINT so exit() is reached and flushes stdout */
+  signal (SIGINT, sigint_handler);
+  while (dbus_connection_read_write_dispatch(connection, -1)
+          && !sigint_received)
     ;
   exit (0);
  lose:
