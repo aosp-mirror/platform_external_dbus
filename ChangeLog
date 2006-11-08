@@ -1,5 +1,9 @@
 2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
 
+	* Released 1.0.0
+
+2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
+
 	* README: remove some of the out of date flags
 
 	* doc/TODO: Remove todo items which are done

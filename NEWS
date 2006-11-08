@@ -1,3 +1,11 @@
+D-Bus 1.0.0 (08 November 2006)
+==
+- Documents updated with API/ABI garuntees 
+- Added missing patch FreeBSD need to run out of the box
+- dbus-monitor now has a profile mode
+- AUTHORS file updated with names from the ChangeLog
+  Thanks to everyone who helped get us here
+
 D-Bus 1.0 RC 3 (0.95) (02 November 2006)
 ==
 - DBUS_API_SUBJECT_TO_CHANGE no longer needs to be defined when building apps
