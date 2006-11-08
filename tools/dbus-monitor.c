@@ -23,12 +23,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sys/time.h>
+#include <time.h>
+
 #include "dbus-print-message.h"
 
 static DBusHandlerResult
-filter_func (DBusConnection     *connection,
-             DBusMessage        *message,
-             void               *user_data)
+monitor_filter_func (DBusConnection     *connection,
+		     DBusMessage        *message,
+		     void               *user_data)
 {
   print_message (message, FALSE);
   
@@ -44,10 +47,119 @@ filter_func (DBusConnection     *connection,
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+#define PROFILE_TIMED_FORMAT "%s\t%lu\t%lu"
+#define TRAP_NULL_STRING(str) ((str) ? (str) : "<none>")
+
+typedef enum
+{
+  PROFILE_ATTRIBUTE_FLAG_SERIAL = 1,
+  PROFILE_ATTRIBUTE_FLAG_REPLY_SERIAL = 2,
+  PROFILE_ATTRIBUTE_FLAG_SENDER = 4,
+  PROFILE_ATTRIBUTE_FLAG_DESTINATION = 8,
+  PROFILE_ATTRIBUTE_FLAG_PATH = 16,
+  PROFILE_ATTRIBUTE_FLAG_INTERFACE = 32,
+  PROFILE_ATTRIBUTE_FLAG_MEMBER = 64,
+  PROFILE_ATTRIBUTE_FLAG_ERROR_NAME = 128,
+} ProfileAttributeFlags;
+
+static void
+profile_print_with_attrs (const char *type, DBusMessage *message,
+  struct timeval *t, ProfileAttributeFlags attrs)
+{
+  printf (PROFILE_TIMED_FORMAT, type, t->tv_sec, t->tv_usec);
+
+  if (attrs & PROFILE_ATTRIBUTE_FLAG_SERIAL)
+    printf ("\t%u", dbus_message_get_serial (message));
+
+  if (attrs & PROFILE_ATTRIBUTE_FLAG_REPLY_SERIAL)
+    printf ("\t%u", dbus_message_get_reply_serial (message));
+
+  if (attrs & PROFILE_ATTRIBUTE_FLAG_SENDER)
+    printf ("\t%s", TRAP_NULL_STRING (dbus_message_get_sender (message)));
+
+  if (attrs & PROFILE_ATTRIBUTE_FLAG_DESTINATION)
+    printf ("\t%s", TRAP_NULL_STRING (dbus_message_get_destination (message)));
+
+  if (attrs & PROFILE_ATTRIBUTE_FLAG_PATH)
+    printf ("\t%s", TRAP_NULL_STRING (dbus_message_get_path (message)));
+
+  if (attrs & PROFILE_ATTRIBUTE_FLAG_INTERFACE)
+    printf ("\t%s", TRAP_NULL_STRING (dbus_message_get_interface (message)));
+
+  if (attrs & PROFILE_ATTRIBUTE_FLAG_MEMBER)
+    printf ("\t%s", TRAP_NULL_STRING (dbus_message_get_member (message)));
+
+  if (attrs & PROFILE_ATTRIBUTE_FLAG_ERROR_NAME)
+    printf ("\t%s", TRAP_NULL_STRING (dbus_message_get_error_name (message)));
+
+  printf ("\n");
+}
+
+static void
+print_message_profile (DBusMessage *message)
+{
+  struct timeval t;
+
+  if (gettimeofday (&t, NULL) < 0)
+    {
+      printf ("un\n");
+      return;
+    }
+
+  switch (dbus_message_get_type (message))
+    {
+      case DBUS_MESSAGE_TYPE_METHOD_CALL:
+	profile_print_with_attrs ("mc", message, &t,
+	  PROFILE_ATTRIBUTE_FLAG_SERIAL |
+	  PROFILE_ATTRIBUTE_FLAG_SENDER |
+	  PROFILE_ATTRIBUTE_FLAG_PATH |
+	  PROFILE_ATTRIBUTE_FLAG_INTERFACE |
+	  PROFILE_ATTRIBUTE_FLAG_MEMBER);
+	break;
+      case DBUS_MESSAGE_TYPE_METHOD_RETURN:
+	profile_print_with_attrs ("mr", message, &t,
+	  PROFILE_ATTRIBUTE_FLAG_SERIAL |
+	  PROFILE_ATTRIBUTE_FLAG_DESTINATION |
+	  PROFILE_ATTRIBUTE_FLAG_REPLY_SERIAL);
+	break;
+      case DBUS_MESSAGE_TYPE_ERROR:
+	profile_print_with_attrs ("err", message, &t,
+	  PROFILE_ATTRIBUTE_FLAG_SERIAL |
+	  PROFILE_ATTRIBUTE_FLAG_DESTINATION |
+	  PROFILE_ATTRIBUTE_FLAG_REPLY_SERIAL);
+	break;
+      case DBUS_MESSAGE_TYPE_SIGNAL:
+	profile_print_with_attrs ("sig", message, &t,
+	  PROFILE_ATTRIBUTE_FLAG_SERIAL |
+	  PROFILE_ATTRIBUTE_FLAG_PATH |
+	  PROFILE_ATTRIBUTE_FLAG_INTERFACE |
+	  PROFILE_ATTRIBUTE_FLAG_MEMBER);
+	break;
+      default:
+	printf (PROFILE_TIMED_FORMAT "\n", "tun", t.tv_sec, t.tv_usec);
+	break;
+    }
+}
+
+static DBusHandlerResult
+profile_filter_func (DBusConnection	*connection,
+		     DBusMessage	*message,
+		     void		*user_data)
+{
+  print_message_profile (message);
+
+  if (dbus_message_is_signal (message,
+                              DBUS_INTERFACE_LOCAL,
+                              "Disconnected"))
+    exit (0);
+
+  return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--system | --session] [watch expressions]\n", name);
+  fprintf (stderr, "Usage: %s [--system | --session] [--monitor | --profile ] [watch expressions]\n", name);
   exit (ecode);
 }
 
@@ -57,6 +169,7 @@ main (int argc, char *argv[])
   DBusConnection *connection;
   DBusError error;
   DBusBusType type = DBUS_BUS_SESSION;
+  DBusHandleMessageFunction filter_func = monitor_filter_func;
 
   int i = 0, j = 0, numFilters = 0;
   char **filters = NULL;
@@ -70,6 +183,10 @@ main (int argc, char *argv[])
 	type = DBUS_BUS_SESSION;
       else if (!strcmp (arg, "--help"))
 	usage (argv[0], 0);
+      else if (!strcmp (arg, "--monitor"))
+	filter_func = monitor_filter_func;
+      else if (!strcmp (arg, "--profile"))
+	filter_func = profile_filter_func;
       else if (!strcmp (arg, "--"))
 	continue;
       else if (arg[0] == '-')
@@ -144,3 +261,4 @@ main (int argc, char *argv[])
   fprintf (stderr, "Error: %s\n", error.message);
   exit (1);
 }
+
