@@ -2,6 +2,13 @@
 
 	* Released 1.0.0
 
+2006-11-08  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml: add a note about protocol stability
+
+	* doc/TODO: Remove "important for 1.0" section, replace with
+	"important for 1.2" section
+	
 2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
 
 	* README: remove some of the out of date flags

@@ -1,7 +1,9 @@
-Important for 1.0
+Important for 1.2
 ===
 
- - the spec should say "the protocol will not be changed incompatibly after Month DD, YYYY"
+ - System bus activation
+
+ - Windows port
 
 Important for 1.0 GLib Bindings
 ===

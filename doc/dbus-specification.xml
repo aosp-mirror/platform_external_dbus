@@ -138,6 +138,30 @@
       document could use a serious audit to be sure it makes sense to do
       so. Also, they are not capitalized.
     </para>
+
+    <sect2 id="stability">
+      <title>Protocol and Specification Stability</title>
+      <para>
+        The D-Bus protocol is frozen (only compatible extensions are allowed) as
+        of November 8, 2006.  However, this specification could still use a fair
+        bit of work to make interoperable reimplementation possible without
+        reference to the D-Bus reference implementation. Thus, this
+        specification is not marked 1.0. To mark it 1.0, we'd like to see
+        someone invest significant effort in clarifying the specification
+        language, and growing the specification to cover more aspects of the
+        reference implementation's behavior.
+      </para>
+      <para>
+        Until this work is complete, any attempt to reimplement D-Bus will 
+        probably require looking at the reference implementation and/or asking
+        questions on the D-Bus mailing list about intended behavior. 
+        Questions on the list are very welcome.
+      </para>
+      <para>
+        Nonetheless, this document should be a useful starting point and is 
+        to our knowledge accurate, though incomplete.
+      </para>
+    </sect2>
     
   </sect1>
 
