@@ -140,7 +140,7 @@ main (int argc, char *argv[])
   check_condvar_lock (dispatch_cond1, dispatch_cond2, TRUE);
   check_condvar_lock (io_path_cond1, io_path_cond2, TRUE);
 
-  _dbus_threads_init_debug ();
+  dbus_threads_init_default ();
 
   _dbus_connection_test_get_locks (conn, &mutex1,
                                          &dispatch_mutex1,

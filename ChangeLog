@@ -1,3 +1,12 @@
+2006-11-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-threads.h: fix DBUS_THREAD_FUNCTIONS_ALL_MASK to have
+	the correct value so we don't assert when initalizing recursive threads
+
+	* test/name-test/test-thread-init.c: call dbus_threads_init_default
+	instead of _dbus_threads_init_debug since it is more of a real world
+	test
+
 2006-11-09  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Released 1.0.0
