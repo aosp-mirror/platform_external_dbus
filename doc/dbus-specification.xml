@@ -2237,23 +2237,29 @@
 
     <para>
       A server may specify a key-value pair with the key <literal>guid</literal>
-      and the value a hex-encoded 16-byte sequence. This globally unique ID must
-      be created by filling the first 4 bytes with a 32-bit UNIX time since the
-      epoch, and the remaining 12 bytes with random bytes. If present, the GUID
-      may be used to distinguish one server from another. A server should use a
-      different GUID for each address it listens on. For example, if a message
-      bus daemon offers both UNIX domain socket and TCP connections, but treats
-      clients the same regardless of how they connect, those two connections are
-      equivalent post-connection but should have distinct GUIDs to distinguish
-      the kinds of connection.
+      and the value a hex-encoded 16-byte sequence. <xref linkend="uuids"/>
+      describes the format of the <literal>guid</literal> field.  If present,
+      this UUID may be used to distinguish one server address from another. A
+      server should use a different UUID for each address it listens on. For
+      example, if a message bus daemon offers both UNIX domain socket and TCP
+      connections, but treats clients the same regardless of how they connect,
+      those two connections are equivalent post-connection but should have
+      distinct UUIDs to distinguish the kinds of connection.
     </para>
     
     <para>
-      The intent of the GUID feature is to allow a client to avoid opening
-      multiple identical connections to the same server, by allowing the client
-      to check whether an address corresponds to an already-existing connection.
-      Comparing two addresses is insufficient, because addresses can be recycled
-      by distinct servers.
+      The intent of the address UUID feature is to allow a client to avoid
+      opening multiple identical connections to the same server, by allowing the
+      client to check whether an address corresponds to an already-existing
+      connection.  Comparing two addresses is insufficient, because addresses
+      can be recycled by distinct servers, and equivalent addresses may look
+      different if simply compared as strings (for example, the host in a TCP
+      address can be given as an IP address or as a hostname).
+    </para>
+
+    <para>
+      Note that the address key is <literal>guid</literal> even though the 
+      rest of the API and documentation says "UUID," for historical reasons.
     </para>
 
     <para>
@@ -2314,6 +2320,43 @@
       hyphens.
     </para>
   </sect1>
+
+  <sect1 id="uuids">
+    <title>UUIDs</title>
+    <para>
+      A working D-Bus implementation uses universally-unique IDs in two places.
+      First, each server address has a UUID identifying the address, 
+      as described in <xref linkend="addresses"/>. Second, each operating
+      system kernel instance running a D-Bus client or server has a UUID
+      identifying that kernel, retrieved by invoking the method
+      org.freedesktop.DBus.Peer.GetMachineId() (see <xref
+      linkend="standard-interfaces-peer"/>).
+    </para>
+    <para>
+      The term "UUID" in this document is intended literally, i.e. an
+      identifier that is universally unique. It is not intended to refer to
+      RFC4122, and in fact the D-Bus UUID is not compatible with that RFC.
+    </para>
+    <para>
+      The UUID must contain 128 bits of data and be hex-encoded.  The
+      hex-encoded string may not contain hyphens or other non-hex-digit
+      characters, and it must be exactly 32 characters long.  To generate a
+      UUID, the current reference implementation concatenates 96 bits of random
+      data followed by the 32-bit time in seconds since the UNIX epoch (in big
+      endian byte order).
+    </para>
+    <para>
+      It would also be acceptable and probably better to simply generate 128
+      bits of random data, as long as the random number generator is of high
+      quality. The timestamp could conceivably help if the random bits are not
+      very random. With a quality random number generator, collisions are
+      extremely unlikely even with only 96 bits, so it's somewhat academic.
+    </para>
+    <para>
+      Implementations should, however, stick to random data for the first 96 bits
+      of the UUID.
+    </para>
+  </sect1>
     
   <sect1 id="standard-interfaces">
     <title>Standard Interfaces</title>
@@ -2364,12 +2407,7 @@
         is more robust.
       </para>
       <para>
-        The UUID must contain 128 bits of data and be hex-encoded (meaning, the hex 
-        string contains 32 ASCII characters). The hex-encoded string may not contain 
-        hyphens or other non-hex-digit characters, and it must be exactly 32 characters long.
-        To generate a UUID, the recommended algorithm is to put the current time in seconds
-        since the UNIX epoch in the last 32 bits of the UUID, and to put randomly-generated bits
-        in the first 96 bits of the UUID.
+        <xref linkend="uuids"/> explains the format of the UUID.
       </para>
     </sect2>
 

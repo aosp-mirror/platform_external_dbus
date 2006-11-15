@@ -318,7 +318,8 @@ void          _dbus_set_bad_address        (DBusError         *error,
                                             const char        *address_problem_other);
 
 #define DBUS_UUID_LENGTH_BYTES 16
-#define DBUS_UUID_LENGTH_HEX (DBUS_UUID_LENGTH_BYTES * 2)
+#define DBUS_UUID_LENGTH_WORDS (DBUS_UUID_LENGTH_BYTES / 4)
+#define DBUS_UUID_LENGTH_HEX   (DBUS_UUID_LENGTH_BYTES * 2)
 
 /**
  * A globally unique ID ; we have one for each DBusServer, and also one for each
@@ -326,7 +327,7 @@ void          _dbus_set_bad_address        (DBusError         *error,
  */
 union DBusGUID
 {
-  dbus_uint32_t as_uint32s[DBUS_UUID_LENGTH_BYTES / 4]; /**< guid as four uint32 values */
+  dbus_uint32_t as_uint32s[DBUS_UUID_LENGTH_WORDS];     /**< guid as four uint32 values */
   char as_bytes[DBUS_UUID_LENGTH_BYTES];                /**< guid as 16 single-byte values */
 };
 

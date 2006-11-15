@@ -22,6 +22,7 @@
  */
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
+#include "dbus-marshal-basic.h"
 #include "dbus-test.h"
 #include <stdio.h>
 #include <stdarg.h>
@@ -505,18 +506,12 @@ void
 _dbus_generate_uuid (DBusGUID *uuid)
 {
   long now;
-  char *p;
-  int ts_size;
 
   _dbus_get_current_time (&now, NULL);
 
-  uuid->as_uint32s[0] = now;
-
-  ts_size = sizeof (uuid->as_uint32s[0]);
-  p = ((char*)uuid->as_bytes) + ts_size;
+  uuid->as_uint32s[DBUS_UUID_LENGTH_WORDS - 1] = DBUS_UINT32_TO_BE (now);
   
-  _dbus_generate_random_bytes_buffer (p,
-                                      sizeof (uuid->as_bytes) - ts_size);
+  _dbus_generate_random_bytes_buffer (uuid->as_bytes, DBUS_UUID_LENGTH_BYTES - 4);
 }
 
 /**

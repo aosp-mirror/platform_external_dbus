@@ -1,3 +1,17 @@
+2006-11-14  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-internals.c (_dbus_generate_uuid): The spec said the
+	UUID had the timestamp last, but the implementation had it first;
+	move it to last since I think it's a tiny bit nicer (easier to
+	compare at a glance, faster to sort, less code), and will not
+	cause any practical compatibility problems. Also, always convert
+	the timestamp to big endian.
+
+	* doc/dbus-specification.xml: Clean up the docs on the UUID.
+
+	* tools/dbus-uuidgen.1: more prominently say it is not suitable
+	as a replacement for regular uuidgen/RFC4122.
+
 2006-11-14  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-threads.h: fix DBUS_THREAD_FUNCTIONS_ALL_MASK to have

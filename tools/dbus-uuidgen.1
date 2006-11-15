@@ -14,6 +14,11 @@ dbus-uuidgen \- Utility to generate UUIDs
 The \fIdbus-uuidgen\fP command generates or reads a universally unique ID.
 
 .PP
+Note that the D-Bus UUID has no relationship to RFC 4122 and does not generate
+UUIDs compatible with that spec. Many systems have a separate command
+for that (often called "uuidgen").
+
+.PP
 See http://www.freedesktop.org/software/dbus/ for more information
 about D-Bus.
 
@@ -39,21 +44,21 @@ IDs, and so forth.
 
 .PP
 If you run \fIdbus-uuidgen\fP with no options it just prints a new uuid made
-up out of thin air. This is similar to the regular "uuidgen" command.
+up out of thin air.
 
 .PP
-If you run it with --get, it prints the machine uuid by default, or
-the uuid in the specified file if you specify a file.
-
-.PP
-The D-Bus UUID has no relationship to RFC 4122 and does not generate
-UUIDs compatible with that spec.
+If you run it with --get, it prints the machine UUID by default, or
+the UUID in the specified file if you specify a file.
 
 .PP
 If you try to change an existing machine-id on a running system, it will
 probably result in bad things happening. Don't try to change this file. Also,
 don't make it the same on two different systems; it needs to be different
 anytime there are two different kernels running.
+
+.PP
+The UUID should be different on two different virtual machines,
+because there are two different kernels.
 
 .SH OPTIONS
 The following options are supported:

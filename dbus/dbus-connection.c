@@ -5511,7 +5511,10 @@ dbus_connection_get_outgoing_size (DBusConnection *connection)
  * If the remote application has the same machine ID as the one
  * returned by this function, then the remote application is on the
  * same machine as your application.
- * 
+ *
+ * The UUID is not a UUID in the sense of RFC4122; the details
+ * are explained in the D-Bus specification.
+ *
  * @returns a 32-byte-long hex-encoded UUID string, or #NULL if insufficient memory
  */
 char*
