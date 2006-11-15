@@ -1,4 +1,12 @@
 2006-11-14  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-misc.c, dbus/dbus-misc.h: Move
+	dbus_get_local_machine_id() to its own file, no substantive
+	changes. There are a couple other things we might want to add that
+	are "misc" so moving out of dbus-connection.[hc] which is big
+	enough already.
+	
+2006-11-14  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-internals.c (_dbus_generate_uuid): The spec said the
 	UUID had the timestamp last, but the implementation had it first;

@@ -321,8 +321,6 @@ dbus_bool_t dbus_connection_get_unix_fd            (DBusConnection              
 dbus_bool_t dbus_connection_get_socket             (DBusConnection              *connection,
                                                     int                         *fd);
 
-char*       dbus_get_local_machine_id              (void);
-
 /** @} */
 
 

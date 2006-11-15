@@ -115,6 +115,8 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir, const char *speci
   run_test ("sysdeps", specific_test, _dbus_sysdeps_test);
   
   run_test ("data-slot", specific_test, _dbus_data_slot_test);
+
+  run_test ("misc", specific_test, _dbus_misc_test);
   
   run_test ("address", specific_test, _dbus_address_test);
 

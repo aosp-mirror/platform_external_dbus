@@ -17,6 +17,7 @@ dbusinclude_HEADERS=				\
 	dbus-macros.h				\
 	dbus-memory.h				\
 	dbus-message.h				\
+	dbus-misc.h				\
 	dbus-pending-call.h			\
 	dbus-protocol.h				\
 	dbus-server.h				\
@@ -54,6 +55,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-message.c				\
 	dbus-message-internal.h			\
 	dbus-message-private.h			\
+	dbus-misc.c				\
 	dbus-object-tree.c			\
 	dbus-object-tree.h			\
 	dbus-pending-call.c			\
