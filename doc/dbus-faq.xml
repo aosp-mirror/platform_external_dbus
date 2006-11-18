@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-Bus FAQ</title>
-    <releaseinfo>Version 0.2</releaseinfo>
-    <date>07 November 2006</date>
+    <releaseinfo>Version 0.3</releaseinfo>
+    <date>17 November 2006</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -304,6 +304,11 @@
       </question>
       <answer>
         <para>
+          Keep in mind, it is not only an IPC system; it also includes
+          lifecycle tracking, service activation, security policy, and other
+          higher-level structure and assumptions.
+        </para>
+        <para>
           The best place to start is to read the D-Bus <ulink url="dbus-tutorial.html">tutorial</ulink>, so 
           you have a concrete idea what D-Bus actually is. If you 
           understand other protocols on a wire format level, you 
@@ -315,7 +320,7 @@
           for some specific use cases. Thus, it probably isn't tuned 
           for what you want to do, unless you are doing the things 
           D-Bus was designed for. Don't make the mistake of thinking 
-          that any system labeled "IPC" is the same thing.
+          that any system involving "IPC" is the same thing.
         </para>
         <para>
           The D-Bus authors would not recommend using D-Bus 
@@ -621,14 +626,18 @@
           If you're writing a desktop application for UNIX, 
           then D-Bus is of course our recommendation for 
           talking to other parts of the desktop session.
-          (With the caveat that you should use a stable release 
-          of D-Bus; until we reach 1.0, there isn't a stable release.)
+        </para>
+        <para>
+          D-Bus is also designed for communications between system daemons and
+          communications between the desktop and system daemons.
         </para>
         <para>
           If you're doing something complicated such as clustering, 
           distributed swarms, peer-to-peer, or whatever then 
           the authors of this FAQ don't have expertise in these
           areas and you should ask someone else or try a search engine.
+          D-Bus is most likely a poor choice but could be appropriate
+          for some things.
         </para>
         <para>
           Note: the D-Bus mailing list is probably not the place to 
