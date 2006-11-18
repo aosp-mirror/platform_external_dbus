@@ -6,8 +6,14 @@ function die()
     exit 1
 }
 
+if test -z "$FDUSER" ; then
+    FDUSER=johnp
+fi
+
+echo "Using freedesktop.org account $FDUSER"
+
 CHECKOUTDIR=/tmp/dbus-for-docs
-export CVSROOT=:ext:johnp@cvs.freedesktop.org:/cvs/dbus
+export CVSROOT=:ext:$FDUSER@cvs.freedesktop.org:/cvs/dbus
 
 cd $CHECKOUTDIR || die "could not changedir to $CHECKOUTDIR"
 
@@ -19,7 +25,9 @@ cd dbus || die "could not cd to dbus"
 
 echo "Configuring and building docs"
 
-./autogen.sh || die "could not autogen"
+## the configure flags are explicit so if you lack xmlto, etc. 
+## you won't fail to update those docs
+./autogen.sh --enable-xml-docs=yes --enable-doxygen-docs=yes || die "could not autogen"
 doxygen Doxyfile || die "could not run Doxygen"
 cd doc || die "could not cd to doc dir"
 make || die "could not build docs"
@@ -42,6 +50,6 @@ find doc -not -type d | grep -v CVS | grep -v -E '.~[0-9.]+~' | grep -v Makefile
 diff -u filesystem.list tarball.list || die "some files were not included"
 
 echo "Uploading docs to server"
-scp dbus-docs.tar.gz johnp@pdx.freedesktop.org:
-ssh johnp@pdx.freedesktop.org '(cd /srv/dbus.freedesktop.org/www/ && /bin/cp -f ~/dbus-docs.tar.gz . && tar zxf dbus-docs.tar.gz && echo "Successfully unpacked tarball on server")'
+scp dbus-docs.tar.gz "$FDUSER"@pdx.freedesktop.org:
+ssh "$FDUSER"@pdx.freedesktop.org '(cd /srv/dbus.freedesktop.org/www/ && /bin/cp -f ~/dbus-docs.tar.gz . && tar zxf dbus-docs.tar.gz && echo "Successfully unpacked tarball on server")'
 

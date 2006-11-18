@@ -1,5 +1,12 @@
 2006-11-17  Havoc Pennington  <hp@redhat.com>
 
+	* update-dbus-docs.sh: allow setting fd.org username via env
+	variable. Make it run autogen with --enable-xml-docs=yes
+	--enable-doxygen-docs=yes so configure will fail if the required
+	tools are missing.
+
+2006-11-17  Havoc Pennington  <hp@redhat.com>
+
 	* doc/dbus-faq.xml: minor FAQ tweaks
 
 2006-11-14  Havoc Pennington  <hp@redhat.com>
