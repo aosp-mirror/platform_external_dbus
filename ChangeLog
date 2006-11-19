@@ -1,3 +1,12 @@
+2006-11-19  Thiago Macieira  <thiago@kde.org>
+
+	* dbus/dbus-sysdeps-pthread.c (_dbus_pthread_mutex_lock,
+        _dbus_pthread_condvar_wait,
+        _dbus_pthread_condvar_wait_timeout): set pmutex->holder to
+        pthread_self() after coming back from a conditional variable
+        wait as well as in one codepath where it was forgotten.
+	Approved by: Havoc Pennington.
+
 2006-11-17  Havoc Pennington  <hp@redhat.com>
 
 	* update-dbus-docs.sh: allow setting fd.org username via env

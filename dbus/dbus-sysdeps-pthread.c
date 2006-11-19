@@ -153,6 +153,7 @@ _dbus_pthread_mutex_lock (DBusMutex *mutex)
         {
           /* Wait for the lock */
           PTHREAD_CHECK ("pthread_mutex_lock", pthread_mutex_lock (&pmutex->lock));
+	  pmutex->holder = self;
           _dbus_assert (pmutex->count == 0);
         }
 
@@ -222,10 +223,11 @@ _dbus_pthread_condvar_wait (DBusCondVar *cond,
   _dbus_assert (pthread_equal (pmutex->holder, pthread_self ()));
 
   old_count = pmutex->count;
-  pmutex->count = 0;
+  pmutex->count = 0;		/* allow other threads to lock */
   PTHREAD_CHECK ("pthread_cond_wait", pthread_cond_wait (&pcond->cond, &pmutex->lock));
   _dbus_assert (pmutex->count == 0);
   pmutex->count = old_count;
+  pmutex->holder = pthread_self(); /* other threads may have locked the mutex in the meantime */
 }
 
 static dbus_bool_t
@@ -264,6 +266,7 @@ _dbus_pthread_condvar_wait_timeout (DBusCondVar               *cond,
 
   _dbus_assert (pmutex->count == 0);
   pmutex->count = old_count;
+  pmutex->holder = pthread_self(); /* other threads may have locked the mutex in the meantime */
   
   /* return true if we did not time out */
   return result != ETIMEDOUT;
