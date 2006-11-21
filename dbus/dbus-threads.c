@@ -812,7 +812,11 @@ dbus_fake_condvar_wake_all (DBusCondVar *cond)
 dbus_bool_t
 _dbus_threads_init_debug (void)
 {
+#ifdef DBUS_WIN
+  return _dbus_threads_init_platform_specific();
+#else
   return dbus_threads_init (&fake_functions);
+#endif
 }
 
 #endif /* DBUS_BUILD_TESTS */
