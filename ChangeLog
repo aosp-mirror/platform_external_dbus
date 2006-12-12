@@ -1,5 +1,12 @@
 2006-12-12  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-string.c (_dbus_string_pop_line),
+	bus/desktop-file.c (parse_section_start,
+	parse_comment_or_blank,parse_key_value,): uses
+	_dbus_string_find_eol() to support platform independent eol style.
+
+2006-12-12  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-string.[ch] (_dbus_string_find_eol): new function. 
 	* dbus/dbus-string-util.c (_dbus_string_test): added testcases for 
 	      _dbus_string_find_eol().
