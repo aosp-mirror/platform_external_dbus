@@ -1,3 +1,9 @@
+2006-12-12  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/signal.c: Fix match_rule_equal errata
+	(CVE-2006-6107 - Patch from Kimmo Hämäläinen 
+	<kimmo.hamalainen@nokia.com>)
+
 2006-11-19  Thiago Macieira  <thiago@kde.org>
 
 	* dbus/dbus-sysdeps-pthread.c (_dbus_pthread_mutex_lock,

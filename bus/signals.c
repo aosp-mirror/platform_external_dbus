@@ -1067,6 +1067,9 @@ match_rule_equal (BusMatchRule *a,
   if (a->flags != b->flags)
     return FALSE;
 
+  if (a->matches_go_to != b->matches_go_to)
+    return FALSE;
+
   if ((a->flags & BUS_MATCH_MESSAGE_TYPE) &&
       a->message_type != b->message_type)
     return FALSE;
