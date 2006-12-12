@@ -2088,52 +2088,22 @@ dbus_bool_t
 _dbus_string_pop_line (DBusString *source,
                        DBusString *dest)
 {
-  int eol;
-  dbus_bool_t have_newline;
+  int eol, eol_len;
   
   _dbus_string_set_length (dest, 0);
   
   eol = 0;
-  if (_dbus_string_find (source, 0, "\n", &eol))
-    {
-      have_newline = TRUE;
-      eol += 1; /* include newline */
-    }
-  else
-    {
+  if (!_dbus_string_find_eol (source, 0, &eol, &eol_len))
       eol = _dbus_string_get_length (source);
-      have_newline = FALSE;
-    }
 
   if (eol == 0)
     return FALSE; /* eof */
   
-  if (!_dbus_string_move_len (source, 0, eol,
-                              dest, 0))
-    {
-      return FALSE;
-    }
+  if (!_dbus_string_move_len (source, 0, eol + eol_len, dest, 0))
+	  return FALSE;
 
-  /* dump the newline and the \r if we have one */
-  if (have_newline)
-    {
-      dbus_bool_t have_cr;
-      
-      _dbus_assert (_dbus_string_get_length (dest) > 0);
-
-      if (_dbus_string_get_length (dest) > 1 &&
-          _dbus_string_get_byte (dest,
-                                 _dbus_string_get_length (dest) - 2) == '\r')
-        have_cr = TRUE;
-      else
-        have_cr = FALSE;
-        
-      _dbus_string_set_length (dest,
-                               _dbus_string_get_length (dest) -
-                               (have_cr ? 2 : 1));
-    }
-  
-  return TRUE;
+  /* remove line ending */
+  return _dbus_string_set_length(dest, eol);
 }
 
 #ifdef DBUS_BUILD_TESTS

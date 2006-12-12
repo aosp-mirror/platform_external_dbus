@@ -360,15 +360,15 @@ is_blank_line (BusDesktopFileParser *parser)
 static void
 parse_comment_or_blank (BusDesktopFileParser *parser)
 {
-  int line_end;
+  int line_end, eol_len;
   
-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
+  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
     line_end = parser->len;
 
   if (line_end == parser->len)
     parser->pos = parser->len;
   else
-    parser->pos = line_end + 1;
+    parser->pos = line_end + eol_len;
   
   parser->line_num += 1;
 }
@@ -393,12 +393,12 @@ is_valid_section_name (const char *name)
 static dbus_bool_t
 parse_section_start (BusDesktopFileParser *parser, DBusError *error)
 {
-  int line_end;
+  int line_end, eol_len;
   char *section_name;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
+    
+  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
     line_end = parser->len;
   
   if (line_end - parser->pos <= 2 ||
@@ -438,7 +438,7 @@ parse_section_start (BusDesktopFileParser *parser, DBusError *error)
   if (line_end == parser->len)
     parser->pos = parser->len;
   else
-    parser->pos = line_end + 1;
+    parser->pos = line_end + eol_len;
   
   parser->line_num += 1;
 
@@ -450,7 +450,7 @@ parse_section_start (BusDesktopFileParser *parser, DBusError *error)
 static dbus_bool_t
 parse_key_value (BusDesktopFileParser *parser, DBusError *error)
 {
-  int line_end;
+  int line_end, eol_len;
   int key_start, key_end;
   int value_start;
   int p;
@@ -460,7 +460,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
+  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
     line_end = parser->len;
   
   p = parser->pos;
@@ -483,7 +483,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
       if (line_end == parser->len)
 	parser->pos = parser->len;
       else
-	parser->pos = line_end + 1;
+	parser->pos = line_end + eol_len;
 	  
       parser->line_num += 1;
 
@@ -568,7 +568,7 @@ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
   if (line_end == parser->len)
     parser->pos = parser->len;
   else
-    parser->pos = line_end + 1;
+    parser->pos = line_end + eol_len;
   
   parser->line_num += 1;
 
