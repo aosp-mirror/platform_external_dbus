@@ -234,7 +234,7 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
         gid = n;
     }
 
-
+#ifdef DBUS_ENABLE_USER_CACHE
   if (gid != DBUS_GID_UNSET)
     info = _dbus_hash_table_lookup_ulong (db->groups, gid);
   else
@@ -247,6 +247,9 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
       return info;
     }
   else
+#else
+  if (1)
+#endif
     {
       if (gid != DBUS_GID_UNSET)
 	_dbus_verbose ("No cache for GID "DBUS_GID_FORMAT"\n",
