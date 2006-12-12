@@ -2,6 +2,7 @@
 /* dbus-string.h String utility class (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003 Red Hat, Inc.
+ * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -215,6 +216,10 @@ dbus_bool_t   _dbus_string_find                  (const DBusString  *str,
                                                   int                start,
                                                   const char        *substr,
                                                   int               *found);
+dbus_bool_t   _dbus_string_find_eol               (const DBusString *str,
+                                                  int               start,
+                                                  int               *found,
+                                                  int               *found_len);
 dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
                                                   int                start,
                                                   int                end,

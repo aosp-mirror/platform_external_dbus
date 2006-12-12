@@ -2,6 +2,7 @@
 /* dbus-string.c String utility class (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003, 2004, 2005 Red Hat, Inc.
+ * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -1787,6 +1788,72 @@ _dbus_string_find (const DBusString *str,
   return _dbus_string_find_to (str, start,
                                ((const DBusRealString*)str)->len,
                                substr, found);
+}
+
+/**
+ * Finds end of line ("\r\n" or "\n") in the string,
+ * returning #TRUE and filling in the byte index
+ * where the eol string was found, if it was found.
+ * Returns #FALSE if eol wasn't found.
+ *
+ * @param str the string
+ * @param start where to start looking
+ * @param found return location for where eol was found or string length otherwise
+ * @param found_len return length of found eol string or zero otherwise
+ * @returns #TRUE if found
+ */
+dbus_bool_t
+_dbus_string_find_eol (const DBusString *str,
+                   int               start,
+                   int              *found,
+                   int              *found_len)
+{
+  int i;
+
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
+  
+  i = start;
+  while (i < real->len)
+    {
+      if (real->str[i] == '\r') 
+        {
+          if ((i+1) < real->len && real->str[i+1] == '\n') /* "\r\n" */
+            {
+              if (found) 
+                *found = i;
+              if (found_len)
+                *found_len = 2;
+              return TRUE;
+            } 
+          else /* only "\r" */
+            {
+              if (found) 
+                *found = i;
+              if (found_len)
+                *found_len = 1;
+              return TRUE;
+            }
+        } 
+      else if (real->str[i] == '\n')  /* only "\n" */
+        {
+          if (found) 
+            *found = i;
+          if (found_len)
+            *found_len = 1;
+          return TRUE;
+        }      
+      ++i;
+    }
+
+  if (found)
+    *found = real->len;
+
+  if (found_len)
+    *found_len = 0;
+  
+  return FALSE;
 }
 
 /**

@@ -2,6 +2,7 @@
 /* dbus-string-util.c Would be in dbus-string.c, but not used in libdbus
  * 
  * Copyright (C) 2002, 2003, 2004, 2005 Red Hat, Inc.
+ * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -702,8 +703,45 @@ _dbus_string_test (void)
   test_roundtrips (test_hex_roundtrip);
   
   _dbus_string_free (&str);
+
+  {                                                                                           
+  int found,found_len;                                                                        
+  _dbus_string_init_const (&str, "012\r\n567\n90");                                           
+                                                                                           
+  if (!_dbus_string_find_eol(&str, 0, &found, &found_len) || found != 3 || found_len != 2)    
+     _dbus_assert_not_reached ("Did not find '\\r\\n'");                                       
+  if (found != 3 || found_len != 2)                                                           
+     _dbus_assert_not_reached ("invalid return values");                                       
+                                                                                           
+  if (!_dbus_string_find_eol(&str, 5, &found, &found_len))                                    
+    _dbus_assert_not_reached ("Did not find '\\n'");                                          
+  if (found != 8 || found_len != 1)                                                           
+    _dbus_assert_not_reached ("invalid return values");                                       
+                                                                                           
+  if (_dbus_string_find_eol(&str, 9, &found, &found_len))                                     
+    _dbus_assert_not_reached ("Found not expected '\\n'");                                    
+  else if (found != 11 || found_len != 0)                                                     
+    _dbus_assert_not_reached ("invalid return values '\\n'");                                 
+                                                                                           
+  _dbus_string_free (&str);                                                                   
+  }                                                                                                                                                                                    
   
   return TRUE;
 }
 
 #endif /* DBUS_BUILD_TESTS */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
