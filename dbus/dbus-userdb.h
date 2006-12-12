@@ -47,17 +47,11 @@ struct DBusUserDatabase
 
 };
 
-#endif /* DBUS_USERDB_INCLUDES_PRIVATE */
 
 DBusUserDatabase* _dbus_user_database_new           (void);
 DBusUserDatabase* _dbus_user_database_ref           (DBusUserDatabase     *db);
 void              _dbus_user_database_flush         (DBusUserDatabase     *db);
 void              _dbus_user_database_unref         (DBusUserDatabase     *db);
-dbus_bool_t       _dbus_user_database_get_groups    (DBusUserDatabase     *db,
-                                                     dbus_uid_t            uid,
-                                                     dbus_gid_t          **group_ids,
-                                                     int                  *n_group_ids,
-                                                     DBusError            *error);
 dbus_bool_t       _dbus_user_database_get_uid       (DBusUserDatabase     *db,
                                                      dbus_uid_t            uid,
                                                      const DBusUserInfo  **info,
@@ -75,7 +69,6 @@ dbus_bool_t       _dbus_user_database_get_groupname (DBusUserDatabase     *db,
                                                      const DBusGroupInfo **info,
                                                      DBusError            *error);
 
-#ifdef DBUS_USERDB_INCLUDES_PRIVATE
 DBusUserInfo*  _dbus_user_database_lookup       (DBusUserDatabase *db,
                                                  dbus_uid_t        uid,
                                                  const DBusString *username,
@@ -91,6 +84,7 @@ void           _dbus_group_info_free_allocated  (DBusGroupInfo    *info);
 DBusUserDatabase* _dbus_user_database_get_system    (void);
 void              _dbus_user_database_lock_system   (void);
 void              _dbus_user_database_unlock_system (void);
+void              _dbus_user_database_flush_system  (void);
 
 dbus_bool_t _dbus_username_from_current_process (const DBusString **username);
 dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);
@@ -104,6 +98,9 @@ dbus_bool_t _dbus_credentials_from_username     (const DBusString  *username,
                                                  DBusCredentials   *credentials);
 dbus_bool_t _dbus_credentials_from_uid          (dbus_uid_t         user_id,
                                                  DBusCredentials   *credentials);
+dbus_bool_t _dbus_groups_from_uid		(dbus_uid_t            uid,
+                                                 dbus_gid_t          **group_ids,
+                                                 int                  *n_group_ids);
 dbus_bool_t _dbus_is_console_user               (dbus_uid_t         uid,
                                                  DBusError         *error);
 

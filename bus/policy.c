@@ -28,6 +28,7 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-userdb.h>
 
 BusPolicyRule*
 bus_policy_rule_new (BusPolicyRuleType type,
@@ -438,7 +439,6 @@ list_allows_user (dbus_bool_t           def,
 
 dbus_bool_t
 bus_policy_allow_user (BusPolicy        *policy,
-                       DBusUserDatabase *user_database,
                        unsigned long     uid)
 {
   dbus_bool_t allowed;
@@ -446,8 +446,7 @@ bus_policy_allow_user (BusPolicy        *policy,
   int n_group_ids;
 
   /* On OOM or error we always reject the user */
-  if (!_dbus_user_database_get_groups (user_database,
-                                       uid, &group_ids, &n_group_ids, NULL))
+  if (!_dbus_groups_from_uid (uid, &group_ids, &n_group_ids))
     {
       _dbus_verbose ("Did not get any groups for UID %lu\n",
                      uid);

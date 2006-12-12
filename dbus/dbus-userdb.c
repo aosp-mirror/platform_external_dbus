@@ -79,7 +79,7 @@ _dbus_is_a_number (const DBusString *str,
 {
   int end;
 
-  if (_dbus_string_parse_int (str, 0, num, &end) &&
+  if (_dbus_string_parse_uint (str, 0, num, &end) &&
       end == _dbus_string_get_length (str))
     return TRUE;
   else
@@ -309,6 +309,19 @@ _dbus_user_database_get_system (void)
   init_system_db ();
   
   return system_db;
+}
+
+/**
+ * Flushes the system global user database;
+ */
+void
+_dbus_user_database_flush_system (void)
+{
+  _dbus_user_database_lock_system ();
+   
+  _dbus_user_database_flush (system_db);
+
+  _dbus_user_database_unlock_system ();
 }
 
 /**

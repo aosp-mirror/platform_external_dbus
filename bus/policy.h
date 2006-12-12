@@ -113,7 +113,6 @@ BusClientPolicy* bus_policy_create_client_policy  (BusPolicy        *policy,
                                                    DBusConnection   *connection,
                                                    DBusError        *error);
 dbus_bool_t      bus_policy_allow_user            (BusPolicy        *policy,
-                                                   DBusUserDatabase *user_database,
                                                    unsigned long     uid);
 dbus_bool_t      bus_policy_append_default_rule   (BusPolicy        *policy,
                                                    BusPolicyRule    *rule);

@@ -86,6 +86,8 @@ _dbus_is_console_user (dbus_uid_t uid,
       return FALSE;
     }
 
+  /* TPTD: this should be cache-safe, we've locked the DB and
+    _dbus_user_at_console doesn't pass it on. */
   info = _dbus_user_database_lookup (db, uid, NULL, error);
 
   if (info == NULL)
@@ -347,45 +349,49 @@ _dbus_user_database_get_gid (DBusUserDatabase     *db,
 
 
 /**
- * Gets all groups for a particular user. Returns #FALSE
+ * Gets all groups  corresponding to the given UID. Returns #FALSE
  * if no memory, or user isn't known, but always initializes
- * group_ids to a NULL array. Sets error to the reason
- * for returning #FALSE.
+ * group_ids to a NULL array. 
  *
- * @param db the user database object
- * @param uid the user ID
+ * @param uid the UID
  * @param group_ids return location for array of group IDs
  * @param n_group_ids return location for length of returned array
- * @param error return location for error
- * @returns #TRUE on success
+ * @returns #TRUE if the UID existed and we got some credentials
  */
 dbus_bool_t
-_dbus_user_database_get_groups (DBusUserDatabase  *db,
-                                dbus_uid_t         uid,
-                                dbus_gid_t       **group_ids,
-                                int               *n_group_ids,
-                                DBusError         *error)
+_dbus_groups_from_uid (dbus_uid_t         uid,
+                       dbus_gid_t       **group_ids,
+                       int               *n_group_ids)
 {
-  DBusUserInfo *info;
-  
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
+  DBusUserDatabase *db;
+  const DBusUserInfo *info;
   *group_ids = NULL;
   *n_group_ids = 0;
-  
-  info = _dbus_user_database_lookup (db, uid, NULL, error);
-  if (info == NULL)
+
+  _dbus_user_database_lock_system ();
+
+  db = _dbus_user_database_get_system ();
+  if (db == NULL)
     {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
+      _dbus_user_database_unlock_system ();
       return FALSE;
     }
 
+  if (!_dbus_user_database_get_uid (db, uid,
+                                    &info, NULL))
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+
+  _dbus_assert (info->uid == uid);
+  
   if (info->n_group_ids > 0)
     {
       *group_ids = dbus_new (dbus_gid_t, info->n_group_ids);
       if (*group_ids == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+	  _dbus_user_database_unlock_system ();
           return FALSE;
         }
 
@@ -394,9 +400,9 @@ _dbus_user_database_get_groups (DBusUserDatabase  *db,
       memcpy (*group_ids, info->group_ids, info->n_group_ids * sizeof (dbus_gid_t));
     }
 
+  _dbus_user_database_unlock_system ();
   return TRUE;
 }
-
 /** @} */
 
 #ifdef DBUS_BUILD_TESTS
@@ -412,6 +418,9 @@ _dbus_userdb_test (const char *test_data_dir)
 {
   const DBusString *username;
   const DBusString *homedir;
+  dbus_uid_t uid;
+  unsigned long *group_ids;
+  int n_group_ids, i;
 
   if (!_dbus_username_from_current_process (&username))
     _dbus_assert_not_reached ("didn't get username");
@@ -419,10 +428,24 @@ _dbus_userdb_test (const char *test_data_dir)
   if (!_dbus_homedir_from_current_process (&homedir))
     _dbus_assert_not_reached ("didn't get homedir");  
 
-  printf ("    Current user: %s homedir: %s\n",
+  if (!_dbus_get_user_id (username, &uid))
+    _dbus_assert_not_reached ("didn't get uid");
+
+
+  if (!_dbus_groups_from_uid (uid, &group_ids, &n_group_ids))
+    _dbus_assert_not_reached ("didn't get groups");
+
+  printf ("    Current user: %s homedir: %s gids:",
           _dbus_string_get_const_data (username),
           _dbus_string_get_const_data (homedir));
-  
+
+  for (i=0; i<n_group_ids; i++)
+      printf(" %ld", group_ids[i]);
+
+  printf ("\n");
+ 
+  dbus_free (group_ids);
+
   return TRUE;
 }
 #endif /* DBUS_BUILD_TESTS */

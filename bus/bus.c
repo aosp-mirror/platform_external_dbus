@@ -34,6 +34,7 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-userdb.h>
 
 struct BusContext
 {
@@ -50,7 +51,6 @@ struct BusContext
   BusRegistry *registry;
   BusPolicy *policy;
   BusMatchmaker *matchmaker;
-  DBusUserDatabase *user_database;
   BusLimits limits;
   unsigned int fork : 1;
 };
@@ -596,13 +596,6 @@ bus_context_new (const DBusString *config_file,
   if (!dbus_server_allocate_data_slot (&server_data_slot))
     _dbus_assert_not_reached ("second ref of server data slot failed");
 
-  context->user_database = _dbus_user_database_new ();
-  if (context->user_database == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-  
   /* Note that we don't know whether the print_addr_fd is
    * one of the sockets we're using to listen on, or some
    * other random thing. But I think the answer is "don't do
@@ -800,7 +793,7 @@ bus_context_reload_config (BusContext *context,
   dbus_bool_t ret;
 
   /* Flush the user database cache */
-  _dbus_user_database_flush(context->user_database);
+  _dbus_user_database_flush_system ();
 
   ret = FALSE;
   _dbus_string_init_const (&config_file, context->config_file);
@@ -951,10 +944,6 @@ bus_context_unref (BusContext *context)
 
           dbus_free (context->pidfile); 
 	}
-
-      if (context->user_database != NULL)
-	_dbus_user_database_unref (context->user_database);
-      
       dbus_free (context);
 
       dbus_server_free_data_slot (&server_data_slot);
@@ -1004,18 +993,11 @@ bus_context_get_loop (BusContext *context)
   return context->loop;
 }
 
-DBusUserDatabase*
-bus_context_get_user_database (BusContext *context)
-{
-  return context->user_database;
-}
-
 dbus_bool_t
 bus_context_allow_user (BusContext   *context,
                         unsigned long uid)
 {
   return bus_policy_allow_user (context->policy,
-                                context->user_database,
                                 uid);
 }
 

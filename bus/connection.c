@@ -31,6 +31,7 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-timeout.h>
+#include <dbus/dbus-userdb.h>
 
 static void bus_connection_remove_transactions (DBusConnection *connection);
 
@@ -778,24 +779,18 @@ bus_connection_get_groups  (DBusConnection   *connection,
 {
   BusConnectionData *d;
   unsigned long uid;
-  DBusUserDatabase *user_database;
   
   d = BUS_CONNECTION_DATA (connection);
 
   _dbus_assert (d != NULL);
 
-  user_database = bus_context_get_user_database (d->connections->context);
-  
   *groups = NULL;
   *n_groups = 0;
 
   if (dbus_connection_get_unix_user (connection, &uid))
     {
-      if (!_dbus_user_database_get_groups (user_database,
-                                           uid, groups, n_groups,
-                                           error))
+      if (!_dbus_groups_from_uid (uid, groups, n_groups))
         {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
           _dbus_verbose ("Did not get any groups for UID %lu\n",
                          uid);
           return FALSE;

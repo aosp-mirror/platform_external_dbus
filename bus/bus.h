@@ -29,7 +29,6 @@
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-mainloop.h>
-#include <dbus/dbus-userdb.h>
 
 typedef struct BusActivation    BusActivation;
 typedef struct BusConnections   BusConnections;
@@ -86,8 +85,6 @@ BusConnections*   bus_context_get_connections                    (BusContext    
 BusActivation*    bus_context_get_activation                     (BusContext       *context);
 BusMatchmaker*    bus_context_get_matchmaker                     (BusContext       *context);
 DBusLoop*         bus_context_get_loop                           (BusContext       *context);
-DBusUserDatabase* bus_context_get_user_database                  (BusContext       *context);
-
 dbus_bool_t       bus_context_allow_user                         (BusContext       *context,
                                                                   unsigned long     uid);
 BusPolicy*        bus_context_get_policy                         (BusContext       *context);
