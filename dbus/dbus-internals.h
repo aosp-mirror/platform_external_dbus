@@ -48,7 +48,7 @@ void _dbus_warn_check_failed  (const char *format,
 
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
 #define _DBUS_FUNCTION_NAME __func__
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(_MSC_VER)
 #define _DBUS_FUNCTION_NAME __FUNCTION__
 #else
 #define _DBUS_FUNCTION_NAME "unknown function"
