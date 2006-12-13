@@ -1,3 +1,7 @@
+2006-12-13  Ralf Habacker  <ralf.habacker@freenet.de>
+  
+  * dbus-sysdeps-util.c: added win32 related tests
+
 2006-12-12  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-string.c (_dbus_string_pop_line),

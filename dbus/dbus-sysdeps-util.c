@@ -81,7 +81,28 @@ _dbus_sysdeps_test (void)
   DBusString str;
   double val;
   int pos;
-  
+
+#ifdef DBUS_WIN
+  check_dirname ("foo\\bar", "foo");
+  check_dirname ("foo\\\\bar", "foo");
+  check_dirname ("foo/\\/bar", "foo");
+  check_dirname ("foo\\bar/", "foo");
+  check_dirname ("foo//bar\\", "foo");
+  check_dirname ("foo\\bar/", "foo");
+  check_dirname ("foo/bar\\\\", "foo");
+  check_dirname ("\\foo", "\\");
+  check_dirname ("\\\\foo", "\\");
+  check_dirname ("\\", "\\");
+  check_dirname ("\\\\", "\\");
+  check_dirname ("\\/", "\\");
+  check_dirname ("/\\/", "/");
+  check_dirname ("c:\\foo\\bar", "c:\\foo");
+  check_dirname ("c:\\foo", "c:\\");
+  check_dirname ("c:/foo", "c:/");
+  check_dirname ("c:\\", "c:\\");
+  check_dirname ("c:/", "c:/");
+  check_dirname ("", ".");  
+#else  
   check_dirname ("foo", ".");
   check_dirname ("foo/bar", "foo");
   check_dirname ("foo//bar", "foo");
@@ -100,7 +121,7 @@ _dbus_sysdeps_test (void)
   check_dirname ("/", "/");
   check_dirname ("///", "/");
   check_dirname ("", ".");  
-
+#endif
 
   _dbus_string_init_const (&str, "3.5");
   if (!_dbus_string_parse_double (&str,
@@ -137,12 +158,27 @@ _dbus_sysdeps_test (void)
       _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
       exit (1);
     }
-  
+#ifdef DBUS_WIN
+  check_path_absolute ("c:/", TRUE);
+  check_path_absolute ("c:/foo", TRUE);
+  check_path_absolute ("", FALSE);
+  check_path_absolute ("foo", FALSE);
+  check_path_absolute ("foo/bar", FALSE);
+  check_path_absolute ("", FALSE);
+  check_path_absolute ("foo\\bar", FALSE);
+  check_path_absolute ("c:\\", TRUE);
+  check_path_absolute ("c:\\foo", TRUE);
+  check_path_absolute ("c:", TRUE);
+  check_path_absolute ("c:\\foo\\bar", TRUE);
+  check_path_absolute ("\\", TRUE);
+  check_path_absolute ("/", TRUE);
+#else  
   check_path_absolute ("/", TRUE);
   check_path_absolute ("/foo", TRUE);
   check_path_absolute ("", FALSE);
   check_path_absolute ("foo", FALSE);
   check_path_absolute ("foo/bar", FALSE);
+#endif
   
   return TRUE;
 }
