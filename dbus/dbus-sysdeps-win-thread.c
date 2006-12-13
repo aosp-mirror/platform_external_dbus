@@ -24,6 +24,7 @@
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
+#include "dbus-list.h"
 
 #include <windows.h>
 
@@ -172,7 +173,7 @@ _dbus_condvar_wait_win32 (DBusCondVar *cond,
   EnterCriticalSection (&cond->lock);
 
   /* Now event must not be inside the array, check this */
-  _dbus_assert (_dbus_list_remove (cond->list, event) == FALSE);
+  _dbus_assert (_dbus_list_remove (&cond->list, event) == FALSE);
 
   LeaveCriticalSection (&cond->lock);
 #endif /* !G_DISABLE_ASSERT */
@@ -241,7 +242,7 @@ static const DBusThreadFunctions windows_functions =
   _dbus_windows_condvar_wake_all
 };
 
-void
+dbus_bool_t
 _dbus_threads_init_platform_specific (void)
 {
   /* We reuse this over several generations, because we can't

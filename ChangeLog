@@ -1,5 +1,10 @@
 2006-12-13  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-sysdeps-win-thread.c (_dbus_condvar_wait_win32):
+	correctness fix. - Patch from Christian Ehrlicher
+
+2006-12-13  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-internals.h: msvc also knows about __FUNCTION__, 
 	we should also use it. - Patch from Christian Ehrlicher
 
