@@ -37,6 +37,7 @@ static int reload_pipe[2];
 #define RELOAD_READ_END 0
 #define RELOAD_WRITE_END 1
 
+static void close_reload_pipe (void);
 
 static void
 signal_handler (int sig)
@@ -51,11 +52,12 @@ signal_handler (int sig)
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX  */
     case SIGHUP:
       _dbus_string_init_const (&str, "foo");
-      if (!_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
-	{
-	  _dbus_warn ("Unable to write to reload pipe.\n");
-	  exit (1);
-	}
+      if ((reload_pipe[RELOAD_WRITE_END] > 0) && 
+          !_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
+        {
+          _dbus_warn ("Unable to write to reload pipe.\n");
+          close_reload_pipe ();
+        }
       break;
 
     case SIGTERM:
@@ -150,20 +152,28 @@ handle_reload_watch (DBusWatch    *watch,
   DBusError error;
   DBusString str;
   _dbus_string_init (&str);
-  if (_dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
+  if ((reload_pipe[RELOAD_READ_END] > 0) &&
+      _dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
     {
       _dbus_warn ("Couldn't read from reload pipe.\n");
-      exit (1);
+      close_reload_pipe ();
+      return TRUE;
     }
   _dbus_string_free (&str);
 
+  /* this can only fail if we don't understand the config file
+   * or OOM.  Either way we should just stick with the currently
+   * loaded config.
+   */
   dbus_error_init (&error);
   if (! bus_context_reload_config (context, &error))
     {
+      _DBUS_ASSERT_ERROR_IS_SET (&error);
+      _dbus_assert (dbus_error_has_name (&error, DBUS_ERROR_FAILED) ||
+		    dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY));
       _dbus_warn ("Unable to reload configuration: %s\n",
 		  error.message);
       dbus_error_free (&error);
-      exit (1);
     }
   return TRUE;
 }
@@ -217,6 +227,16 @@ setup_reload_pipe (DBusLoop *loop)
       exit (1);
     }
 
+}
+
+static void
+close_reload_pipe (void)
+{
+    _dbus_close_socket (reload_pipe[RELOAD_READ_END], NULL);
+    reload_pipe[RELOAD_READ_END] = -1;
+
+    _dbus_close_socket (reload_pipe[RELOAD_WRITE_END], NULL);
+    reload_pipe[RELOAD_WRITE_END] = -1;
 }
 
 int

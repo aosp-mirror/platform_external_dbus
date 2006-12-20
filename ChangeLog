@@ -1,3 +1,18 @@
+2006-12-19  Ray Strode  <rstrode@redhat.com>
+
+	* bus/bus.c (process_config_every_time):
+	don't overwrite existing bus context activation object
+	until after we've checked that the new activation is
+	valid.
+
+	* bus/main.c 
+	(signal_handler), (handle_reload_watch):
+	don't call exit() on failure, instead make do and keep
+	going.
+	(close_reload_pipe): new function to turn off
+	hangup-causes-config-reload behavior if an unexpected
+	error occurs
+
 2006-12-13  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-win-thread.c (_dbus_condvar_wait_win32):

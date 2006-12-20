@@ -402,6 +402,7 @@ process_config_every_time (BusContext      *context,
 {
   DBusString full_address;
   DBusList *link;
+  BusActivation *new_activation;
   char *addr;
 
   dbus_bool_t retval;
@@ -467,18 +468,19 @@ process_config_every_time (BusContext      *context,
     }
 
   /* Create activation subsystem */
-  
-  if (is_reload)
-    bus_activation_unref (context->activation);
-  
-  context->activation = bus_activation_new (context, &full_address,
-                                            bus_config_parser_get_service_dirs (parser),
-                                            error);
-  if (context->activation == NULL)
+  new_activation = bus_activation_new (context, &full_address,
+				       bus_config_parser_get_service_dirs (parser),
+				       error);
+  if (new_activation == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
     }
+
+  if (is_reload)
+    bus_activation_unref (context->activation);
+
+  context->activation = new_activation;
 
   /* Drop existing conf-dir watches (if applicable) */
 
