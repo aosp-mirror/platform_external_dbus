@@ -690,7 +690,7 @@ static const DBusTypeReaderClass variant_reader_class = {
   base_reader_next
 };
 
-static const DBusTypeReaderClass const *
+static const DBusTypeReaderClass * const
 all_reader_classes[] = {
   &body_reader_class,
   &body_types_only_reader_class,
