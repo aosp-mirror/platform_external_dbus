@@ -1,5 +1,11 @@
 2006-12-31  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* tools/dbus-monitor.c: gettimeofday() is not available 
+	on windows so we have to provide our own. It's taken from 
+	lgpl'd kdewin32 package. - Patches from Christian Ehrlicher
+
+2006-12-31  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-unix.c: moved _dbus_atomic_inc/dec() 
 	from dbus/dbus-sysdeps.c, windows version of _dbus_atomic_inc/dec() 
 	is in dbus-sysdeps-win.c (not in this patch).

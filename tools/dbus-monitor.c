@@ -24,12 +24,41 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef DBUS_WIN
+#include <winsock2.h>
+#undef interface
+#else
 #include <sys/time.h>
+#endif
+
 #include <time.h>
 
 #include <signal.h>
 
 #include "dbus-print-message.h"
+
+#ifdef DBUS_WIN
+
+/* gettimeofday is not defined on windows */
+#define DBUS_SECONDS_SINCE_1601 11644473600LL
+#define DBUS_USEC_IN_SEC        1000000LL
+
+static int
+gettimeofday (struct timeval *__p,
+	      void *__t)
+{
+  union {
+      unsigned long long ns100; /*time since 1 Jan 1601 in 100ns units */
+      FILETIME           ft;
+    } now;
+
+  GetSystemTimeAsFileTime (&now.ft);
+  __p->tv_usec = (long) ((now.ns100 / 10LL) % DBUS_USEC_IN_SEC);
+  __p->tv_sec  = (long)(((now.ns100 / 10LL) / DBUS_SECONDS_SINCE_1601) - DBUS_SECONDS_SINCE_1601);
+
+  return 0;
+}
+#endif
 
 static DBusHandlerResult
 monitor_filter_func (DBusConnection     *connection,
