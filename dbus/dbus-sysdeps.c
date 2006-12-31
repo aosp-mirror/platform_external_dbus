@@ -662,53 +662,6 @@ atomic_exchange_and_add (DBusAtomic            *atomic,
 }
 #endif
 
-/**
- * Atomically increments an integer
- *
- * @param atomic pointer to the integer to increment
- * @returns the value before incrementing
- *
- * @todo implement arch-specific faster atomic ops
- */
-dbus_int32_t
-_dbus_atomic_inc (DBusAtomic *atomic)
-{
-#ifdef DBUS_USE_ATOMIC_INT_486
-  return atomic_exchange_and_add (atomic, 1);
-#else
-  dbus_int32_t res;
-  _DBUS_LOCK (atomic);
-  res = atomic->value;
-  atomic->value += 1;
-  _DBUS_UNLOCK (atomic);
-  return res;
-#endif
-}
-
-/**
- * Atomically decrement an integer
- *
- * @param atomic pointer to the integer to decrement
- * @returns the value before decrementing
- *
- * @todo implement arch-specific faster atomic ops
- */
-dbus_int32_t
-_dbus_atomic_dec (DBusAtomic *atomic)
-{
-#ifdef DBUS_USE_ATOMIC_INT_486
-  return atomic_exchange_and_add (atomic, -1);
-#else
-  dbus_int32_t res;
-  
-  _DBUS_LOCK (atomic);
-  res = atomic->value;
-  atomic->value -= 1;
-  _DBUS_UNLOCK (atomic);
-  return res;
-#endif
-}
-
 void
 _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
                                           int   n_bytes)

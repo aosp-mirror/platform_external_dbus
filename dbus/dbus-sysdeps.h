@@ -229,7 +229,11 @@ typedef struct DBusAtomic DBusAtomic;
  */
 struct DBusAtomic
 {
+#ifdef DBUS_WIN
+  volatile long value; /**< Value of the atomic integer. */
+#else
   volatile dbus_int32_t value; /**< Value of the atomic integer. */
+#endif
 };
 
 dbus_int32_t _dbus_atomic_inc (DBusAtomic *atomic);
