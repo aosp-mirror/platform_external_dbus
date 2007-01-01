@@ -644,24 +644,6 @@ _dbus_credentials_match (const DBusCredentials *expected_credentials,
     return FALSE;
 }
 
-_DBUS_DEFINE_GLOBAL_LOCK (atomic);
-
-#ifdef DBUS_USE_ATOMIC_INT_486
-/* Taken from CVS version 1.7 of glibc's sysdeps/i386/i486/atomicity.h */
-/* Since the asm stuff here is gcc-specific we go ahead and use "inline" also */
-static inline dbus_int32_t
-atomic_exchange_and_add (DBusAtomic            *atomic,
-                         volatile dbus_int32_t  val)
-{
-  register dbus_int32_t result;
-
-  __asm__ __volatile__ ("lock; xaddl %0,%1"
-                        : "=r" (result), "=m" (atomic->value)
-			: "0" (val), "m" (atomic->value));
-  return result;
-}
-#endif
-
 void
 _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
                                           int   n_bytes)

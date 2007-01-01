@@ -1,5 +1,11 @@
 2006-12-31  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-sysdeps-unix.c: unix compile fix, moved 
+	atomic_exchange_and_add() from dbus/dbus-sysdeps.c 
+	to here, it's used by _dbus_atomic_inc() and _dbus_atomic_dec().
+
+2006-12-31  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* tools/dbus-monitor.c: gettimeofday() is not available 
 	on windows so we have to provide our own. It's taken from 
 	lgpl'd kdewin32 package. - Patches from Christian Ehrlicher
