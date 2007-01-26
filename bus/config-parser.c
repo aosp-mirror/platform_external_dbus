@@ -460,8 +460,8 @@ bus_config_parser_new (const DBusString      *basedir,
     {
 
       /* Make up some numbers! woot! */
-      parser->limits.max_incoming_bytes = _DBUS_ONE_MEGABYTE * 63;
-      parser->limits.max_outgoing_bytes = _DBUS_ONE_MEGABYTE * 63;
+      parser->limits.max_incoming_bytes = _DBUS_ONE_MEGABYTE * 127;
+      parser->limits.max_outgoing_bytes = _DBUS_ONE_MEGABYTE * 127;
       parser->limits.max_message_size = _DBUS_ONE_MEGABYTE * 32;
       
       /* Making this long means the user has to wait longer for an error
@@ -476,22 +476,26 @@ bus_config_parser_new (const DBusString      *basedir,
        */
       parser->limits.auth_timeout = 30000; /* 30 seconds */
       
-      parser->limits.max_incomplete_connections = 32;
-      parser->limits.max_connections_per_user = 128;
+      parser->limits.max_incomplete_connections = 64;
+      parser->limits.max_connections_per_user = 256;
       
       /* Note that max_completed_connections / max_connections_per_user
        * is the number of users that would have to work together to
        * DOS all the other users.
        */
-      parser->limits.max_completed_connections = 1024;
+      parser->limits.max_completed_connections = 2048;
       
-      parser->limits.max_pending_activations = 256;
-      parser->limits.max_services_per_connection = 256;
+      parser->limits.max_pending_activations = 512;
+      parser->limits.max_services_per_connection = 512;
       
       parser->limits.max_match_rules_per_connection = 512;
       
       parser->limits.reply_timeout = 5 * 60 * 1000; /* 5 minutes */
-      parser->limits.max_replies_per_connection = 32;
+
+      /* this is effectively a limit on message queue size for messages
+       * that require a reply
+       */
+      parser->limits.max_replies_per_connection = 1024*8;
     }
       
   parser->refcount = 1;
