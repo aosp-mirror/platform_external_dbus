@@ -1,3 +1,8 @@
+2007-01-31  Havoc Pennington  <hp@redhat.com>
+
+	* bus/dbus-daemon.1.in: write a section in the man page on running
+	a test daemon for debugging purposes
+
 2007-01-26  Havoc Pennington  <hp@redhat.com>
 
 	* bus/session.conf.in: override all the default limits with much

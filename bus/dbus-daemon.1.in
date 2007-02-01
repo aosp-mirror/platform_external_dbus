@@ -597,6 +597,59 @@ If a name has no security context associated in the
 configuration file, the security context of the bus daemon 
 itself will be used.
 
+.SH DEBUGGING
+
+.PP
+If you're trying to figure out where your messages are going or why
+you aren't getting messages, there are several things you can try.
+
+.PP
+Remember that the system bus is heavily locked down and if you
+haven't installed a security policy file to allow your message
+through, it won't work. For the session bus, this is not a concern.
+
+.PP
+The simplest way to figure out what's happening on the bus is to run
+the \fIdbus-monitor\fP program, which comes with the D-Bus
+package. You can also send test messages with \fIdbus-send\fP. These
+programs have their own man pages.
+
+.PP
+If you want to know what the daemon itself is doing, you might consider
+running a separate copy of the daemon to test against. This will allow you 
+to put the daemon under a debugger, or run it with verbose output, without 
+messing up your real session and system daemons.
+
+.PP
+To run a separate test copy of the daemon, for example you might open a terminal 
+and type: 
+.nf
+  DBUS_VERBOSE=1 dbus-daemon --session --print-address
+.fi
+
+.PP
+The test daemon address will be printed when the daemon starts. You will need
+to copy-and-paste this address and use it as the value of the 
+DBUS_SESSION_BUS_ADDRESS environment variable when you launch the applications
+you want to test. This will cause those applications to connect to your 
+test bus instead of the DBUS_SESSION_BUS_ADDRESS of your real session bus.
+
+.PP
+DBUS_VERBOSE=1 will have NO EFFECT unless your copy of D-Bus
+was compiled with verbose mode enabled. This is not recommended in
+production builds due to performance impact. You may need to rebuild
+D-Bus if your copy was not built with debugging in mind. (DBUS_VERBOSE
+also affects the D-Bus library and thus applications using D-Bus; it may 
+be useful to see verbose output on both the client side and from the daemon.)
+
+.PP
+If you want to get fancy, you can create a custom bus
+configuration for your test bus (see the session.conf and system.conf
+files that define the two default configurations for example). This
+would allow you to specify a different directory for .service files,
+for example.
+
+
 .SH AUTHOR
 See http://www.freedesktop.org/software/dbus/doc/AUTHORS
 
