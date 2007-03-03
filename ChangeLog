@@ -1,3 +1,10 @@
+2007-03-03  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake: new directory, contains cmake build support.
+	See http://www.cmake.org for more informations.
+	Currently only unix will be buildable because some 
+	win32 required files are still missing. 
+
 2007-03-03  Thiago Macieira  <thiago@kde.org>
 
 	* dbus/dbus-sysdeps-unix.c: capture the dbus-launch stderr
