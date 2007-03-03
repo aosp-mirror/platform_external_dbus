@@ -2434,8 +2434,9 @@ dbus_bool_t
 _dbus_get_autolaunch_address (DBusString *address,
                               DBusError  *error)
 {
-  static char *argv[5];
-  int address_pipe[2];
+  static char *argv[6];
+  int address_pipe[2] = { -1, -1 };
+  int errors_pipe[2] = { -1, -1 };
   pid_t pid;
   int ret;
   int status;
@@ -2464,6 +2465,8 @@ _dbus_get_autolaunch_address (DBusString *address,
   ++i;
   argv[i] = "--binary-syntax";
   ++i;
+  argv[i] = "--close-stderr";
+  ++i;
   argv[i] = NULL;
   ++i;
 
@@ -2474,6 +2477,15 @@ _dbus_get_autolaunch_address (DBusString *address,
 #define READ_END        0
 #define WRITE_END       1
   if (pipe (address_pipe) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to create a pipe: %s",
+                      _dbus_strerror (errno));
+      _dbus_verbose ("Failed to create a pipe to call dbus-launch: %s\n",
+                     _dbus_strerror (errno));
+      goto out;
+    }
+  if (pipe (errors_pipe) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to create a pipe: %s",
@@ -2504,6 +2516,7 @@ _dbus_get_autolaunch_address (DBusString *address,
 
       /* set-up stdXXX */
       close (address_pipe[READ_END]);
+      close (errors_pipe[READ_END]);
       close (0);                /* close stdin */
       close (1);                /* close stdout */
       close (2);                /* close stderr */
@@ -2512,11 +2525,12 @@ _dbus_get_autolaunch_address (DBusString *address,
         _exit (1);
       if (dup2 (address_pipe[WRITE_END], 1) == -1)
         _exit (1);
-      if (dup2 (fd, 2) == -1)
+      if (dup2 (errors_pipe[WRITE_END], 2) == -1)
         _exit (1);
 
       close (fd);
       close (address_pipe[WRITE_END]);
+      close (errors_pipe[WRITE_END]);
 
       execv (DBUS_BINDIR "/dbus-launch", argv);
 
@@ -2529,6 +2543,10 @@ _dbus_get_autolaunch_address (DBusString *address,
 
   /* parent process */
   close (address_pipe[WRITE_END]);
+  close (errors_pipe[WRITE_END]);
+  address_pipe[WRITE_END] = -1;
+  errors_pipe[WRITE_END] = -1;
+
   ret = 0;
   do 
     {
@@ -2549,9 +2567,23 @@ _dbus_get_autolaunch_address (DBusString *address,
       _dbus_string_get_length (address) == orig_len)
     {
       /* The process ended with error */
+      DBusString error_message;
+      _dbus_string_init (&error_message);
+      ret = 0;
+      do
+	{
+	  ret = _dbus_read (errors_pipe[READ_END], &error_message, 1024);
+	}
+      while (ret > 0);
+
       _dbus_string_set_length (address, orig_len);
-      dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
-                      "Failed to execute dbus-launch to autolaunch D-Bus session");
+      if (_dbus_string_get_length (&error_message) > 0)
+	dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
+			"dbus-launch failed to autolaunch D-Bus session: %s",
+			_dbus_string_get_data (&error_message));
+      else
+	dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
+			"Failed to execute dbus-launch to autolaunch D-Bus session");
       goto out;
     }
 
@@ -2562,7 +2594,16 @@ _dbus_get_autolaunch_address (DBusString *address,
     _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   else
     _DBUS_ASSERT_ERROR_IS_SET (error);
-  
+
+  if (address_pipe[0] != -1)
+    close (address_pipe[0]);
+  if (address_pipe[1] != -1)
+    close (address_pipe[1]);
+  if (errors_pipe[0] != -1)
+    close (errors_pipe[0]);
+  if (errors_pipe[1] != -1)
+    close (errors_pipe[1]);
+
   _dbus_string_free (&uuid);
   return retval;
 }

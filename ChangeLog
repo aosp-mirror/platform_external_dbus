@@ -1,3 +1,12 @@
+2007-03-03  Thiago Macieira  <thiago@kde.org>
+
+	* dbus/dbus-sysdeps-unix.c: capture the dbus-launch stderr
+        output and add it to the DBusError message we return.
+
+	* tools/dbus-launch.1:
+	* tools/dbus-launch.c: Add option --close-stderr to, well,
+	close stderr before starting dbus-daemon.
+
 2007-01-31  Havoc Pennington  <hp@redhat.com>
 
 	* bus/dbus-daemon.1.in: write a section in the man page on running

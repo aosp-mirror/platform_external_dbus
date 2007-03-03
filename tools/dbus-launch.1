@@ -136,6 +136,13 @@ binary integer of size sizeof(long). Integers are in the machine's
 byte order, not network byte order or any other canonical byte order.
 
 .TP
+.I "--close-stderr"
+Close the standard error output stream before starting the D-Bus
+daemon. This is useful if you want to capture dbus-launch error
+messages but you don't want dbus-daemon to keep the stream open to
+your application.
+
+.TP
 .I "--config-file=FILENAME"
 Pass \-\-config-file=FILENAME to the bus daemon, instead of passing it 
 the \-\-session argument. See the man page for dbus-daemon

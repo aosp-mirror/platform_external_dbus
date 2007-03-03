@@ -596,6 +596,27 @@ babysit (int   exit_with_session,
   exit (0);
 }
 
+static void do_close_stderr (void)
+{
+  fflush (stderr);
+
+  /* dbus-launch is a Unix-only program, so we can rely on /dev/null being there.
+   * We're including unistd.h and we're dealing with sh/csh launch sequences...
+   */
+  int fd = open ("/dev/null", O_RDWR);
+  if (fd == -1)
+    {
+      fprintf (stderr, "Internal error: cannot open /dev/null: %s", strerror (errno));
+      exit (1);
+    }
+
+  close (2);
+  if (dup2 (fd, 2) == -1)
+    // error; we can't report an error anymore...
+    exit (1);
+  close (fd);
+}
+
 #define READ_END  0
 #define WRITE_END 1
 
@@ -613,7 +634,8 @@ main (int argc, char **argv)
   int auto_shell_syntax = FALSE;
   int autolaunch = FALSE;
   int requires_arg = FALSE;
-  int i;  
+  int close_stderr = FALSE;
+  int i;
   int ret;
   int bus_pid_to_launcher_pipe[2];
   int bus_pid_to_babysitter_pipe[2];
@@ -647,6 +669,8 @@ main (int argc, char **argv)
         version ();
       else if (strcmp (arg, "--exit-with-session") == 0)
         exit_with_session = TRUE;
+      else if (strcmp (arg, "--close-stderr") == 0)
+        close_stderr = TRUE;
       else if (strstr (arg, "--autolaunch=") == arg)
         {
           const char *s;
@@ -837,6 +861,9 @@ main (int argc, char **argv)
       char write_pid_fd_as_string[MAX_FD_LEN];
       char write_address_fd_as_string[MAX_FD_LEN];
 
+      if (close_stderr)
+	do_close_stderr ();
+
       verbose ("=== Babysitter's intermediate parent created\n");
 
       /* Fork once more to create babysitter */
@@ -859,7 +886,7 @@ main (int argc, char **argv)
           close (bus_address_to_launcher_pipe[READ_END]);
           close (bus_address_to_launcher_pipe[WRITE_END]);
           close (bus_pid_to_babysitter_pipe[WRITE_END]);
-          
+
           /* babysit() will fork *again*
            * and will also reap the pre-forked bus
            * daemon
