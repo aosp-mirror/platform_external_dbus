@@ -1,5 +1,11 @@
 2007-03-03  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/*-win.*,bus/*-win.*: added win32 platform related
+	files. These files are only added to the cmake build system.  
+	The missing dbus-win32.patch file will be added later. 
+
+2007-03-03  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* cmake: new directory, contains cmake build support.
 	See http://www.cmake.org for more informations.
 	Currently only unix will be buildable because some 
