@@ -1,5 +1,10 @@
 2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* bus/activation.c: (bus_activation_activate_service):
+	fixed call to _dbus_spawn_async_with_babysitter().
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-spawn.c,dbus/dbus-spawn.h (_dbus_spawn_async_with_babysitter):
 	added environment pointer as function parameter, used on win32.
 
