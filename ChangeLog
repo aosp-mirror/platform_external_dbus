@@ -1,5 +1,10 @@
 2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* configure.in,test/test-sleep-forever.c,test/test-names.c: 
+	added configure check for unistd.h.
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* test/Makefile.am: fixed test data copy problem in 
 	out of source build, when sources came from svn or cvs. 
 

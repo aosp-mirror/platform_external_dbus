@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <dbus/dbus.h>
 #include <dbus/dbus-connection-internal.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 #define REMOVE_CONNECTION 0
 #define ADD_CONNECTION 1
