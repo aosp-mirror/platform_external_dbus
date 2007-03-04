@@ -1,5 +1,12 @@
 2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-spawn.c,dbus/dbus-spawn.h (_dbus_spawn_async_with_babysitter):
+	added environment pointer as function parameter, used on win32.
+
+	* test/spawn-test.c: fixed call to above mentioned function.
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* configure.in,test/test-sleep-forever.c,test/test-names.c: 
 	added configure check for unistd.h.
 

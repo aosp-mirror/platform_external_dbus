@@ -1021,6 +1021,7 @@ babysit (pid_t grandchild_pid,
  *
  * @param sitter_p return location for babysitter or #NULL
  * @param argv the executable and arguments
+ * @param env the environment (not used on unix yet)
  * @param child_setup function to call in child pre-exec()
  * @param user_data user data for setup function
  * @param error error object to be filled in if function fails
@@ -1029,6 +1030,7 @@ babysit (pid_t grandchild_pid,
 dbus_bool_t
 _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
                                    char                    **argv,
+                                   char                    **env,
                                    DBusSpawnChildSetupFunc   child_setup,
                                    void                     *user_data,
                                    DBusError                *error)
@@ -1217,7 +1219,7 @@ check_spawn_nonexistent (void *data)
   
   argv[0] = "/this/does/not/exist/32542sdgafgafdg";
   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
-                                         NULL, NULL,
+                                         NULL, NULL, NULL,
                                          &error))
     {
       _dbus_babysitter_block_for_child_exit (sitter);
@@ -1262,7 +1264,7 @@ check_spawn_segfault (void *data)
   
   argv[0] = TEST_SEGFAULT_BINARY;
   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
-                                         NULL, NULL,
+                                         NULL, NULL, NULL,
                                          &error))
     {
       _dbus_babysitter_block_for_child_exit (sitter);
@@ -1307,7 +1309,7 @@ check_spawn_exit (void *data)
   
   argv[0] = TEST_EXIT_BINARY;
   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
-                                         NULL, NULL,
+                                         NULL, NULL, NULL,
                                          &error))
     {
       _dbus_babysitter_block_for_child_exit (sitter);
@@ -1352,7 +1354,7 @@ check_spawn_and_kill (void *data)
 
   argv[0] = TEST_SLEEP_FOREVER_BINARY;
   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
-                                         NULL, NULL,
+                                         NULL, NULL, NULL,
                                          &error))
     {
       _dbus_babysitter_kill_child (sitter);
