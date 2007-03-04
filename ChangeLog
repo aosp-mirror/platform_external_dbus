@@ -1,5 +1,10 @@
 2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus-win.patch, README.win: added available win32 
+	patches from windbus project (http://sf.net/projects/windbus)
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* bus/activation.c: (bus_activation_activate_service):
 	fixed call to _dbus_spawn_async_with_babysitter().
 
@@ -24,7 +29,7 @@
 
 	* dbus/*-win.*,bus/*-win.*: added win32 platform related
 	files. These files are only added to the cmake build system.  
-	The missing dbus-win32.patch file will be added later. 
+	The missing dbus-win.patch file will be added later. 
 
 2007-03-03  Ralf Habacker  <ralf.habacker@freenet.de>
 
