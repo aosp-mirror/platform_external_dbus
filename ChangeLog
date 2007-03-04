@@ -1,3 +1,8 @@
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* test/Makefile.am: fixed test data copy problem in 
+	out of source build, when sources came from svn or cvs. 
+
 2007-03-03  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/*-win.*,bus/*-win.*: added win32 platform related

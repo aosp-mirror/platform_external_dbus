@@ -104,7 +104,7 @@ dist-hook:
 	for D in $(TESTDIRS); do						\
 		test -d $(distdir)/$$D || mkdir $(distdir)/$$D || exit 1 ;	\
 	done ;									\
-	FILES=`(cd $(srcdir) && $(FIND_TESTS) -o -name "*.in" -a -not -name Makefile.in)` ;					\
+	FILES=`(cd $(srcdir) && $(FIND_TESTS) -o -name "*.in" -a -not -name Makefile.in | grep -Ev "(.svn|CVS)" )` ;					\
         for F in $$FILES; do							\
                 echo '-- Disting file '$$F ;					\
 		cp -f $(srcdir)/$$F $(distdir)/$$F || exit 1 ;				\
@@ -117,7 +117,7 @@ all-local:
 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
 	done ;											\
 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
-		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
+		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;					\
 	        for F in $$FILES; do								\
 			SRC=$(srcdir)/$$F ;							\
 			DEST=$(top_builddir)/test/$$F ;						\
@@ -135,7 +135,7 @@ all-local:
 ## this doesn't clean generated test data files when srcdir=builddir
 clean-local:
 	if test $(srcdir) != . ; then					\
-		FILES=`(cd $(top_builddir)/test && $(FIND_TESTS))` ;	\
+		FILES=`(cd $(top_builddir)/test && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;	\
 	        for F in $$FILES; do					\
 			DEST=$(top_builddir)/test/$$F ;			\
 	                echo '-- Deleting test file '$$F ;		\
