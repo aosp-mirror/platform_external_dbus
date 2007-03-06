@@ -1,5 +1,10 @@
 2007-03-06  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* bus-win.patch: fixes unix listen problems, dbus-test 
+	now runs.
+
+2007-03-06  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* cmake/dbus/CMakeLists.txt,cmake/bus/CMakeLists.txt,
 	cmake/CMakeLists.txt: win32 compile fix
 

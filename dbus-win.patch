@@ -2,9 +2,9 @@ Index: bus/activation.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/activation.c,v
 retrieving revision 1.49
-diff -u -b -B -r1.49 activation.c
+diff -u -3 -p -B -r1.49 activation.c
 --- bus/activation.c	4 Mar 2007 22:09:50 -0000	1.49
-+++ bus/activation.c	4 Mar 2007 22:11:26 -0000
++++ bus/activation.c	6 Mar 2007 20:54:30 -0000
 @@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
  #include <dbus/dbus-timeout.h>
@@ -17,10 +17,10 @@ Index: bus/bus.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/bus.c,v
 retrieving revision 1.74
-diff -u -b -B -r1.74 bus.c
+diff -u -3 -p -B -r1.74 bus.c
 --- bus/bus.c	20 Dec 2006 06:18:19 -0000	1.74
-+++ bus/bus.c	4 Mar 2007 22:11:26 -0000
-@@ -625,7 +625,7 @@
++++ bus/bus.c	6 Mar 2007 20:54:30 -0000
+@@ -625,7 +625,7 @@ bus_context_new (const DBusString *confi
          }
  
        bytes = _dbus_string_get_length (&addr);
@@ -29,7 +29,7 @@ diff -u -b -B -r1.74 bus.c
          {
            dbus_set_error (error, DBUS_ERROR_FAILED,
                            "Printing message bus address: %s\n",
-@@ -726,7 +726,7 @@
+@@ -726,7 +726,7 @@ bus_context_new (const DBusString *confi
          }
  
        bytes = _dbus_string_get_length (&pid);
@@ -42,10 +42,10 @@ Index: bus/config-loader-libxml.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/config-loader-libxml.c,v
 retrieving revision 1.8
-diff -u -b -B -r1.8 config-loader-libxml.c
+diff -u -3 -p -B -r1.8 config-loader-libxml.c
 --- bus/config-loader-libxml.c	10 Aug 2004 03:06:59 -0000	1.8
-+++ bus/config-loader-libxml.c	4 Mar 2007 22:11:26 -0000
-@@ -134,6 +134,9 @@
++++ bus/config-loader-libxml.c	6 Mar 2007 20:54:31 -0000
+@@ -134,6 +134,9 @@ xml_text_reader_error (void *arg, xmlErr
      }
  }
  
@@ -55,7 +55,7 @@ diff -u -b -B -r1.8 config-loader-libxml.c
  
  BusConfigParser*
  bus_config_load (const DBusString      *file,
-@@ -147,7 +150,9 @@
+@@ -147,7 +150,9 @@ bus_config_load (const DBusString      *
    DBusString dirname, data;
    DBusError tmp_error;
    int ret;
@@ -66,7 +66,7 @@ diff -u -b -B -r1.8 config-loader-libxml.c
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
    
    parser = NULL;
-@@ -177,13 +182,19 @@
+@@ -177,13 +182,19 @@ bus_config_load (const DBusString      *
        xmlSetGenericErrorFunc (NULL, xml_shut_up);
      }
  
@@ -91,9 +91,9 @@ Index: bus/config-parser.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/config-parser.c,v
 retrieving revision 1.47
-diff -u -b -B -r1.47 config-parser.c
+diff -u -3 -p -B -r1.47 config-parser.c
 --- bus/config-parser.c	26 Jan 2007 16:10:09 -0000	1.47
-+++ bus/config-parser.c	4 Mar 2007 22:11:26 -0000
++++ bus/config-parser.c	6 Mar 2007 20:54:31 -0000
 @@ -27,6 +27,7 @@
  #include "selinux.h"
  #include <dbus/dbus-list.h>
@@ -102,7 +102,7 @@ diff -u -b -B -r1.47 config-parser.c
  #include <string.h>
  
  typedef enum
-@@ -3070,10 +3071,15 @@
+@@ -3070,10 +3071,15 @@ process_test_equiv_subdir (const DBusStr
  
  static const char *test_service_dir_matches[] = 
          {
@@ -118,7 +118,7 @@ diff -u -b -B -r1.47 config-parser.c
           NULL
          };
  
-@@ -3082,11 +3088,32 @@
+@@ -3082,11 +3088,32 @@ test_default_session_servicedirs (void)
  {
    DBusList *dirs;
    DBusList *link;
@@ -152,7 +152,7 @@ diff -u -b -B -r1.47 config-parser.c
    if (!_dbus_get_standard_session_servicedirs (&dirs))
      _dbus_assert_not_reached ("couldn't get stardard dirs");
  
-@@ -3097,7 +3124,7 @@
+@@ -3097,7 +3124,7 @@ test_default_session_servicedirs (void)
        
        printf ("    default service dir: %s\n", (char *)link->data);
        _dbus_string_init_const (&path, (char *)link->data);
@@ -161,7 +161,7 @@ diff -u -b -B -r1.47 config-parser.c
          {
            printf ("error with default session service directories\n");
            return FALSE;
-@@ -3150,6 +3177,7 @@
+@@ -3150,6 +3177,7 @@ test_default_session_servicedirs (void)
        return FALSE;
      }
      
@@ -173,10 +173,10 @@ Index: bus/connection.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/connection.c,v
 retrieving revision 1.66
-diff -u -b -B -r1.66 connection.c
+diff -u -3 -p -B -r1.66 connection.c
 --- bus/connection.c	12 Dec 2006 21:24:07 -0000	1.66
-+++ bus/connection.c	4 Mar 2007 22:11:26 -0000
-@@ -1536,7 +1536,7 @@
++++ bus/connection.c	6 Mar 2007 20:54:32 -0000
+@@ -1536,7 +1536,7 @@ cancel_pending_reply (void *data)
  {
    CancelPendingReplyData *d = data;
  
@@ -185,7 +185,7 @@ diff -u -b -B -r1.66 connection.c
    
    if (!_dbus_list_remove (&d->connections->pending_replies->items,
                            d->pending))
-@@ -1550,7 +1550,7 @@
+@@ -1550,7 +1550,7 @@ cancel_pending_reply_data_free (void *da
  {
    CancelPendingReplyData *d = data;
  
@@ -194,7 +194,7 @@ diff -u -b -B -r1.66 connection.c
    
    /* d->pending should be either freed or still
     * in the list of pending replies (owned by someone
-@@ -1687,7 +1687,7 @@
+@@ -1687,7 +1687,7 @@ cancel_check_pending_reply (void *data)
  {
    CheckPendingReplyData *d = data;
  
@@ -203,7 +203,7 @@ diff -u -b -B -r1.66 connection.c
    
    _dbus_list_prepend_link (&d->connections->pending_replies->items,
                             d->link);
-@@ -1699,7 +1699,7 @@
+@@ -1699,7 +1699,7 @@ check_pending_reply_data_free (void *dat
  {
    CheckPendingReplyData *d = data;
  
@@ -216,10 +216,10 @@ Index: bus/dispatch.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/dispatch.c,v
 retrieving revision 1.78
-diff -u -b -B -r1.78 dispatch.c
+diff -u -3 -p -B -r1.78 dispatch.c
 --- bus/dispatch.c	23 Oct 2006 17:25:52 -0000	1.78
-+++ bus/dispatch.c	4 Mar 2007 22:11:27 -0000
-@@ -428,6 +428,11 @@
++++ bus/dispatch.c	6 Mar 2007 20:54:33 -0000
+@@ -428,6 +428,11 @@ block_connection_until_message_from_bus 
      }
  }
  
@@ -231,7 +231,7 @@ diff -u -b -B -r1.78 dispatch.c
  static void
  spin_connection_until_authenticated (BusContext     *context,
                                       DBusConnection *connection)
-@@ -439,6 +444,19 @@
+@@ -439,6 +444,19 @@ spin_connection_until_authenticated (Bus
        bus_test_run_bus_loop (context, FALSE);
        bus_test_run_clients_loop (FALSE);
      }
@@ -251,7 +251,7 @@ diff -u -b -B -r1.78 dispatch.c
    _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
  }
  
-@@ -2624,6 +2642,11 @@
+@@ -2624,6 +2642,11 @@ check_segfault_service_no_auto_start (Bu
    const char *segv_service;
    dbus_uint32_t flags;
    
@@ -263,7 +263,7 @@ diff -u -b -B -r1.78 dispatch.c
    message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
                                            DBUS_PATH_DBUS,
                                            DBUS_INTERFACE_DBUS,
-@@ -2698,9 +2721,12 @@
+@@ -2698,9 +2721,12 @@ check_segfault_service_no_auto_start (Bu
          }
        else
          {
@@ -276,7 +276,7 @@ diff -u -b -B -r1.78 dispatch.c
          }
      }
    else
-@@ -4062,14 +4088,20 @@
+@@ -4062,14 +4088,20 @@ bus_dispatch_test (const DBusString *tes
        _dbus_assert_not_reached ("initial connection setup failed");
      }
    
@@ -297,7 +297,7 @@ diff -u -b -B -r1.78 dispatch.c
    
    check2_try_iterations (context, foo, "existent_service_no_auto_start",
                           check_existent_service_no_auto_start);
-@@ -4077,8 +4109,12 @@
+@@ -4077,8 +4109,12 @@ bus_dispatch_test (const DBusString *tes
    check2_try_iterations (context, foo, "nonexistent_service_auto_start",
                           check_nonexistent_service_auto_start);
    
@@ -310,7 +310,7 @@ diff -u -b -B -r1.78 dispatch.c
  
    check2_try_iterations (context, foo, "shell_fail_service_auto_start",
                           check_shell_fail_service_auto_start);
-@@ -4095,8 +4131,11 @@
+@@ -4095,8 +4131,11 @@ bus_dispatch_test (const DBusString *tes
    if (!check_existent_service_auto_start (context, foo))
      _dbus_assert_not_reached ("existent service auto start failed");
  
@@ -322,7 +322,7 @@ diff -u -b -B -r1.78 dispatch.c
  
    _dbus_verbose ("Disconnecting foo, bar, and baz\n");
  
-@@ -4147,8 +4186,11 @@
+@@ -4147,8 +4186,11 @@ bus_dispatch_sha1_test (const DBusString
        _dbus_assert_not_reached ("initial connection setup failed");
      }
    
@@ -338,10 +338,10 @@ Index: bus/main.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/main.c,v
 retrieving revision 1.36
-diff -u -b -B -r1.36 main.c
+diff -u -3 -p -B -r1.36 main.c
 --- bus/main.c	20 Dec 2006 06:18:19 -0000	1.36
-+++ bus/main.c	4 Mar 2007 22:11:28 -0000
-@@ -254,6 +254,12 @@
++++ bus/main.c	6 Mar 2007 20:54:33 -0000
+@@ -254,6 +254,12 @@ main (int argc, char **argv)
    dbus_bool_t print_pid;
    int force_fork;
  
@@ -358,10 +358,10 @@ Index: bus/policy.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/policy.c,v
 retrieving revision 1.24
-diff -u -b -B -r1.24 policy.c
+diff -u -3 -p -B -r1.24 policy.c
 --- bus/policy.c	12 Dec 2006 21:24:07 -0000	1.24
-+++ bus/policy.c	4 Mar 2007 22:11:28 -0000
-@@ -324,9 +324,13 @@
++++ bus/policy.c	6 Mar 2007 20:54:33 -0000
+@@ -324,9 +324,13 @@ bus_policy_create_client_policy (BusPoli
  
    if (!dbus_connection_get_unix_user (connection, &uid))
      {
@@ -379,10 +379,10 @@ Index: dbus/dbus-bus.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-bus.c,v
 retrieving revision 1.64
-diff -u -b -B -r1.64 dbus-bus.c
+diff -u -3 -p -B -r1.64 dbus-bus.c
 --- dbus/dbus-bus.c	28 Oct 2006 01:41:37 -0000	1.64
-+++ dbus/dbus-bus.c	4 Mar 2007 22:11:28 -0000
-@@ -350,8 +350,10 @@
++++ dbus/dbus-bus.c	6 Mar 2007 20:54:33 -0000
+@@ -350,8 +350,10 @@ _dbus_bus_notify_shared_connection_disco
  {
    int i;
    
@@ -394,7 +394,7 @@ diff -u -b -B -r1.64 dbus-bus.c
    /* We are expecting to have the connection saved in only one of these
     * slots, but someone could in a pathological case set system and session
     * bus to the same bus or something. Or set one of them to the starter
-@@ -366,7 +368,9 @@
+@@ -366,7 +368,9 @@ _dbus_bus_notify_shared_connection_disco
          }
      }
  
@@ -408,9 +408,9 @@ Index: dbus/dbus-connection.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-connection.c,v
 retrieving revision 1.154
-diff -u -b -B -r1.154 dbus-connection.c
+diff -u -3 -p -B -r1.154 dbus-connection.c
 --- dbus/dbus-connection.c	15 Nov 2006 03:07:59 -0000	1.154
-+++ dbus/dbus-connection.c	4 Mar 2007 22:11:28 -0000
++++ dbus/dbus-connection.c	6 Mar 2007 20:54:40 -0000
 @@ -62,7 +62,7 @@
  #define TRACE_LOCKS 1
  
@@ -420,7 +420,7 @@ diff -u -b -B -r1.154 dbus-connection.c
      _dbus_mutex_lock ((connection)->mutex);                                      \
      TOOK_LOCK_CHECK (connection);                                               \
    } while (0)
-@@ -4718,9 +4718,9 @@
+@@ -4718,9 +4718,9 @@ dbus_connection_get_unix_fd (DBusConnect
    _dbus_return_val_if_fail (connection != NULL, FALSE);
    _dbus_return_val_if_fail (connection->transport != NULL, FALSE);
  
@@ -432,7 +432,7 @@ diff -u -b -B -r1.154 dbus-connection.c
  #endif
    
    return dbus_connection_get_socket(connection, fd);
-@@ -4790,12 +4790,12 @@
+@@ -4790,12 +4790,12 @@ dbus_connection_get_unix_user (DBusConne
    _dbus_return_val_if_fail (connection != NULL, FALSE);
    _dbus_return_val_if_fail (uid != NULL, FALSE);
  
@@ -447,7 +447,7 @@ diff -u -b -B -r1.154 dbus-connection.c
  #endif
    
    CONNECTION_LOCK (connection);
-@@ -4829,12 +4829,12 @@
+@@ -4829,12 +4829,12 @@ dbus_connection_get_unix_process_id (DBu
    _dbus_return_val_if_fail (connection != NULL, FALSE);
    _dbus_return_val_if_fail (pid != NULL, FALSE);
  
@@ -466,10 +466,10 @@ Index: dbus/dbus-connection.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-connection.h,v
 retrieving revision 1.49
-diff -u -b -B -r1.49 dbus-connection.h
+diff -u -3 -p -B -r1.49 dbus-connection.h
 --- dbus/dbus-connection.h	15 Nov 2006 03:07:59 -0000	1.49
-+++ dbus/dbus-connection.h	4 Mar 2007 22:11:28 -0000
-@@ -330,6 +330,9 @@
++++ dbus/dbus-connection.h	6 Mar 2007 20:54:40 -0000
+@@ -330,6 +330,9 @@ dbus_bool_t dbus_connection_get_socket  
   */
  
  int          dbus_watch_get_fd      (DBusWatch        *watch);
@@ -483,10 +483,10 @@ Index: dbus/dbus-internals.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-internals.c,v
 retrieving revision 1.55
-diff -u -b -B -r1.55 dbus-internals.c
+diff -u -3 -p -B -r1.55 dbus-internals.c
 --- dbus/dbus-internals.c	15 Nov 2006 01:52:01 -0000	1.55
-+++ dbus/dbus-internals.c	4 Mar 2007 22:11:28 -0000
-@@ -295,7 +295,7 @@
++++ dbus/dbus-internals.c	6 Mar 2007 20:54:40 -0000
+@@ -295,7 +295,7 @@ static dbus_bool_t verbose = TRUE;
  #include <pthread.h>
  #endif
  
@@ -499,10 +499,10 @@ Index: dbus/dbus-mainloop.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-mainloop.c,v
 retrieving revision 1.19
-diff -u -b -B -r1.19 dbus-mainloop.c
+diff -u -3 -p -B -r1.19 dbus-mainloop.c
 --- dbus/dbus-mainloop.c	20 Oct 2006 03:04:59 -0000	1.19
-+++ dbus/dbus-mainloop.c	4 Mar 2007 22:11:28 -0000
-@@ -90,8 +90,8 @@
++++ dbus/dbus-mainloop.c	6 Mar 2007 20:54:40 -0000
+@@ -90,8 +90,8 @@ typedef struct
    Callback callback;
    DBusTimeout *timeout;
    DBusTimeoutFunction function;
@@ -513,7 +513,7 @@ diff -u -b -B -r1.19 dbus-mainloop.c
  } TimeoutCallback;
  
  #define WATCH_CALLBACK(callback)   ((WatchCallback*)callback)
-@@ -598,7 +598,7 @@
+@@ -598,7 +598,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
  
  #if MAINLOOP_SPEW
                _dbus_verbose ("  skipping watch on fd %d as it was out of memory last time\n",
@@ -522,7 +522,7 @@ diff -u -b -B -r1.19 dbus-mainloop.c
  #endif
              }
            else if (dbus_watch_get_enabled (wcb->watch))
-@@ -609,7 +609,7 @@
+@@ -609,7 +609,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
                    
                flags = dbus_watch_get_flags (wcb->watch);
                    
@@ -531,7 +531,7 @@ diff -u -b -B -r1.19 dbus-mainloop.c
                fds[n_fds].revents = 0;
                fds[n_fds].events = 0;
                if (flags & DBUS_WATCH_READABLE)
-@@ -628,7 +628,7 @@
+@@ -628,7 +628,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
              {
  #if MAINLOOP_SPEW
                _dbus_verbose ("  skipping disabled watch on fd %d  %s\n",
@@ -540,7 +540,7 @@ diff -u -b -B -r1.19 dbus-mainloop.c
                               watch_flags_to_string (dbus_watch_get_flags (wcb->watch)));
  #endif
              }
-@@ -640,8 +640,8 @@
+@@ -640,8 +640,8 @@ _dbus_loop_iterate (DBusLoop     *loop,
    timeout = -1;
    if (loop->timeout_count > 0)
      {
@@ -551,7 +551,7 @@ diff -u -b -B -r1.19 dbus-mainloop.c
        
        _dbus_get_current_time (&tv_sec, &tv_usec);
            
-@@ -710,8 +710,8 @@
+@@ -710,8 +710,8 @@ _dbus_loop_iterate (DBusLoop     *loop,
  
    if (loop->timeout_count > 0)
      {
@@ -562,7 +562,7 @@ diff -u -b -B -r1.19 dbus-mainloop.c
  
        _dbus_get_current_time (&tv_sec, &tv_usec);
  
-@@ -883,6 +883,8 @@
+@@ -883,6 +883,8 @@ _dbus_loop_quit (DBusLoop *loop)
    
    loop->depth -= 1;
  
@@ -575,9 +575,9 @@ Index: dbus/dbus-message.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-message.h,v
 retrieving revision 1.65
-diff -u -b -B -r1.65 dbus-message.h
+diff -u -3 -p -B -r1.65 dbus-message.h
 --- dbus/dbus-message.h	21 Oct 2006 18:51:30 -0000	1.65
-+++ dbus/dbus-message.h	4 Mar 2007 22:11:28 -0000
++++ dbus/dbus-message.h	6 Mar 2007 20:54:41 -0000
 @@ -34,6 +34,10 @@
  #include <dbus/dbus-errors.h>
  #include <stdarg.h>
@@ -593,10 +593,10 @@ Index: dbus/dbus-server-protected.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-server-protected.h,v
 retrieving revision 1.23
-diff -u -b -B -r1.23 dbus-server-protected.h
+diff -u -3 -p -B -r1.23 dbus-server-protected.h
 --- dbus/dbus-server-protected.h	1 Oct 2006 03:18:47 -0000	1.23
-+++ dbus/dbus-server-protected.h	4 Mar 2007 22:11:28 -0000
-@@ -144,7 +144,7 @@
++++ dbus/dbus-server-protected.h	6 Mar 2007 20:54:42 -0000
+@@ -144,7 +144,7 @@ DBusServerListenResult _dbus_server_list
  #define TRACE_LOCKS 0
  
  #define SERVER_LOCK(server)   do {                                              \
@@ -609,10 +609,10 @@ Index: dbus/dbus-server-socket.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-server-socket.c,v
 retrieving revision 1.3
-diff -u -b -B -r1.3 dbus-server-socket.c
+diff -u -3 -p -B -r1.3 dbus-server-socket.c
 --- dbus/dbus-server-socket.c	1 Oct 2006 15:36:18 -0000	1.3
-+++ dbus/dbus-server-socket.c	4 Mar 2007 22:11:28 -0000
-@@ -161,7 +161,7 @@
++++ dbus/dbus-server-socket.c	6 Mar 2007 20:54:42 -0000
+@@ -161,7 +161,7 @@ socket_handle_watch (DBusWatch    *watch
        int client_fd;
        int listen_fd;
        
@@ -621,7 +621,7 @@ diff -u -b -B -r1.3 dbus-server-socket.c
  
        client_fd = _dbus_accept (listen_fd);
        
-@@ -393,15 +393,19 @@
+@@ -393,15 +393,19 @@ _dbus_server_listen_socket (DBusAddressE
            
        if (port == NULL)
          {
@@ -646,9 +646,9 @@ Index: dbus/dbus-server-unix.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-server-unix.c,v
 retrieving revision 1.34
-diff -u -b -B -r1.34 dbus-server-unix.c
+diff -u -3 -p -B -r1.34 dbus-server-unix.c
 --- dbus/dbus-server-unix.c	20 Oct 2006 03:04:59 -0000	1.34
-+++ dbus/dbus-server-unix.c	4 Mar 2007 22:11:28 -0000
++++ dbus/dbus-server-unix.c	6 Mar 2007 20:54:42 -0000
 @@ -24,9 +24,9 @@
  #include "dbus-internals.h"
  #include "dbus-server-unix.h"
@@ -661,7 +661,7 @@ diff -u -b -B -r1.34 dbus-server-unix.c
  #include "dbus-string.h"
  
  /**
-@@ -155,6 +155,8 @@
+@@ -155,6 +155,8 @@ _dbus_server_listen_platform_specific (D
      }
  }
  
@@ -670,7 +670,7 @@ diff -u -b -B -r1.34 dbus-server-unix.c
  /**
   * Creates a new server listening on the given Unix domain socket.
   *
-@@ -232,5 +234,86 @@
+@@ -232,5 +234,86 @@ _dbus_server_new_for_domain_socket (cons
    return NULL;
  }
  
@@ -757,14 +757,57 @@ diff -u -b -B -r1.34 dbus-server-unix.c
 +#endif //DBUS_WIN
  /** @} */
  
+Index: dbus/dbus-server.c
+===================================================================
+RCS file: /cvs/dbus/dbus/dbus/dbus-server.c,v
+retrieving revision 1.54
+diff -u -3 -p -B -r1.54 dbus-server.c
+--- dbus/dbus-server.c	21 Oct 2006 23:09:18 -0000	1.54
++++ dbus/dbus-server.c	6 Mar 2007 20:54:42 -0000
+@@ -509,8 +509,10 @@ static const struct {
+                                    DBusServer      **server_p,
+                                    DBusError        *error);
+ } listen_funcs[] = {
+-  { _dbus_server_listen_socket },
+-  { _dbus_server_listen_platform_specific }
++  { _dbus_server_listen_socket }
++#ifndef DBUS_WIN
++  , { _dbus_server_listen_platform_specific }
++#endif
+ #ifdef DBUS_BUILD_TESTS
+   , { _dbus_server_listen_debug_pipe }
+ #endif
+@@ -1114,6 +1116,13 @@ dbus_server_get_data (DBusServer   *serv
+ dbus_bool_t
+ _dbus_server_test (void)
+ {
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++  const char *valid_addresses[] = {
++    "tcp:port=1234",
++    "tcp:host=localhost,port=1234",
++    "tcp:host=localhost,port=1234;tcp:port=5678",
++  };
++#else
+   const char *valid_addresses[] = {
+     "tcp:port=1234",
+     "unix:path=./boogie",
+@@ -1121,7 +1130,7 @@ _dbus_server_test (void)
+     "tcp:host=localhost,port=1234;tcp:port=5678",
+     "tcp:port=1234;unix:path=./boogie",
+   };
+-
++#endif
+   DBusServer *server;
+   int i;
+   
 Index: dbus/dbus-spawn.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-spawn.c,v
 retrieving revision 1.25
-diff -u -b -B -r1.25 dbus-spawn.c
+diff -u -3 -p -B -r1.25 dbus-spawn.c
 --- dbus/dbus-spawn.c	4 Mar 2007 19:14:03 -0000	1.25
-+++ dbus/dbus-spawn.c	4 Mar 2007 22:11:28 -0000
-@@ -720,7 +720,7 @@
++++ dbus/dbus-spawn.c	6 Mar 2007 20:54:43 -0000
+@@ -720,7 +720,7 @@ handle_watch (DBusWatch       *watch,
    if (condition & DBUS_WATCH_HANGUP)
      revents |= _DBUS_POLLHUP;
  
@@ -777,10 +820,10 @@ Index: dbus/dbus-sysdeps-unix.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps-unix.c,v
 retrieving revision 1.19
-diff -u -b -B -r1.19 dbus-sysdeps-unix.c
+diff -u -3 -p -B -r1.19 dbus-sysdeps-unix.c
 --- dbus/dbus-sysdeps-unix.c	3 Mar 2007 10:36:45 -0000	1.19
-+++ dbus/dbus-sysdeps-unix.c	4 Mar 2007 22:11:29 -0000
-@@ -169,6 +169,15 @@
++++ dbus/dbus-sysdeps-unix.c	6 Mar 2007 20:54:43 -0000
+@@ -169,6 +169,15 @@ _dbus_write_socket (int               fd
    return _dbus_write (fd, buffer, start, len);
  }
  
@@ -796,7 +839,7 @@ diff -u -b -B -r1.19 dbus-sysdeps-unix.c
  /**
   * Like _dbus_write_two() but only works on sockets and is thus
   * available on Windows.
-@@ -1493,6 +1502,53 @@
+@@ -1493,6 +1502,53 @@ _dbus_atomic_dec (DBusAtomic *atomic)
  #endif
  }
  
@@ -850,7 +893,7 @@ diff -u -b -B -r1.19 dbus-sysdeps-unix.c
  #ifdef DBUS_BUILD_TESTS
  /** Gets our GID
   * @returns process GID
-@@ -2840,4 +2896,9 @@
+@@ -2840,4 +2896,9 @@ _dbus_get_standard_session_servicedirs (
    return FALSE;
  }
  
@@ -864,10 +907,10 @@ Index: dbus/dbus-sysdeps-util.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps-util.c,v
 retrieving revision 1.10
-diff -u -b -B -r1.10 dbus-sysdeps-util.c
+diff -u -3 -p -B -r1.10 dbus-sysdeps-util.c
 --- dbus/dbus-sysdeps-util.c	13 Dec 2006 01:18:07 -0000	1.10
-+++ dbus/dbus-sysdeps-util.c	4 Mar 2007 22:11:29 -0000
-@@ -82,7 +82,7 @@
++++ dbus/dbus-sysdeps-util.c	6 Mar 2007 20:54:43 -0000
+@@ -82,7 +82,7 @@ _dbus_sysdeps_test (void)
    double val;
    int pos;
  
@@ -876,7 +919,7 @@ diff -u -b -B -r1.10 dbus-sysdeps-util.c
    check_dirname ("foo\\bar", "foo");
    check_dirname ("foo\\\\bar", "foo");
    check_dirname ("foo/\\/bar", "foo");
-@@ -141,6 +141,7 @@
+@@ -141,6 +141,7 @@ _dbus_sysdeps_test (void)
        exit (1);
      }
  
@@ -884,7 +927,7 @@ diff -u -b -B -r1.10 dbus-sysdeps-util.c
    _dbus_string_init_const (&str, "0xff");
    if (!_dbus_string_parse_double (&str,
  				  0, &val, &pos))
-@@ -158,6 +159,8 @@
+@@ -158,6 +159,8 @@ _dbus_sysdeps_test (void)
        _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
        exit (1);
      }
@@ -897,10 +940,10 @@ Index: dbus/dbus-sysdeps.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.c,v
 retrieving revision 1.120
-diff -u -b -B -r1.120 dbus-sysdeps.c
+diff -u -3 -p -B -r1.120 dbus-sysdeps.c
 --- dbus/dbus-sysdeps.c	1 Jan 2007 21:29:59 -0000	1.120
-+++ dbus/dbus-sysdeps.c	4 Mar 2007 22:11:29 -0000
-@@ -119,11 +119,14 @@
++++ dbus/dbus-sysdeps.c	6 Mar 2007 20:54:43 -0000
+@@ -119,11 +119,14 @@ _dbus_setenv (const char *varname,
         * will get upset about.
         */
        
@@ -916,7 +959,7 @@ diff -u -b -B -r1.120 dbus-sysdeps.c
        
        return (putenv (putenv_value) == 0);
  #endif
-@@ -413,6 +416,10 @@
+@@ -413,6 +416,10 @@ static double
  ascii_strtod (const char *nptr,
  	      char      **endptr)
  {
@@ -931,10 +974,10 @@ Index: dbus/dbus-sysdeps.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.h,v
 retrieving revision 1.68
-diff -u -b -B -r1.68 dbus-sysdeps.h
+diff -u -3 -p -B -r1.68 dbus-sysdeps.h
 --- dbus/dbus-sysdeps.h	31 Dec 2006 12:16:04 -0000	1.68
-+++ dbus/dbus-sysdeps.h	4 Mar 2007 22:11:29 -0000
-@@ -119,6 +119,7 @@
++++ dbus/dbus-sysdeps.h	6 Mar 2007 20:54:43 -0000
+@@ -119,6 +119,7 @@ typedef unsigned long dbus_gid_t;
   * 
   */
  
@@ -942,7 +985,7 @@ diff -u -b -B -r1.68 dbus-sysdeps.h
  dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
                                      DBusError        *error);
  dbus_bool_t _dbus_close_socket     (int               fd,
-@@ -229,7 +230,7 @@
+@@ -229,7 +230,7 @@ typedef struct DBusAtomic DBusAtomic;
   */
  struct DBusAtomic
  {
@@ -951,7 +994,7 @@ diff -u -b -B -r1.68 dbus-sysdeps.h
    volatile long value; /**< Value of the atomic integer. */
  #else
    volatile dbus_int32_t value; /**< Value of the atomic integer. */
-@@ -302,6 +303,12 @@
+@@ -302,6 +303,12 @@ dbus_bool_t _dbus_path_is_absolute    (c
  
  dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
  
@@ -964,7 +1007,7 @@ diff -u -b -B -r1.68 dbus-sysdeps.h
  /** Opaque type for reading a directory listing */
  typedef struct DBusDirIter DBusDirIter;
  
-@@ -317,6 +324,9 @@
+@@ -317,6 +324,9 @@ dbus_bool_t  _dbus_check_dir_is_private_
  
  void _dbus_fd_set_close_on_exec (int fd);
  
@@ -978,10 +1021,10 @@ Index: dbus/dbus-test.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-test.c,v
 retrieving revision 1.44
-diff -u -b -B -r1.44 dbus-test.c
+diff -u -3 -p -B -r1.44 dbus-test.c
 --- dbus/dbus-test.c	15 Nov 2006 03:07:59 -0000	1.44
-+++ dbus/dbus-test.c	4 Mar 2007 22:11:29 -0000
-@@ -156,7 +156,9 @@
++++ dbus/dbus-test.c	6 Mar 2007 20:54:43 -0000
+@@ -156,7 +156,9 @@ dbus_internal_do_not_use_run_tests (cons
    
    run_test ("hash", specific_test, _dbus_hash_test);
  
@@ -995,10 +1038,10 @@ Index: dbus/dbus-threads.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-threads.c,v
 retrieving revision 1.36
-diff -u -b -B -r1.36 dbus-threads.c
+diff -u -3 -p -B -r1.36 dbus-threads.c
 --- dbus/dbus-threads.c	28 Oct 2006 01:41:37 -0000	1.36
-+++ dbus/dbus-threads.c	4 Mar 2007 22:11:29 -0000
-@@ -810,7 +810,11 @@
++++ dbus/dbus-threads.c	6 Mar 2007 20:54:44 -0000
+@@ -810,7 +810,11 @@ dbus_fake_condvar_wake_all (DBusCondVar 
  dbus_bool_t
  _dbus_threads_init_debug (void)
  {
@@ -1014,10 +1057,10 @@ Index: dbus/dbus-transport-socket.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-transport-socket.c,v
 retrieving revision 1.4
-diff -u -b -B -r1.4 dbus-transport-socket.c
+diff -u -3 -p -B -r1.4 dbus-transport-socket.c
 --- dbus/dbus-transport-socket.c	20 Oct 2006 03:05:00 -0000	1.4
-+++ dbus/dbus-transport-socket.c	4 Mar 2007 22:11:29 -0000
-@@ -175,7 +175,7 @@
++++ dbus/dbus-transport-socket.c	6 Mar 2007 20:54:44 -0000
+@@ -175,7 +175,7 @@ check_read_watch (DBusTransport *transpo
    DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
    dbus_bool_t need_read_watch;
  
@@ -1026,7 +1069,7 @@ diff -u -b -B -r1.4 dbus-transport-socket.c
                   _DBUS_FUNCTION_NAME, socket_transport->fd);
    
    if (transport->connection == NULL)
-@@ -652,7 +652,7 @@
+@@ -652,7 +652,7 @@ do_reading (DBusTransport *transport)
    int total;
    dbus_bool_t oom;
  
@@ -1035,7 +1078,7 @@ diff -u -b -B -r1.4 dbus-transport-socket.c
                   socket_transport->fd);
    
    /* No messages without authentication! */
-@@ -873,7 +873,7 @@
+@@ -873,7 +873,7 @@ socket_handle_watch (DBusTransport *tran
                         flags);
        else
          _dbus_verbose ("asked to handle watch %p on fd %d that we don't recognize\n",
@@ -1044,7 +1087,7 @@ diff -u -b -B -r1.4 dbus-transport-socket.c
      }
  #endif /* DBUS_ENABLE_VERBOSE_MODE */
  
-@@ -1286,15 +1286,19 @@
+@@ -1286,15 +1286,19 @@ _dbus_transport_open_socket(DBusAddressE
            
        if (port == NULL)
          {
@@ -1069,9 +1112,9 @@ Index: dbus/dbus-transport-socket.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-transport-socket.h,v
 retrieving revision 1.2
-diff -u -b -B -r1.2 dbus-transport-socket.h
+diff -u -3 -p -B -r1.2 dbus-transport-socket.h
 --- dbus/dbus-transport-socket.h	16 Sep 2006 19:24:08 -0000	1.2
-+++ dbus/dbus-transport-socket.h	4 Mar 2007 22:11:29 -0000
++++ dbus/dbus-transport-socket.h	6 Mar 2007 20:54:44 -0000
 @@ -25,6 +25,10 @@
  
  #include <dbus/dbus-transport-protected.h>
@@ -1087,9 +1130,9 @@ Index: dbus/dbus-transport-unix.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-transport-unix.c,v
 retrieving revision 1.55
-diff -u -b -B -r1.55 dbus-transport-unix.c
+diff -u -3 -p -B -r1.55 dbus-transport-unix.c
 --- dbus/dbus-transport-unix.c	20 Oct 2006 03:05:00 -0000	1.55
-+++ dbus/dbus-transport-unix.c	4 Mar 2007 22:11:29 -0000
++++ dbus/dbus-transport-unix.c	6 Mar 2007 20:54:44 -0000
 @@ -23,11 +23,16 @@
  
  #include "dbus-internals.h"
@@ -1112,10 +1155,25 @@ Index: dbus/dbus-transport.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-transport.c,v
 retrieving revision 1.54
-diff -u -b -B -r1.54 dbus-transport.c
+diff -u -3 -p -B -r1.54 dbus-transport.c
 --- dbus/dbus-transport.c	17 Oct 2006 20:52:13 -0000	1.54
-+++ dbus/dbus-transport.c	4 Mar 2007 22:11:29 -0000
-@@ -496,7 +496,7 @@
++++ dbus/dbus-transport.c	6 Mar 2007 20:54:45 -0000
+@@ -310,9 +310,11 @@ static const struct {
+                                     DBusTransport   **transport_p,
+                                     DBusError        *error);
+ } open_funcs[] = {
+-  { _dbus_transport_open_socket },
+-  { _dbus_transport_open_platform_specific },
+-  { _dbus_transport_open_autolaunch }
++  { _dbus_transport_open_socket }
++#ifndef DBUS_WIN
++  , { _dbus_transport_open_platform_specific }
++#endif
++  , { _dbus_transport_open_autolaunch }
+ #ifdef DBUS_BUILD_TESTS
+   , { _dbus_transport_open_debug_pipe }
+ #endif
+@@ -496,7 +498,7 @@ _dbus_transport_get_is_authenticated (DB
     * set it and have it only be invoked when appropriate.
     */
    dbus_bool_t on_windows = FALSE;
@@ -1124,7 +1182,7 @@ diff -u -b -B -r1.54 dbus-transport.c
    on_windows = TRUE;
  #endif
    
-@@ -674,7 +674,7 @@
+@@ -674,7 +676,7 @@ _dbus_transport_handle_watch (DBusTransp
    if (transport->disconnected)
      return TRUE;
  
@@ -1137,10 +1195,10 @@ Index: dbus/dbus-watch.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-watch.c,v
 retrieving revision 1.22
-diff -u -b -B -r1.22 dbus-watch.c
+diff -u -3 -p -B -r1.22 dbus-watch.c
 --- dbus/dbus-watch.c	21 Oct 2006 21:57:31 -0000	1.22
-+++ dbus/dbus-watch.c	4 Mar 2007 22:11:29 -0000
-@@ -286,7 +286,7 @@
++++ dbus/dbus-watch.c	6 Mar 2007 20:54:45 -0000
+@@ -286,7 +286,7 @@ _dbus_watch_list_set_functions (DBusWatc
              
              _dbus_verbose ("Adding a %s watch on fd %d using newly-set add watch function\n",
                             watch_type,
@@ -1149,7 +1207,7 @@ diff -u -b -B -r1.22 dbus-watch.c
            }
  #endif /* DBUS_ENABLE_VERBOSE_MODE */
            
-@@ -302,7 +302,7 @@
+@@ -302,7 +302,7 @@ _dbus_watch_list_set_functions (DBusWatc
                                                               link2);
                    
                    _dbus_verbose ("Removing watch on fd %d using newly-set remove function because initial add failed\n",
@@ -1158,7 +1216,7 @@ diff -u -b -B -r1.22 dbus-watch.c
                    
                    (* remove_function) (link2->data, data);
                    
-@@ -359,7 +359,7 @@
+@@ -359,7 +359,7 @@ _dbus_watch_list_add_watch (DBusWatchLis
    if (watch_list->add_watch_function != NULL)
      {
        _dbus_verbose ("Adding watch on fd %d\n",
@@ -1167,7 +1225,7 @@ diff -u -b -B -r1.22 dbus-watch.c
        
        if (!(* watch_list->add_watch_function) (watch,
                                                 watch_list->watch_data))
-@@ -390,7 +390,7 @@
+@@ -390,7 +390,7 @@ _dbus_watch_list_remove_watch  (DBusWatc
    if (watch_list->remove_watch_function != NULL)
      {
        _dbus_verbose ("Removing watch on fd %d\n",
@@ -1176,7 +1234,7 @@ diff -u -b -B -r1.22 dbus-watch.c
        
        (* watch_list->remove_watch_function) (watch,
                                               watch_list->watch_data);
-@@ -422,7 +422,7 @@
+@@ -422,7 +422,7 @@ _dbus_watch_list_toggle_watch (DBusWatch
    if (watch_list->watch_toggled_function != NULL)
      {
        _dbus_verbose ("Toggling watch %p on fd %d to %d\n",
@@ -1185,7 +1243,7 @@ diff -u -b -B -r1.22 dbus-watch.c
        
        (* watch_list->watch_toggled_function) (watch,
                                                watch_list->watch_data);
-@@ -490,10 +490,32 @@
+@@ -490,10 +490,32 @@ _dbus_watch_set_handler (DBusWatch      
   * @returns the file descriptor to watch.
   */
  int
@@ -1218,7 +1276,7 @@ diff -u -b -B -r1.22 dbus-watch.c
  
  /**
   * Gets flags from DBusWatchFlags indicating
-@@ -546,7 +568,7 @@
+@@ -546,7 +568,7 @@ dbus_watch_set_data (DBusWatch        *w
                       DBusFreeFunction  free_data_function)
  {
    _dbus_verbose ("Setting watch fd %d data to data = %p function = %p from data = %p function = %p\n",
@@ -1231,9 +1289,9 @@ Index: test/test-segfault.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/test/test-segfault.c,v
 retrieving revision 1.4
-diff -u -b -B -r1.4 test-segfault.c
+diff -u -3 -p -B -r1.4 test-segfault.c
 --- test/test-segfault.c	30 Nov 2005 19:32:26 -0000	1.4
-+++ test/test-segfault.c	4 Mar 2007 22:11:31 -0000
++++ test/test-segfault.c	6 Mar 2007 20:54:45 -0000
 @@ -1,9 +1,26 @@
  /* This is simply a process that segfaults */
 +#include <config.h>
@@ -1265,9 +1323,9 @@ Index: test/test-utils.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/test/test-utils.c,v
 retrieving revision 1.8
-diff -u -b -B -r1.8 test-utils.c
+diff -u -3 -p -B -r1.8 test-utils.c
 --- test/test-utils.c	1 Oct 2006 15:36:18 -0000	1.8
-+++ test/test-utils.c	4 Mar 2007 22:11:31 -0000
++++ test/test-utils.c	6 Mar 2007 20:54:45 -0000
 @@ -1,5 +1,7 @@
  #include "test-utils.h"
  
