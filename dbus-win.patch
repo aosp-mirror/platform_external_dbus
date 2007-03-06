@@ -169,49 +169,6 @@ diff -u -3 -p -B -r1.47 config-parser.c
    return TRUE;
  }
  			   
-Index: bus/connection.c
-===================================================================
-RCS file: /cvs/dbus/dbus/bus/connection.c,v
-retrieving revision 1.66
-diff -u -3 -p -B -r1.66 connection.c
---- bus/connection.c	12 Dec 2006 21:24:07 -0000	1.66
-+++ bus/connection.c	6 Mar 2007 20:54:32 -0000
-@@ -1536,7 +1536,7 @@ cancel_pending_reply (void *data)
- {
-   CancelPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   if (!_dbus_list_remove (&d->connections->pending_replies->items,
-                           d->pending))
-@@ -1550,7 +1550,7 @@ cancel_pending_reply_data_free (void *da
- {
-   CancelPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   /* d->pending should be either freed or still
-    * in the list of pending replies (owned by someone
-@@ -1687,7 +1687,7 @@ cancel_check_pending_reply (void *data)
- {
-   CheckPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   _dbus_list_prepend_link (&d->connections->pending_replies->items,
-                            d->link);
-@@ -1699,7 +1699,7 @@ check_pending_reply_data_free (void *dat
- {
-   CheckPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   if (d->link != NULL)
-     {
 Index: bus/dispatch.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/dispatch.c,v
@@ -404,64 +361,6 @@ diff -u -3 -p -B -r1.64 dbus-bus.c
  }
  
  static DBusConnection *
-Index: dbus/dbus-connection.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-connection.c,v
-retrieving revision 1.154
-diff -u -3 -p -B -r1.154 dbus-connection.c
---- dbus/dbus-connection.c	15 Nov 2006 03:07:59 -0000	1.154
-+++ dbus/dbus-connection.c	6 Mar 2007 20:54:40 -0000
-@@ -62,7 +62,7 @@
- #define TRACE_LOCKS 1
- 
- #define CONNECTION_LOCK(connection)   do {                                      \
--    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
-+    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK  : %s\n", _DBUS_FUNCTION_NAME); }   \
-     _dbus_mutex_lock ((connection)->mutex);                                      \
-     TOOK_LOCK_CHECK (connection);                                               \
-   } while (0)
-@@ -4718,9 +4718,9 @@ dbus_connection_get_unix_fd (DBusConnect
-   _dbus_return_val_if_fail (connection != NULL, FALSE);
-   _dbus_return_val_if_fail (connection->transport != NULL, FALSE);
- 
--#ifdef DBUS_WIN
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
-   /* FIXME do this on a lower level */
--  return FALSE;
-+  //return FALSE;
- #endif
-   
-   return dbus_connection_get_socket(connection, fd);
-@@ -4790,12 +4790,12 @@ dbus_connection_get_unix_user (DBusConne
-   _dbus_return_val_if_fail (connection != NULL, FALSE);
-   _dbus_return_val_if_fail (uid != NULL, FALSE);
- 
--#ifdef DBUS_WIN
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
-   /* FIXME this should be done at a lower level, but it's kind of hard,
-    * just want to be sure we don't ship with this API returning
-    * some weird internal fake uid for 1.0
-    */
--  return FALSE;
-+  //return FALSE;
- #endif
-   
-   CONNECTION_LOCK (connection);
-@@ -4829,12 +4829,12 @@ dbus_connection_get_unix_process_id (DBu
-   _dbus_return_val_if_fail (connection != NULL, FALSE);
-   _dbus_return_val_if_fail (pid != NULL, FALSE);
- 
--#ifdef DBUS_WIN
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
-   /* FIXME this should be done at a lower level, but it's kind of hard,
-    * just want to be sure we don't ship with this API returning
-    * some weird internal fake uid for 1.0
-    */
--  return FALSE;
-+  //return FALSE;
- #endif
-   
-   CONNECTION_LOCK (connection);
 Index: dbus/dbus-connection.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-connection.h,v
@@ -589,22 +488,6 @@ diff -u -3 -p -B -r1.65 dbus-message.h
  DBUS_BEGIN_DECLS
  
  /**
-Index: dbus/dbus-server-protected.h
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-server-protected.h,v
-retrieving revision 1.23
-diff -u -3 -p -B -r1.23 dbus-server-protected.h
---- dbus/dbus-server-protected.h	1 Oct 2006 03:18:47 -0000	1.23
-+++ dbus/dbus-server-protected.h	6 Mar 2007 20:54:42 -0000
-@@ -144,7 +144,7 @@ DBusServerListenResult _dbus_server_list
- #define TRACE_LOCKS 0
- 
- #define SERVER_LOCK(server)   do {                                              \
--    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
-+    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK  : %s\n", _DBUS_FUNCTION_NAME); }   \
-     _dbus_mutex_lock ((server)->mutex);                                          \
-     TOOK_LOCK_CHECK (server);                                                   \
-   } while (0)
 Index: dbus/dbus-server-socket.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-server-socket.c,v
@@ -642,121 +525,6 @@ diff -u -3 -p -B -r1.3 dbus-server-socket.c
          {
            _dbus_set_bad_address(error, NULL, NULL, 
                                  "Port is not an integer between 0 and 65535");
-Index: dbus/dbus-server-unix.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-server-unix.c,v
-retrieving revision 1.34
-diff -u -3 -p -B -r1.34 dbus-server-unix.c
---- dbus/dbus-server-unix.c	20 Oct 2006 03:04:59 -0000	1.34
-+++ dbus/dbus-server-unix.c	6 Mar 2007 20:54:42 -0000
-@@ -24,9 +24,9 @@
- #include "dbus-internals.h"
- #include "dbus-server-unix.h"
- #include "dbus-server-socket.h"
--#include "dbus-transport-unix.h"
-+#include "dbus-transport.h"
- #include "dbus-connection-internal.h"
--#include "dbus-sysdeps-unix.h"
-+#include "dbus-sysdeps-win.h"
- #include "dbus-string.h"
- 
- /**
-@@ -155,6 +155,8 @@ _dbus_server_listen_platform_specific (D
-     }
- }
- 
-+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-+
- /**
-  * Creates a new server listening on the given Unix domain socket.
-  *
-@@ -232,5 +234,86 @@ _dbus_server_new_for_domain_socket (cons
-   return NULL;
- }
- 
-+
-+#else /* ifndef DBUS_WIN */
-+
-+// FIXME: move to dbus-serevrwin.c
-+
-+ /**
-+ * Creates a new server listening on the given Windows named pipe.
-+ *
-+ * @param path the path for the domain socket.
-+ * @param abstract #TRUE to use abstract socket namespace
-+ * @param error location to store reason for failure.
-+ * @returns the new server, or #NULL on failure.
-+ */
-+DBusServer*
-+_dbus_server_new_for_domain_socket (const char     *path,
-+                                    dbus_bool_t     abstract,
-+                                    DBusError      *error)
-+{
-+  DBusServer *server;
-+  int listen_fd;
-+  DBusString address;
-+  char *path_copy;
-+  
-+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-+
-+  if (!_dbus_string_init (&address))
-+    {
-+      _DBUS_SET_OOM (error);
-+      return NULL;
-+    }
-+
-+  if ((abstract &&
-+       !_dbus_string_append (&address, "unix:abstract=")) ||
-+      (!abstract &&
-+       !_dbus_string_append (&address, "unix:path=")) ||
-+      !_dbus_string_append (&address, path))
-+    {
-+      _DBUS_SET_OOM (error);
-+      goto failed_0;
-+    }
-+
-+  path_copy = _dbus_strdup (path);
-+  if (path_copy == NULL)
-+    {
-+      _DBUS_SET_OOM (error);
-+      goto failed_0;
-+    }
-+  
-+  listen_fd = _dbus_listen_unix_socket (path, abstract, error);
-+  
-+  if (listen_fd < 0)
-+    {
-+      _DBUS_ASSERT_ERROR_IS_SET (error);
-+      goto failed_1;
-+    }
-+  
-+  _dbus_fd_set_close_on_exec (listen_fd);
-+  server = _dbus_server_new_for_socket (listen_fd, &address);
-+  if (server == NULL)
-+    {
-+      _DBUS_SET_OOM (error);
-+      goto failed_2;
-+    }
-+
-+  _dbus_server_socket_own_filename(server, path_copy);
-+
-+  _dbus_string_free (&address);
-+  
-+  return server;
-+
-+ failed_2:
-+  _dbus_close_socket (listen_fd, NULL);
-+ failed_1:
-+  dbus_free (path_copy);
-+ failed_0:
-+  _dbus_string_free (&address);
-+
-+  return NULL;
-+}
-+
-+#endif //DBUS_WIN
- /** @} */
- 
 Index: dbus/dbus-server.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-server.c,v
@@ -828,7 +596,7 @@ diff -u -3 -p -B -r1.19 dbus-sysdeps-unix.c
  }
  
 +int
-+_dbus_write_pipe (DBusStream        pipe,
++_dbus_write_pipe (DBusPipe         pipe,
 +                  const DBusString *buffer,
 +                  int               start,
 +                  int               len)
@@ -839,60 +607,6 @@ diff -u -3 -p -B -r1.19 dbus-sysdeps-unix.c
  /**
   * Like _dbus_write_two() but only works on sockets and is thus
   * available on Windows.
-@@ -1493,6 +1502,53 @@ _dbus_atomic_dec (DBusAtomic *atomic)
- #endif
- }
- 
-+/**
-+ * Atomically increments an integer
-+ *
-+ * @param atomic pointer to the integer to increment
-+ * @returns the value before incrementing
-+ *
-+ * @todo implement arch-specific faster atomic ops
-+ */
-+dbus_int32_t
-+_dbus_atomic_inc (DBusAtomic *atomic)
-+{
-+#ifdef DBUS_USE_ATOMIC_INT_486
-+  return atomic_exchange_and_add (atomic, 1);
-+#else
-+  dbus_int32_t res;
-+  _DBUS_LOCK (atomic);
-+  res = atomic->value;
-+  atomic->value += 1;
-+  _DBUS_UNLOCK (atomic);
-+  return res;
-+#endif
-+}
-+
-+/**
-+ * Atomically decrement an integer
-+ *
-+ * @param atomic pointer to the integer to decrement
-+ * @returns the value before decrementing
-+ *
-+ * @todo implement arch-specific faster atomic ops
-+ */
-+dbus_int32_t
-+_dbus_atomic_dec (DBusAtomic *atomic)
-+{
-+#ifdef DBUS_USE_ATOMIC_INT_486
-+  return atomic_exchange_and_add (atomic, -1);
-+#else
-+  dbus_int32_t res;
-+  
-+  _DBUS_LOCK (atomic);
-+  res = atomic->value;
-+  atomic->value -= 1;
-+  _DBUS_UNLOCK (atomic);
-+  return res;
-+#endif
-+}
-+
- #ifdef DBUS_BUILD_TESTS
- /** Gets our GID
-  * @returns process GID
 @@ -2840,4 +2896,9 @@ _dbus_get_standard_session_servicedirs (
    return FALSE;
  }
@@ -1007,16 +721,6 @@ diff -u -3 -p -B -r1.68 dbus-sysdeps.h
  /** Opaque type for reading a directory listing */
  typedef struct DBusDirIter DBusDirIter;
  
-@@ -317,6 +324,9 @@ dbus_bool_t  _dbus_check_dir_is_private_
- 
- void _dbus_fd_set_close_on_exec (int fd);
- 
-+int _dbus_mkdir    (const char *path,
-+                    mode_t mode);
-+
- const char* _dbus_get_tmpdir      (void);
- 
- /**
 Index: dbus/dbus-test.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-test.c,v
@@ -1060,24 +764,6 @@ retrieving revision 1.4
 diff -u -3 -p -B -r1.4 dbus-transport-socket.c
 --- dbus/dbus-transport-socket.c	20 Oct 2006 03:05:00 -0000	1.4
 +++ dbus/dbus-transport-socket.c	6 Mar 2007 20:54:44 -0000
-@@ -175,7 +175,7 @@ check_read_watch (DBusTransport *transpo
-   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
-   dbus_bool_t need_read_watch;
- 
--  _dbus_verbose ("%s: fd = %d\n",
-+  _dbus_verbose (" %s: fd = %d\n",
-                  _DBUS_FUNCTION_NAME, socket_transport->fd);
-   
-   if (transport->connection == NULL)
-@@ -652,7 +652,7 @@ do_reading (DBusTransport *transport)
-   int total;
-   dbus_bool_t oom;
- 
--  _dbus_verbose ("%s: fd = %d\n", _DBUS_FUNCTION_NAME,
-+  _dbus_verbose (" %s: fd = %d\n", _DBUS_FUNCTION_NAME,
-                  socket_transport->fd);
-   
-   /* No messages without authentication! */
 @@ -873,7 +873,7 @@ socket_handle_watch (DBusTransport *tran
                         flags);
        else
@@ -1126,31 +812,6 @@ diff -u -3 -p -B -r1.2 dbus-transport-socket.h
  DBUS_BEGIN_DECLS
  
  DBusTransport*          _dbus_transport_new_for_socket     (int                fd,
-Index: dbus/dbus-transport-unix.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-transport-unix.c,v
-retrieving revision 1.55
-diff -u -3 -p -B -r1.55 dbus-transport-unix.c
---- dbus/dbus-transport-unix.c	20 Oct 2006 03:05:00 -0000	1.55
-+++ dbus/dbus-transport-unix.c	6 Mar 2007 20:54:44 -0000
-@@ -23,11 +23,16 @@
- 
- #include "dbus-internals.h"
- #include "dbus-connection-internal.h"
--#include "dbus-transport-unix.h"
- #include "dbus-transport-socket.h"
- #include "dbus-transport-protected.h"
- #include "dbus-watch.h"
-+
-+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-+#include "dbus-transport-unix.h"
- #include "dbus-sysdeps-unix.h"
-+#else
-+#include "dbus-sysdeps-win.h"
-+#endif
- 
- /**
-  * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
 Index: dbus/dbus-transport.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-transport.c,v
