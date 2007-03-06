@@ -62,9 +62,14 @@ set (DBUS_LIB_SOURCES
 #
 #  find a clean Windows implementation
 #  and move code to a *-win.c file
-	${DBUS_DIR}/dbus-transport-unix.c
-	${DBUS_DIR}/dbus-server-unix.c
 )
+if(UNIX)
+    set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
+	    ${DBUS_DIR}/dbus-transport-unix.c
+	    ${DBUS_DIR}/dbus-server-unix.c
+	)
+endif(UNIX)
+
 set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-auth.h
 	${DBUS_DIR}/dbus-auth-script.h

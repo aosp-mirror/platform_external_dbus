@@ -1,3 +1,8 @@
+2007-03-06  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/dbus/CMakeLists.txt,cmake/bus/CMakeLists.txt,
+	cmake/CMakeLists.txt: win32 compile fix
+
 2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus-win.patch, README.win: added available win32 

@@ -449,8 +449,6 @@ if (DBUS_BUILD_TESTS)
 	add_subdirectory( test )
 endif (DBUS_BUILD_TESTS)
 add_subdirectory( tools )
-# small sized pkg-config emulation
-add_subdirectory( pkg-config )
 
 
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)

@@ -50,7 +50,7 @@ set (BUS_SOURCES
 	${BUS_DIR}/connection.h				
 	${BUS_DIR}/desktop-file.c				
 	${BUS_DIR}/desktop-file.h				
-	${BUS_DIR}/dir-watch.c				
+	${BUS_DIR}/dir-watch-default.c				
 	${BUS_DIR}/dir-watch.h				
 	${BUS_DIR}/dispatch.c				
 	${BUS_DIR}/dispatch.h				
