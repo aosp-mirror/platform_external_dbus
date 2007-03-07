@@ -1,3 +1,11 @@
+2007-03-07  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus/activation.c: removed obsolate include header.
+	* test/test-segfault.c: win32 compile fix, rlimit 
+	isn't available on win32.
+	* dbus-win.patch: removed some more patches, they
+	are applied or obsolate 
+
 2007-03-06  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* bus-win.patch: fixes unix listen problems, dbus-test 

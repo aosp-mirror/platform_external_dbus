@@ -470,24 +470,6 @@ diff -u -3 -p -B -r1.19 dbus-mainloop.c
    _dbus_verbose ("Quit main loop, depth %d -> %d\n",
                   loop->depth + 1, loop->depth);
  }
-Index: dbus/dbus-message.h
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-message.h,v
-retrieving revision 1.65
-diff -u -3 -p -B -r1.65 dbus-message.h
---- dbus/dbus-message.h	21 Oct 2006 18:51:30 -0000	1.65
-+++ dbus/dbus-message.h	6 Mar 2007 20:54:41 -0000
-@@ -34,6 +34,10 @@
- #include <dbus/dbus-errors.h>
- #include <stdarg.h>
- 
-+#ifdef DBUS_WINCE
-+#undef interface
-+#endif
-+
- DBUS_BEGIN_DECLS
- 
- /**
 Index: dbus/dbus-server-socket.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-server-socket.c,v
@@ -946,52 +928,3 @@ diff -u -3 -p -B -r1.22 dbus-watch.c
                   data, free_data_function, watch->data, watch->free_data_function);
    
    if (watch->free_data_function != NULL)
-Index: test/test-segfault.c
-===================================================================
-RCS file: /cvs/dbus/dbus/test/test-segfault.c,v
-retrieving revision 1.4
-diff -u -3 -p -B -r1.4 test-segfault.c
---- test/test-segfault.c	30 Nov 2005 19:32:26 -0000	1.4
-+++ test/test-segfault.c	6 Mar 2007 20:54:45 -0000
-@@ -1,9 +1,26 @@
- /* This is simply a process that segfaults */
-+#include <config.h>
- #include <stdlib.h>
- #include <signal.h>
- 
-+#ifdef DBUS_WIN
-+#define RLIMIT_CORE	4		/* max core file size */
-+typedef unsigned long rlim_t;
-+struct rlimit {
-+	rlim_t	rlim_cur;
-+	rlim_t	rlim_max;
-+};
-+static int getrlimit (int __resource, struct rlimit *__rlp) {
-+  return -1;
-+}
-+static int setrlimit (int __resource, const struct rlimit *__rlp) {
-+  return -1;
-+}
-+#else
- #include <sys/time.h>
- #include <sys/resource.h>
-+#endif
-+
- 
- int
- main (int argc, char **argv)
-Index: test/test-utils.c
-===================================================================
-RCS file: /cvs/dbus/dbus/test/test-utils.c,v
-retrieving revision 1.8
-diff -u -3 -p -B -r1.8 test-utils.c
---- test/test-utils.c	1 Oct 2006 15:36:18 -0000	1.8
-+++ test/test-utils.c	6 Mar 2007 20:54:45 -0000
-@@ -1,5 +1,7 @@
- #include "test-utils.h"
- 
-+void _dbus_connection_close_internal (DBusConnection *connection);
-+
- typedef struct
- {
-   DBusLoop *loop;
