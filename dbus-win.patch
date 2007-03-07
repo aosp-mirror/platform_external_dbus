@@ -1,18 +1,3 @@
-Index: bus/activation.c
-===================================================================
-RCS file: /cvs/dbus/dbus/bus/activation.c,v
-retrieving revision 1.49
-diff -u -3 -p -B -r1.49 activation.c
---- bus/activation.c	4 Mar 2007 22:09:50 -0000	1.49
-+++ bus/activation.c	6 Mar 2007 20:54:30 -0000
-@@ -34,7 +34,6 @@
- #include <dbus/dbus-spawn.h>
- #include <dbus/dbus-timeout.h>
- #include <dbus/dbus-sysdeps.h>
--#include <dirent.h>
- #include <errno.h>
- 
- #define DBUS_SERVICE_SECTION "D-BUS Service"
 Index: bus/bus.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/bus.c,v

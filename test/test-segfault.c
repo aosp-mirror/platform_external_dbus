@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
+#include <sys/time.h>
+#include <sys/resource.h>
+#endif
+
 int
 main (int argc, char **argv)
 {

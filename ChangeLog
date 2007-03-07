@@ -1,5 +1,10 @@
 2007-03-07  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* test/test-segfault.c: unix compile fix.
+	* dbus-win.patch: removed obsolate patches.
+
+2007-03-07  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* bus/activation.c: removed obsolate include header.
 	* test/test-segfault.c: win32 compile fix, rlimit 
 	isn't available on win32.
