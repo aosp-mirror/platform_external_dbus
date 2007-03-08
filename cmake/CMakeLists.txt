@@ -93,7 +93,8 @@ if(wince)
 	include_directories(${wcelibcex}/include/wcelibcex ${wcelibcex}/src)
 	
 	add_definitions(
-			-DDBUS_WINCE
+# see config.h.cmake
+#			-DDBUS_WINCE
 			-DWINCE
 			-DWIN32_PLATFORM_PSPC
 			-D_WINDOWS

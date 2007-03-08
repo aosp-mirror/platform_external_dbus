@@ -117,9 +117,25 @@
 /* Define to 1 if you have struct cmsgred */
 #cmakedefine    HAVE_CMSGCRED 1
 
-#if defined(_WIN32) || defined(_WIN64)
+// system type defines
+#if defined(_WIN32) || defined(_WIN64) || defined(_WINCE)
 # define DBUS_WIN
 # define DBUS_WIN_FIXME 1
+#endif
+
+#if defined(_WIN32)
+# define DBUS_WIN32
+#endif
+
+#if defined(_WIN64)
+# define DBUS_WIN64
+#endif
+
+#if defined(_WINCE)
+# define DBUS_WINCE
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
 // mingw mode_t
 # ifdef HAVE_STDIO_H
 #  include <stdio.h>
@@ -137,6 +153,7 @@
 #  undef DBUS_VA_COPY // DBUS_VA_COPY kills mingw's bus-test
 # endif
 #endif	// defined(_WIN32) || defined(_WIN64)
+
 
 #ifdef interface
 #undef interface
