@@ -1,5 +1,9 @@
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus-win.patch: updated patch for bus/dispatch.c.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus-win.patch: dbus-connection.c (dbus_connection_get_unix_user,
 	dbus_connection_get_unix_process_id): Let return them valid user id's, 
 	otherwise bus-test fails. How to replace on win32 ?.

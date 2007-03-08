@@ -186,128 +186,6 @@ diff -u -3 -p -B -r1.47 config-parser.c
    return TRUE;
  }
  			   
-Index: bus/dispatch.c
-===================================================================
-RCS file: /cvs/dbus/dbus/bus/dispatch.c,v
-retrieving revision 1.78
-diff -u -3 -p -B -r1.78 dispatch.c
---- bus/dispatch.c	23 Oct 2006 17:25:52 -0000	1.78
-+++ bus/dispatch.c	6 Mar 2007 20:54:33 -0000
-@@ -428,6 +428,11 @@ block_connection_until_message_from_bus 
-     }
- }
- 
-+#ifdef DBUS_WIN
-+#include <tools/dbus-print-message.h>
-+#include <tools/dbus-print-message.c>
-+#endif
-+
- static void
- spin_connection_until_authenticated (BusContext     *context,
-                                      DBusConnection *connection)
-@@ -439,6 +444,19 @@ spin_connection_until_authenticated (Bus
-       bus_test_run_bus_loop (context, FALSE);
-       bus_test_run_clients_loop (FALSE);
-     }
-+#ifdef DBUS_WIN
-+  if ( dbus_connection_get_dispatch_status(connection) != DBUS_DISPATCH_COMPLETE)
-+    {
-+      DBusMessage *message;
-+	  message = dbus_connection_pop_message (connection);
-+	  printf ("spin_connection_until_authenticated failed,\n");
-+	  printf ("because of a non dispatched message:\n");
-+	  print_message(message, FALSE);
-+	  printf ("\n");	 
-+	  _dbus_assert_not_reached ("spin_connection_until_authenticated failed\n ");
-+    }
-+#endif
-+
-   _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
- }
- 
-@@ -2624,6 +2642,11 @@ check_segfault_service_no_auto_start (Bu
-   const char *segv_service;
-   dbus_uint32_t flags;
-   
-+  _dbus_warn("TODO: dispatch.c: check_segfault_service_no_auto_start\n");
-+#ifndef DBUS_WIN_FIXME
-+  return TRUE;
-+#endif
-+
-   message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
-                                           DBUS_PATH_DBUS,
-                                           DBUS_INTERFACE_DBUS,
-@@ -2698,9 +2721,12 @@ check_segfault_service_no_auto_start (Bu
-         }
-       else
-         {
-+/* no DBUS_ERROR_NO_MEMORY on windows (no have_fork_errnum)*/
-+#ifndef DBUS_WIN_FIXME
-           warn_unexpected (connection, message, "not this error");
- 
-           goto out;
-+#endif
-         }
-     }
-   else
-@@ -4062,14 +4088,20 @@ bus_dispatch_test (const DBusString *tes
-       _dbus_assert_not_reached ("initial connection setup failed");
-     }
-   
-+  _dbus_warn("TODO: dispatch.c create_and_hello test\n");
-+#ifndef DBUS_WIN_FIXME  
-   check1_try_iterations (context, "create_and_hello",
-                          check_hello_connection);
-+#endif
-   
-   check2_try_iterations (context, foo, "nonexistent_service_no_auto_start",
-                          check_nonexistent_service_no_auto_start);
- 
-+  _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
-+#ifndef DBUS_WIN_FIXME
-   check2_try_iterations (context, foo, "segfault_service_no_auto_start",
-                          check_segfault_service_no_auto_start);
-+#endif
-   
-   check2_try_iterations (context, foo, "existent_service_no_auto_start",
-                          check_existent_service_no_auto_start);
-@@ -4077,8 +4109,12 @@ bus_dispatch_test (const DBusString *tes
-   check2_try_iterations (context, foo, "nonexistent_service_auto_start",
-                          check_nonexistent_service_auto_start);
-   
-+
-+  _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
-+#ifndef DBUS_WIN_FIXME    
-   check2_try_iterations (context, foo, "segfault_service_auto_start",
-                          check_segfault_service_auto_start);
-+#endif
- 
-   check2_try_iterations (context, foo, "shell_fail_service_auto_start",
-                          check_shell_fail_service_auto_start);
-@@ -4095,8 +4131,11 @@ bus_dispatch_test (const DBusString *tes
-   if (!check_existent_service_auto_start (context, foo))
-     _dbus_assert_not_reached ("existent service auto start failed");
- 
-+  _dbus_warn("TODO: dispatch.c check_shell_service_success_auto_start test\n");
-+#ifndef DBUS_WIN_FIXME  
-   if (!check_shell_service_success_auto_start (context, foo))
-     _dbus_assert_not_reached ("shell success service auto start failed");
-+#endif
- 
-   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
- 
-@@ -4147,8 +4186,11 @@ bus_dispatch_sha1_test (const DBusString
-       _dbus_assert_not_reached ("initial connection setup failed");
-     }
-   
-+  _dbus_warn("TODO: dispatch.c: create_and_hello_sha1 test\n");
-+#ifndef DBUS_WIN_FIXME  
-   check1_try_iterations (context, "create_and_hello_sha1",
-                          check_hello_connection);
-+#endif
- 
-   kill_client_connection_unchecked (foo);
- 
 Index: bus/main.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/main.c,v
@@ -945,3 +823,127 @@ diff -u -3 -p -B -r1.22 dbus-watch.c
                   data, free_data_function, watch->data, watch->free_data_function);
    
    if (watch->free_data_function != NULL)
+Index: bus/dispatch.c
+===================================================================
+RCS file: /cvs/dbus/dbus/bus/dispatch.c,v
+retrieving revision 1.79
+diff -u -3 -p -B -r1.79 dispatch.c
+--- bus/dispatch.c	8 Mar 2007 08:30:17 -0000	1.79
++++ bus/dispatch.c	8 Mar 2007 14:40:36 -0000
+@@ -34,7 +34,7 @@
+ #include "test.h"
+ #include <dbus/dbus-internals.h>
+ #include <string.h>
+-
++
+ static dbus_bool_t
+ send_one_message (DBusConnection *connection,
+                   BusContext     *context,
+@@ -428,6 +428,11 @@ block_connection_until_message_from_bus 
+     }
+ }
+ 
++#ifdef DBUS_WIN
++#include <tools/dbus-print-message.h>
++#include <tools/dbus-print-message.c>
++#endif
++
+ static void
+ spin_connection_until_authenticated (BusContext     *context,
+                                      DBusConnection *connection)
+@@ -439,6 +444,19 @@ spin_connection_until_authenticated (Bus
+       bus_test_run_bus_loop (context, FALSE);
+       bus_test_run_clients_loop (FALSE);
+     }
++#ifdef DBUS_WIN
++  if ( dbus_connection_get_dispatch_status(connection) != DBUS_DISPATCH_COMPLETE)
++    {
++      DBusMessage *message;
++	  message = dbus_connection_pop_message (connection);
++	  printf ("spin_connection_until_authenticated failed,\n");
++	  printf ("because of a non dispatched message:\n");
++	  print_message(message, FALSE);
++	  printf ("\n");	 
++	  _dbus_assert_not_reached ("spin_connection_until_authenticated failed\n ");
++    }
++#endif
++
+   _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
+ }
+ 
+@@ -2699,9 +2717,12 @@ check_segfault_service_no_auto_start (Bu
+         }
+       else
+         {
++/* no DBUS_ERROR_NO_MEMORY on windows (no have_fork_errnum)*/
++#ifndef DBUS_WIN_FIXME
+           warn_unexpected (connection, message, "not this error");
+ 
+           goto out;
++#endif
+         }
+     }
+   else
+@@ -2812,7 +2833,7 @@ check_segfault_service_auto_start (BusCo
+   return retval;
+ }
+ #endif
+-
++
+ #define TEST_ECHO_MESSAGE "Test echo message"
+ #define TEST_RUN_HELLO_FROM_SELF_MESSAGE "Test sending message to self"
+ 
+@@ -4064,13 +4085,17 @@ bus_dispatch_test (const DBusString *tes
+       _dbus_assert_not_reached ("initial connection setup failed");
+     }
+   
++#ifdef DBUS_WIN_FIXME
++  _dbus_warn("TODO: dispatch.c create_and_hello test\n");
++#else
+   check1_try_iterations (context, "create_and_hello",
+                          check_hello_connection);
++#endif
+   
+   check2_try_iterations (context, foo, "nonexistent_service_no_auto_start",
+                          check_nonexistent_service_no_auto_start);
+ 
+-#ifdef DBUS_WIN_FIXME
++#ifdef DBUS_WIN_FIXME
+   _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
+ #else
+   check2_try_iterations (context, foo, "segfault_service_no_auto_start",
+@@ -4086,7 +4111,7 @@ bus_dispatch_test (const DBusString *tes
+ 
+ #ifdef DBUS_WIN_FIXME    
+   _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
+-#else
++#else
+   check2_try_iterations (context, foo, "segfault_service_auto_start",
+                          check_segfault_service_auto_start);
+ #endif
+@@ -4106,8 +4131,12 @@ bus_dispatch_test (const DBusString *tes
+   if (!check_existent_service_auto_start (context, foo))
+     _dbus_assert_not_reached ("existent service auto start failed");
+ 
++#ifdef DBUS_WIN_FIXME  
++  _dbus_warn("TODO: dispatch.c check_shell_service_success_auto_start test\n");
++#else
+   if (!check_shell_service_success_auto_start (context, foo))
+     _dbus_assert_not_reached ("shell success service auto start failed");
++#endif
+ 
+   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
+ 
+@@ -4158,8 +4187,12 @@ bus_dispatch_sha1_test (const DBusString
+       _dbus_assert_not_reached ("initial connection setup failed");
+     }
+   
++#ifdef DBUS_WIN_FIXME  
++  _dbus_warn("TODO: dispatch.c: create_and_hello_sha1 test\n");
++#else
+   check1_try_iterations (context, "create_and_hello_sha1",
+                          check_hello_connection);
++#endif
+ 
+   kill_client_connection_unchecked (foo);
+ 
