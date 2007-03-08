@@ -1,8 +1,8 @@
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
-	* cmake/CMakeList.txt,cmake/config.h.cmake: used 
-	DBUS_WIN for all win32 systems and DBUS_WINXX for 
-	specific subsystems.
+	* dbus-win.patch: added bus/config-loader-libexpat.c patch, 
+	uses DBUS_WIN for alls win32 related #ifdefs, 
+	some minor cleanups
 
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 

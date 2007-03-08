@@ -78,7 +78,7 @@ diff -u -3 -p -B -r1.8 config-loader-libxml.c
    int ret;
 -  
 +#ifdef DBUS_WIN
-+	DBusString *dbusdir;
++  DBusString *dbusdir;
 +#endif
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
    
@@ -89,8 +89,8 @@ diff -u -3 -p -B -r1.8 config-loader-libxml.c
  
 +#ifdef DBUS_WIN
 +  dbusdir = _dbus_get_working_dir();
-+	if (dbusdir)
-+  	parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
++  if (dbusdir)
++     parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
 +  else  
 +#endif
    if (!_dbus_string_get_dirname (file, &dirname))
@@ -576,15 +576,6 @@ diff -u -3 -p -B -r1.68 dbus-sysdeps.h
  dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
                                      DBusError        *error);
  dbus_bool_t _dbus_close_socket     (int               fd,
-@@ -229,7 +230,7 @@ typedef struct DBusAtomic DBusAtomic;
-  */
- struct DBusAtomic
- {
--#ifdef DBUS_WIN
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
-   volatile long value; /**< Value of the atomic integer. */
- #else
-   volatile dbus_int32_t value; /**< Value of the atomic integer. */
 @@ -302,6 +303,12 @@ dbus_bool_t _dbus_path_is_absolute    (c
  
  dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
@@ -609,7 +600,7 @@ diff -u -3 -p -B -r1.44 dbus-test.c
    
    run_test ("hash", specific_test, _dbus_hash_test);
  
-+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
++#if !defined(DBUS_WINCE)
    run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
 +#endif
    
@@ -626,7 +617,7 @@ diff -u -3 -p -B -r1.36 dbus-threads.c
  dbus_bool_t
  _dbus_threads_init_debug (void)
  {
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++#if defined(DBUS_WIN)
 +  return _dbus_threads_init_platform_specific();
 +#else
    return dbus_threads_init (&fake_functions);
@@ -654,7 +645,7 @@ diff -u -3 -p -B -r1.4 dbus-transport-socket.c
            
        if (port == NULL)
          {
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++#if defined(DBUS_WIN)
 +          port = "0";
 +#else
            _dbus_set_bad_address (error, "tcp", "port", NULL);
@@ -682,7 +673,7 @@ diff -u -3 -p -B -r1.2 dbus-transport-socket.h
  
  #include <dbus/dbus-transport-protected.h>
  
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++#if defined(DBUS_WIN)
 +#include <dbus/dbus-sockets-win.h>
 +#endif
 +
@@ -711,15 +702,6 @@ diff -u -3 -p -B -r1.54 dbus-transport.c
  #ifdef DBUS_BUILD_TESTS
    , { _dbus_transport_open_debug_pipe }
  #endif
-@@ -496,7 +498,7 @@ _dbus_transport_get_is_authenticated (DB
-    * set it and have it only be invoked when appropriate.
-    */
-   dbus_bool_t on_windows = FALSE;
--#ifdef DBUS_WIN
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
-   on_windows = TRUE;
- #endif
-   
 @@ -674,7 +676,7 @@ _dbus_transport_handle_watch (DBusTransp
    if (transport->disconnected)
      return TRUE;
@@ -790,7 +772,7 @@ diff -u -3 -p -B -r1.22 dbus-watch.c
 +  return watch->fd;
 +}
 +
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++#if defined(DBUS_WIN)
 +// never used by the dbus code
 +#include "dbus-sysdeps-win.h"
 +int 
@@ -827,19 +809,10 @@ Index: bus/dispatch.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/dispatch.c,v
 retrieving revision 1.79
-diff -u -3 -p -B -r1.79 dispatch.c
+diff -u -r1.79 dispatch.c
 --- bus/dispatch.c	8 Mar 2007 08:30:17 -0000	1.79
-+++ bus/dispatch.c	8 Mar 2007 14:40:36 -0000
-@@ -34,7 +34,7 @@
- #include "test.h"
- #include <dbus/dbus-internals.h>
- #include <string.h>
--
-+
- static dbus_bool_t
- send_one_message (DBusConnection *connection,
-                   BusContext     *context,
-@@ -428,6 +428,11 @@ block_connection_until_message_from_bus 
++++ bus/dispatch.c	8 Mar 2007 19:37:34 -0000
+@@ -428,6 +428,11 @@
      }
  }
  
@@ -851,7 +824,7 @@ diff -u -3 -p -B -r1.79 dispatch.c
  static void
  spin_connection_until_authenticated (BusContext     *context,
                                       DBusConnection *connection)
-@@ -439,6 +444,19 @@ spin_connection_until_authenticated (Bus
+@@ -439,6 +444,19 @@
        bus_test_run_bus_loop (context, FALSE);
        bus_test_run_clients_loop (FALSE);
      }
@@ -871,7 +844,7 @@ diff -u -3 -p -B -r1.79 dispatch.c
    _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
  }
  
-@@ -2699,9 +2717,12 @@ check_segfault_service_no_auto_start (Bu
+@@ -2699,9 +2717,12 @@
          }
        else
          {
@@ -884,16 +857,7 @@ diff -u -3 -p -B -r1.79 dispatch.c
          }
      }
    else
-@@ -2812,7 +2833,7 @@ check_segfault_service_auto_start (BusCo
-   return retval;
- }
- #endif
--
-+
- #define TEST_ECHO_MESSAGE "Test echo message"
- #define TEST_RUN_HELLO_FROM_SELF_MESSAGE "Test sending message to self"
- 
-@@ -4064,13 +4085,17 @@ bus_dispatch_test (const DBusString *tes
+@@ -4064,29 +4085,36 @@
        _dbus_assert_not_reached ("initial connection setup failed");
      }
    
@@ -912,7 +876,19 @@ diff -u -3 -p -B -r1.79 dispatch.c
    _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
  #else
    check2_try_iterations (context, foo, "segfault_service_no_auto_start",
-@@ -4086,7 +4111,7 @@ bus_dispatch_test (const DBusString *tes
+                          check_segfault_service_no_auto_start);
+ #endif
+   
++#ifdef DBUS_WIN_FIXME
++  _dbus_warn("TODO: dispatch.c existent_service_no_auto_start\n");
++#else
+   check2_try_iterations (context, foo, "existent_service_no_auto_start",
+                          check_existent_service_no_auto_start);
+   
+   check2_try_iterations (context, foo, "nonexistent_service_auto_start",
+                          check_nonexistent_service_auto_start);
+-  
++#endif
  
  #ifdef DBUS_WIN_FIXME    
    _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
@@ -921,7 +897,7 @@ diff -u -3 -p -B -r1.79 dispatch.c
    check2_try_iterations (context, foo, "segfault_service_auto_start",
                           check_segfault_service_auto_start);
  #endif
-@@ -4106,8 +4131,12 @@ bus_dispatch_test (const DBusString *tes
+@@ -4106,8 +4134,12 @@
    if (!check_existent_service_auto_start (context, foo))
      _dbus_assert_not_reached ("existent service auto start failed");
  
@@ -934,7 +910,7 @@ diff -u -3 -p -B -r1.79 dispatch.c
  
    _dbus_verbose ("Disconnecting foo, bar, and baz\n");
  
-@@ -4158,8 +4187,12 @@ bus_dispatch_sha1_test (const DBusString
+@@ -4158,8 +4190,12 @@
        _dbus_assert_not_reached ("initial connection setup failed");
      }
    
@@ -947,3 +923,43 @@ diff -u -3 -p -B -r1.79 dispatch.c
  
    kill_client_connection_unchecked (foo);
  
+Index: bus/config-loader-expat.c
+===================================================================
+RCS file: /cvs/dbus/dbus/bus/config-loader-expat.c,v
+retrieving revision 1.10
+diff -u -r1.10 config-loader-expat.c
+--- bus/config-loader-expat.c	10 Aug 2004 03:06:59 -0000	1.10
++++ bus/config-loader-expat.c	8 Mar 2007 19:00:25 -0000
+@@ -161,6 +161,9 @@
+     }
+ }
+ 
++#ifdef DBUS_WIN
++DBusString *_dbus_get_working_dir(void);
++#endif
+ 
+ BusConfigParser*
+ bus_config_load (const DBusString      *file,
+@@ -171,6 +174,9 @@
+   XML_Parser expat;
+   const char *filename;
+   BusConfigParser *parser;
++#ifdef DBUS_WIN
++  DBusString *dbusdir;
++#endif
+   ExpatParseContext context;
+   DBusString dirname;
+   
+@@ -209,6 +215,12 @@
+       goto failed;
+     }
+   
++#ifdef DBUS_WIN
++  dbusdir = _dbus_get_working_dir();
++  if (dbusdir)
++     parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
++  else  
++#endif
+   parser = bus_config_parser_new (&dirname, is_toplevel, parent);
+   if (parser == NULL)
+     {
