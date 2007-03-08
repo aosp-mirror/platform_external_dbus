@@ -1,5 +1,10 @@
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus-win.patch: removed _dbus_write_pipe() patch, it is now 
+	committed.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* bus/bus.c, dbus/dbus-sysdeps-unix.c, dbus/dbus-sysdeps.h:
 	rename pipe related write() function calls to _dbus_write_pipe().
 
