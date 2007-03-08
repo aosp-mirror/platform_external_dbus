@@ -1,5 +1,11 @@
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-sysdeps-win.c (_dbus_win_set_error_from_win_error):
+	use dbus friendly error name.
+	(fill_win_user_info_homedir): print user name in error case too.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* cmake/ConfigureChecks.cmake: fixed socketpair check
 
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>

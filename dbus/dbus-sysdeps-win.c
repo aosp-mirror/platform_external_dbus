@@ -1304,7 +1304,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
   else
     {
       char *dc_string = _dbus_win_utf16_to_utf8(dc,error);
-      _dbus_warn("NetUserGetInfo() failed with errorcode %d '%s', %s\n",ret,_dbus_lm_strerror(ret),dc_string);
+      _dbus_warn("NetUserGetInfo() for user '%s' failed with errorcode %d '%s', %s\n",_dbus_win_utf16_to_utf8(wname,error), ret,_dbus_lm_strerror(ret),dc_string);
       dbus_free(dc_string);
       /* Not set, so use something random. */
       info->homedir = _dbus_strdup ("\\");
@@ -2472,10 +2472,10 @@ _dbus_win_set_error_from_win_error (DBusError *error,
       strcpy (msg_copy, msg);
       LocalFree (msg);
 
-      dbus_set_error (error, "Win32 error", "%s", msg_copy);
+      dbus_set_error (error, "win32.error", "%s", msg_copy);
     }
   else
-    dbus_set_error_const (error, "Win32 error", "Unknown error code or FormatMessage failed");
+    dbus_set_error_const (error, "win32.error", "Unknown error code or FormatMessage failed");
 }
 
 void
