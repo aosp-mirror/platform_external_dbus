@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-#include <sys/time.h>
+#ifdef HAVE_SETRLIMIT
 #include <sys/resource.h>
 #endif
 
@@ -13,7 +12,7 @@ main (int argc, char **argv)
 {
   char *p;  
 
-#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
+#if HAVE_SETRLIMIT
   struct rlimit r = { 0, };
   
   getrlimit (RLIMIT_CORE, &r);
