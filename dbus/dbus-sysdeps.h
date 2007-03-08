@@ -302,6 +302,12 @@ dbus_bool_t _dbus_path_is_absolute    (const DBusString *filename);
 
 dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
 
+typedef int DBusPipe;
+int _dbus_write_pipe (DBusPipe          pipe,
+                      const DBusString *buffer,
+                      int               start,
+                      int               len);
+
 /** Opaque type for reading a directory listing */
 typedef struct DBusDirIter DBusDirIter;
 

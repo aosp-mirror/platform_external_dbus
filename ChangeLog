@@ -1,5 +1,10 @@
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* bus/bus.c, dbus/dbus-sysdeps-unix.c, dbus/dbus-sysdeps.h:
+	rename pipe related write() function calls to _dbus_write_pipe().
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus-win.patch: added bus/config-loader-libexpat.c patch, 
 	uses DBUS_WIN for alls win32 related #ifdefs, 
 	some minor cleanups

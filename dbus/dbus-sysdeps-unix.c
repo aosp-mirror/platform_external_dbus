@@ -169,6 +169,15 @@ _dbus_write_socket (int               fd,
   return _dbus_write (fd, buffer, start, len);
 }
 
+int
+_dbus_write_pipe (DBusPipe         pipe,
+                  const DBusString *buffer,
+                  int               start,
+                  int               len)
+{
+	return _dbus_write (pipe, buffer, start, len);
+}
+
 /**
  * Like _dbus_write_two() but only works on sockets and is thus
  * available on Windows.
