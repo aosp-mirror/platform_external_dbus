@@ -1,5 +1,14 @@
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus-win.patch: dbus-connection.c (dbus_connection_get_unix_user,
+	dbus_connection_get_unix_process_id): Let return them valid user id's, 
+	otherwise bus-test fails. How to replace on win32 ?.
+	
+	* dbus/dbus-sysdeps-win.c (fill_win_user_info_homedir):
+	fix memory leak.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-win.c (_dbus_win_set_error_from_win_error):
 	use dbus friendly error name.
 	(fill_win_user_info_homedir): print user name in error case too.

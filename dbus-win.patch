@@ -1,3 +1,35 @@
+--- dbus/dbus-connection.c Wed Nov 15 04:07:59 2006
++++ dbus/dbus-connection.c Thu Mar 08 14:22:09 2007
+@@ -4790,14 +4790,6 @@
+   _dbus_return_val_if_fail (connection != NULL, FALSE);
+   _dbus_return_val_if_fail (uid != NULL, FALSE);
+ 
+-#ifdef DBUS_WIN
+-  /* FIXME this should be done at a lower level, but it's kind of hard,
+-   * just want to be sure we don't ship with this API returning
+-   * some weird internal fake uid for 1.0
+-   */
+-  return FALSE;
+-#endif
+-  
+   CONNECTION_LOCK (connection);
+ 
+   if (!_dbus_transport_get_is_authenticated (connection->transport))
+@@ -4829,14 +4821,6 @@
+   _dbus_return_val_if_fail (connection != NULL, FALSE);
+   _dbus_return_val_if_fail (pid != NULL, FALSE);
+ 
+-#ifdef DBUS_WIN
+-  /* FIXME this should be done at a lower level, but it's kind of hard,
+-   * just want to be sure we don't ship with this API returning
+-   * some weird internal fake uid for 1.0
+-   */
+-  return FALSE;
+-#endif
+-  
+   CONNECTION_LOCK (connection);
+ 
+   if (!_dbus_transport_get_is_authenticated (connection->transport))
 Index: bus/bus.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/bus.c,v
