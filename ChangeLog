@@ -1,5 +1,9 @@
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* cmake/ConfigureChecks.cmake: fixed socketpair check
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* bus/dispatch.c: disabled segfault test on win32 for now
 
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
