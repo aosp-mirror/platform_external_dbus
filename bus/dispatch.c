@@ -2611,6 +2611,7 @@ check_existent_service_no_auto_start (BusContext     *context,
   return retval;
 }
 
+#ifndef DBUS_WIN_FIXME
 /* returns TRUE if the correct thing happens,
  * but the correct thing may include OOM errors.
  */
@@ -2810,6 +2811,7 @@ check_segfault_service_auto_start (BusContext     *context,
   
   return retval;
 }
+#endif
 
 #define TEST_ECHO_MESSAGE "Test echo message"
 #define TEST_RUN_HELLO_FROM_SELF_MESSAGE "Test sending message to self"
@@ -4068,8 +4070,12 @@ bus_dispatch_test (const DBusString *test_data_dir)
   check2_try_iterations (context, foo, "nonexistent_service_no_auto_start",
                          check_nonexistent_service_no_auto_start);
 
+#ifdef DBUS_WIN_FIXME
+  _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
+#else
   check2_try_iterations (context, foo, "segfault_service_no_auto_start",
                          check_segfault_service_no_auto_start);
+#endif
   
   check2_try_iterations (context, foo, "existent_service_no_auto_start",
                          check_existent_service_no_auto_start);
@@ -4077,8 +4083,13 @@ bus_dispatch_test (const DBusString *test_data_dir)
   check2_try_iterations (context, foo, "nonexistent_service_auto_start",
                          check_nonexistent_service_auto_start);
   
+
+#ifdef DBUS_WIN_FIXME    
+  _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
+#else
   check2_try_iterations (context, foo, "segfault_service_auto_start",
                          check_segfault_service_auto_start);
+#endif
 
   check2_try_iterations (context, foo, "shell_fail_service_auto_start",
                          check_shell_fail_service_auto_start);

@@ -1,5 +1,9 @@
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* bus/dispatch.c: disabled segfault test on win32 for now
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* configure.in, cmake/ConfigureChecks.cmake: added check 
 	for setrlimit. 
 	* test/test-segfault.c: only include setrlimit stuff only 
