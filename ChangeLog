@@ -1,5 +1,9 @@
 2007-03-09  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* cmake/config.h.cmake: win32 msvc bug fix
+
+2007-03-09  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* cmake/config.h.cmake: fixed DBUS_WINxx defines,
 	using _WINCE does not work.
 

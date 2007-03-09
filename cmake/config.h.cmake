@@ -123,7 +123,7 @@
 # define DBUS_WIN_FIXME 1
 #endif
 
-defined(_WIN32) && !defined(_WIN32_WCE)
+#if defined(_WIN32) && !defined(_WIN32_WCE)
 # define DBUS_WIN32
 #endif
 
