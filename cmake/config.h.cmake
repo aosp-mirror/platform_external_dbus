@@ -118,12 +118,12 @@
 #cmakedefine    HAVE_CMSGCRED 1
 
 // system type defines
-#if defined(_WIN32) || defined(_WIN64) || defined(_WINCE)
+#if defined(_WIN32) || defined(_WIN64)
 # define DBUS_WIN
 # define DBUS_WIN_FIXME 1
 #endif
 
-#if defined(_WIN32)
+defined(_WIN32) && !defined(_WIN32_WCE)
 # define DBUS_WIN32
 #endif
 
@@ -131,7 +131,7 @@
 # define DBUS_WIN64
 #endif
 
-#if defined(_WINCE)
+#if defined(_WIN32_WCE)
 # define DBUS_WINCE
 #endif
 
@@ -153,7 +153,6 @@
 #  undef DBUS_VA_COPY // DBUS_VA_COPY kills mingw's bus-test
 # endif
 #endif	// defined(_WIN32) || defined(_WIN64)
-
 
 #ifdef interface
 #undef interface

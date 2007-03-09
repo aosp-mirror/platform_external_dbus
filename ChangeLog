@@ -1,3 +1,8 @@
+2007-03-09  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/config.h.cmake: fixed DBUS_WINxx defines,
+	using _WINCE does not work.
+
 2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus-win.patch: removed _dbus_write_pipe() patch, it is now 
