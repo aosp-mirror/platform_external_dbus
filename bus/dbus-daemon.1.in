@@ -211,11 +211,22 @@ a transport name plus possible parameters/options.
 Example: <listen>unix:path=/tmp/foo</listen>
 
 .PP
+Example: <listen>tcp:host=localhost,port=1234</listen>
+
+.PP
 If there are multiple <listen> elements, then the bus listens 
 on multiple addresses. The bus will pass its address to 
 started services or other interested parties with 
 the last address given in <listen> first. That is, 
 apps will try to connect to the last <listen> address first.
+
+.PP
+A special case is using a port number of zero which means to 
+pick up a random free port. The real used port number could be retrieved
+by using the --print-address command line parameter.
+
+.PP
+Example: <listen>tcp:host=localhost,port=0</listen>
 
 .TP
 .I "<auth>"

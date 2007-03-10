@@ -3438,16 +3438,18 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port);
  * Creates a socket and binds it to the given port,
  * then listens on the socket. The socket is
  * set to be nonblocking. 
+ * In case of port=0 a random free port is used and 
+ * returned in the port parameter. 
  *
  * @param host the interface to listen on, NULL for loopback, empty for any
- * @param port the port to listen on, if zero a free port will be used
+ * @param port the port to listen on, if zero a free port will be used 
  * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
 
 int
 _dbus_listen_tcp_socket (const char     *host,
-                         dbus_uint32_t   port,
+                         dbus_uint32_t  *port,
                          DBusError      *error)
 {
   DBusSocket slisten;
@@ -3455,7 +3457,7 @@ _dbus_listen_tcp_socket (const char     *host,
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
-  int len =  sizeof (struct sockaddr);
+  socklen_t len = (socklen_t) sizeof (struct sockaddr);
   struct in_addr ina;
 
 
@@ -3504,14 +3506,14 @@ _dbus_listen_tcp_socket (const char     *host,
   _DBUS_ZERO (addr);
   memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = htons (port);
+  addr.sin_port = htons (*port);
 
   if (bind (slisten.fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
+                      host, *port, _dbus_strerror (errno));
       DBUS_CLOSE_SOCKET (slisten.fd);
       return -1;
     }
@@ -3521,14 +3523,14 @@ _dbus_listen_tcp_socket (const char     *host,
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to listen on socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
+                      host, *port, _dbus_strerror (errno));
       DBUS_CLOSE_SOCKET (slisten.fd);
       return -1;
     }
 
-
   getsockname(slisten.fd, (struct sockaddr*) &addr, &len);
-
+  *port = (dbus_uint32_t) ntohs(addr.sin_port);
+  
   _dbus_daemon_init(host, ntohs(addr.sin_port));
 
   handle = _dbus_socket_to_handle (&slisten);

@@ -323,6 +323,9 @@ _dbus_server_new_for_tcp_socket (const char     *host,
 
   if (host == NULL)
     host = "localhost";
+  
+  listen_fd = _dbus_listen_tcp_socket (host, &port, error);
+  _dbus_fd_set_close_on_exec (listen_fd);
 
   _dbus_string_init_const (&host_str, host);
   if (!_dbus_string_append (&address, "tcp:host=") ||
@@ -334,9 +337,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
-  
-  listen_fd = _dbus_listen_tcp_socket (host, port, error);
-  _dbus_fd_set_close_on_exec (listen_fd);
+
   
   if (listen_fd < 0)
     {
@@ -401,7 +402,7 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
       sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
       _dbus_string_free (&str);
           
-      if (sresult == FALSE || lport <= 0 || lport > 65535)
+      if (sresult == FALSE || lport < 0 || lport > 65535)
         {
           _dbus_set_bad_address(error, NULL, NULL, 
                                 "Port is not an integer between 0 and 65535");

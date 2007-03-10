@@ -1,5 +1,20 @@
 2007-03-09  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-sysdeps.h (_dbus_listen_tcp_socket):
+	changed type or port to pointer, because the port is given back.
+
+	* dbus/dbus-server-socket.c (_dbus_server_new_for_tcp_socket):
+	implemented returning tcp port. Skipping port parameter
+	and non integer port values in config <listen> statement
+	needs more effort.
+
+	* dbus/dbus-sysdeps-unix.c, dbus/dbus-sysdeps-win.c
+	(_dbus_listen_tcp_socket): return the real used tcp port.
+
+	* bus/dbus-daemon.1.in: added <listen> tcp examples
+
+2007-03-09  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* cmake/config.h.cmake: win32 msvc bug fix
 
 2007-03-09  Ralf Habacker  <ralf.habacker@freenet.de>
