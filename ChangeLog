@@ -1,5 +1,12 @@
 2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* tools/dbus-print-message.c (print_message):
+	added printing of the reply serial to method returns and 
+	errors, so you can actually figure out the message/reply 
+	pairs - patch by olli.salli at collabora.co.uk.
+
+2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus-win.patch: removed committed patches. 
 
 2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>

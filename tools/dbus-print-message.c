@@ -270,12 +270,14 @@ print_message (DBusMessage *message, dbus_bool_t literal)
 	  break;
       
 	case DBUS_MESSAGE_TYPE_METHOD_RETURN:
-	  printf ("\n");
+	  printf (" reply_serial=%u\n",
+          dbus_message_get_reply_serial (message));
 	  break;
 
 	case DBUS_MESSAGE_TYPE_ERROR:
-	  printf (" error_name=%s\n",
-		  dbus_message_get_error_name (message));
+	  printf (" error_name=%s reply_serial=%u\n",
+		  dbus_message_get_error_name (message),
+          dbus_message_get_reply_serial (message));
 	  break;
 
 	default:
