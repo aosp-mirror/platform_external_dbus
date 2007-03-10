@@ -1,5 +1,9 @@
 2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus-win.patch: removed committed patches. 
+
+2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* bus/bus.c, bus/bus.h, bus/main.c, bus/test.c,
 	dbus/dbus-sysdeps-unix.c, dbus/dbus-sysdeps-util-unix.c,
 	dbus/dbus-sysdeps-util-win.c, dbus/dbus-sysdeps-win.c,

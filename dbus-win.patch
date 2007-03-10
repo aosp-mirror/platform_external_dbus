@@ -538,27 +538,6 @@ diff -u -r1.3 dbus-server-socket.c
  
        client_fd = _dbus_accept (listen_fd);
        
-@@ -393,15 +393,19 @@
-           
-       if (port == NULL)
-         {
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
-+          port = "0";
-+#else
-           _dbus_set_bad_address(error, "tcp", "port", NULL);
-           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
-+#endif
-         }
- 
-       _dbus_string_init_const (&str, port);
-       sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-       _dbus_string_free (&str);
-           
--      if (sresult == FALSE || lport <= 0 || lport > 65535)
-+      if (sresult == FALSE || lport < 0 || lport > 65535)
-         {
-           _dbus_set_bad_address(error, NULL, NULL, 
-                                 "Port is not an integer between 0 and 65535");
 Index: dbus/dbus-server.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-server.c,v
