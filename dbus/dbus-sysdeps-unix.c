@@ -169,14 +169,75 @@ _dbus_write_socket (int               fd,
   return _dbus_write (fd, buffer, start, len);
 }
 
+/**
+ * init a pipe instance.
+ *
+ * @param fd the file descriptor to init from 
+ * @returns a DBusPipe instance
+ */
+DBusPipe _dbus_pipe_init(int         fd)
+{
+  DBusPipe pipe;
+  pipe.fd = fd;
+  return pipe;
+}
+
+/**
+ * write data to a pipe.
+ *
+ * @param pipe the pipe instance
+ * @param buffer the buffer to write data from
+ * @param start the first byte in the buffer to write
+ * @param len the number of bytes to try to write
+ * @returns the number of bytes written or -1 on error
+ */
 int
-_dbus_write_pipe (DBusPipe         pipe,
+_dbus_pipe_write (DBusPipe         pipe,
                   const DBusString *buffer,
                   int               start,
                   int               len)
 {
-	return _dbus_write (pipe, buffer, start, len);
+  return _dbus_write (pipe.fd, buffer, start, len);
 }
+
+/**
+ * close a pipe.
+ *
+ * @param pipe the pipe instance
+ * @param error return location for an error
+ * @returns #FALSE if error is set
+ */
+int
+_dbus_pipe_close  (DBusPipe         pipe,
+                   DBusError        *error)
+{
+  return _dbus_close (pipe.fd, error);
+}
+
+/**
+ * check if a pipe is valid, which means is constructed
+ * by a valid file descriptor
+ *
+ * @param pipe the pipe instance
+ * @returns #FALSE if pipe is not valid
+ */
+dbus_bool_t _dbus_pipe_is_valid(DBusPipe pipe)
+{
+  return pipe.fd >= 0;
+}
+
+/**
+ * check if a pipe is a special pipe, which means using 
+ * a non default file descriptor (>2)
+ *
+ * @param pipe the pipe instance
+ * @returns #FALSE if pipe is not a special pipe
+ */
+dbus_bool_t _dbus_pipe_is_special(DBusPipe pipe)
+{
+  return pipe.fd > 2;
+}
+
 
 /**
  * Like _dbus_write_two() but only works on sockets and is thus

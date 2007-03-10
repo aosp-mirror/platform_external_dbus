@@ -527,8 +527,8 @@ process_config_postinit (BusContext      *context,
 BusContext*
 bus_context_new (const DBusString *config_file,
                  ForceForkSetting  force_fork,
-                 int               print_addr_fd,
-                 int               print_pid_fd,
+                 DBusPipe          print_addr_fd,
+                 DBusPipe          print_pid_fd,
                  DBusError        *error)
 {
   BusContext *context;
@@ -603,7 +603,7 @@ bus_context_new (const DBusString *config_file,
    * other random thing. But I think the answer is "don't do
    * that then"
    */
-  if (print_addr_fd >= 0)
+  if (_dbus_pipe_is_valid(print_addr_fd))
     {
       DBusString addr;
       const char *a = bus_context_get_address (context);
@@ -625,7 +625,7 @@ bus_context_new (const DBusString *config_file,
         }
 
       bytes = _dbus_string_get_length (&addr);
-      if (_dbus_write_pipe (print_addr_fd, &addr, 0, bytes) != bytes)
+      if (_dbus_pipe_write(print_addr_fd, &addr, 0, bytes) != bytes)
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Printing message bus address: %s\n",
@@ -634,8 +634,8 @@ bus_context_new (const DBusString *config_file,
           goto failed;
         }
 
-      if (print_addr_fd > 2)
-        _dbus_close_socket (print_addr_fd, NULL);
+      if (_dbus_pipe_is_special(print_addr_fd))
+        _dbus_pipe_close(print_addr_fd, NULL);
 
       _dbus_string_free (&addr);
     }
@@ -706,7 +706,7 @@ bus_context_new (const DBusString *config_file,
     }
 
   /* Write PID if requested */
-  if (print_pid_fd >= 0)
+  if (_dbus_pipe_is_valid(print_pid_fd))
     {
       DBusString pid;
       int bytes;
@@ -726,7 +726,7 @@ bus_context_new (const DBusString *config_file,
         }
 
       bytes = _dbus_string_get_length (&pid);
-      if (_dbus_write_pipe (print_pid_fd, &pid, 0, bytes) != bytes)
+      if (_dbus_pipe_write (print_pid_fd, &pid, 0, bytes) != bytes)
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Printing message bus PID: %s\n",
@@ -735,8 +735,8 @@ bus_context_new (const DBusString *config_file,
           goto failed;
         }
 
-      if (print_pid_fd > 2)
-        _dbus_close_socket (print_pid_fd, NULL);
+      if (_dbus_pipe_is_special (print_pid_fd))
+        _dbus_pipe_close (print_pid_fd, NULL);
       
       _dbus_string_free (&pid);
     }

@@ -247,8 +247,8 @@ main (int argc, char **argv)
   DBusString addr_fd;
   DBusString pid_fd;
   const char *prev_arg;
-  int print_addr_fd;
-  int print_pid_fd;
+  DBusPipe print_addr_fd;
+  DBusPipe print_pid_fd;
   int i;
   dbus_bool_t print_address;
   dbus_bool_t print_pid;
@@ -387,10 +387,10 @@ main (int argc, char **argv)
       usage ();
     }
 
-  print_addr_fd = -1;
+  print_addr_fd = _dbus_pipe_init(-1);
   if (print_address)
     {
-      print_addr_fd = 1; /* stdout */
+      print_addr_fd = _dbus_pipe_init(1); /* stdout */
       if (_dbus_string_get_length (&addr_fd) > 0)
         {
           long val;
@@ -404,15 +404,15 @@ main (int argc, char **argv)
               exit (1);
             }
 
-          print_addr_fd = val;
+          print_addr_fd = _dbus_pipe_init(val);
         }
     }
   _dbus_string_free (&addr_fd);
 
-  print_pid_fd = -1;
+  print_pid_fd = _dbus_pipe_init(-1);
   if (print_pid)
     {
-      print_pid_fd = 1; /* stdout */
+      print_pid_fd = _dbus_pipe_init(1); /* stdout */
       if (_dbus_string_get_length (&pid_fd) > 0)
         {
           long val;
@@ -426,7 +426,7 @@ main (int argc, char **argv)
               exit (1);
             }
 
-          print_pid_fd = val;
+          print_pid_fd = _dbus_pipe_init(val);
         }
     }
   _dbus_string_free (&pid_fd);

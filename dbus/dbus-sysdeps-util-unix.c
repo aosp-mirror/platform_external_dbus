@@ -67,7 +67,7 @@
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
-		     int               print_pid_fd,
+                     DBusPipe         print_pid_fd,
                      DBusError        *error)
 {
   const char *s;
@@ -157,7 +157,7 @@ _dbus_become_daemon (const DBusString *pidfile,
 	    }
 	  
 	  bytes = _dbus_string_get_length (&pid);
-	  if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
+	  if (_dbus_pipe_write (print_pid_fd, &pid, 0, bytes) != bytes)
 	    {
 	      dbus_set_error (error, DBUS_ERROR_FAILED,
 			      "Printing message bus PID: %s\n",

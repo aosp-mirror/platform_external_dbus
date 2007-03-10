@@ -302,11 +302,22 @@ dbus_bool_t _dbus_path_is_absolute    (const DBusString *filename);
 
 dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
 
-typedef int DBusPipe;
-int _dbus_write_pipe (DBusPipe          pipe,
+typedef struct {
+	int fd; 
+} DBusPipe;
+
+DBusPipe _dbus_pipe_init(int         fd);
+
+int _dbus_pipe_write (DBusPipe          pipe,
                       const DBusString *buffer,
                       int               start,
                       int               len);
+
+int _dbus_pipe_close  (DBusPipe          pipe,
+					   DBusError        *error);
+
+dbus_bool_t _dbus_pipe_is_valid(DBusPipe pipe);
+dbus_bool_t _dbus_pipe_is_special(DBusPipe pipe);
 
 /** Opaque type for reading a directory listing */
 typedef struct DBusDirIter DBusDirIter;
@@ -374,7 +385,7 @@ dbus_bool_t _dbus_full_duplex_pipe (int              *fd1,
 void        _dbus_print_backtrace  (void);
 
 dbus_bool_t _dbus_become_daemon   (const DBusString *pidfile,
-				   int               print_pid_fd,
+                                   DBusPipe         print_pid_fd,
                                    DBusError        *error);
 dbus_bool_t _dbus_write_pid_file  (const DBusString *filename,
                                    unsigned long     pid,
