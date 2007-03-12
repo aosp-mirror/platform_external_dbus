@@ -1,3 +1,8 @@
+2007-03-12  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-util-unix.c (_dbus_become_daemon):
+	fix _dbus_pid_fd check. 
+
 2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* tools/dbus-print-message.c (print_message):

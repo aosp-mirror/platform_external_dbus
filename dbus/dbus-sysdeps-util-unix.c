@@ -135,7 +135,7 @@ _dbus_become_daemon (const DBusString *pidfile,
         }
 
       /* Write PID if requested */
-      if (print_pid_fd >= 0)
+      if (_dbus_pipe_is_valid(print_pid_fd))
 	{
 	  DBusString pid;
 	  int bytes;
