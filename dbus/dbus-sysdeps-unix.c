@@ -172,14 +172,25 @@ _dbus_write_socket (int               fd,
 /**
  * init a pipe instance.
  *
+ * @param pipe the pipe
  * @param fd the file descriptor to init from 
- * @returns a DBusPipe instance
  */
-DBusPipe _dbus_pipe_init(int         fd)
+void
+_dbus_pipe_init (DBusPipe *pipe,
+                 int       fd)
 {
-  DBusPipe pipe;
-  pipe.fd = fd;
-  return pipe;
+  pipe->fd_or_handle = fd;
+}
+
+/**
+ * init a pipe with stdout
+ *
+ * @param pipe the pipe
+ */
+void
+_dbus_pipe_init_stdout (DBusPipe *pipe)
+{
+  _dbus_pipe_init (pipe, 1);
 }
 
 /**
@@ -189,15 +200,26 @@ DBusPipe _dbus_pipe_init(int         fd)
  * @param buffer the buffer to write data from
  * @param start the first byte in the buffer to write
  * @param len the number of bytes to try to write
+ * @param error error return
  * @returns the number of bytes written or -1 on error
  */
 int
-_dbus_pipe_write (DBusPipe         pipe,
+_dbus_pipe_write (DBusPipe         *pipe,
                   const DBusString *buffer,
                   int               start,
-                  int               len)
+                  int               len,
+                  DBusError        *error)
 {
-  return _dbus_write (pipe.fd, buffer, start, len);
+  int written;
+  
+  written = _dbus_write (pipe->fd_or_handle, buffer, start, len);
+  if (written < 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Writing to pipe: %s\n",
+                      _dbus_strerror (errno));
+    }
+  return written;
 }
 
 /**
@@ -208,36 +230,54 @@ _dbus_pipe_write (DBusPipe         pipe,
  * @returns #FALSE if error is set
  */
 int
-_dbus_pipe_close  (DBusPipe         pipe,
+_dbus_pipe_close  (DBusPipe         *pipe,
                    DBusError        *error)
 {
-  return _dbus_close (pipe.fd, error);
+  if (_dbus_close (pipe->fd_or_handle, error) < 0)
+    {
+      return -1;
+    }
+  else
+    {
+      _dbus_pipe_invalidate (pipe);
+      return 0;
+    }
 }
 
 /**
- * check if a pipe is valid, which means is constructed
- * by a valid file descriptor
+ * check if a pipe is valid; pipes can be set invalid, similar to
+ * a -1 file descriptor.
  *
  * @param pipe the pipe instance
  * @returns #FALSE if pipe is not valid
  */
-dbus_bool_t _dbus_pipe_is_valid(DBusPipe pipe)
+dbus_bool_t
+_dbus_pipe_is_valid(DBusPipe *pipe)
 {
-  return pipe.fd >= 0;
+  return pipe->fd_or_handle >= 0;
 }
 
 /**
- * check if a pipe is a special pipe, which means using 
- * a non default file descriptor (>2)
+ * Check if a pipe is stdout or stderr.
  *
  * @param pipe the pipe instance
- * @returns #FALSE if pipe is not a special pipe
+ * @returns #TRUE if pipe is one of the standard out/err channels
  */
-dbus_bool_t _dbus_pipe_is_special(DBusPipe pipe)
+dbus_bool_t
+_dbus_pipe_is_stdout_or_stderr (DBusPipe *pipe)
 {
-  return pipe.fd > 2;
+  return pipe->fd_or_handle == 1 || pipe->fd_or_handle == 2;
 }
 
+/**
+ * Initializes a pipe to an invalid value.
+ * @param pipe the pipe
+ */
+void
+_dbus_pipe_invalidate (DBusPipe *pipe)
+{
+  pipe->fd_or_handle = -1;
+}
 
 /**
  * Like _dbus_write_two() but only works on sockets and is thus

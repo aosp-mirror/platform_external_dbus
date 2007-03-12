@@ -1,3 +1,17 @@
+2007-03-11  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-launch.c (do_close_stderr): fix C89 problem and
+	formatting problem
+
+	* Mostly fix the DBusPipe mess.
+	- put line break after function return types
+	- put space before parens
+	- do not pass structs around by value
+	- don't use dbus_strerror after calling supposedly cross-platform
+	api
+	- don't name pipe variables "fd"
+	- abstract special fd numbers like -1 and 1
+
 2007-03-12  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-win.h, dbus/dbus-sysdeps-win.c, 

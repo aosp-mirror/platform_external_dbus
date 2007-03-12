@@ -70,8 +70,8 @@ typedef enum
 
 BusContext*       bus_context_new                                (const DBusString *config_file,
                                                                   ForceForkSetting  force_fork,
-                                                                  DBusPipe         print_addr_fd,
-                                                                  DBusPipe         print_pid_fd,
+                                                                  DBusPipe         *print_addr_pipe,
+                                                                  DBusPipe         *print_pid_pipe,
                                                                   DBusError        *error);
 dbus_bool_t       bus_context_reload_config                      (BusContext       *context,
 								  DBusError        *error);

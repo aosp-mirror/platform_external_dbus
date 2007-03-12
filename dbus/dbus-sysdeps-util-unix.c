@@ -61,13 +61,13 @@
  * Does the chdir, fork, setsid, etc. to become a daemon process.
  *
  * @param pidfile #NULL, or pidfile to create
- * @param print_pid_fd file descriptor to print daemon's pid to, or -1 for none
+ * @param print_pid_pipe pipe to print daemon's pid to, or -1 for none
  * @param error return location for errors
  * @returns #FALSE on failure
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
-                     DBusPipe         print_pid_fd,
+                     DBusPipe         *print_pid_pipe,
                      DBusError        *error)
 {
   const char *s;
@@ -135,7 +135,7 @@ _dbus_become_daemon (const DBusString *pidfile,
         }
 
       /* Write PID if requested */
-      if (_dbus_pipe_is_valid(print_pid_fd))
+      if (print_pid_pipe != NULL && _dbus_pipe_is_valid (print_pid_pipe))
 	{
 	  DBusString pid;
 	  int bytes;
@@ -157,11 +157,14 @@ _dbus_become_daemon (const DBusString *pidfile,
 	    }
 	  
 	  bytes = _dbus_string_get_length (&pid);
-	  if (_dbus_pipe_write (print_pid_fd, &pid, 0, bytes) != bytes)
+	  if (_dbus_pipe_write (print_pid_pipe, &pid, 0, bytes, error) != bytes)
 	    {
-	      dbus_set_error (error, DBUS_ERROR_FAILED,
-			      "Printing message bus PID: %s\n",
-			      _dbus_strerror (errno));
+              /* _dbus_pipe_write sets error only on failure, not short write */
+              if (error != NULL && !dbus_error_is_set(error))
+                {
+                  dbus_set_error (error, DBUS_ERROR_FAILED,
+                                  "Printing message bus PID: did not write enough bytes\n");
+                }
 	      _dbus_string_free (&pid);
               kill (child_pid, SIGTERM);
 	      return FALSE;

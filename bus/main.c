@@ -247,8 +247,8 @@ main (int argc, char **argv)
   DBusString addr_fd;
   DBusString pid_fd;
   const char *prev_arg;
-  DBusPipe print_addr_fd;
-  DBusPipe print_pid_fd;
+  DBusPipe print_addr_pipe;
+  DBusPipe print_pid_pipe;
   int i;
   dbus_bool_t print_address;
   dbus_bool_t print_pid;
@@ -387,10 +387,10 @@ main (int argc, char **argv)
       usage ();
     }
 
-  print_addr_fd = _dbus_pipe_init(-1);
+  _dbus_pipe_invalidate (&print_addr_pipe);
   if (print_address)
     {
-      print_addr_fd = _dbus_pipe_init(1); /* stdout */
+      _dbus_pipe_init_stdout (&print_addr_pipe);
       if (_dbus_string_get_length (&addr_fd) > 0)
         {
           long val;
@@ -404,15 +404,15 @@ main (int argc, char **argv)
               exit (1);
             }
 
-          print_addr_fd = _dbus_pipe_init(val);
+          _dbus_pipe_init (&print_addr_pipe, val);
         }
     }
   _dbus_string_free (&addr_fd);
 
-  print_pid_fd = _dbus_pipe_init(-1);
+  _dbus_pipe_invalidate (&print_pid_pipe);
   if (print_pid)
     {
-      print_pid_fd = _dbus_pipe_init(1); /* stdout */
+      _dbus_pipe_init_stdout (&print_pid_pipe);
       if (_dbus_string_get_length (&pid_fd) > 0)
         {
           long val;
@@ -426,7 +426,7 @@ main (int argc, char **argv)
               exit (1);
             }
 
-          print_pid_fd = _dbus_pipe_init(val);
+          _dbus_pipe_init (&print_pid_pipe, val);
         }
     }
   _dbus_string_free (&pid_fd);
@@ -439,7 +439,7 @@ main (int argc, char **argv)
 
   dbus_error_init (&error);
   context = bus_context_new (&config_file, force_fork,
-                             print_addr_fd, print_pid_fd,
+                             &print_addr_pipe, &print_pid_pipe,
                              &error);
   _dbus_string_free (&config_file);
   if (context == NULL)

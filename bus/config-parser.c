@@ -27,6 +27,7 @@
 #include "selinux.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-userdb.h>
 #include <string.h>
 
 typedef enum

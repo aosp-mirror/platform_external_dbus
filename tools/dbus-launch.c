@@ -596,14 +596,17 @@ babysit (int   exit_with_session,
   exit (0);
 }
 
-static void do_close_stderr (void)
+static void
+do_close_stderr (void)
 {
+  int fd;
+
   fflush (stderr);
 
   /* dbus-launch is a Unix-only program, so we can rely on /dev/null being there.
    * We're including unistd.h and we're dealing with sh/csh launch sequences...
    */
-  int fd = open ("/dev/null", O_RDWR);
+  fd = open ("/dev/null", O_RDWR);
   if (fd == -1)
     {
       fprintf (stderr, "Internal error: cannot open /dev/null: %s", strerror (errno));

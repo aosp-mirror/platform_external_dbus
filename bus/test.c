@@ -298,7 +298,6 @@ bus_context_new_test (const DBusString *test_data_dir,
   DBusString config_file;
   DBusString relative;
   BusContext *context;
-  DBusPipe pipe;
   
   if (!_dbus_string_init (&config_file))
     {
@@ -324,8 +323,7 @@ bus_context_new_test (const DBusString *test_data_dir,
     }
   
   dbus_error_init (&error);
-  pipe = _dbus_pipe_init(-1);
-  context = bus_context_new (&config_file, FALSE, pipe, pipe, &error);
+  context = bus_context_new (&config_file, FALSE, NULL, NULL, &error);
   if (context == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (&error);

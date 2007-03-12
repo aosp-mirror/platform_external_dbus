@@ -527,8 +527,8 @@ process_config_postinit (BusContext      *context,
 BusContext*
 bus_context_new (const DBusString *config_file,
                  ForceForkSetting  force_fork,
-                 DBusPipe          print_addr_fd,
-                 DBusPipe          print_pid_fd,
+                 DBusPipe         *print_addr_pipe,
+                 DBusPipe         *print_pid_pipe,
                  DBusError        *error)
 {
   BusContext *context;
@@ -598,12 +598,12 @@ bus_context_new (const DBusString *config_file,
   if (!dbus_server_allocate_data_slot (&server_data_slot))
     _dbus_assert_not_reached ("second ref of server data slot failed");
 
-  /* Note that we don't know whether the print_addr_fd is
+  /* Note that we don't know whether the print_addr_pipe is
    * one of the sockets we're using to listen on, or some
    * other random thing. But I think the answer is "don't do
    * that then"
    */
-  if (_dbus_pipe_is_valid(print_addr_fd))
+  if (print_addr_pipe != NULL && _dbus_pipe_is_valid (print_addr_pipe))
     {
       DBusString addr;
       const char *a = bus_context_get_address (context);
@@ -625,17 +625,20 @@ bus_context_new (const DBusString *config_file,
         }
 
       bytes = _dbus_string_get_length (&addr);
-      if (_dbus_pipe_write(print_addr_fd, &addr, 0, bytes) != bytes)
+      if (_dbus_pipe_write (print_addr_pipe, &addr, 0, bytes, error) != bytes)
         {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Printing message bus address: %s\n",
-                          _dbus_strerror (errno));
+          /* pipe write returns an error on failure but not short write */
+          if (error != NULL && !dbus_error_is_set (error))
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Printing message bus address: did not write all bytes\n");
+            }
           _dbus_string_free (&addr);
           goto failed;
         }
 
-      if (_dbus_pipe_is_special(print_addr_fd))
-        _dbus_pipe_close(print_addr_fd, NULL);
+      if (!_dbus_pipe_is_stdout_or_stderr (print_addr_pipe))
+        _dbus_pipe_close (print_addr_pipe, NULL);
 
       _dbus_string_free (&addr);
     }
@@ -681,7 +684,7 @@ bus_context_new (const DBusString *config_file,
         _dbus_string_init_const (&u, context->pidfile);
       
       if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
-				print_pid_fd,
+				print_pid_pipe,
 				error))
 	{
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -706,7 +709,7 @@ bus_context_new (const DBusString *config_file,
     }
 
   /* Write PID if requested */
-  if (_dbus_pipe_is_valid(print_pid_fd))
+  if (print_pid_pipe != NULL && _dbus_pipe_is_valid (print_pid_pipe))
     {
       DBusString pid;
       int bytes;
@@ -726,17 +729,20 @@ bus_context_new (const DBusString *config_file,
         }
 
       bytes = _dbus_string_get_length (&pid);
-      if (_dbus_pipe_write (print_pid_fd, &pid, 0, bytes) != bytes)
+      if (_dbus_pipe_write (print_pid_pipe, &pid, 0, bytes, error) != bytes)
         {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Printing message bus PID: %s\n",
-                          _dbus_strerror (errno));
+          /* pipe_write sets error on failure but not short write */
+          if (error != NULL && !dbus_error_is_set (error))
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Printing message bus PID: did not write enough bytes\n");
+            }
           _dbus_string_free (&pid);
           goto failed;
         }
 
-      if (_dbus_pipe_is_special (print_pid_fd))
-        _dbus_pipe_close (print_pid_fd, NULL);
+      if (!_dbus_pipe_is_stdout_or_stderr (print_pid_pipe))
+        _dbus_pipe_close (print_pid_pipe, NULL);
       
       _dbus_string_free (&pid);
     }
