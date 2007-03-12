@@ -1,5 +1,12 @@
 2007-03-12  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-sysdeps-win.h, dbus/dbus-sysdeps-win.c, 
+	dbus/dbus-sysdeps-util-win.c: renamed functions 
+	_dbus_xxx_file() to _dbus_file_xxx() to reflect 
+	struct name DBusFile. 
+
+2007-03-12  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-util-unix.c (_dbus_become_daemon):
 	fix _dbus_pid_fd check. 
 

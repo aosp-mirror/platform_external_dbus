@@ -77,7 +77,7 @@ _dbus_write_pid_file (const DBusString *filename,
 
   cfilename = _dbus_string_get_const_data (filename);
 
-  if (!_dbus_open_file(&file, cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644))
+  if (!_dbus_file_open(&file, cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to open \"%s\": %s", cfilename,
@@ -89,7 +89,7 @@ _dbus_write_pid_file (const DBusString *filename,
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to fdopen fd %d: %s", file.FDATA, _dbus_strerror (errno));
-      _dbus_close_file (&file, NULL);
+      _dbus_file_close (&file, NULL);
       return FALSE;
     }
 
