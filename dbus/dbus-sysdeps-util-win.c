@@ -52,7 +52,7 @@
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
-                     DBusPipe         print_pid_fd,
+                     DBusPipe         *print_pid_pipe,
                      DBusError        *error)
 {
   return TRUE;

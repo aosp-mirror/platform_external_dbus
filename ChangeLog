@@ -1,5 +1,10 @@
 2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-sysdeps-util-win.c (dbus_become_daemon): 
+	win32 compile fix. 
+
+2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
+
 	* dbus-win.patch: removed obsolate patches. 
 
 2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
