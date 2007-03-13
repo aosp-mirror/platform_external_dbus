@@ -1,11 +1,6 @@
 2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
 
-	* dbus/dbus-sysdeps-win.c: fixed broken DBusPipe on
-	win32. 
-
-	* dbus/dbus-sysdeps-win.c, dbus/dbus-sysdeps-unix.c: 
-	moved platform independent DBusPipe function to 
-	dbus-sysdeps.c. 
+	* dbus-win.patch: removed obsolate patches. 
 
 2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
 
