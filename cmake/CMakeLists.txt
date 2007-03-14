@@ -228,11 +228,6 @@ OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 #AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
 #xmldocs missing
 
-#AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
-if(DOXYGEN)
-  OPTION(DBUS_ENABLE_DOXYGEN_DOCS "build DOXYGEN documentation (requires Doxygen)" ON)
-endif(DOXYGEN)
-
 #AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
 OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
 if(DBUS_GCOV_ENABLED)
@@ -450,6 +445,7 @@ if (DBUS_BUILD_TESTS)
 	add_subdirectory( test )
 endif (DBUS_BUILD_TESTS)
 add_subdirectory( tools )
+add_subdirectory( doc )
 
 
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)
