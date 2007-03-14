@@ -2,6 +2,10 @@
 
 	* cmake: add doxygen support
 
+2007-03-14  Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/config.h.cmake: WINCE fixes, defined DBUS_UNIX.
+
 2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-util-win.c (dbus_become_daemon): 

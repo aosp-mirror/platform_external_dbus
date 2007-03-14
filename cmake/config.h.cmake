@@ -118,22 +118,17 @@
 #cmakedefine    HAVE_CMSGCRED 1
 
 // system type defines
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32) || defined(_WIN64) || defined (_WIN32_WCE)
 # define DBUS_WIN
 # define DBUS_WIN_FIXME 1
-#endif
-
-#if defined(_WIN32) && !defined(_WIN32_WCE)
-# define DBUS_WIN32
-#endif
-
-#if defined(_WIN64)
-# define DBUS_WIN64
-#endif
-
-#if defined(_WIN32_WCE)
-# define DBUS_WINCE
-#endif
+# ifdef _WIN32_WCE
+#  define DBUS_WINCE
+# else
+#  define DBUS_WIN32
+# endif
+#else
+# define DBUS_UNIX
+#endif 
 
 #if defined(_WIN32) || defined(_WIN64)
 // mingw mode_t
