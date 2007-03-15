@@ -225,9 +225,6 @@ OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
 #AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
 OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 
-#AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
-#xmldocs missing
-
 #AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
 OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
 if(DBUS_GCOV_ENABLED)

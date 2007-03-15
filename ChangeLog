@@ -1,3 +1,8 @@
+2007-03-15 Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* cmake\doc\CMakeLists.txt: added prelimary xml doc 
+	support, needs cmake Find script.
+
 2007-03-14 Ralf.Habacker  <ralf.habacker@freenet.de>
 
 	* cmake: add doxygen support
