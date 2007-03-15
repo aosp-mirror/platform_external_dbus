@@ -900,9 +900,9 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
            * only when reply was requested. requested_reply=false means
            * always allow.
            */
-          if (!requested_reply && rule->allow && rule->d.send.requested_reply)
+          if (!requested_reply && rule->allow && rule->d.send.requested_reply && !rule->d.send.eavesdrop)
             {
-              _dbus_verbose ("  (policy) skipping allow rule since it only applies to requested replies\n");
+              _dbus_verbose ("  (policy) skipping allow rule since it only applies to requested replies and does not allow eavesdropping\n");
               continue;
             }
 
@@ -1086,9 +1086,9 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
            * only when reply was requested. requested_reply=false means
            * always allow.
            */
-          if (!requested_reply && rule->allow && rule->d.receive.requested_reply)
+          if (!requested_reply && rule->allow && rule->d.receive.requested_reply && !rule->d.receive.eavesdrop)
             {
-              _dbus_verbose ("  (policy) skipping allow rule since it only applies to requested replies\n");
+              _dbus_verbose ("  (policy) skipping allow rule since it only applies to requested replies and does not allow eavesdropping\n");
               continue;
             }
 

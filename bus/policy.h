@@ -63,6 +63,7 @@ struct BusPolicyRule
       char *member;
       char *error;
       char *destination;
+      unsigned int eavesdrop : 1;
       unsigned int requested_reply : 1;
     } send;
 

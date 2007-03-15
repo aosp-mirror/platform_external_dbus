@@ -1181,7 +1181,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_interface && receive_member) ||
        (send_interface && receive_error) ||
        (send_interface && receive_sender) ||
-       (send_interface && eavesdrop) ||
        (send_interface && receive_requested_reply) ||
        (send_interface && own) ||
        (send_interface && user) ||
@@ -1192,7 +1191,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_member && receive_member) ||
        (send_member && receive_error) ||
        (send_member && receive_sender) ||
-       (send_member && eavesdrop) ||
        (send_member && receive_requested_reply) ||
        (send_member && own) ||
        (send_member && user) ||
@@ -1202,7 +1200,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_error && receive_member) ||
        (send_error && receive_error) ||
        (send_error && receive_sender) ||
-       (send_error && eavesdrop) ||
        (send_error && receive_requested_reply) ||
        (send_error && own) ||
        (send_error && user) ||
@@ -1212,7 +1209,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_destination && receive_member) ||
        (send_destination && receive_error) ||
        (send_destination && receive_sender) ||
-       (send_destination && eavesdrop) ||
        (send_destination && receive_requested_reply) ||
        (send_destination && own) ||
        (send_destination && user) ||
@@ -1222,7 +1218,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_type && receive_member) ||
        (send_type && receive_error) ||
        (send_type && receive_sender) ||
-       (send_type && eavesdrop) ||
        (send_type && receive_requested_reply) ||
        (send_type && own) ||
        (send_type && user) ||
@@ -1232,7 +1227,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_path && receive_member) ||
        (send_path && receive_error) ||
        (send_path && receive_sender) ||
-       (send_path && eavesdrop) ||
        (send_path && receive_requested_reply) ||
        (send_path && own) ||
        (send_path && user) ||
@@ -1242,7 +1236,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_requested_reply && receive_member) ||
        (send_requested_reply && receive_error) ||
        (send_requested_reply && receive_sender) ||
-       (send_requested_reply && eavesdrop) ||
        (send_requested_reply && receive_requested_reply) ||
        (send_requested_reply && own) ||
        (send_requested_reply && user) ||
@@ -1319,6 +1312,16 @@ append_rule_from_element (BusConfigParser   *parser,
             }
         }
 
+      if (eavesdrop &&
+          !(strcmp (eavesdrop, "true") == 0 ||
+            strcmp (eavesdrop, "false") == 0))
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Bad value \"%s\" for %s attribute, must be true or false",
+                          "eavesdrop", eavesdrop);
+          return FALSE;
+        }
+
       if (send_requested_reply &&
           !(strcmp (send_requested_reply, "true") == 0 ||
             strcmp (send_requested_reply, "false") == 0))
@@ -1333,9 +1336,12 @@ append_rule_from_element (BusConfigParser   *parser,
       if (rule == NULL)
         goto nomem;
       
+      if (eavesdrop)
+        rule->d.send.eavesdrop = (strcmp (eavesdrop, "true") == 0);
+
       if (send_requested_reply)
         rule->d.send.requested_reply = (strcmp (send_requested_reply, "true") == 0);
-      
+
       rule->d.send.message_type = message_type;
       rule->d.send.path = _dbus_strdup (send_path);
       rule->d.send.interface = _dbus_strdup (send_interface);

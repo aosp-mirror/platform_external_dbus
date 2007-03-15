@@ -437,9 +437,10 @@ matches against the given field in the message header.
 
 .PP
 "Eavesdropping" occurs when an application receives a message that
-was explicitly addressed to a name the application does not own.
-Eavesdropping thus only applies to messages that are addressed to
-services (i.e. it does not apply to signals).
+was explicitly addressed to a name the application does not own, or
+is a reply to such a message. Eavesdropping thus only applies to
+messages that are addressed to services and replies to such messages
+(i.e. it does not apply to signals).
 
 .PP
 For <allow>, eavesdrop="true" indicates that the rule matches even 
@@ -449,7 +450,7 @@ For <deny>, eavesdrop="true" indicates that the rule matches
 only when eavesdropping. eavesdrop="false" is the default for <deny>
 also, but here it means that the rule applies always, even when 
 not eavesdropping. The eavesdrop attribute can only be combined with
-receive rules (with receive_* attributes).
+send and receive rules (with send_* and receive_* attributes).
 
 
 .PP

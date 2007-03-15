@@ -1,5 +1,13 @@
 2007-03-15 Ralf.Habacker  <ralf.habacker@freenet.de>
 
+	* bus/config-parser.c, bus/policy.c,  
+	bus/policy.h, bus/dbus-daemon.1.in,
+	bus/session.conf.in: added eavesdrop support 
+	for replies - patch by olli.salli at collabora.co.uk
+	approved by Havoc Pennington. 
+
+2007-03-15 Ralf.Habacker  <ralf.habacker@freenet.de>
+
 	* dbus\dbus-sysdeps-win-thread.c: renamed to 
 	dbus-sysdeps-thread-win.c, it is a platform depending file 
 	similar	to dbus-sysdeps-pthread.c.
