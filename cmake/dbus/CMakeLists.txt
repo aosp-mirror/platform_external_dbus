@@ -167,7 +167,7 @@ set (DBUS_UTIL_HEADERS
 if (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
 		${DBUS_DIR}/dbus-sysdeps-win.c
-		${DBUS_DIR}/dbus-sysdeps-win-thread.c
+		${DBUS_DIR}/dbus-sysdeps-thread-win.c
 		${DBUS_DIR}/dbus-sysdeps-util-win.c
 		${DBUS_DIR}/dbus-spawn-win.c
 	)

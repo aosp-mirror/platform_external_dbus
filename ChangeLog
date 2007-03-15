@@ -1,5 +1,11 @@
 2007-03-15 Ralf.Habacker  <ralf.habacker@freenet.de>
 
+	* dbus\dbus-sysdeps-win-thread.c: renamed to 
+	dbus-sysdeps-thread-win.c, it is a platform depending file 
+	similar	to dbus-sysdeps-pthread.c.
+
+2007-03-15 Ralf.Habacker  <ralf.habacker@freenet.de>
+
 	* cmake\doc\CMakeLists.txt: added prelimary xml doc 
 	support, needs cmake Find script.
 
