@@ -13,13 +13,23 @@ if (LIBEXPAT_INCLUDE_DIR AND LIBEXPAT_LIBRARIES)
 
 else (LIBEXPAT_INCLUDE_DIR AND LIBEXPAT_LIBRARIES)
 
-    IF (NOT WIN32)
+    IF (WIN32)
+		file(TO_CMAKE_PATH "$ENV{PROGRAMFILES}" _progFiles)
+		find_FILE(LIBEXPAT_DIR expat Source/lib/expat.h
+   			PATHS
+   			"${_progFiles}"
+		)
+        if (LIBEXPAT_DIR)
+            set (_LIBEXPATIncDir  ${LIBEXPAT_DIR}/Source/lib)
+            set (_LIBEXPATLinkDir ${LIBEXPAT_DIR}/libs)
+        endif (LIBEXPAT_DIR)
+    ELSE (WIN32)
         # use pkg-config to get the directories and then use these values
         # in the FIND_PATH() and FIND_LIBRARY() calls
         INCLUDE(UsePkgConfig)
         PKGCONFIG(LIBEXPAT-2.0 _LIBEXPATIncDir _LIBEXPATLinkDir _LIBEXPATLinkFlags _LiIconvCflags)
         SET(LIBEXPAT_DEFINITIONS ${_LIBEXPATCflags})
-    ENDIF (NOT WIN32)
+    ENDIF (WIN32)
 
     FIND_PATH(LIBEXPAT_INCLUDE_DIR expat.h
       PATHS

@@ -1,5 +1,11 @@
 2007-03-16 Ralf.Habacker  <ralf.habacker@freenet.de>
 
+	* cmake/modules/FindExpat.cmake: fix package detection on win32.
+
+	* README.win: update install instructions. 
+
+2007-03-16 Ralf.Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps.h (_dbus_split_paths_and_append):
 	new prototyp
 	(_DBUS_PATH_SEPARATOR): new macro. 

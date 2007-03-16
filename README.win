@@ -5,7 +5,7 @@ Windows port of the freedesktop.org D-Bus
 Requirements 
 ------------
 - cmake version >= 2.4.4 see http://www.cmake.org 
-- installed libxml2 or libexpat 
+- installed libxml2 or libexpat from http://82.149.170.66/kde-windows/win32libs
 
 Build
 -----
@@ -23,18 +23,24 @@ win32
 1. Install your prefered compiler
 	- Mingw from www.mingw.org 
 	- Visual C++ 2005 Express/Studio
-2. Install win32libs packages from 
-		http://www.abi-neuhaus.de/chris/win32libs/
-   into a subdir win32libs in your program installation eg c:\Programme\win32libs (german) 
-   or "c:\Program Files\win32libs" (english) 
+	
+2. Install libxml2 or libexpat packages from 
+     http://82.149.170.66/kde-windows/win32libs
+   into a subdir win32libs in your program installation eg 
+     - german  => "c:\Programme\win32libs"
+     - english => "c:\Program Files\win32libs" 
+     
 3. download and install the most recent CMake version from http://www.cmake.org/files/
+
 4. apply dbus-win.patch: 'patch -p0 -i dbus-win.patch'
+
 5. open command shell and run in the created build folder which resides side by side 
    to the D-Bus sources:
    	- for mingw: 
 		cmake -G "MinGW Makefiles" <options> ..\<dbus-source-root>\cmake
 	- for Visual C++
 		cmake ..\<dbus-source-root>\cmake
+
 7. build
 
 
