@@ -1,3 +1,12 @@
+2007-03-16 Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps.h (_dbus_split_paths_and_append):
+	new prototyp
+	(_DBUS_PATH_SEPARATOR): new macro. 
+
+	* dbus/dbus-sysdeps.c (_dbus_split_paths_and_append): merged 
+	from dbus/dbus-sysdeps-unix.c and dbus/dbus-sysdeps-win.c. 
+
 2007-03-15 Ralf.Habacker  <ralf.habacker@freenet.de>
 
 	* bus/config-parser.c, bus/policy.c,  

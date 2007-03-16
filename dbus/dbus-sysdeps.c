@@ -27,6 +27,7 @@
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
+#include "dbus-list.h"
 
 /* NOTE: If you include any unix/windows-specific headers here, you are probably doing something
  * wrong and should be putting some code in dbus-sysdeps-unix.c or dbus-sysdeps-win.c.
@@ -229,6 +230,127 @@ void
 _dbus_pipe_invalidate (DBusPipe *pipe)
 {
   pipe->fd_or_handle = -1;
+}
+
+/**
+ * split pathes into a list of char strings 
+ * @param dirs string with pathes 
+ * @param suffix string concated to each path in dirs
+ * @param dir_list contains a list of splitted pathes
+ * return #TRUE is pathes could be splittes,#FALSE in oom case 
+ */
+dbus_bool_t
+_dbus_split_paths_and_append (DBusString *dirs, 
+                              const char *suffix, 
+                              DBusList  **dir_list)
+{
+   int start;
+   int i;
+   int len;
+   char *cpath;
+   const DBusString file_suffix;
+
+   start = 0;
+   i = 0;
+
+   _dbus_string_init_const (&file_suffix, suffix);
+
+   len = _dbus_string_get_length (dirs);
+
+   while (_dbus_string_find (dirs, start, _DBUS_PATH_SEPARATOR, &i))
+     {
+       DBusString path;
+
+       if (!_dbus_string_init (&path))
+          goto oom;
+
+       if (!_dbus_string_copy_len (dirs,
+                                   start,
+                                   i - start,
+                                   &path,
+                                   0))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        _dbus_string_chop_white (&path);
+
+        /* check for an empty path */
+        if (_dbus_string_get_length (&path) == 0)
+          goto next;
+
+        if (!_dbus_concat_dir_and_file (&path,
+                                        &file_suffix))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        if (!_dbus_string_copy_data(&path, &cpath))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        if (!_dbus_list_append (dir_list, cpath))
+          {
+            _dbus_string_free (&path);              
+            dbus_free (cpath);
+            goto oom;
+          }
+
+       next:
+        _dbus_string_free (&path);
+        start = i + 1;
+    } 
+      
+  if (start != len)
+    { 
+      DBusString path;
+
+      if (!_dbus_string_init (&path))
+        goto oom;
+
+      if (!_dbus_string_copy_len (dirs,
+                                  start,
+                                  len - start,
+                                  &path,
+                                  0))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_concat_dir_and_file (&path,
+                                      &file_suffix))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_string_copy_data(&path, &cpath))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_list_append (dir_list, cpath))
+        {
+          _dbus_string_free (&path);              
+          dbus_free (cpath);
+          goto oom;
+        }
+
+      _dbus_string_free (&path); 
+    }
+
+  return TRUE;
+
+ oom:
+  _dbus_list_foreach (dir_list, (DBusForeachFunction)dbus_free, NULL); 
+  _dbus_list_clear (dir_list);
+  return FALSE;
 }
 
 /** @} */

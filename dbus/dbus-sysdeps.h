@@ -41,6 +41,12 @@
 
 DBUS_BEGIN_DECLS
 
+#ifdef DBUS_WIN
+#define _DBUS_PATH_SEPARATOR ";"
+#else
+#define _DBUS_PATH_SEPARATOR ":"
+#endif
+
 /* Forward declarations */
 
 /** An opaque string type */
@@ -461,6 +467,10 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
  * @returns #FALSE if no memory
  */
 dbus_bool_t _dbus_threads_init_platform_specific (void);
+
+dbus_bool_t _dbus_split_paths_and_append (DBusString *dirs, 
+                                          const char *suffix, 
+                                          DBusList **dir_list);
 
 /** @} */
 
