@@ -376,6 +376,13 @@ dbus_parse_address (const char         *address,
   entries = NULL;
   pos = 0;
   len = _dbus_string_get_length (&str);
+
+  if (len == 0)
+  {
+    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                    "Empty address '%s'", address);
+    goto error;
+  }
   
   while (pos < len)
     {
@@ -768,6 +775,11 @@ _dbus_address_test (void)
   dbus_address_entries_free (entries);
 
   /* Different possible errors */
+  if (dbus_parse_address ("", &entries, &len, &error))
+    _dbus_assert_not_reached ("Parsed incorrect address.");
+  else
+    dbus_error_free (&error);
+
   if (dbus_parse_address ("foo", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
   else

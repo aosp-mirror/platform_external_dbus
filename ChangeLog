@@ -1,3 +1,10 @@
+2007-04-03  Timo Hoenig  <thoenig@suse.de>
+
+	* dbus/dbus-address.c (dbus_parse_address): Do not accept zero-
+	  length address.
+	* dbus/dbus-address.c (_dbus_address_test): Add test for zero-
+	  length address.
+
 2007-03-25 Ralf.Habacker  <ralf.habacker@freenet.de>
 
 	* cmake/dbus/CMakeLists.txt: debug postfix also for mingw.
