@@ -1222,6 +1222,46 @@ _dbus_message_test (const char *test_data_dir)
 
   verify_test_message (message);
 
+    {
+      /* Marshal and demarshal the message. */
+
+      DBusMessage *message2;
+      DBusError error;
+      char *marshalled = NULL;
+      int len = 0;
+
+      dbus_error_init (&error);
+
+      if (!dbus_message_marshal (message, &marshalled, &len))
+        _dbus_assert_not_reached ("failed to marshal message");
+
+      _dbus_assert (len != 0);
+      _dbus_assert (marshalled != NULL);
+
+      message2 = dbus_message_demarshal (marshalled, len, &error);
+
+      _dbus_assert (message2 != NULL);
+      _dbus_assert (!dbus_error_is_set (&error));
+      verify_test_message (message2);
+
+      dbus_message_unref (message2);
+      dbus_free (marshalled);
+
+      /* Demarshal invalid message. */
+
+      message2 = dbus_message_demarshal ("invalid", 7, &error);
+      _dbus_assert (message2 == NULL);
+      _dbus_assert (dbus_error_is_set (&error));
+      dbus_error_free (&error);
+
+      /* Demarshal invalid (empty) message. */
+
+      message2 = dbus_message_demarshal ("", 0, &error);
+      _dbus_assert (message2 == NULL);
+      _dbus_assert (dbus_error_is_set (&error));
+      dbus_error_free (&error);
+    }
+
   dbus_message_unref (message);
   _dbus_message_loader_unref (loader);
 

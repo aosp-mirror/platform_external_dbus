@@ -1,3 +1,10 @@
+2007-04-06 Simon McVittie <simon.mcvittie@collabora.co.uk>
+
+	* dbus/dbus-message-util.c, dbus/dbus-message.c,
+	dbus/dbus-message.h: Add API to convert a DBusMessage to/from a
+	byte array. Patch from Dafydd Harries <dafydd.harries@collabora.co.uk>,
+	approved by Havoc Pennington.
+
 2007-04-03  Timo Hoenig  <thoenig@suse.de>
 
 	* dbus/dbus-address.c (dbus_parse_address): Do not accept zero-

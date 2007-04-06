@@ -210,8 +210,15 @@ dbus_bool_t dbus_message_set_data           (DBusMessage      *message,
 void*       dbus_message_get_data           (DBusMessage      *message,
                                              dbus_int32_t      slot);
 
-int dbus_message_type_from_string (const char *type_str);
-const char * dbus_message_type_to_string (int type);
+int         dbus_message_type_from_string (const char *type_str);
+const char* dbus_message_type_to_string   (int type);
+
+dbus_bool_t  dbus_message_marshal   (DBusMessage  *msg,
+                                     char        **marshalled_data_p,
+                                     int          *len_p);
+DBusMessage* dbus_message_demarshal (const char *str,
+                                     int         len,
+                                     DBusError  *error);
 
 /** @} */
 

@@ -3890,6 +3890,110 @@ dbus_message_type_to_string (int type)
     }
 }
 
+/**
+ * Turn a DBusMessage into the marshalled form as described in the D-Bus
+ * specification.
+ *
+ * Generally, this function is only useful for encapsulating D-Bus messages in
+ * a different protocol.
+ *
+ * @param msg the DBusMessage
+ * @param marshalled_data_p the location to save the marshalled form to
+ * @param len_p the location to save the length of the marshalled form to
+ * @returns #FALSE if there was not enough memory
+ */
+dbus_bool_t
+dbus_message_marshal (DBusMessage  *msg,
+                      char        **marshalled_data_p,
+                      int          *len_p)
+{
+  DBusString tmp;
+
+  _dbus_return_val_if_fail (msg != NULL, FALSE);
+  _dbus_return_val_if_fail (marshalled_data_p != NULL, FALSE);
+  _dbus_return_val_if_fail (len_p != NULL, FALSE);
+
+  if (!_dbus_string_init (&tmp))
+    return FALSE;
+
+  if (!_dbus_string_copy (&(msg->header.data), 0, &tmp, 0))
+    goto fail;
+
+  *len_p = _dbus_string_get_length (&tmp);
+
+  if (!_dbus_string_copy (&(msg->body), 0, &tmp, *len_p))
+    goto fail;
+
+  *len_p = _dbus_string_get_length (&tmp);
+
+  if (!_dbus_string_steal_data (&tmp, marshalled_data_p))
+    goto fail;
+
+  _dbus_string_free (&tmp);
+  return TRUE;
+
+ fail:
+  _dbus_string_free (&tmp);
+  return FALSE;
+}
+
+/**
+ * Demarshal a D-Bus message from the format described in the D-Bus
+ * specification.
+ *
+ * Generally, this function is only useful for encapsulating D-Bus messages in
+ * a different protocol.
+ *
+ * @param str the marshalled DBusMessage
+ * @param len the length of str
+ * @param error the location to save errors to
+ * @returns #NULL if there was an error
+ */
+DBusMessage *
+dbus_message_demarshal (const char *str,
+                        int         len,
+                        DBusError  *error)
+{
+  DBusMessageLoader *loader;
+  DBusString *buffer;
+  DBusMessage *msg;
+
+  _dbus_return_val_if_fail (str != NULL, NULL);
+
+  loader = _dbus_message_loader_new ();
+
+  if (loader == NULL)
+    return NULL;
+
+  _dbus_message_loader_get_buffer (loader, &buffer);
+  _dbus_string_append_len (buffer, str, len);
+  _dbus_message_loader_return_buffer (loader, buffer, len);
+
+  if (!_dbus_message_loader_queue_messages (loader))
+    goto fail_oom;
+
+  if (_dbus_message_loader_get_is_corrupted (loader))
+    goto fail_corrupt;
+
+  msg = _dbus_message_loader_pop_message (loader);
+
+  if (!msg)
+    goto fail_oom;
+
+  _dbus_message_loader_unref (loader);
+  return msg;
+
+ fail_corrupt:
+  dbus_set_error (error, DBUS_ERROR_INVALID_ARGS, "Message is corrupted");
+  _dbus_message_loader_unref (loader);
+  return NULL;
+
+ fail_oom:
+  _DBUS_SET_OOM (error);
+  _dbus_message_loader_unref (loader);
+  return NULL;
+}
+
 /** @} */
 
 /* tests in dbus-message-util.c */
