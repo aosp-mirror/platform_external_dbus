@@ -1,6 +1,6 @@
 set (PACKAGE dbus)
 set (VERSION_MAJOR "1")
-set (VERSION_MINOR "0")
+set (VERSION_MINOR "1")
 set (VERSION_PATCH "0")
 set (VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} )
 project(${PACKAGE})
@@ -74,6 +74,11 @@ if(MSVC)
 	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 endif(MSVC)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+   # dll postfix is set to 'd' by default
+   set (CMAKE_EXE_POSTFIX "d")
+endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 
 #########################################################################

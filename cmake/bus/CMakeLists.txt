@@ -82,9 +82,9 @@ set (dbus_daemon_SOURCES
 include_directories(${XML_INCLUDE_DIR})
 SET (LIBS ${XML_LIBRARY})
 
-add_executable(dbus-daemon ${dbus_daemon_SOURCES})
-target_link_libraries(dbus-daemon dbus-1 ${LIBS})
-install_targets(/bin dbus-daemon )
+add_executable(dbus-daemon${CMAKE_EXE_POSTFIX} ${dbus_daemon_SOURCES})
+target_link_libraries(dbus-daemon${CMAKE_EXE_POSTFIX} dbus-1 ${LIBS})
+install_targets(/bin dbus-daemon${CMAKE_EXE_POSTFIX} )
 install_files(/etc FILES ${config_DATA})
 
 if (DBUS_SERVICE)
@@ -95,9 +95,9 @@ if (DBUS_SERVICE)
 	#	${BUS_SOURCES} 
 	)
 
-	add_executable(dbus-service ${dbus_service_SOURCES} )
-	target_link_libraries(dbus-service dbus-1 ${LIBS})
-	install_targets(/bin dbus-service )
+	add_executable(dbus-service${CMAKE_EXE_POSTFIX} ${dbus_service_SOURCES} )
+	target_link_libraries(dbus-service${CMAKE_EXE_POSTFIX} dbus-1 ${LIBS})
+	install_targets(/bin dbus-service${CMAKE_EXE_POSTFIX} )
 
 endif (DBUS_SERVICE)
 
@@ -121,10 +121,10 @@ set (bus_test_SOURCES
 )
 
 if (DBUS_BUILD_TESTS)	
-	add_executable(bus-test ${bus_test_SOURCES})
-	target_link_libraries(bus-test dbus-1 ${LIBS} )
-	install_targets(/bin bus-test)
-	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
+	add_executable(bus-test${CMAKE_EXE_POSTFIX} ${bus_test_SOURCES})
+	target_link_libraries(bus-test${CMAKE_EXE_POSTFIX} dbus-1 ${LIBS} )
+	install_targets(/bin bus-test${CMAKE_EXE_POSTFIX})
+	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test${CMAKE_EXE_POSTFIX} ${CMAKE_SOURCE_DIR}/../test/data)
 endif (DBUS_BUILD_TESTS)
 
 if(MSVC)

@@ -2510,7 +2510,7 @@ _dbus_win_set_error_from_win_error (DBusError *error,
       dbus_set_error (error, "win32.error", "%s", msg_copy);
     }
   else
-    dbus_set_error_const (error, "win32.error", "Unknown error code or FormatMessage failed");
+    dbus_set_error (error, "win32.error", "Unknown error code %d or FormatMessage failed", code);
 }
 
 void

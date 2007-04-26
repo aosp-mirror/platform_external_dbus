@@ -54,16 +54,16 @@ set (dbus_viewer_SOURCES
 	../../tools/dbus-viewer.c
 )
 
-add_executable(dbus-send ${dbus_send_SOURCES})
-target_link_libraries(dbus-send dbus-1)
-install_targets(/bin dbus-send )
+add_executable(dbus-send${CMAKE_EXE_POSTFIX} ${dbus_send_SOURCES})
+target_link_libraries(dbus-send${CMAKE_EXE_POSTFIX} dbus-1)
+install_targets(/bin dbus-send${CMAKE_EXE_POSTFIX} )
 
 # glib required 
-#add_executable(dbus_launch ${dbus_launch_SOURCES})
+#add_executable(dbus_launch${CMAKE_EXE_POSTFIX} ${dbus_launch_SOURCES})
 
-add_executable(dbus-monitor ${dbus_monitor_SOURCES})
-target_link_libraries(dbus-monitor dbus-1)
-install_targets(/bin dbus-monitor )
+add_executable(dbus-monitor${CMAKE_EXE_POSTFIX} ${dbus_monitor_SOURCES})
+target_link_libraries(dbus-monitor${CMAKE_EXE_POSTFIX} dbus-1)
+install_targets(/bin dbus-monitor${CMAKE_EXE_POSTFIX} )
 
 #dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la
 #dbus_monitor_LDADD= $(top_builddir)/glib/libdbus-glib-1.la
