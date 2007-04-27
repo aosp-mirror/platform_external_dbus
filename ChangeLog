@@ -1,3 +1,9 @@
+2007-04-27  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_open_socket): fix #10781 from
+	Tobias Nygren, checking pointer to fd vs. 0 rather than checking
+	the fd itself
+
 2007-04-26 Ralf.Habacker  <ralf.habacker@freenet.de>
 
 	* cmake: added debug postfixes to debug exe's for 
