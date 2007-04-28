@@ -121,10 +121,10 @@ set (bus_test_SOURCES
 )
 
 if (DBUS_BUILD_TESTS)	
-	add_executable(bus-test${CMAKE_EXE_POSTFIX} ${bus_test_SOURCES})
-	target_link_libraries(bus-test${CMAKE_EXE_POSTFIX} dbus-1 ${LIBS} )
-	install_targets(/bin bus-test${CMAKE_EXE_POSTFIX})
-	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test${CMAKE_EXE_POSTFIX} ${CMAKE_SOURCE_DIR}/../test/data)
+	add_executable(bus-test ${bus_test_SOURCES})
+	target_link_libraries(bus-test dbus-1 ${LIBS} )
+	#install_targets(/bin bus-test)
+	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
 endif (DBUS_BUILD_TESTS)
 
 if(MSVC)

@@ -76,8 +76,9 @@ if(MSVC)
 endif(MSVC)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-   # dll postfix is set to 'd' by default
+   # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
    set (CMAKE_EXE_POSTFIX "d")
+   set (CMAKE_DEBUG_POSTFIX "d")
 endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 

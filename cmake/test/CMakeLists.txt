@@ -90,7 +90,7 @@ set (decode_gcov_SOURCES
 
 add_executable(test-service ${test-service_SOURCES})
 target_link_libraries(test-service dbus-1)
-install_targets(/bin test-service)
+#install_targets(/bin test-service)
 
 # (rh) does not work at now
 ADD_TEST(test-service ${EXECUTABLE_OUTPUT_PATH}/test-service${EXT})
@@ -99,17 +99,17 @@ ADD_TEST(test-service ${EXECUTABLE_OUTPUT_PATH}/test-service${EXT})
 
 add_executable(test-names ${test-names_SOURCES})
 target_link_libraries(test-names dbus-1)
-install_targets(/bin test-names)
+#install_targets(/bin test-names)
 ADD_TEST(test-names ${EXECUTABLE_OUTPUT_PATH}/test-names${EXT})
 
 add_executable(test-shell ${test-shell_SOURCES})
 target_link_libraries(test-shell dbus-1)
-install_targets(/bin test-shell)
+#install_targets(/bin test-shell)
 ADD_TEST(test-shell ${EXECUTABLE_OUTPUT_PATH}/test-shell${EXT})
 
 add_executable(test-shell-service ${test-shell_SOURCES})
 target_link_libraries(test-shell-service dbus-1)
-install_targets(/bin test-shell-service)
+#install_targets(/bin test-shell-service)
 ADD_TEST(test-shell-service ${EXECUTABLE_OUTPUT_PATH}/test-shell-service${EXT})
 
 add_executable(test-spawn ${test-spawn_SOURCES})
@@ -119,12 +119,12 @@ target_link_libraries(test-spawn dbus-1)
 
 add_executable(test-exit ${test-exit_SOURCES})
 target_link_libraries(test-exit dbus-1)
-install_targets(/bin test-exit)
+#install_targets(/bin test-exit)
 ADD_TEST(test-exit ${EXECUTABLE_OUTPUT_PATH}/test-exit${EXT})
 
 add_executable(test-segfault ${test-segfault_SOURCES})
 target_link_libraries(test-segfault dbus-1)
-install_targets(/bin test-segfault)
+#install_targets(/bin test-segfault)
 ADD_TEST(test-segfault ${EXECUTABLE_OUTPUT_PATH}/test-segfault${EXT})
 
 add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
@@ -203,7 +203,7 @@ FOREACH(FILE ${FILES})
 		MESSAGE("FROM: ${FILE}\nTO: ${TARGET}\n")
 	ENDIF (CONFIG_VERBOSE)
 	configure_file(${FILE} ${TARGET} )
-	install_files(/data/dbus-1/services FILES ${TARGET})
+	#install_files(/data/dbus-1/services FILES ${TARGET})
 ENDFOREACH(FILE)
 
 #
