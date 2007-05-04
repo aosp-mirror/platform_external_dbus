@@ -1,3 +1,11 @@
+2007-05-04  Simon McVittie <simon.mcvittie@collabora.co.uk>
+
+	* doc/dbus-specification.xml: mention the reserved o.fd.DBus.Local
+	interface and the corresponding /o/fd/DBus/Local object path;
+	describe them as reserved and forbid using them in a sent message,
+	mentioning that in the reference implementation this will cause the
+	connection to be dropped. Patch approved by Havoc.
+
 2007-04-28  Ralf Habacker <ralf.habacker@freenet.de>
 
 	* cmake/: don't install test applications and service files,

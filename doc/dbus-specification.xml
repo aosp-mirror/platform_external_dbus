@@ -921,8 +921,13 @@
                   <entry>1</entry>
                   <entry><literal>OBJECT_PATH</literal></entry>
                   <entry><literal>METHOD_CALL</literal>, <literal>SIGNAL</literal></entry>
-                  <entry>The object to send a call to, 
+                  <entry>The object to send a call to,
                     or the object a signal is emitted from.
+                    The special path
+                    <literal>/org/freedesktop/DBus/Local</literal> is reserved;
+                    implementations should not send messages with this path,
+                    and the reference implementation of the bus daemon will
+                    disconnect any application that attempts to do so.
                   </entry>
                 </row>
                 <row>
@@ -934,6 +939,12 @@
                     The interface to invoke a method call on, or 
                     that a signal is emitted from. Optional for 
                     method calls, required for signals.
+                    The special interface
+                    <literal>org.freedesktop.DBus.Local</literal> is reserved;
+                    implementations should not send messages with this
+                    interface, and the reference implementation of the bus
+                    daemon will disconnect any application that attempts to
+                    do so.
                   </entry>
                 </row>
                 <row>
