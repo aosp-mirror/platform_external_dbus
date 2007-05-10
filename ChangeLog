@@ -1,3 +1,8 @@
+2007-05-10  John (J5) Palmieri <johnp@redhat.com>
+
+	* dbus-1.pc.in: add daemondir to pc file
+	patch from Brian Cameron <brian.cameron at sun.com>
+
 2007-05-04  Simon McVittie <simon.mcvittie@collabora.co.uk>
 
 	* doc/dbus-specification.xml: mention the reserved o.fd.DBus.Local
