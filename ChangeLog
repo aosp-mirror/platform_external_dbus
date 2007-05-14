@@ -1,3 +1,9 @@
+2007-05-14  Ralf Habacker <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c (_dbus_printf_string_upper_bound):
+	compile fix for MS Platform SDK 6 
+	patch from Michael Luschas <mluschas@gmail.com>
+
 2007-05-10  John (J5) Palmieri <johnp@redhat.com>
 
 	* dbus-1.pc.in: add daemondir to pc file

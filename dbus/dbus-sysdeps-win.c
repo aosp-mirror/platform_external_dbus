@@ -1609,12 +1609,12 @@ int _dbus_printf_string_upper_bound (const char *format,
    */
   char p[1024];
   int len;
-  len = vsnprintf (p, sizeof(p)-1, format, args);
+  len = _vsnprintf (p, sizeof(p)-1, format, args);
   if (len == -1) // try again
     {
       char *p;
       p = malloc (strlen(format)*3);
-      len = vsnprintf (p, sizeof(p)-1, format, args);
+      len = _vsnprintf (p, sizeof(p)-1, format, args);
       free(p);
     }
   return len;
