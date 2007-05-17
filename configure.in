@@ -72,6 +72,7 @@ AC_ARG_WITH(console-owner-file, AS_HELP_STRING([--with-console-owner-file=[filen
 AC_ARG_WITH(dbus_user, AS_HELP_STRING([--with-dbus-user=<user>],[User for running the DBUS daemon (messagebus)]))
 AC_ARG_WITH(dbus_daemondir, AS_HELP_STRING([--with-dbus-daemondir=[dirname]],[Directory for installing the DBUS daemon]))
 
+AC_DEFINE(DBUS_UNIX,1,[dbus on unix])
 
 dnl DBUS_BUILD_TESTS controls unit tests built in to .c files 
 dnl and also some stuff in the test/ subdir

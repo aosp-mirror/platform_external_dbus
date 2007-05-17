@@ -1,3 +1,7 @@
+2007-04-29 Ralf.Habacker  <ralf.habacker@freenet.de>
+ 
+	* configure.in: define constant DBUS_UNIX.
+
 2007-05-14  Ralf Habacker <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-win.c (_dbus_printf_string_upper_bound):
