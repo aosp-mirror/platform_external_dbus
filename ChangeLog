@@ -1,5 +1,10 @@
 2007-04-29 Ralf.Habacker  <ralf.habacker@freenet.de>
  
+	* bus\config-parser.c (test_default_session_servicedirs):
+	win32 fix.
+
+2007-04-29 Ralf.Habacker  <ralf.habacker@freenet.de>
+ 
 	* configure.in: define constant DBUS_UNIX.
 
 2007-05-14  Ralf Habacker <ralf.habacker@freenet.de>

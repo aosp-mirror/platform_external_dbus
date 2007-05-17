@@ -3077,10 +3077,12 @@ process_test_equiv_subdir (const DBusString *test_base_dir,
 
 static const char *test_service_dir_matches[] = 
         {
+         DBUS_DATADIR"/dbus-1/services",
+#ifdef DBUS_UNIX
          "/testusr/testlocal/testshare/dbus-1/services",
          "/testusr/testshare/dbus-1/services",
-         DBUS_DATADIR"/dbus-1/services",
          "/testhome/foo/.testlocal/testshare/dbus-1/services",         
+#endif 
          NULL
         };
 
@@ -3089,11 +3091,32 @@ test_default_session_servicedirs (void)
 {
   DBusList *dirs;
   DBusList *link;
+  DBusString progs;
+  const char *common_progs;
   int i;
 
+  common_progs = _dbus_getenv ("CommonProgramFiles");
+  if (common_progs) 
+    {
+      if (!_dbus_string_init (&progs))
+        return FALSE;
+
+      if (!_dbus_string_append (&progs, common_progs)) 
+        {
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+
+      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
+        {
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
+    }
   dirs = NULL;
 
-  printf ("Testing retriving the default session service directories\n");
+  printf ("Testing retrieving the default session service directories\n");
   if (!_dbus_get_standard_session_servicedirs (&dirs))
     _dbus_assert_not_reached ("couldn't get stardard dirs");
 
@@ -3104,9 +3127,12 @@ test_default_session_servicedirs (void)
       
       printf ("    default service dir: %s\n", (char *)link->data);
       _dbus_string_init_const (&path, (char *)link->data);
-      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
+      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/services"))
         {
           printf ("error with default session service directories\n");
+	      dbus_free (link->data);
+    	  _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
           return FALSE;
         }
  
@@ -3114,12 +3140,13 @@ test_default_session_servicedirs (void)
       _dbus_list_free_link (link);
     }
 
+#ifdef DBUS_UNIX
   if (!_dbus_setenv ("XDG_DATA_HOME", "/testhome/foo/.testlocal/testshare"))
     _dbus_assert_not_reached ("couldn't setenv XDG_DATA_HOME");
 
   if (!_dbus_setenv ("XDG_DATA_DIRS", ":/testusr/testlocal/testshare: :/testusr/testshare:"))
     _dbus_assert_not_reached ("couldn't setenv XDG_DATA_DIRS");
-
+#endif
   if (!_dbus_get_standard_session_servicedirs (&dirs))
     _dbus_assert_not_reached ("couldn't get stardard dirs");
 
@@ -3131,6 +3158,9 @@ test_default_session_servicedirs (void)
       if (test_service_dir_matches[i] == NULL)
         {
           printf ("more directories parsed than in match set\n");
+          dbus_free (link->data);
+          _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
           return FALSE;
         }
  
@@ -3140,6 +3170,9 @@ test_default_session_servicedirs (void)
           printf ("%s directory does not match %s in the match set\n", 
                   (char *)link->data,
                   test_service_dir_matches[i]);
+          dbus_free (link->data);
+          _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
           return FALSE;
         }
 
@@ -3154,9 +3187,11 @@ test_default_session_servicedirs (void)
       printf ("extra data %s in the match set was not matched\n",
               test_service_dir_matches[i]);
 
+      _dbus_string_free (&progs);
       return FALSE;
     }
     
+  _dbus_string_free (&progs);
   return TRUE;
 }
 			   
