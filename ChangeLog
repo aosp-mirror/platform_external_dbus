@@ -1,3 +1,8 @@
+2007-05-18  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml: add a GetAll to the Properties
+	interface.
+
 2007-04-29 Ralf.Habacker  <ralf.habacker@freenet.de>
  
 	* bus\config-parser.c (test_default_session_servicedirs):
