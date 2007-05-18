@@ -2455,8 +2455,8 @@
               org.freedesktop.DBus.Properties.Set (in STRING interface_name,
                                                    in STRING property_name,
                                                    in VARIANT value);
-              DICT&lt;STRING,VARIANT&gt;
-              org.freedesktop.DBus.Properties.GetAll (in STRING interface_name);
+              org.freedesktop.DBus.Properties.GetAll (in STRING interface_name,
+                                                      out DICT&lt;STRING,VARIANT&gt; props);
         </programlisting>
       </para>
       <para>
