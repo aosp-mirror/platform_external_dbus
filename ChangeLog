@@ -3,12 +3,12 @@
 	* doc/dbus-specification.xml: add a GetAll to the Properties
 	interface.
 
-2007-04-29 Ralf.Habacker  <ralf.habacker@freenet.de>
+2007-05-17 Ralf.Habacker  <ralf.habacker@freenet.de>
  
 	* bus\config-parser.c (test_default_session_servicedirs):
 	win32 fix.
 
-2007-04-29 Ralf.Habacker  <ralf.habacker@freenet.de>
+2007-05-17 Ralf.Habacker  <ralf.habacker@freenet.de>
  
 	* configure.in: define constant DBUS_UNIX.
 
