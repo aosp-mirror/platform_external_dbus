@@ -1,6 +1,11 @@
 2007-05-19 Ralf.Habacker  <ralf.habacker@freenet.de>
 
-	* bus/policy (bus_policy_create_client_policy): 
+	* dbus/dbus-sysdeps.c (_dbus_setenv): win32 requires 'varname=' 
+	to unset a environment variable. 
+
+2007-05-19 Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* bus/policy.c (bus_policy_create_client_policy): 
 	win32 temporary fix until the userdb stuff is ported completly.
 
 2007-05-19  Ralf.Habacker  <ralf.habacker@freenet.de>

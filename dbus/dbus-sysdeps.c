@@ -120,11 +120,14 @@ _dbus_setenv (const char *varname,
        * will get upset about.
        */
       
-      putenv_value = malloc (len + 1);
+      putenv_value = malloc (len + 2);
       if (putenv_value == NULL)
         return FALSE;
 
       strcpy (putenv_value, varname);
+#if defined(DBUS_WIN)
+      strcat (putenv_value, "=");
+#endif
       
       return (putenv (putenv_value) == 0);
 #endif
@@ -594,6 +597,10 @@ static double
 ascii_strtod (const char *nptr,
 	      char      **endptr)
 {
+  /* FIXME: The Win32 C library's strtod() doesn't handle hex.
+   * Presumably many Unixes don't either.
+   */
+
   char *fail_pos;
   double val;
   struct lconv *locale_data;
