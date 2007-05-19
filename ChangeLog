@@ -1,7 +1,12 @@
+2007-05-19 Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* bus/policy (bus_policy_create_client_policy): 
+	win32 temporary fix until the userdb stuff is ported completly.
+
 2007-05-19  Ralf.Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-server.c (listen_funcs): 
-	_dbus_server_listen_platform_specific is emtpy on win32, 
+	_dbus_server_listen_platform_specific is empty on win32, 
 	limited to unix only.
 
 	* dbus/dbus-server.c (valid_addresses): limit unix 

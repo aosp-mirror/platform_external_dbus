@@ -324,9 +324,13 @@ bus_policy_create_client_policy (BusPolicy      *policy,
 
   if (!dbus_connection_get_unix_user (connection, &uid))
     {
+#ifdef DBUS_WIN_FIXME
+      _dbus_verbose ("policy.c: dbus_connection_get_unix_user check disabled under windows\n");
+#else
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "No user ID known for connection, cannot determine security policy\n");
       goto failed;
+#endif
     }
 
   if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
