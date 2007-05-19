@@ -1,3 +1,12 @@
+2007-05-19  Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-server.c (listen_funcs): 
+	_dbus_server_listen_platform_specific is emtpy on win32, 
+	limited to unix only.
+
+	* dbus/dbus-server.c (valid_addresses): limit unix 
+	only addresses to unix. 
+
 2007-05-18  Havoc Pennington  <hp@redhat.com>
 
 	* doc/dbus-specification.xml: add a GetAll to the Properties

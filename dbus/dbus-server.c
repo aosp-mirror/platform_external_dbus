@@ -509,8 +509,10 @@ static const struct {
                                    DBusServer      **server_p,
                                    DBusError        *error);
 } listen_funcs[] = {
-  { _dbus_server_listen_socket },
-  { _dbus_server_listen_platform_specific }
+  { _dbus_server_listen_socket }
+#ifdef DBUS_UNIX
+  , { _dbus_server_listen_platform_specific }
+#endif
 #ifdef DBUS_BUILD_TESTS
   , { _dbus_server_listen_debug_pipe }
 #endif
@@ -1116,10 +1118,12 @@ _dbus_server_test (void)
 {
   const char *valid_addresses[] = {
     "tcp:port=1234",
-    "unix:path=./boogie",
     "tcp:host=localhost,port=1234",
     "tcp:host=localhost,port=1234;tcp:port=5678",
+#ifdef DBUS_UNIX
+    "unix:path=./boogie",
     "tcp:port=1234;unix:path=./boogie",
+#endif
   };
 
   DBusServer *server;
