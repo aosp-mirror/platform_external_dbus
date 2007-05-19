@@ -156,7 +156,9 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir, const char *speci
   
   run_test ("hash", specific_test, _dbus_hash_test);
 
+#if !defined(DBUS_WINCE)
   run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
+#endif
   
   run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
   

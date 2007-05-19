@@ -1,5 +1,15 @@
 2007-05-19 Ralf.Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-test.c (dbus_internal_do_not_use_run_tests): disabled 
+	tests not running on wince.
+
+2007-05-19 Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-internals.c (_dbus_verbose_init): win32 requires 'varname=' 
+	to unset a environment variable. 
+
+2007-05-19 Ralf.Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps.c (_dbus_setenv): win32 requires 'varname=' 
 	to unset a environment variable. 
 
