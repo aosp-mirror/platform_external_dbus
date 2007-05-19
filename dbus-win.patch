@@ -1,4 +1,3 @@
-? doc/Thumbs.db
 Index: bus/config-loader-expat.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/config-loader-expat.c,v
@@ -88,80 +87,6 @@ diff -u -r1.8 config-loader-libxml.c
    if (parser == NULL)
      {
        _DBUS_SET_OOM (error);
-Index: bus/config-parser.c
-===================================================================
-RCS file: /cvs/dbus/dbus/bus/config-parser.c,v
-retrieving revision 1.47
-diff -u -r1.47 config-parser.c
---- bus/config-parser.c	26 Jan 2007 16:10:09 -0000	1.47
-+++ bus/config-parser.c	8 Mar 2007 20:25:40 -0000
-@@ -3070,10 +3071,15 @@
- 
- static const char *test_service_dir_matches[] = 
-         {
-+#ifdef DBUS_WIN
-+         DBUS_DATADIR"/dbus-1/services",
-+         NULL,
-+#else
-          "/testusr/testlocal/testshare/dbus-1/services",
-          "/testusr/testshare/dbus-1/services",
-          DBUS_DATADIR"/dbus-1/services",
-          "/testhome/foo/.testlocal/testshare/dbus-1/services",         
-+#endif 
-          NULL
-         };
- 
-@@ -3082,11 +3088,32 @@
- {
-   DBusList *dirs;
-   DBusList *link;
-+  DBusString progs;
-+  const char *common_progs;
-   int i;
- 
-+  common_progs = _dbus_getenv ("CommonProgramFiles");
-+  if (common_progs) 
-+    {
-+      if (!_dbus_string_init (&progs))
-+        return FALSE;
-+
-+      if (!_dbus_string_append (&progs, common_progs)) 
-+        {
-+          _dbus_string_free (&progs);
-+          return FALSE;
-+        }
-+
-+      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
-+        {
-+          _dbus_string_free (&progs);
-+          return FALSE;
-+        }
-+      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
-+    }
-   dirs = NULL;
- 
--  printf ("Testing retriving the default session service directories\n");
-+  printf ("Testing retrieving the default session service directories\n");
-   if (!_dbus_get_standard_session_servicedirs (&dirs))
-     _dbus_assert_not_reached ("couldn't get stardard dirs");
- 
-@@ -3097,7 +3124,7 @@
-       
-       printf ("    default service dir: %s\n", (char *)link->data);
-       _dbus_string_init_const (&path, (char *)link->data);
--      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
-+      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/services"))
-         {
-           printf ("error with default session service directories\n");
-           return FALSE;
-@@ -3150,6 +3177,7 @@
-       return FALSE;
-     }
-     
-+  _dbus_string_free (&progs);
-   return TRUE;
- }
- 			   
 Index: bus/dispatch.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/dispatch.c,v
