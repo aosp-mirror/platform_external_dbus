@@ -349,17 +349,6 @@ retrieving revision 1.19
 diff -u -r1.19 dbus-mainloop.c
 --- dbus/dbus-mainloop.c	20 Oct 2006 03:04:59 -0000	1.19
 +++ dbus/dbus-mainloop.c	8 Mar 2007 20:25:40 -0000
-@@ -90,8 +90,8 @@
-   Callback callback;
-   DBusTimeout *timeout;
-   DBusTimeoutFunction function;
--  unsigned long last_tv_sec;
--  unsigned long last_tv_usec;
-+  long last_tv_sec;
-+  long last_tv_usec;
- } TimeoutCallback;
- 
- #define WATCH_CALLBACK(callback)   ((WatchCallback*)callback)
 @@ -598,7 +598,7 @@
  
  #if MAINLOOP_SPEW
@@ -387,28 +376,6 @@ diff -u -r1.19 dbus-mainloop.c
                               watch_flags_to_string (dbus_watch_get_flags (wcb->watch)));
  #endif
              }
-@@ -640,8 +640,8 @@
-   timeout = -1;
-   if (loop->timeout_count > 0)
-     {
--      unsigned long tv_sec;
--      unsigned long tv_usec;
-+      long tv_sec;
-+      long tv_usec;
-       
-       _dbus_get_current_time (&tv_sec, &tv_usec);
-           
-@@ -710,8 +710,8 @@
- 
-   if (loop->timeout_count > 0)
-     {
--      unsigned long tv_sec;
--      unsigned long tv_usec;
-+      long tv_sec;
-+      long tv_usec;
- 
-       _dbus_get_current_time (&tv_sec, &tv_usec);
- 
 @@ -883,6 +883,8 @@
    
    loop->depth -= 1;
@@ -498,23 +465,6 @@ diff -u -r1.69 dbus-sysdeps.h
  dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
                                      DBusError        *error);
  dbus_bool_t _dbus_close_socket     (int               fd,
-Index: dbus/dbus-test.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-test.c,v
-retrieving revision 1.44
-diff -u -r1.44 dbus-test.c
---- dbus/dbus-test.c	15 Nov 2006 03:07:59 -0000	1.44
-+++ dbus/dbus-test.c	8 Mar 2007 20:25:41 -0000
-@@ -156,7 +156,9 @@
-   
-   run_test ("hash", specific_test, _dbus_hash_test);
- 
-+#if !defined(DBUS_WINCE)
-   run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
-+#endif
-   
-   run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
-   
 Index: dbus/dbus-threads.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-threads.c,v
