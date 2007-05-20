@@ -1,5 +1,9 @@
 2007-05-20 Ralf.Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-internal.c: fix inline problem on win32.
+
+2007-05-20 Ralf.Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-win.c (fill_win_user_info_homedir): not reaching 
 	domain controller isn't an error, converted error message to verbose 
 	message.
