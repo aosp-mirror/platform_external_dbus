@@ -1,3 +1,9 @@
+2007-05-20 Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c (fill_win_user_info_homedir): not reaching 
+	domain controller isn't an error, converted error message to verbose 
+	message.
+
 2007-05-19 Ralf.Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-test.c (dbus_internal_do_not_use_run_tests): disabled 

@@ -1310,7 +1310,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
       if (ret != NERR_Success)
         {
           info->homedir = _dbus_strdup ("\\");
-          _dbus_warn("NetGetAnyDCName() failed with errorcode %d '%s'\n",ret,_dbus_lm_strerror(ret));
+          _dbus_verbose("NetGetAnyDCName() failed with errorcode %d '%s'\n",ret,_dbus_lm_strerror(ret));
           return TRUE;
         }
     }
