@@ -2,7 +2,7 @@
 
 //#define SPAWN_DEBUG
 
-#ifndef SPAWN_DEBUG || defined(_MSC_VER)
+#if !defined(SPAWN_DEBUG) || defined(_MSC_VER)
 #define PING()
 #else
 #define PING() fprintf (stderr, "%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__); fflush (stderr)
