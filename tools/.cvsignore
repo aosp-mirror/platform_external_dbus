@@ -8,6 +8,7 @@ dbus-send
 dbus-monitor
 dbus-cleanup-sockets
 dbus-launch
+dbus-uuidgen
 *.bb
 *.bbg
 *.gcov

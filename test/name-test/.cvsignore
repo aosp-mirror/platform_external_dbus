@@ -1,0 +1,7 @@
+.deps
+.libs
+Makefile
+Makefile.in
+test-names
+test-pending-call-dispatch
+test-threads-init
