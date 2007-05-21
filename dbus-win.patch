@@ -326,22 +326,6 @@ diff -u -r1.49 dbus-connection.h
  unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
  void*        dbus_watch_get_data    (DBusWatch        *watch);
  void         dbus_watch_set_data    (DBusWatch        *watch,
-Index: dbus/dbus-internals.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-internals.c,v
-retrieving revision 1.55
-diff -u -r1.55 dbus-internals.c
---- dbus/dbus-internals.c	15 Nov 2006 01:52:01 -0000	1.55
-+++ dbus/dbus-internals.c	8 Mar 2007 20:25:40 -0000
-@@ -295,7 +295,7 @@
- #include <pthread.h>
- #endif
- 
--static inline void
-+static void
- _dbus_verbose_init (void)
- {
-   if (!verbose_initted)
 Index: dbus/dbus-mainloop.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-mainloop.c,v
