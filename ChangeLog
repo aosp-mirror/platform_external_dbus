@@ -1,5 +1,13 @@
 2007-05-21 Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
+	* acinclude.m4, configure.in: In recent autotools, ${datadir} is
+	defined in terms of ${datarootdir}, so EXPANDED_DATADIR needs to be
+	expanded recursively. Rather than fixing configure.in to do this, I
+	grabbed the AS_AC_EXPAND macro from autostars.sf.net, which seems to be
+	commonly used.
+
+2007-05-21 Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
 	* update-dbus-docs.sh: Assorted improvements:
 	- Default user if $FDUSER is not set is the ssh default
 	  (set in ~/.ssh/config or based on the local username), not a
