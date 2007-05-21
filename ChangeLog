@@ -1,5 +1,9 @@
 2007-05-21 Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
+	* HACKING: Point to correct mailing list
+
+2007-05-21 Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
 	* doc/dbus-specification.xml: explicitly specify that STRING cannot
 	contain embedded NULs.
 
