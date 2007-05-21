@@ -385,7 +385,7 @@
               </row><row>
                 <entry><literal>STRING</literal></entry>
                 <entry>115 (ASCII 's')</entry>
-                <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8). Must be nul terminated.</entry>
+                <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8). Must be nul terminated and contain no other nul bytes.</entry>
               </row><row>
                 <entry><literal>OBJECT_PATH</literal></entry>
                 <entry>111 (ASCII 'o')</entry>
@@ -503,7 +503,7 @@
                 <entry><literal>STRING</literal></entry>
                 <entry>A <literal>UINT32</literal> indicating the string's 
                   length in bytes excluding its terminating nul, followed by 
-                  string data of the given length, followed by a terminating nul 
+                  non-nul string data of the given length, followed by a terminating nul 
                   byte.
                 </entry>
                 <entry>

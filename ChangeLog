@@ -1,3 +1,8 @@
+2007-05-21 Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
+	* doc/dbus-specification.xml: explicitly specify that STRING cannot
+	contain embedded NULs.
+
 2007-05-20 Ralf.Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-internal.c: fix inline problem on win32.
