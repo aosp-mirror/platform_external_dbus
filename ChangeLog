@@ -1,3 +1,8 @@
+2007-05-22 Ralf.Habacker <ralf.habacker@freenet.de>
+
+	* cmake/CMakeLists.txt: fixed creating of TEST_..._BINARY to make 
+	bus-test able to find the binaries.
+
 2007-05-21 Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* acinclude.m4, configure.in: In recent autotools, ${datadir} is
