@@ -113,6 +113,7 @@ install-data-hook:
 	$(INSTALL_PROGRAM) dbus-daemon $(DESTDIR)$(DBUS_DAEMONDIR)
 	$(mkinstalldirs) $(DESTDIR)$(localstatedir)/run/dbus
 	$(mkinstalldirs) $(DESTDIR)$(configdir)/system.d
+	$(mkinstalldirs) $(DESTDIR)$(configdir)/session.d
 	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/services
 
 #### Init scripts fun

@@ -21,6 +21,10 @@
     <allow own="*"/>
   </policy>
 
+  <!-- Config files are placed here that among other things, 
+       further restrict the above policy for specific services. -->
+  <includedir>session.d</includedir>
+
   <!-- This is included last so local configuration can override what's 
        in this standard file -->
   <include ignore_missing="yes">session-local.conf</include>

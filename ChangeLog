@@ -1,3 +1,10 @@
+2007-05-23  Havoc Pennington  <hp@redhat.com>
+
+	* bus/Makefile.am (install-data-hook): create session.d
+
+	* bus/session.conf.in: add session.d for the session bus, so
+	security policy can be extended
+
 2007-05-22 Ralf.Habacker <ralf.habacker@freenet.de>
 
 	* cmake/CMakeLists.txt: fixed creating of TEST_..._BINARY to make 
