@@ -68,6 +68,11 @@ if(UNIX)
 	    ${DBUS_DIR}/dbus-transport-unix.c
 	    ${DBUS_DIR}/dbus-server-unix.c
 	)
+else(UNIX)
+    set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
+#	    ${DBUS_DIR}/dbus-transport-win.c
+	    ${DBUS_DIR}/dbus-server-win.c
+	)
 endif(UNIX)
 
 set (DBUS_LIB_HEADERS

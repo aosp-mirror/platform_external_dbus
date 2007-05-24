@@ -510,9 +510,7 @@ static const struct {
                                    DBusError        *error);
 } listen_funcs[] = {
   { _dbus_server_listen_socket }
-#ifdef DBUS_UNIX
   , { _dbus_server_listen_platform_specific }
-#endif
 #ifdef DBUS_BUILD_TESTS
   , { _dbus_server_listen_debug_pipe }
 #endif

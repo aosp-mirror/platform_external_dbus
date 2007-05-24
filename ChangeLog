@@ -1,5 +1,13 @@
 2007-05-25  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-server-win.c,dbus/dbus-server-win.h: new file 
+	with empty function _dbus_server_listen_platform_specific(). 
+
+	* dbus/dbus-server.c (listen_funcs): uses 
+	_dbus_server_listen_platform_specific on any platform.
+
+2007-05-25  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-win.c (fill_win_user_info_homedir): not getting 
 	user info from a domain controller isn't an error, the computer 
 	may run in a non domain context. 
