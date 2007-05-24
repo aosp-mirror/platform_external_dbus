@@ -2057,8 +2057,7 @@ _dbus_full_duplex_pipe (int        *fd1,
   if (connect (socket1, (struct sockaddr  *)&saddr, len) != SOCKET_ERROR ||
       WSAGetLastError () != WSAEWOULDBLOCK)
     {
-      dbus_set_error_const (error, DBUS_ERROR_FAILED,
-                            "_dbus_full_duplex_pipe socketpair() emulation failed");
+      DBUS_SOCKET_SET_ERRNO ();
       goto out1;
     }
 

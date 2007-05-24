@@ -1,3 +1,7 @@
+2007-05-25  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c (_dbus_full_duplex_pipe): fixed assertation.
+
 2007-05-24  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* bus/config-parser.c (test_service_dir_matches): fixed ordering for unix.
