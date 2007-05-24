@@ -1338,7 +1338,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
     {
       char *dc_string = _dbus_win_utf16_to_utf8(dc,error);
 	  char *user_name = _dbus_win_utf16_to_utf8(wname,error);
-      _dbus_warn("NetUserGetInfo() for user '%s' failed with errorcode %d '%s', %s\n",user_name, ret,_dbus_lm_strerror(ret),dc_string);
+      _dbus_verbose("NetUserGetInfo() for user '%s' failed with errorcode %d '%s', %s\n",user_name, ret,_dbus_lm_strerror(ret),dc_string);
       dbus_free(user_name);
       dbus_free(dc_string);
       /* Not set, so use something random. */

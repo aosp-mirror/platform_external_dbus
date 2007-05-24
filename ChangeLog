@@ -1,5 +1,11 @@
 2007-05-25  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-sysdeps-win.c (fill_win_user_info_homedir): not getting 
+	user info from a domain controller isn't an error, the computer 
+	may run in a non domain context. 
+
+2007-05-25  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-win.c (_dbus_full_duplex_pipe): fixed assertation.
 
 2007-05-24  Simon McVittie  <simon.mcvittie@collabora.co.uk>
