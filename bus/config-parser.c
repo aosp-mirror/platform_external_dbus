@@ -3077,12 +3077,14 @@ process_test_equiv_subdir (const DBusString *test_base_dir,
 
 static const char *test_service_dir_matches[] = 
         {
-         DBUS_DATADIR"/dbus-1/services",
 #ifdef DBUS_UNIX
          "/testusr/testlocal/testshare/dbus-1/services",
          "/testusr/testshare/dbus-1/services",
-         "/testhome/foo/.testlocal/testshare/dbus-1/services",         
-#endif 
+#endif
+         DBUS_DATADIR"/dbus-1/services",
+#ifdef DBUS_UNIX
+         "/testhome/foo/.testlocal/testshare/dbus-1/services",
+#endif
          NULL
         };
 
@@ -3095,12 +3097,15 @@ test_default_session_servicedirs (void)
   const char *common_progs;
   int i;
 
+  /* On Unix we don't actually use this variable, but it's easier to handle the
+   * deallocation if we always allocate it, whether needed or not */
+  if (!_dbus_string_init (&progs))
+    _dbus_assert_not_reached ("OOM allocating progs");
+
   common_progs = _dbus_getenv ("CommonProgramFiles");
+#ifndef DBUS_UNIX
   if (common_progs) 
     {
-      if (!_dbus_string_init (&progs))
-        return FALSE;
-
       if (!_dbus_string_append (&progs, common_progs)) 
         {
           _dbus_string_free (&progs);
@@ -3114,6 +3119,7 @@ test_default_session_servicedirs (void)
         }
       test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
     }
+#endif
   dirs = NULL;
 
   printf ("Testing retrieving the default session service directories\n");
