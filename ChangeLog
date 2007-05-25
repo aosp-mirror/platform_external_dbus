@@ -1,5 +1,10 @@
 2007-05-25  John (J5) Palmieri  <johnp@redhat.com>
 
+	* create directory test/data/valid-config-files/session.d so that
+	make check passes
+
+2007-05-25  John (J5) Palmieri  <johnp@redhat.com>
+
 	* INSTALL: remove dependancies for bindings since they no longer
 	are a part of core
 
