@@ -1,3 +1,8 @@
+2007-05-25  John (J5) Palmieri  <johnp@redhat.com>
+
+	* INSTALL: remove dependancies for bindings since they no longer
+	are a part of core
+
 2007-05-25  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-server-win.c,dbus/dbus-server-win.h: new file 
