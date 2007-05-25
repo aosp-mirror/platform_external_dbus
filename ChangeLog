@@ -1,5 +1,9 @@
 2007-05-25  John (J5) Palmieri  <johnp@redhat.com>
 
+	* Released 1.1.0
+
+2007-05-25  John (J5) Palmieri  <johnp@redhat.com>
+
 	* Split NEWS and ChangeLog into a .pre-1-0 file as per HACKING
 	We forgot to do this during the 1.0 release and it makes sense
 	now as we get ready to release the first 1.1.0 development tarball
