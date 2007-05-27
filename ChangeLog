@@ -1,3 +1,8 @@
+2007-05-27  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus/policy.c,dbus/dbus-internals.c: fixed inconsistant line endings 
+	as reported by Peter Kümmel.
+
 2007-05-25  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Released 1.1.0
