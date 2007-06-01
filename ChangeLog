@@ -1,3 +1,7 @@
+2007-06-01  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* tools/dbus-launch-win.c: new file, replaces script wrapper on win32.
+
 2007-05-31  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* bus/main.c (main): uses _dbus_get_config_file_name() to detect 

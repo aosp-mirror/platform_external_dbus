@@ -423,9 +423,7 @@ endif(MINGW)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h )
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-env.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-env.bat )
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-launch.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-launch.bat )
 install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)	
-install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-launch.bat)	
 
 # compiler definitions 
 add_definitions(-DHAVE_CONFIG_H=1)

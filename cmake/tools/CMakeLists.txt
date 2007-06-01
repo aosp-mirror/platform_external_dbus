@@ -38,9 +38,15 @@ set (dbus_monitor_SOURCES
 	../../tools/dbus-print-message.h
 )
 
+if (WIN32)
+set (dbus_launch_SOURCES
+	../../tools/dbus-launch-win.c
+)
+else (WIN32)
 set (dbus_launch_SOURCES
 	../../tools/dbus-launch.c
 )
+endif (WIN32)
 
 set (dbus_cleanup_sockets_SOURCES
 	../../tools/dbus-cleanup-sockets.c
@@ -60,6 +66,10 @@ install_targets(/bin dbus-send${CMAKE_EXE_POSTFIX} )
 
 # glib required 
 #add_executable(dbus_launch${CMAKE_EXE_POSTFIX} ${dbus_launch_SOURCES})
+
+add_executable(dbus-launch${CMAKE_EXE_POSTFIX} ${dbus_launch_SOURCES})
+target_link_libraries(dbus-launch${CMAKE_EXE_POSTFIX} )
+install_targets(/bin dbus-launch${CMAKE_EXE_POSTFIX} )
 
 add_executable(dbus-monitor${CMAKE_EXE_POSTFIX} ${dbus_monitor_SOURCES})
 target_link_libraries(dbus-monitor${CMAKE_EXE_POSTFIX} dbus-1)
