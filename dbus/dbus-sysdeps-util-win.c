@@ -81,7 +81,7 @@ _dbus_get_install_root(char *s, int len)
       *s = '\0';
       return FALSE;
     }
-  else if ((p = strstr(s,"\\bin\\")) == NULL)
+  else if ((p = strstr(s,"\\bin\\")))
     {
       *(p+1)= '\0';
       return TRUE;
