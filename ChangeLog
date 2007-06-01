@@ -1,3 +1,15 @@
+2007-05-31  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus/main.c (main): uses _dbus_get_config_file_name() to detect 
+	session.conf location on win32. 
+
+	* dbus-sysdeps-win.h (_dbus_get_config_file_name,_dbus_file_exists): 
+	new prototyp, undefined interface after including windows.h because 
+	it makes trouble when a paramater is named interface.
+
+	* dbus-sysdeps-win.c (_dbus_get_install_root,
+	_dbus_get_config_file_name,_dbus_file_exists): 	new functions.
+
 2007-05-27  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* bus/policy.c,dbus/dbus-internals.c: fixed inconsistant line endings 

@@ -42,6 +42,101 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
+#ifdef __MINGW32__
+/* save string functions version
+   using DBusString needs to much time because of uncommon api 
+*/ 
+#define errno_t int
+
+errno_t strcat_s(char *dest, int size, char *src) 
+{
+  _dbus_assert(strlen(dest) + strlen(src) +1 <= size);
+  strcat(dest,src);
+  return 0;
+}
+
+errno_t strcpy_s(char *dest, int size, char *src)
+{
+  _dbus_assert(strlen(src) +1 <= size);
+  strcpy(dest,src);  
+  return 0;
+}
+#endif
+
+/**
+ * return the absolute path of the dbus installation 
+ *
+ * @param s buffer for installation path
+ * @param len length of buffer
+ * @returns #FALSE on failure
+ */
+dbus_bool_t 
+_dbus_get_install_root(char *s, int len)
+{
+  char *p = NULL;
+  int ret = GetModuleFileName(NULL,s,len);
+  if ( ret == 0 
+    || ret == len && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+    {
+      *s = '\0';
+      return FALSE;
+    }
+  else if ((p = strstr(s,"\\bin\\")) == NULL)
+    {
+      *(p+1)= '\0';
+      return TRUE;
+    }
+  else
+    {
+      *s = '\0';
+      return FALSE;
+    }
+}
+
+/* 
+  find session.conf either from installation or build root according to 
+  the following path layout 
+    install-root/
+      bin/dbus-daemon[d].exe
+      etc/session.conf 
+
+    build-root/
+      bin/dbus-daemon[d].exe
+      bus/session.conf 
+*/             
+dbus_bool_t 
+_dbus_get_config_file_name(DBusString *config_file, char *s)
+{
+  char path[MAX_PATH*2];
+  int path_size = sizeof(path);
+
+  if (!_dbus_get_install_root(path,path_size))
+    return FALSE;
+
+  strcat_s(path,path_size,"etc\\");
+  strcat_s(path,path_size,s);
+  if (_dbus_file_exists(path)) 
+    {
+      // find path from executable 
+      if (!_dbus_string_append (config_file, path))
+        return FALSE;
+    }
+  else 
+    {
+      if (!_dbus_get_install_root(path,path_size))
+        return FALSE;
+      strcat_s(path,path_size,"bus\\");
+      strcat_s(path,path_size,s);
+  
+      if (_dbus_file_exists(path)) 
+        {
+          if (!_dbus_string_append (config_file, path))
+            return FALSE;
+        }
+    }
+  return TRUE;
+}    
+    
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.
  *
@@ -253,6 +348,34 @@ _dbus_set_signal_handler (int               sig,
                           DBusSignalHandler handler)
 {
   _dbus_verbose ("_dbus_set_signal_handler() has to be implemented\n");
+}
+
+/** Checks if a file exists
+*
+* @param file full path to the file
+* @returns #TRUE if file exists
+*/
+dbus_bool_t 
+_dbus_file_exists (const char *file)
+{
+  HANDLE h = CreateFile(
+          file, /* LPCTSTR lpFileName*/
+          0, /* DWORD dwDesiredAccess */
+          0, /* DWORD dwShareMode*/
+          NULL, /* LPSECURITY_ATTRIBUTES lpSecurityAttributes */
+          OPEN_EXISTING, /* DWORD dwCreationDisposition */
+          FILE_ATTRIBUTE_NORMAL, /* DWORD dwFlagsAndAttributes */
+          NULL /* HANDLE hTemplateFile */
+        );
+
+    /* file not found, use local copy of session.conf  */
+    if (h != INVALID_HANDLE_VALUE && GetLastError() != ERROR_PATH_NOT_FOUND)
+      {
+        CloseHandle(h);
+        return TRUE;
+      }
+    else
+        return FALSE;  
 }
 
 /**

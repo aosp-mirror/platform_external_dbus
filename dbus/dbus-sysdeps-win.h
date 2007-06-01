@@ -33,6 +33,7 @@
 #include <ctype.h>
 #include <malloc.h>
 #include <windows.h>
+#undef interface
 
 #include <aclapi.h>
 #include <lm.h>
@@ -140,6 +141,9 @@ int _dbus_file_write (DBusFile         *file,
                       int               start,
                       int               len);
 
+dbus_bool_t _dbus_file_exists (const char *filename);
+
+
 #define FDATA private_data
 struct DBusFile
   {
@@ -166,6 +170,9 @@ int _dbus_connect_unix_socket (const char     *path,
 int _dbus_listen_unix_socket  (const char     *path,
                                dbus_bool_t     abstract,
                                DBusError      *error);
+
+dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 
+                                       char *s);
 
 #endif
 
