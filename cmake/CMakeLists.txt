@@ -11,10 +11,16 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.4.4 FATAL_ERROR)
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
 
+find_package(KDEWIN_INSTALLER)
+
 
 #enable building of shared library
 SET(BUILD_SHARED_LIBS ON)
 
+if (CYGWIN)
+   set (WIN32)
+endif (CYGWIN)
+    
 # search packages used by KDE
 if (WIN32)
 	find_package(GNUWIN32)
@@ -143,11 +149,11 @@ ENABLE_TESTING()
 #endif(${generatedFileInSourceDir})
 #########################################################################
 
-if (WIN32)
+if (WIN32 OR CYGWIN)
 	set (LIBRARY_OUTPUT_PATH  ${CMAKE_BINARY_DIR}/bin)
-else (WIN32)
+else (WIN32 OR CYGWIN)
 	set (LIBRARY_OUTPUT_PATH  ${CMAKE_BINARY_DIR}/lib)
-endif (WIN32)
+endif (WIN32 OR CYGWIN)
 
 set (EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
@@ -176,6 +182,7 @@ if (NOT DBUS_INSTALL_DIR)
 	set(DBUS_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}" CACHE TYPE STRING)
 endif (NOT DBUS_INSTALL_DIR)
 	
+# TODO: setting EXPANDED_... has nothing to do with DBUS_INSTALL_SYSTEM_LIBS
 if (DBUS_INSTALL_SYSTEM_LIBS)
 	set(prefix                   ${DBUS_INSTALL_DIR})
 	set(exec_prefix              ${prefix})
@@ -197,6 +204,8 @@ else (DBUS_INSTALL_SYSTEM_LIBS)
 	set(DBUS_BINDIR              ${EXPANDED_BINDIR})
 	set(DBUS_MACHINE_UUID_FILE   ${CMAKE_BINARY_DIR}/lib/dbus/machine-id)
 endif (DBUS_INSTALL_SYSTEM_LIBS)
+
+set (DBUS_DAEMONDIR ${EXPANDED_BINDIR})
 
 ########### command line options ###############
 # TODO: take check from configure.in 
@@ -531,3 +540,31 @@ MESSAGE(" ")
 
 
 INCLUDE(modules/CPackInstallConfig.cmake)
+
+if (KDEWIN_INSTALLER_FOUND)
+    if (MSVC)
+        add_custom_target(kdewinpackage
+            COMMAND ${KDEWIN_PACKAGER} 
+                -name dbus
+                -root ${CMAKE_INSTALL_PREFIX} 
+                -srcroot ${CMAKE_SOURCE_DIR}/.. 
+                -version ${VERSION} 
+                -notes "ipc service"
+                -type msvc
+                -strip
+                -complete
+        )
+    else (MSVC)
+        add_custom_target(kdewinpackage
+            COMMAND ${KDEWIN_PACKAGER} 
+                -name dbus
+                -root ${CMAKE_INSTALL_PREFIX} 
+                -srcroot ${CMAKE_SOURCE_DIR}/.. 
+                -version ${VERSION} 
+                -notes "ipc service"
+                -strip
+                -type mingw
+                -complete
+        )
+    endif (MSVC)
+endif (KDEWIN_INSTALLER_FOUND)

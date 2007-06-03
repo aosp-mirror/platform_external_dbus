@@ -12,7 +12,7 @@ check_include_file(sys/wait.h   HAVE_SYS_WAIT_H)# dbus-sysdeps-win.c
 check_include_file(time.h       HAVE_TIME_H)    # dbus-sysdeps-win.c
 check_include_file(unistd.h     HAVE_UNISTD_H)  # dbus-sysdeps-util-win.c
 check_include_file(stdio.h      HAVE_STDIO_H)   # dbus-sysdeps.h
-
+check_include_file(sys/syslimits.h    HAVE_SYS_SYSLIMITS_H)   # dbus-sysdeps-unix.c
 
 check_symbol_exists(backtrace    "execinfo.h"       HAVE_BACKTRACE)          #  dbus-sysdeps.c, dbus-sysdeps-win.c
 check_symbol_exists(getgrouplist "grp.h"            HAVE_GETGROUPLIST)       #  dbus-sysdeps.c
@@ -24,6 +24,7 @@ check_symbol_exists(socketpair   "sys/socket.h"     HAVE_SOCKETPAIR)         #  
 check_symbol_exists(unsetenv     "stdlib.h"         HAVE_UNSETENV)           #  dbus-sysdeps.c
 check_symbol_exists(writev       "sys/uio.h"        HAVE_WRITEV)             #  dbus-sysdeps.c, dbus-sysdeps-win.c
 check_symbol_exists(setrlimit    "sys/resource.h"   HAVE_SETRLIMIT)          #  dbus-sysdeps.c, dbus-sysdeps-win.c, test/test-segfault.c
+check_symbol_exists(socklen_t    "sys/socket.h"     HAVE_SOCKLEN_T)          #  dbus-sysdeps-unix.c
 
 check_struct_member(cmsgcred cmcred_pid "sys/types.h sys/socket.h" HAVE_CMSGCRED)   #  dbus-sysdeps.c
 

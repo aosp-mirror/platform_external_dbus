@@ -1,3 +1,7 @@
+2007-06-02  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake: added cygwin compile support
+
 2007-06-01  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* tools/dbus-launch-win.c: new file, replaces script wrapper on win32.
