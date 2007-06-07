@@ -1,3 +1,8 @@
+2007-06-07  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.c: improve some docs related to reading values
+	from a message iter
+
 2007-06-02  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* cmake: added cygwin compile support

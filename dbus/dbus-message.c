@@ -1856,6 +1856,16 @@ dbus_message_iter_get_element_type (DBusMessageIter *iter)
  * you won't be able to recurse further. There's no array of int32 to
  * recurse into.
  *
+ * If a container is an array of fixed-length types, it is much more
+ * efficient to use dbus_message_iter_get_fixed_array() to get the
+ * whole array in one shot, rather than individually walking over the
+ * array elements.
+ *
+ * Be sure you have somehow checked that
+ * dbus_message_iter_get_arg_type() matches the type you are expecting
+ * to recurse into. Results of this function are undefined if there is
+ * no container to recurse into at the current iterator position.
+ *
  * @param iter the message iterator
  * @param sub the sub-iterator to initialize
  */
@@ -1919,30 +1929,33 @@ dbus_message_iter_get_signature (DBusMessageIter *iter)
  * and for string a "const char**". The returned value is
  * by reference and should not be freed.
  *
- * All returned values are guaranteed to fit in 8 bytes. So you can
+ * Be sure you have somehow checked that
+ * dbus_message_iter_get_arg_type() matches the type you are
+ * expecting, or you'll crash when you try to use an integer as a
+ * string or something.
+ *
+ * To read any container type (array, struct, dict) you will need
+ * to recurse into the container with dbus_message_iter_recurse().
+ * If the container is an array of fixed-length values, you can
+ * get all the array elements at once with
+ * dbus_message_iter_get_fixed_array(). Otherwise, you have to
+ * iterate over the container's contents one value at a time.
+ * 
+ * All basic-typed values are guaranteed to fit in 8 bytes. So you can
  * write code like this:
  *
  * @code
- * #ifdef DBUS_HAVE_INT64
  * dbus_uint64_t value;
  * int type;
  * dbus_message_iter_get_basic (&read_iter, &value);
  * type = dbus_message_iter_get_arg_type (&read_iter);
  * dbus_message_iter_append_basic (&write_iter, type, &value);
- * #endif
  * @endcode
  *
- * You can skip the #DBUS_HAVE_INT64 conditional unless you care about
- * some sort of really obscure platform. If you do know about such a
- * platform and want your code to work on it, create a struct
- * that occupies at least 8 bytes. dbus_uint64_t is just
+ * On some really obscure platforms dbus_uint64_t might not exist, if
+ * you need to worry about this you will know.  dbus_uint64_t is just
  * one example of a type that's large enough to hold any possible
- * value.
- *
- * Be sure you have somehow checked that
- * dbus_message_iter_get_arg_type() matches the type you are
- * expecting, or you'll crash when you try to use an integer as a
- * string or something.
+ * value, you could use a struct or char[8] instead if you like.
  *
  * @param iter the iterator
  * @param value location to store the value
@@ -1991,19 +2004,29 @@ dbus_message_iter_get_array_len (DBusMessageIter *iter)
 /**
  * Reads a block of fixed-length values from the message iterator.
  * Fixed-length values are those basic types that are not string-like,
- * such as integers, bool, double. The block read will be from the
+ * such as integers, bool, double. The returned block will be from the
  * current position in the array until the end of the array.
  *
- * This function should only be used if dbus_type_is_fixed() returns
- * #TRUE for the element type.
+ * The message iter should be "in" the array (that is, you recurse into the
+ * array, and then you call dbus_message_iter_get_fixed_array() on the
+ * "sub-iterator" created by dbus_message_iter_recurse()).
  *
  * The value argument should be the address of a location to store the
  * returned array. So for int32 it should be a "const dbus_int32_t**"
  * The returned value is by reference and should not be freed.
+ * 
+ * This function should only be used if dbus_type_is_fixed() returns
+ * #TRUE for the element type.
  *
- * Because the array is not copied, this function runs in
- * constant time and is fast; it's much preferred over walking the
- * entire array with an iterator.
+ * If an array's elements are not fixed in size, you have to recurse
+ * into the array with dbus_message_iter_recurse() and read the
+ * elements one by one.
+ * 
+ * Because the array is not copied, this function runs in constant
+ * time and is fast; it's much preferred over walking the entire array
+ * with an iterator. (However, you can always use
+ * dbus_message_iter_recurse(), even for fixed-length types;
+ * dbus_message_iter_get_fixed_array() is just an optimization.)
  * 
  * @param iter the iterator
  * @param value location to store the block
