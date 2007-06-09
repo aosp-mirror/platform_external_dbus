@@ -173,6 +173,18 @@ dbus_bool_t _dbus_append_desired_identity       (DBusString *str);
 dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);
 dbus_bool_t _dbus_homedir_from_username         (const DBusString  *username,
                                                  DBusString        *homedir);
+dbus_bool_t _dbus_parse_unix_user_from_config   (const DBusString  *username,
+                                                 dbus_uid_t        *uid_p);
+dbus_bool_t _dbus_parse_unix_group_from_config  (const DBusString  *groupname,
+                                                 dbus_gid_t        *gid_p);
+dbus_bool_t _dbus_unix_groups_from_uid          (dbus_uid_t         uid,
+                                                 dbus_gid_t       **group_ids,
+                                                 int               *n_group_ids);
+dbus_bool_t _dbus_unix_user_is_at_console       (dbus_uid_t         uid,
+                                                 DBusError         *error);
+dbus_bool_t _dbus_unix_user_is_process_owner    (dbus_uid_t         uid);
+dbus_bool_t _dbus_windows_user_is_process_owner (const char        *windows_sid);
+
 
 /** Opaque type representing an atomically-modifiable integer
  * that can be used from multiple threads.
@@ -419,6 +431,14 @@ dbus_bool_t _dbus_split_paths_and_append (DBusString *dirs,
                                           DBusList **dir_list);
 
 unsigned long _dbus_pid_for_log (void);
+
+/* FIXME move back to dbus-sysdeps-unix.h probably -
+ * the PID file handling just needs a little more abstraction
+ * in the bus daemon first.
+ */
+dbus_pid_t    _dbus_getpid (void);
+
+void _dbus_flush_caches (void);
 
 /** @} */
 

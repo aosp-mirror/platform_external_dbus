@@ -780,6 +780,98 @@ _dbus_group_info_fill_gid (DBusGroupInfo *info,
   return fill_group_info (info, gid, NULL, error);
 }
 
+/**
+ * Parse a UNIX user from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param username the username text
+ * @param uid_p place to return the uid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_user_from_config (const DBusString  *username,
+                                   dbus_uid_t        *uid_p)
+{
+  return _dbus_get_user_id (username, uid_p);
+
+}
+
+/**
+ * Parse a UNIX group from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param groupname the groupname text
+ * @param gid_p place to return the gid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_group_from_config (const DBusString  *groupname,
+                                    dbus_gid_t        *gid_p)
+{
+  return _dbus_get_group_id (groupname, gid_p);
+}
+
+/**
+ * Gets all groups corresponding to the given UNIX user ID. On UNIX,
+ * just calls _dbus_groups_from_uid(). On Windows, should always
+ * fail since we don't know any UNIX groups.
+ *
+ * @param uid the UID
+ * @param group_ids return location for array of group IDs
+ * @param n_group_ids return location for length of returned array
+ * @returns #TRUE if the UID existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_unix_groups_from_uid (dbus_uid_t            uid,
+                            dbus_gid_t          **group_ids,
+                            int                  *n_group_ids)
+{
+  return _dbus_groups_from_uid (uid, group_ids, n_group_ids);
+}
+
+/**
+ * Checks to see if the UNIX user ID is at the console.
+ * Should always fail on Windows (set the error to
+ * #DBUS_ERROR_NOT_SUPPORTED).
+ *
+ * @param uid UID of person to check 
+ * @param error return location for errors
+ * @returns #TRUE if the UID is the same as the console user and there are no errors
+ */
+dbus_bool_t
+_dbus_unix_user_is_at_console (dbus_uid_t         uid,
+                               DBusError         *error)
+{
+  return _dbus_is_console_user (uid, error);
+
+}
+
+/**
+ * Checks to see if the UNIX user ID matches the UID of
+ * the process. Should always return #FALSE on Windows.
+ *
+ * @param uid the UNIX user ID
+ * @returns #TRUE if this uid owns the process.
+ */
+dbus_bool_t
+_dbus_unix_user_is_process_owner (dbus_uid_t uid)
+{
+  return uid == _dbus_getuid ();
+}
+
+/**
+ * Checks to see if the Windows user SID matches the owner of
+ * the process. Should always return #FALSE on UNIX.
+ *
+ * @param windows_sid the Windows user SID
+ * @returns #TRUE if this user owns the process.
+ */
+dbus_bool_t
+_dbus_windows_user_is_process_owner (const char *windows_sid)
+{
+  return FALSE;
+}
+
 /** @} */ /* End of DBusInternalsUtils functions */
 
 /**

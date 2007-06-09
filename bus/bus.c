@@ -34,7 +34,6 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
-#include <dbus/dbus-userdb.h>
 
 struct BusContext
 {
@@ -794,7 +793,7 @@ bus_context_reload_config (BusContext *context,
   dbus_bool_t ret;
 
   /* Flush the user database cache */
-  _dbus_user_database_flush_system ();
+  _dbus_flush_caches ();
 
   ret = FALSE;
   _dbus_string_init_const (&config_file, context->config_file);
@@ -995,11 +994,23 @@ bus_context_get_loop (BusContext *context)
 }
 
 dbus_bool_t
-bus_context_allow_user (BusContext   *context,
-                        unsigned long uid)
+bus_context_allow_unix_user (BusContext   *context,
+                             unsigned long uid)
 {
-  return bus_policy_allow_user (context->policy,
-                                uid);
+  return bus_policy_allow_unix_user (context->policy,
+                                     uid);
+}
+
+/* For now this is never actually called because the default
+ * DBusConnection behavior of 'same user that owns the bus can connect'
+ * is all it would do.
+ */
+dbus_bool_t
+bus_context_allow_windows_user (BusContext       *context,
+                                const char       *windows_sid)
+{
+  return bus_policy_allow_windows_user (context->policy,
+                                        windows_sid);
 }
 
 BusPolicy *

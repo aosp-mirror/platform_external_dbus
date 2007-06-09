@@ -4763,8 +4763,10 @@ dbus_connection_get_socket(DBusConnection              *connection,
 
 /**
  * Gets the UNIX user ID of the connection if known.  Returns #TRUE if
- * the uid is filled in.  Always returns #FALSE on non-UNIX platforms.
- * Always returns #FALSE prior to authenticating the connection.
+ * the uid is filled in.  Always returns #FALSE on non-UNIX platforms
+ * for now, though in theory someone could hook Windows to NIS or
+ * something.  Always returns #FALSE prior to authenticating the
+ * connection.
  *
  * The UID is only read by servers from clients; clients can't usually
  * get the UID of servers, because servers do not authenticate to
@@ -4789,14 +4791,6 @@ dbus_connection_get_unix_user (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (uid != NULL, FALSE);
-
-#ifdef DBUS_WIN
-  /* FIXME this should be done at a lower level, but it's kind of hard,
-   * just want to be sure we don't ship with this API returning
-   * some weird internal fake uid for 1.0
-   */
-  return FALSE;
-#endif
   
   CONNECTION_LOCK (connection);
 
@@ -4805,6 +4799,11 @@ dbus_connection_get_unix_user (DBusConnection *connection,
   else
     result = _dbus_transport_get_unix_user (connection->transport,
                                             uid);
+
+#ifdef DBUS_WIN
+  _dbus_assert (!result);
+#endif
+  
   CONNECTION_UNLOCK (connection);
 
   return result;
@@ -4812,7 +4811,7 @@ dbus_connection_get_unix_user (DBusConnection *connection,
 
 /**
  * Gets the process ID of the connection if any.
- * Returns #TRUE if the uid is filled in.
+ * Returns #TRUE if the pid is filled in.
  * Always returns #FALSE prior to authenticating the
  * connection.
  *
@@ -4828,14 +4827,6 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (pid != NULL, FALSE);
-
-#ifdef DBUS_WIN
-  /* FIXME this should be done at a lower level, but it's kind of hard,
-   * just want to be sure we don't ship with this API returning
-   * some weird internal fake uid for 1.0
-   */
-  return FALSE;
-#endif
   
   CONNECTION_LOCK (connection);
 
@@ -4844,6 +4835,10 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
   else
     result = _dbus_transport_get_unix_process_id (connection->transport,
 						  pid);
+#ifdef DBUS_WIN
+  _dbus_assert (!result);
+#endif
+  
   CONNECTION_UNLOCK (connection);
 
   return result;
@@ -4858,14 +4853,13 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
  *
  * If the function is set to #NULL (as it is by default), then
  * only the same UID as the server process will be allowed to
- * connect.
+ * connect. Also, root is always allowed to connect.
  *
  * On Windows, the function will be set and its free_data_function will
  * be invoked when the connection is freed or a new function is set.
  * However, the function will never be called, because there are
- * no UNIX user ids to pass to it.
- * 
- * @todo add a Windows API analogous to dbus_connection_set_unix_user_function()
+ * no UNIX user ids to pass to it, or at least none of the existing
+ * auth protocols would allow authenticating as a UNIX user on Windows.
  * 
  * @param connection the connection
  * @param function the predicate
@@ -4890,7 +4884,106 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
   CONNECTION_UNLOCK (connection);
 
   if (old_free_function != NULL)
-    (* old_free_function) (old_data);    
+    (* old_free_function) (old_data);
+}
+
+/**
+ * Gets the Windows user SID of the connection if known.  Returns
+ * #TRUE if the ID is filled in.  Always returns #FALSE on non-Windows
+ * platforms for now, though in theory someone could hook UNIX to
+ * Active Directory or something.  Always returns #FALSE prior to
+ * authenticating the connection.
+ *
+ * The user is only read by servers from clients; clients can't usually
+ * get the user of servers, because servers do not authenticate to
+ * clients. The returned user is the user the connection authenticated
+ * as.
+ *
+ * The message bus is a server and the apps connecting to the bus
+ * are clients.
+ *
+ * The returned user string has to be freed with dbus_free().
+ *
+ * The return value indicates whether the user SID is available;
+ * if it's available but we don't have the memory to copy it,
+ * then the return value is #TRUE and #NULL is given as the SID.
+ * 
+ * @todo We would like to be able to say "You can ask the bus to tell
+ * you the user of another connection though if you like; this is done
+ * with dbus_bus_get_windows_user()." But this has to be implemented
+ * in bus/driver.c and dbus/dbus-bus.c, and is pointless anyway
+ * since on Windows we only use the session bus for now.
+ *
+ * @param connection the connection
+ * @param windows_sid_p return location for an allocated copy of the user ID, or #NULL if no memory
+ * @returns #TRUE if user is available (returned value may be #NULL anyway if no memory)
+ */
+dbus_bool_t
+dbus_connection_get_windows_user (DBusConnection             *connection,
+                                  char                      **windows_sid_p)
+{
+  dbus_bool_t result;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (windows_sid_p != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+
+  if (!_dbus_transport_get_is_authenticated (connection->transport))
+    result = FALSE;
+  else
+    result = _dbus_transport_get_windows_user (connection->transport,
+                                               windows_sid_p);
+
+#ifdef DBUS_UNIX
+  _dbus_assert (!result);
+#endif
+  
+  CONNECTION_UNLOCK (connection);
+
+  return result;
+}
+
+/**
+ * Sets a predicate function used to determine whether a given user ID
+ * is allowed to connect. When an incoming connection has
+ * authenticated with a particular user ID, this function is called;
+ * if it returns #TRUE, the connection is allowed to proceed,
+ * otherwise the connection is disconnected.
+ *
+ * If the function is set to #NULL (as it is by default), then
+ * only the same user owning the server process will be allowed to
+ * connect.
+ *
+ * On UNIX, the function will be set and its free_data_function will
+ * be invoked when the connection is freed or a new function is set.
+ * However, the function will never be called, because there is no
+ * way right now to authenticate as a Windows user on UNIX.
+ * 
+ * @param connection the connection
+ * @param function the predicate
+ * @param data data to pass to the predicate
+ * @param free_data_function function to free the data
+ */
+void
+dbus_connection_set_windows_user_function (DBusConnection              *connection,
+                                           DBusAllowWindowsUserFunction function,
+                                           void                        *data,
+                                           DBusFreeFunction             free_data_function)
+{
+  void *old_data = NULL;
+  DBusFreeFunction old_free_function = NULL;
+
+  _dbus_return_if_fail (connection != NULL);
+  
+  CONNECTION_LOCK (connection);
+  _dbus_transport_set_windows_user_function (connection->transport,
+                                             function, data, free_data_function,
+                                             &old_data, &old_free_function);
+  CONNECTION_UNLOCK (connection);
+
+  if (old_free_function != NULL)
+    (* old_free_function) (old_data);
 }
 
 /**

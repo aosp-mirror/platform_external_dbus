@@ -104,6 +104,11 @@ struct DBusTransport
   void *unix_user_data;                         /**< Data for unix_user_function */
   
   DBusFreeFunction free_unix_user_data;         /**< Function to free unix_user_data */
+
+  DBusAllowWindowsUserFunction windows_user_function; /**< Function for checking whether a user is authorized. */
+  void *windows_user_data;                            /**< Data for windows_user_function */
+  
+  DBusFreeFunction free_windows_user_data;            /**< Function to free windows_user_data */
   
   unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */
   unsigned int authenticated : 1;             /**< Cache of auth state; use _dbus_transport_get_is_authenticated() to query value */

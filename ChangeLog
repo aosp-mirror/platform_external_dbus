@@ -1,5 +1,24 @@
 2007-06-09  Havoc Pennington  <hp@redhat.com>
 
+	* bus/policy.c (bus_policy_create_client_policy): gracefully
+	continue if the connection has no unix user - just don't apply 
+	any unix user dependent rules.
+
+	* bus/config-parser.c: remove dbus-userdb.h usage
+
+	* bus/bus.c: remove dbus-userdb.h usage
+
+	* dbus/dbus-transport.c (_dbus_transport_get_is_authenticated):
+	support Windows user function; also, fix the logic for checking
+	auth as root in the default auth code (broken in the previous
+	commit)
+
+	* dbus/dbus-connection.c
+	(dbus_connection_set_windows_user_function): new function
+	(dbus_connection_get_windows_user): new function
+
+2007-06-09  Havoc Pennington  <hp@redhat.com>
+
 	* bus/dispatch.c (check_get_connection_unix_process_id): adapt
 	since sysdeps-unix.h stuff isn't included anymore
 

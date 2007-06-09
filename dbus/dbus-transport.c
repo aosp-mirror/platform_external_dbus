@@ -167,6 +167,10 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->unix_user_data = NULL;
   transport->free_unix_user_data = NULL;
 
+  transport->windows_user_function = NULL;
+  transport->windows_user_data = NULL;
+  transport->free_windows_user_data = NULL;
+  
   transport->expected_guid = NULL;
   
   /* Try to default to something that won't totally hose the system,
@@ -202,6 +206,9 @@ _dbus_transport_finalize_base (DBusTransport *transport)
 
   if (transport->free_unix_user_data != NULL)
     (* transport->free_unix_user_data) (transport->unix_user_data);
+
+  if (transport->free_windows_user_data != NULL)
+    (* transport->free_windows_user_data) (transport->windows_user_data);
   
   _dbus_message_loader_unref (transport->loader);
   _dbus_auth_unref (transport->auth);
@@ -491,12 +498,157 @@ _dbus_transport_get_is_connected (DBusTransport *transport)
   return !transport->disconnected;
 }
 
+static dbus_bool_t
+auth_via_unix_user_function (DBusTransport *transport)
+{
+  DBusCredentials *auth_identity;
+  dbus_bool_t allow;
+  DBusConnection *connection;
+  DBusAllowUnixUserFunction unix_user_function;
+  void *unix_user_data;
+  dbus_uid_t uid;
+
+  /* Dropping the lock here probably isn't that safe. */
+  
+  auth_identity = _dbus_auth_get_identity (transport->auth);
+  _dbus_assert (auth_identity != NULL);
+
+  connection = transport->connection;
+  unix_user_function = transport->unix_user_function;
+  unix_user_data = transport->unix_user_data;
+  uid = _dbus_credentials_get_unix_uid (auth_identity),
+              
+    _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+  _dbus_connection_unlock (connection);
+
+  allow = (* unix_user_function) (connection,
+                                  uid,
+                                  unix_user_data);
+              
+  _dbus_verbose ("lock %s post unix user function\n", _DBUS_FUNCTION_NAME);
+  _dbus_connection_lock (connection);
+
+  if (allow)
+    {
+      _dbus_verbose ("Client UID "DBUS_UID_FORMAT" authorized\n", uid);
+    }
+  else
+    {
+      _dbus_verbose ("Client UID "DBUS_UID_FORMAT
+                     " was rejected, disconnecting\n",
+                     _dbus_credentials_get_unix_uid (auth_identity));
+      _dbus_transport_disconnect (transport);
+    }
+
+  return allow;
+}
+
+static dbus_bool_t
+auth_via_windows_user_function (DBusTransport *transport)
+{
+  DBusCredentials *auth_identity;  
+  dbus_bool_t allow;
+  DBusConnection *connection;
+  DBusAllowWindowsUserFunction windows_user_function;
+  void *windows_user_data;
+  char *windows_sid;
+
+  /* Dropping the lock here probably isn't that safe. */
+  
+  auth_identity = _dbus_auth_get_identity (transport->auth);
+  _dbus_assert (auth_identity != NULL);
+
+  connection = transport->connection;
+  windows_user_function = transport->windows_user_function;
+  windows_user_data = transport->unix_user_data;
+  windows_sid = _dbus_strdup (_dbus_credentials_get_windows_sid (auth_identity));
+
+  if (windows_sid == NULL)
+    {
+      /* OOM */
+      return FALSE;
+    }
+                
+  _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+  _dbus_connection_unlock (connection);
+
+  allow = (* windows_user_function) (connection,
+                                     windows_sid,
+                                     windows_user_data);
+              
+  _dbus_verbose ("lock %s post windows user function\n", _DBUS_FUNCTION_NAME);
+  _dbus_connection_lock (connection);
+
+  if (allow)
+    {
+      _dbus_verbose ("Client SID '%s' authorized\n", windows_sid);
+    }
+  else
+    {
+      _dbus_verbose ("Client SID '%s' was rejected, disconnecting\n",
+                     _dbus_credentials_get_windows_sid (auth_identity));
+      _dbus_transport_disconnect (transport);
+    }
+
+  return allow;
+}
+
+static dbus_bool_t
+auth_via_default_rules (DBusTransport *transport)
+{
+  DBusCredentials *auth_identity;
+  DBusCredentials *our_identity;
+  dbus_bool_t allow;
+  
+  auth_identity = _dbus_auth_get_identity (transport->auth);
+  _dbus_assert (auth_identity != NULL);
+
+  /* By default, connection is allowed if the client is
+   * 1) root or 2) has the same UID as us
+   */
+              
+  our_identity = _dbus_credentials_new_from_current_process ();
+  if (our_identity == NULL)
+    {
+      /* OOM */
+      return FALSE;
+    }
+              
+  if (_dbus_credentials_get_unix_uid (auth_identity) == 0 ||
+      _dbus_credentials_same_user (our_identity,
+                                   auth_identity))
+    {
+      /* FIXME the verbose spam here is unix-specific */                  
+      _dbus_verbose ("Client authorized as UID "DBUS_UID_FORMAT
+                     " matching our UID "DBUS_UID_FORMAT"\n",
+                     _dbus_credentials_get_unix_uid(auth_identity),
+                     _dbus_credentials_get_unix_uid(our_identity));
+      /* We have authenticated! */
+      allow = TRUE;
+    }
+  else
+    {
+      /* FIXME the verbose spam here is unix-specific */
+      _dbus_verbose ("Client authorized as UID "DBUS_UID_FORMAT
+                     " but our UID is "DBUS_UID_FORMAT", disconnecting\n",
+                     _dbus_credentials_get_unix_uid(our_identity),
+                     _dbus_credentials_get_unix_uid(our_identity));
+      _dbus_transport_disconnect (transport);
+      allow = FALSE;
+    }  
+
+  _dbus_credentials_unref (our_identity);
+  
+  return allow;
+}
+
+
 /**
  * Returns #TRUE if we have been authenticated.  Will return #TRUE
  * even if the transport is disconnected.
  *
  * @todo we drop connection->mutex when calling the unix_user_function,
- * which may not be safe really.
+ * and windows_user_function, which may not be safe really.
  *
  * @param transport the transport
  * @returns whether we're authenticated
@@ -532,6 +684,8 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
             }
         }
 
+      /* If we're the client, verify the GUID
+       */
       if (maybe_authenticated && !transport->is_server)
         {
           const char *server_guid;
@@ -560,106 +714,40 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
                 }
             }
         }
-      
-      /* If we've authenticated as some identity, check that the auth
-       * identity is the same as our own identity.  In the future, we
-       * may have API allowing applications to specify how this is
-       * done, for example they may allow connection as any identity,
-       * but then impose restrictions on certain identities.
-       * Or they may give certain identities extra privileges.
+
+      /* If we're the server, see if we want to allow this identity to proceed.
        */
-      
       if (maybe_authenticated && transport->is_server)
         {
+          dbus_bool_t allow;
           DBusCredentials *auth_identity;
-
+          
           auth_identity = _dbus_auth_get_identity (transport->auth);
           _dbus_assert (auth_identity != NULL);
-
-          /* If we have a UNIX user and a unix user function, delegate
-           * deciding whether auth credentials are good enough to the app;
-           * otherwise, use our default decision process.
+          
+          /* If we have an auth'd user and a user function, delegate
+           * deciding whether auth credentials are good enough to the
+           * app; otherwise, use our default decision process.
            */
           if (transport->unix_user_function != NULL &&
               _dbus_credentials_include (auth_identity, DBUS_CREDENTIAL_UNIX_USER_ID))
             {
-              dbus_bool_t allow;
-              DBusConnection *connection;
-              DBusAllowUnixUserFunction unix_user_function;
-              void *unix_user_data;
-              dbus_uid_t uid;
-              
-              /* Dropping the lock here probably isn't that safe. */
-
-              connection = transport->connection;
-              unix_user_function = transport->unix_user_function;
-              unix_user_data = transport->unix_user_data;
-              uid = _dbus_credentials_get_unix_uid (auth_identity),
-              
-              _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
-              _dbus_connection_unlock (connection);
-
-              allow = (* unix_user_function) (connection,
-                                              uid,
-                                              unix_user_data);
-              
-              _dbus_verbose ("lock %s post unix user function\n", _DBUS_FUNCTION_NAME);
-              _dbus_connection_lock (connection);
-
-              if (allow)
-                {
-                  _dbus_verbose ("Client UID "DBUS_UID_FORMAT" authorized\n", uid);
-                }
-              else
-                {
-                  _dbus_verbose ("Client UID "DBUS_UID_FORMAT
-                                 " was rejected, disconnecting\n",
-                                 _dbus_credentials_get_unix_uid (auth_identity));
-                  _dbus_transport_disconnect (transport);
-                  _dbus_connection_unref_unlocked (connection);
-                  return FALSE;
-                }
+              allow = auth_via_unix_user_function (transport);
             }
+          else if (transport->windows_user_function != NULL &&
+                   _dbus_credentials_include (auth_identity, DBUS_CREDENTIAL_WINDOWS_SID))
+            {
+              allow = auth_via_windows_user_function (transport);
+            }      
           else
             {
-              DBusCredentials *our_identity;
-
-              /* By default, connection is allowed if the client is
-               * 1) root or 2) has the same UID as us
-               */
-              
-              our_identity = _dbus_credentials_new_from_current_process ();
-              if (our_identity == NULL)
-                {
-                  /* OOM */
-                  _dbus_connection_unref_unlocked (transport->connection);
-                  return FALSE;
-                }
-              
-              if (_dbus_credentials_get_unix_uid (auth_identity) == 0 ||
-                  !_dbus_credentials_same_user (our_identity,
-                                                auth_identity))
-                {
-                  /* FIXME the verbose spam here is unix-specific */
-                  _dbus_verbose ("Client authorized as UID "DBUS_UID_FORMAT
-                                 " but our UID is "DBUS_UID_FORMAT", disconnecting\n",
-                                 _dbus_credentials_get_unix_uid(our_identity),
-                                 _dbus_credentials_get_unix_uid(our_identity));
-                  _dbus_transport_disconnect (transport);
-                  _dbus_connection_unref_unlocked (transport->connection);
-                  return FALSE;
-                }
-              else
-                {
-                  /* FIXME the verbose spam here is unix-specific */                  
-                  _dbus_verbose ("Client authorized as UID "DBUS_UID_FORMAT
-                                 " matching our UID "DBUS_UID_FORMAT"\n",
-                                 _dbus_credentials_get_unix_uid(auth_identity),
-                                 _dbus_credentials_get_unix_uid(our_identity));
-                }
+              allow = auth_via_default_rules (transport);
             }
+          
+          if (!allow)
+            maybe_authenticated = FALSE;
         }
-      
+
       transport->authenticated = maybe_authenticated;
 
       _dbus_connection_unref_unlocked (transport->connection);
@@ -1134,6 +1222,65 @@ _dbus_transport_set_unix_user_function (DBusTransport             *transport,
   transport->unix_user_function = function;
   transport->unix_user_data = data;
   transport->free_unix_user_data = free_data_function;
+}
+
+/**
+ * See dbus_connection_get_windows_user().
+ *
+ * @param transport the transport
+ * @param windows_sid_p return location for the user ID
+ * @returns #TRUE if user is available; the returned value may still be #NULL if no memory to copy it
+ */
+dbus_bool_t
+_dbus_transport_get_windows_user (DBusTransport              *transport,
+                                  char                      **windows_sid_p)
+{
+  DBusCredentials *auth_identity;
+
+  *windows_sid_p = NULL;
+  
+  if (!transport->authenticated)
+    return FALSE;
+  
+  auth_identity = _dbus_auth_get_identity (transport->auth);
+
+  if (_dbus_credentials_include (auth_identity,
+                                 DBUS_CREDENTIAL_WINDOWS_SID))
+    {
+      /* If no memory, we are supposed to return TRUE and set NULL */
+      *windows_sid_p = _dbus_strdup (_dbus_credentials_get_windows_sid (auth_identity));
+
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
+/**
+ * See dbus_connection_set_windows_user_function().
+ *
+ * @param transport the transport
+ * @param function the predicate
+ * @param data data to pass to the predicate
+ * @param free_data_function function to free the data
+ * @param old_data the old user data to be freed
+ * @param old_free_data_function old free data function to free it with
+ */
+
+void
+_dbus_transport_set_windows_user_function (DBusTransport              *transport,
+                                           DBusAllowWindowsUserFunction   function,
+                                           void                       *data,
+                                           DBusFreeFunction            free_data_function,
+                                           void                      **old_data,
+                                           DBusFreeFunction           *old_free_data_function)
+{
+  *old_data = transport->windows_user_data;
+  *old_free_data_function = transport->free_windows_user_data;
+
+  transport->windows_user_function = function;
+  transport->windows_user_data = data;
+  transport->free_windows_user_data = free_data_function;
 }
 
 /**

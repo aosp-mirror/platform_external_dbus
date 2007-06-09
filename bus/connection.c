@@ -31,7 +31,6 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-timeout.h>
-#include <dbus/dbus-userdb.h>
 
 static void bus_connection_remove_transactions (DBusConnection *connection);
 
@@ -243,7 +242,9 @@ bus_connection_disconnected (DBusConnection *connection)
   
   dbus_connection_set_unix_user_function (connection,
                                           NULL, NULL, NULL);
-
+  dbus_connection_set_windows_user_function (connection,
+                                             NULL, NULL, NULL);
+  
   dbus_connection_set_dispatch_status_function (connection,
                                                 NULL, NULL, NULL);
   
@@ -369,9 +370,9 @@ dispatch_status_function (DBusConnection    *connection,
 }
 
 static dbus_bool_t
-allow_user_function (DBusConnection *connection,
-                     unsigned long   uid,
-                     void           *data)
+allow_unix_user_function (DBusConnection *connection,
+                          unsigned long   uid,
+                          void           *data)
 {
   BusConnectionData *d;
     
@@ -379,7 +380,7 @@ allow_user_function (DBusConnection *connection,
 
   _dbus_assert (d != NULL);
   
-  return bus_context_allow_user (d->connections->context, uid);
+  return bus_context_allow_unix_user (d->connections->context, uid);
 }
 
 static void
@@ -597,9 +598,14 @@ bus_connections_setup_connection (BusConnections *connections,
                                               NULL,
                                               connection, NULL))
     goto out;
-  
+
+  /* For now we don't need to set a Windows user function because
+   * there are no policies in the config file controlling what
+   * Windows users can connect. The default 'same user that owns the
+   * bus can connect' behavior of DBusConnection is fine on Windows.
+   */
   dbus_connection_set_unix_user_function (connection,
-                                          allow_user_function,
+                                          allow_unix_user_function,
                                           NULL, NULL);
 
   dbus_connection_set_dispatch_status_function (connection,
@@ -679,6 +685,9 @@ bus_connections_setup_connection (BusConnections *connections,
       dbus_connection_set_unix_user_function (connection,
                                               NULL, NULL, NULL);
 
+      dbus_connection_set_windows_user_function (connection,
+                                                 NULL, NULL, NULL);
+      
       dbus_connection_set_dispatch_status_function (connection,
                                                     NULL, NULL, NULL);
 
@@ -772,10 +781,10 @@ expire_incomplete_timeout (void *data)
 }
 
 dbus_bool_t
-bus_connection_get_groups  (DBusConnection   *connection,
-                            unsigned long   **groups,
-                            int              *n_groups,
-                            DBusError        *error)
+bus_connection_get_unix_groups  (DBusConnection   *connection,
+                                 unsigned long   **groups,
+                                 int              *n_groups,
+                                 DBusError        *error)
 {
   BusConnectionData *d;
   unsigned long uid;
@@ -789,7 +798,7 @@ bus_connection_get_groups  (DBusConnection   *connection,
 
   if (dbus_connection_get_unix_user (connection, &uid))
     {
-      if (!_dbus_groups_from_uid (uid, groups, n_groups))
+      if (!_dbus_unix_groups_from_uid (uid, groups, n_groups))
         {
           _dbus_verbose ("Did not get any groups for UID %lu\n",
                          uid);
@@ -807,15 +816,15 @@ bus_connection_get_groups  (DBusConnection   *connection,
 }
 
 dbus_bool_t
-bus_connection_is_in_group (DBusConnection *connection,
-                            unsigned long   gid)
+bus_connection_is_in_unix_group (DBusConnection *connection,
+                                 unsigned long   gid)
 {
   int i;
   unsigned long *group_ids;
   int n_group_ids;
 
-  if (!bus_connection_get_groups (connection, &group_ids, &n_group_ids,
-                                  NULL))
+  if (!bus_connection_get_unix_groups (connection, &group_ids, &n_group_ids,
+                                       NULL))
     return FALSE;
 
   i = 0;

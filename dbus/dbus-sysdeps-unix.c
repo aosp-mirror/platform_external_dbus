@@ -2916,4 +2916,17 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
   return FALSE;
 }
 
+/**
+ * Called when the bus daemon is signaled to reload its configuration; any
+ * caches should be nuked. Of course any caches that need explicit reload
+ * are probably broken, but c'est la vie.
+ *
+ * 
+ */
+void
+_dbus_flush_caches (void)
+{
+  _dbus_user_database_flush_system ();
+}
+
 /* tests in dbus-sysdeps-util.c */

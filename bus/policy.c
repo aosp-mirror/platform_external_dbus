@@ -28,7 +28,6 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
-#include <dbus/dbus-userdb.h>
 
 BusPolicyRule*
 bus_policy_rule_new (BusPolicyRuleType type,
@@ -296,7 +295,7 @@ bus_policy_create_client_policy (BusPolicy      *policy,
       int n_groups;
       int i;
       
-      if (!bus_connection_get_groups (connection, &groups, &n_groups, error))
+      if (!bus_connection_get_unix_groups (connection, &groups, &n_groups, error))
         goto failed;
       
       i = 0;
@@ -321,43 +320,39 @@ bus_policy_create_client_policy (BusPolicy      *policy,
 
       dbus_free (groups);
     }
-
-  if (!dbus_connection_get_unix_user (connection, &uid))
+  
+  if (dbus_connection_get_unix_user (connection, &uid))
     {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "No user ID known for connection, cannot determine security policy\n");
-      goto failed;
-    }
-
-  if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
-    {
-      DBusList **list;
-      
-      list = _dbus_hash_table_lookup_ulong (policy->rules_by_uid,
-                                            uid);
-
-      if (list != NULL)
+      if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
         {
-          if (!add_list_to_client (list, client))
+          DBusList **list;
+          
+          list = _dbus_hash_table_lookup_ulong (policy->rules_by_uid,
+                                                uid);
+          
+          if (list != NULL)
+            {
+              if (!add_list_to_client (list, client))
+                goto nomem;
+            }
+        }
+
+      /* Add console rules */
+      at_console = _dbus_unix_user_is_at_console (uid, error);
+      
+      if (at_console)
+        {
+          if (!add_list_to_client (&policy->at_console_true_rules, client))
             goto nomem;
         }
-    }
-
-  /* Add console rules */
-  at_console = _dbus_is_console_user (uid, error);
-
-  if (at_console)
-    {
-      if (!add_list_to_client (&policy->at_console_true_rules, client))
-        goto nomem;
-    }
-  else if (dbus_error_is_set (error) == TRUE)
-    {
-      goto failed;
-    }
-  else if (!add_list_to_client (&policy->at_console_false_rules, client))
-    {
-      goto nomem;
+      else if (dbus_error_is_set (error) == TRUE)
+        {
+          goto failed;
+        }
+      else if (!add_list_to_client (&policy->at_console_false_rules, client))
+        {
+          goto nomem;
+        }
     }
 
   if (!add_list_to_client (&policy->mandatory_rules,
@@ -438,23 +433,23 @@ list_allows_user (dbus_bool_t           def,
 }
 
 dbus_bool_t
-bus_policy_allow_user (BusPolicy        *policy,
-                       unsigned long     uid)
+bus_policy_allow_unix_user (BusPolicy        *policy,
+                            unsigned long     uid)
 {
   dbus_bool_t allowed;
   unsigned long *group_ids;
   int n_group_ids;
 
   /* On OOM or error we always reject the user */
-  if (!_dbus_groups_from_uid (uid, &group_ids, &n_group_ids))
+  if (!_dbus_unix_groups_from_uid (uid, &group_ids, &n_group_ids))
     {
       _dbus_verbose ("Did not get any groups for UID %lu\n",
                      uid);
       return FALSE;
     }
 
-  /* Default to "user owning bus" or root can connect */
-  allowed = uid == _dbus_getuid ();
+  /* Default to "user owning bus" can connect */
+  allowed = _dbus_unix_user_is_process_owner (uid);
 
   allowed = list_allows_user (allowed,
                               &policy->default_rules,
@@ -471,6 +466,23 @@ bus_policy_allow_user (BusPolicy        *policy,
   _dbus_verbose ("UID %lu allowed = %d\n", uid, allowed);
   
   return allowed;
+}
+
+/* For now this is never actually called because the default
+ * DBusConnection behavior of 'same user that owns the bus can
+ * connect' is all it would do. Set the windows user function in
+ * connection.c if the config file ever supports doing something
+ * interesting here.
+ */
+dbus_bool_t
+bus_policy_allow_windows_user (BusPolicy        *policy,
+                               const char       *windows_sid)
+{
+  /* Windows has no policies here since only the session bus
+   * is really used for now, so just checking that the
+   * connecting person is the same as the bus owner is fine.
+   */
+  return _dbus_windows_user_is_process_owner (windows_sid);
 }
 
 dbus_bool_t
