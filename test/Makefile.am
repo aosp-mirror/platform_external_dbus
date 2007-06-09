@@ -88,6 +88,7 @@ TESTDIRS=					\
 	data/sha-1				\
 	data/valid-config-files			\
 	data/valid-config-files/basic.d		\
+	data/valid-config-files/session.d	\
 	data/valid-config-files/system.d	\
 	data/valid-service-files		\
 	data/invalid-config-files		\

@@ -103,47 +103,6 @@ _dbus_is_console_user (dbus_uid_t uid,
   return result;
 }
 
-
-/**
- * Gets the credentials corresponding to the given UID.
- *
- * @param uid the UID
- * @param credentials credentials to fill in
- * @returns #TRUE if the UID existed and we got some credentials
- */
-dbus_bool_t
-_dbus_credentials_from_uid (dbus_uid_t        uid,
-                            DBusCredentials  *credentials)
-{
-  DBusUserDatabase *db;
-  const DBusUserInfo *info;
-  _dbus_user_database_lock_system ();
-
-  db = _dbus_user_database_get_system ();
-  if (db == NULL)
-    {
-      _dbus_user_database_unlock_system ();
-      return FALSE;
-    }
-
-  if (!_dbus_user_database_get_uid (db, uid,
-                                    &info, NULL))
-    {
-      _dbus_user_database_unlock_system ();
-      return FALSE;
-    }
-
-  _dbus_assert (info->uid == uid);
-  
-  credentials->pid = DBUS_PID_UNSET;
-  credentials->uid = info->uid;
-  credentials->gid = info->primary_gid;
-  
-  _dbus_user_database_unlock_system ();
-  return TRUE;
-}
-
-
 /**
  * Gets user ID given username
  *
@@ -155,17 +114,7 @@ dbus_bool_t
 _dbus_get_user_id (const DBusString  *username,
                    dbus_uid_t        *uid)
 {
-  DBusCredentials creds;
-
-  if (!_dbus_credentials_from_username (username, &creds))
-    return FALSE;
-
-  if (creds.uid == DBUS_UID_UNSET)
-    return FALSE;
-
-  *uid = creds.uid;
-
-  return TRUE;
+  return _dbus_get_user_id_and_primary_group (username, uid, NULL);
 }
 
 /**
@@ -198,6 +147,46 @@ _dbus_get_group_id (const DBusString  *groupname,
     }
 
   *gid = info->gid;
+  
+  _dbus_user_database_unlock_system ();
+  return TRUE;
+}
+
+/**
+ * Gets user ID and primary group given username
+ *
+ * @param username the username
+ * @param uid_p return location for UID
+ * @param gid_p return location for GID
+ * @returns #TRUE if username existed and we got the UID and GID
+ */
+dbus_bool_t
+_dbus_get_user_id_and_primary_group (const DBusString  *username,
+                                     dbus_uid_t        *uid_p,
+                                     dbus_gid_t        *gid_p)
+{
+  DBusUserDatabase *db;
+  const DBusUserInfo *info;
+  _dbus_user_database_lock_system ();
+
+  db = _dbus_user_database_get_system ();
+  if (db == NULL)
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+
+  if (!_dbus_user_database_get_username (db, username,
+                                         &info, NULL))
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+
+  if (uid_p)
+    *uid_p = info->uid;
+  if (gid_p)
+    *gid_p = info->primary_gid;
   
   _dbus_user_database_unlock_system ();
   return TRUE;
@@ -433,7 +422,6 @@ _dbus_userdb_test (const char *test_data_dir)
 
   if (!_dbus_get_user_id (username, &uid))
     _dbus_assert_not_reached ("didn't get uid");
-
 
   if (!_dbus_groups_from_uid (uid, &group_ids, &n_group_ids))
     _dbus_assert_not_reached ("didn't get groups");

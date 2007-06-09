@@ -26,6 +26,7 @@
 #include "dbus-transport-socket.h"
 #include "dbus-transport-protected.h"
 #include "dbus-watch.h"
+#include "dbus-credentials.h"
 
 
 /**
@@ -332,7 +333,8 @@ write_data_from_auth (DBusTransport *transport)
   return FALSE;
 }
 
-static void
+/* FALSE on OOM */
+static dbus_bool_t
 exchange_credentials (DBusTransport *transport,
                       dbus_bool_t    do_reading,
                       dbus_bool_t    do_writing)
@@ -346,8 +348,8 @@ exchange_credentials (DBusTransport *transport,
   dbus_error_init (&error);
   if (do_writing && transport->send_credentials_pending)
     {
-      if (_dbus_send_credentials_unix_socket (socket_transport->fd,
-                                              &error))
+      if (_dbus_send_credentials_socket (socket_transport->fd,
+                                         &error))
         {
           transport->send_credentials_pending = FALSE;
         }
@@ -361,9 +363,10 @@ exchange_credentials (DBusTransport *transport,
   
   if (do_reading && transport->receive_credentials_pending)
     {
-      if (_dbus_read_credentials_unix_socket (socket_transport->fd,
-                                              &transport->credentials,
-                                              &error))
+      /* FIXME this can fail due to IO error _or_ OOM, broken */
+      if (_dbus_read_credentials_socket (socket_transport->fd,
+                                         transport->credentials,
+                                         &error))
         {
           transport->receive_credentials_pending = FALSE;
         }
@@ -378,9 +381,12 @@ exchange_credentials (DBusTransport *transport,
   if (!(transport->send_credentials_pending ||
         transport->receive_credentials_pending))
     {
-      _dbus_auth_set_credentials (transport->auth,
-                                  &transport->credentials);
+      if (!_dbus_auth_set_credentials (transport->auth,
+                                       transport->credentials))
+        return FALSE;
     }
+
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -412,7 +418,12 @@ do_authentication (DBusTransport *transport,
   while (!_dbus_transport_get_is_authenticated (transport) &&
          _dbus_transport_get_is_connected (transport))
     {      
-      exchange_credentials (transport, do_reading, do_writing);
+      if (!exchange_credentials (transport, do_reading, do_writing))
+        {
+          /* OOM */
+          oom = TRUE;
+          goto out;
+        }
       
       if (transport->send_credentials_pending ||
           transport->receive_credentials_pending)
@@ -1161,7 +1172,7 @@ _dbus_transport_new_for_socket (int               fd,
                                                 NULL, NULL, NULL);
   if (socket_transport->read_watch == NULL)
     goto failed_3;
-  
+
   if (!_dbus_transport_init_base (&socket_transport->base,
                                   &socket_vtable,
                                   server_guid, address))

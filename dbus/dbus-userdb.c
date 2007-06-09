@@ -26,6 +26,7 @@
 #include "dbus-test.h"
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
+#include "dbus-credentials.h"
 #include <string.h>
 
 /**
@@ -63,6 +64,30 @@ _dbus_group_info_free_allocated (DBusGroupInfo *info)
 
   _dbus_group_info_free (info);
   dbus_free (info);
+}
+
+/**
+ * Frees the members of info
+ * (but not info itself)
+ * @param info the user info struct
+ */
+void
+_dbus_user_info_free (DBusUserInfo *info)
+{
+  dbus_free (info->group_ids);
+  dbus_free (info->username);
+  dbus_free (info->homedir);
+}
+
+/**
+ * Frees the members of info (but not info itself).
+ *
+ * @param info the group info
+ */
+void
+_dbus_group_info_free (DBusGroupInfo    *info)
+{
+  dbus_free (info->groupname);
 }
 
 /**
@@ -412,18 +437,19 @@ _dbus_homedir_from_username (const DBusString *username,
 }
 
 /**
- * Gets the credentials corresponding to the given username.
+ * Adds the credentials corresponding to the given username.
  *
+ * @param credentials credentials to fill in 
  * @param username the username
- * @param credentials credentials to fill in
  * @returns #TRUE if the username existed and we got some credentials
  */
 dbus_bool_t
-_dbus_credentials_from_username (const DBusString *username,
-                                 DBusCredentials  *credentials)
+_dbus_credentials_add_from_username (DBusCredentials  *credentials,
+                                     const DBusString *username)
 {
   DBusUserDatabase *db;
   const DBusUserInfo *info;
+
   _dbus_user_database_lock_system ();
 
   db = _dbus_user_database_get_system ();
@@ -440,9 +466,11 @@ _dbus_credentials_from_username (const DBusString *username,
       return FALSE;
     }
 
-  credentials->pid = DBUS_PID_UNSET;
-  credentials->uid = info->uid;
-  credentials->gid = info->primary_gid;
+  if (!_dbus_credentials_add_unix_uid(credentials, info->uid))
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
   
   _dbus_user_database_unlock_system ();
   return TRUE;

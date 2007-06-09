@@ -1169,6 +1169,8 @@ fi
 AC_DEFINE_UNQUOTED(DBUS_SESSION_SOCKET_DIR, "$DBUS_SESSION_SOCKET_DIR", [Where per-session bus puts its sockets])
 AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 
+AC_DEFINE_UNQUOTED(DBUS_UNIX, "1", [Defined on UNIX and Linux systems and not on Windows])
+
 AC_OUTPUT([
 Doxyfile
 dbus/dbus-arch-deps.h

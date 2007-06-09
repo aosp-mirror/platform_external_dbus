@@ -1,3 +1,22 @@
+2007-06-09  Havoc Pennington  <hp@redhat.com>
+
+	* bus/dispatch.c (check_get_connection_unix_process_id): adapt
+	since sysdeps-unix.h stuff isn't included anymore
+
+	* bus/bus.c (bus_context_new): use more abstract functions to
+	change user, so they can be no-ops on Windows
+
+	* dbus/dbus-credentials.c, dbus/dbus-credentials.h,
+	dbus/dbus-credentials-util.c: new files containing a fully opaque
+	DBusCredentials data type to replace the old not opaque one.
+
+	* configure.in (DBUS_UNIX): define DBUS_UNIX to match DBUS_WIN on
+	windows
+
+	* dbus/dbus-userdb.h: prohibit on Windows, next step is to clean
+	up the uses of it in bus/*.c and factor out the parts of 
+	cookie auth that depend on it
+	
 2007-06-07  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message.c: improve some docs related to reading values

@@ -41,6 +41,8 @@ DBUS_LIB_SOURCES=				\
 	dbus-bus.c				\
 	dbus-connection.c			\
 	dbus-connection-internal.h		\
+	dbus-credentials.c			\
+	dbus-credentials.h			\
 	dbus-errors.c				\
 	dbus-keyring.c				\
 	dbus-keyring.h				\
@@ -128,6 +130,7 @@ DBUS_SHARED_SOURCES=				\
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 DBUS_UTIL_SOURCES=				\
 	dbus-auth-util.c			\
+	dbus-credentials-util.c			\
 	dbus-mainloop.c				\
 	dbus-mainloop.h				\
 	dbus-marshal-byteswap-util.c		\

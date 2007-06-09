@@ -68,10 +68,9 @@ dbus_bool_t   _dbus_auth_needs_decoding      (DBusAuth               *auth);
 dbus_bool_t   _dbus_auth_decode_data         (DBusAuth               *auth,
                                               const DBusString       *encoded,
                                               DBusString             *plaintext);
-void          _dbus_auth_set_credentials     (DBusAuth               *auth,
-                                              const DBusCredentials  *credentials);
-void          _dbus_auth_get_identity        (DBusAuth               *auth,
+dbus_bool_t   _dbus_auth_set_credentials     (DBusAuth               *auth,
                                               DBusCredentials        *credentials);
+DBusCredentials* _dbus_auth_get_identity     (DBusAuth               *auth);
 dbus_bool_t   _dbus_auth_set_context         (DBusAuth               *auth,
                                               const DBusString       *context);
 const char*   _dbus_auth_get_guid_from_server(DBusAuth               *auth);

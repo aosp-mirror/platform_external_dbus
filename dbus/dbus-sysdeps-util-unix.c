@@ -243,20 +243,47 @@ _dbus_write_pid_file (const DBusString *filename,
   return TRUE;
 }
 
+/**
+ * Verify that after the fork we can successfully change to this user.
+ *
+ * @param user the username given in the daemon configuration
+ * @returns #TRUE if username is valid
+ */
+dbus_bool_t
+_dbus_verify_daemon_user (const char *user)
+{
+  DBusString u;
+
+  _dbus_string_init_const (&u, user);
+
+  return _dbus_get_user_id_and_primary_group (&u, NULL, NULL);
+}
 
 /**
  * Changes the user and group the bus is running as.
  *
- * @param uid the new user ID
- * @param gid the new group ID
+ * @param user the user to become
  * @param error return location for errors
  * @returns #FALSE on failure
  */
 dbus_bool_t
-_dbus_change_identity  (dbus_uid_t     uid,
-                        dbus_gid_t     gid,
-                        DBusError     *error)
+_dbus_change_to_daemon_user  (const char    *user,
+                              DBusError     *error)
 {
+  dbus_uid_t uid;
+  dbus_gid_t gid;
+  DBusString u;
+
+  _dbus_string_init_const (&u, user);
+  
+  if (!_dbus_get_user_id_and_primary_group (&u, &uid, &gid))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "User '%s' does not appear to exist?",
+                      user);
+      return FALSE;
+    }
+  
   /* setgroups() only works if we are a privileged process,
    * so we don't return error on failure; the only possible
    * failure is that we don't have perms to do it.

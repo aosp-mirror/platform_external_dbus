@@ -22,7 +22,6 @@
  */
 
 #include "dbus-keyring.h"
-#include "dbus-userdb.h"
 #include "dbus-protocol.h"
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-list.h>

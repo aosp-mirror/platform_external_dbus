@@ -533,7 +533,6 @@ bus_context_new (const DBusString *config_file,
 {
   BusContext *context;
   BusConfigParser *parser;
-  DBusCredentials creds;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -660,13 +659,7 @@ bus_context_new (const DBusString *config_file,
   /* check user before we fork */
   if (context->user != NULL)
     {
-      DBusString u;
-
-      _dbus_string_init_const (&u, context->user);
-
-      if (!_dbus_credentials_from_username (&u, &creds) ||
-          creds.uid < 0 ||
-          creds.gid < 0)
+      if (!_dbus_verify_daemon_user (context->user))
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Could not get UID and GID for username \"%s\"",
@@ -769,7 +762,7 @@ bus_context_new (const DBusString *config_file,
    */
   if (context->user != NULL)
     {
-      if (!_dbus_change_identity (creds.uid, creds.gid, error))
+      if (!_dbus_change_to_daemon_user (context->user, error))
 	{
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
 	  goto failed;

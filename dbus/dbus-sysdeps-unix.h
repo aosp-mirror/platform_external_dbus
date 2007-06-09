@@ -71,6 +71,63 @@ int _dbus_listen_unix_socket  (const char     *path,
                                dbus_bool_t     abstract,
                                DBusError      *error);
 
+dbus_bool_t _dbus_read_credentials (int               client_fd,
+                                    DBusCredentials  *credentials,
+                                    DBusError        *error);
+dbus_bool_t _dbus_send_credentials (int              server_fd,
+                                    DBusError       *error);
+
+/** Information about a UNIX user */
+typedef struct DBusUserInfo  DBusUserInfo;
+/** Information about a UNIX group */
+typedef struct DBusGroupInfo DBusGroupInfo;
+
+/**
+ * Information about a UNIX user
+ */
+struct DBusUserInfo
+{
+  dbus_uid_t  uid;            /**< UID */
+  dbus_gid_t  primary_gid;    /**< GID */
+  dbus_gid_t *group_ids;      /**< Groups IDs, *including* above primary group */
+  int         n_group_ids;    /**< Size of group IDs array */
+  char       *username;       /**< Username */
+  char       *homedir;        /**< Home directory */
+};
+
+/**
+ * Information about a UNIX group
+ */
+struct DBusGroupInfo
+{
+  dbus_gid_t  gid;            /**< GID */
+  char       *groupname;      /**< Group name */
+};
+
+dbus_bool_t _dbus_user_info_fill     (DBusUserInfo     *info,
+                                      const DBusString *username,
+                                      DBusError        *error);
+dbus_bool_t _dbus_user_info_fill_uid (DBusUserInfo     *info,
+                                      dbus_uid_t        uid,
+                                      DBusError        *error);
+void        _dbus_user_info_free     (DBusUserInfo     *info);
+
+dbus_bool_t _dbus_group_info_fill     (DBusGroupInfo    *info,
+                                       const DBusString *groupname,
+                                       DBusError        *error);
+dbus_bool_t _dbus_group_info_fill_gid (DBusGroupInfo    *info,
+                                       dbus_gid_t        gid,
+                                       DBusError        *error);
+void        _dbus_group_info_free     (DBusGroupInfo    *info);
+
+
+dbus_pid_t    _dbus_getpid (void);
+dbus_uid_t    _dbus_getuid (void);
+dbus_gid_t    _dbus_getgid (void);
+
+dbus_bool_t _dbus_parse_uid (const DBusString  *uid_str,
+                             dbus_uid_t        *uid);
+
 /** @} */
 
 DBUS_END_DECLS

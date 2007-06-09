@@ -78,7 +78,7 @@ _dbus_abort (void)
   if (s && *s)
     {
       /* don't use _dbus_warn here since it can _dbus_abort() */
-      fprintf (stderr, "  Process %lu sleeping for gdb attach\n", (unsigned long) _dbus_getpid());
+      fprintf (stderr, "  Process %lu sleeping for gdb attach\n", _dbus_pid_for_log ());
       _dbus_sleep_milliseconds (1000 * 180);
     }
   
@@ -236,7 +236,8 @@ _dbus_pipe_invalidate (DBusPipe *pipe)
 }
 
 /**
- * split pathes into a list of char strings 
+ * Split paths into a list of char strings
+ * 
  * @param dirs string with pathes 
  * @param suffix string concated to each path in dirs
  * @param dir_list contains a list of splitted pathes
@@ -251,7 +252,7 @@ _dbus_split_paths_and_append (DBusString *dirs,
    int i;
    int len;
    char *cpath;
-   const DBusString file_suffix;
+   DBusString file_suffix;
 
    start = 0;
    i = 0;
@@ -770,68 +771,6 @@ _dbus_string_parse_double (const DBusString *str,
  * @{
  */
 
-/**
- * Frees the members of info
- * (but not info itself)
- * @param info the user info struct
- */
-void
-_dbus_user_info_free (DBusUserInfo *info)
-{
-  dbus_free (info->group_ids);
-  dbus_free (info->username);
-  dbus_free (info->homedir);
-}
-
-/**
- * Frees the members of info (but not info itself).
- *
- * @param info the group info
- */
-void
-_dbus_group_info_free (DBusGroupInfo    *info)
-{
-  dbus_free (info->groupname);
-}
-
-/**
- * Sets fields in DBusCredentials to DBUS_PID_UNSET,
- * DBUS_UID_UNSET, DBUS_GID_UNSET.
- *
- * @param credentials the credentials object to fill in
- */
-void
-_dbus_credentials_clear (DBusCredentials *credentials)
-{
-  credentials->pid = DBUS_PID_UNSET;
-  credentials->uid = DBUS_UID_UNSET;
-  credentials->gid = DBUS_GID_UNSET;
-}
-
-/**
- * Checks whether the provided_credentials are allowed to log in
- * as the expected_credentials.
- *
- * @param expected_credentials credentials we're trying to log in as
- * @param provided_credentials credentials we have
- * @returns #TRUE if we can log in
- */
-dbus_bool_t
-_dbus_credentials_match (const DBusCredentials *expected_credentials,
-                         const DBusCredentials *provided_credentials)
-{
-  if (provided_credentials->uid == DBUS_UID_UNSET)
-    return FALSE;
-  else if (expected_credentials->uid == DBUS_UID_UNSET)
-    return FALSE;
-  else if (provided_credentials->uid == 0)
-    return TRUE;
-  else if (provided_credentials->uid == expected_credentials->uid)
-    return TRUE;
-  else
-    return FALSE;
-}
-
 void
 _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
                                           int   n_bytes)
@@ -924,46 +863,6 @@ _dbus_generate_random_ascii (DBusString *str,
 
   _dbus_assert (_dbus_string_validate_ascii (str, len - n_bytes,
                                              n_bytes));
-
-  return TRUE;
-}
-
-/**
- * Gets a UID from a UID string.
- *
- * @param uid_str the UID in string form
- * @param uid UID to fill in
- * @returns #TRUE if successfully filled in UID
- */
-dbus_bool_t
-_dbus_parse_uid (const DBusString      *uid_str,
-                 dbus_uid_t            *uid)
-{
-  int end;
-  long val;
-  
-  if (_dbus_string_get_length (uid_str) == 0)
-    {
-      _dbus_verbose ("UID string was zero length\n");
-      return FALSE;
-    }
-
-  val = -1;
-  end = 0;
-  if (!_dbus_string_parse_int (uid_str, 0, &val,
-                               &end))
-    {
-      _dbus_verbose ("could not parse string as a UID\n");
-      return FALSE;
-    }
-  
-  if (end != _dbus_string_get_length (uid_str))
-    {
-      _dbus_verbose ("string contained trailing stuff after UID\n");
-      return FALSE;
-    }
-
-  *uid = val;
 
   return TRUE;
 }

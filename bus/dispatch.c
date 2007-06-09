@@ -399,6 +399,10 @@ bus_dispatch_remove_connection (DBusConnection *connection)
 #ifdef DBUS_BUILD_TESTS
 
 #include <stdio.h>
+#ifdef DBUS_UNIX
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 
 /* This is used to know whether we need to block in order to finish
  * sending a message, or whether the initial dbus_connection_send()
@@ -1313,7 +1317,7 @@ check_get_connection_unix_process_id (BusContext     *context,
            *       cause then we can test that the pid returned matches
            *       getppid()
            */
-          if (pid != (dbus_uint32_t) _dbus_getpid ())
+          if (pid != (dbus_uint32_t) getpid ())
             {
               _dbus_assert (dbus_error_is_set (&error));
               _dbus_warn ("Result from GetConnectionUnixProcessID is not our own pid\n");

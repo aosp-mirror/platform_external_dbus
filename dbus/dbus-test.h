@@ -54,6 +54,7 @@ dbus_bool_t _dbus_userdb_test            (const char *test_data_dir);
 dbus_bool_t _dbus_memory_test            (void);
 dbus_bool_t _dbus_object_tree_test       (void);
 dbus_bool_t _dbus_pending_call_test      (const char *test_data_dir);
+dbus_bool_t _dbus_credentials_test       (const char *test_data_dir);
 
 void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir,
 							const char          *specific_test);

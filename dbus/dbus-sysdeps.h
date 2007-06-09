@@ -55,6 +55,9 @@ typedef struct DBusString DBusString;
 /** An opaque list type */
 typedef struct DBusList DBusList;
 
+/** Object that contains a list of credentials such as UNIX or Windows user ID */
+typedef struct DBusCredentials DBusCredentials;
+
 /**
  * @addtogroup DBusSysdeps
  *
@@ -151,79 +154,25 @@ int _dbus_listen_tcp_socket   (const char     *host,
                                DBusError      *error);
 int _dbus_accept              (int             listen_fd);
 
-/**
- * Struct representing socket credentials
- */
-typedef struct
-{
-  dbus_pid_t pid; /**< process ID or DBUS_PID_UNSET */
-  dbus_uid_t uid; /**< user ID or DBUS_UID_UNSET */
-  dbus_gid_t gid; /**< group ID or DBUS_GID_UNSET */
-} DBusCredentials;
 
-/* FIXME these read/send credentials should get moved to sysdeps-unix.h,
- * or renamed to reflect what they mean cross-platform
- */
-dbus_bool_t _dbus_read_credentials_unix_socket (int              client_fd,
-                                                DBusCredentials *credentials,
-                                                DBusError       *error);
-dbus_bool_t _dbus_send_credentials_unix_socket (int              server_fd,
-                                                DBusError       *error);
+dbus_bool_t _dbus_read_credentials_socket (int               client_fd,
+                                           DBusCredentials  *credentials,
+                                           DBusError        *error);
+dbus_bool_t _dbus_send_credentials_socket (int              server_fd,
+                                           DBusError       *error);
 
+dbus_bool_t _dbus_credentials_add_from_username        (DBusCredentials  *credentials,
+                                                        const DBusString *username);
+dbus_bool_t _dbus_credentials_add_from_current_process (DBusCredentials  *credentials);
+dbus_bool_t _dbus_credentials_parse_and_add_desired    (DBusCredentials  *credentials,
+                                                        const DBusString *desired_identity);
 
-void        _dbus_credentials_clear                (DBusCredentials       *credentials);
-void        _dbus_credentials_from_current_process (DBusCredentials       *credentials);
-dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expected_credentials,
-                                                    const DBusCredentials *provided_credentials);
+dbus_bool_t _dbus_username_from_current_process (const DBusString **username);
+dbus_bool_t _dbus_append_desired_identity       (DBusString *str);
 
-
-/** Information about a UNIX user */
-typedef struct DBusUserInfo  DBusUserInfo;
-/** Information about a UNIX group */
-typedef struct DBusGroupInfo DBusGroupInfo;
-
-/**
- * Information about a UNIX user
- */
-struct DBusUserInfo
-{
-  dbus_uid_t  uid;            /**< UID */
-  dbus_gid_t  primary_gid;    /**< GID */
-  dbus_gid_t *group_ids;      /**< Groups IDs, *including* above primary group */
-  int         n_group_ids;    /**< Size of group IDs array */
-  char       *username;       /**< Username */
-  char       *homedir;        /**< Home directory */
-};
-
-/**
- * Information about a UNIX group
- */
-struct DBusGroupInfo
-{
-  dbus_gid_t  gid;            /**< GID */
-  char       *groupname;      /**< Group name */
-};
-
-dbus_bool_t _dbus_user_info_fill     (DBusUserInfo     *info,
-                                      const DBusString *username,
-                                      DBusError        *error);
-dbus_bool_t _dbus_user_info_fill_uid (DBusUserInfo     *info,
-                                      dbus_uid_t        uid,
-                                      DBusError        *error);
-void        _dbus_user_info_free     (DBusUserInfo     *info);
-
-dbus_bool_t _dbus_group_info_fill     (DBusGroupInfo    *info,
-                                       const DBusString *groupname,
-                                       DBusError        *error);
-dbus_bool_t _dbus_group_info_fill_gid (DBusGroupInfo    *info,
-                                       dbus_gid_t        gid,
-                                       DBusError        *error);
-void        _dbus_group_info_free     (DBusGroupInfo    *info);
-
-
-unsigned long _dbus_getpid (void);
-dbus_uid_t    _dbus_getuid (void);
-dbus_gid_t    _dbus_getgid (void);
+dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);
+dbus_bool_t _dbus_homedir_from_username         (const DBusString  *username,
+                                                 DBusString        *homedir);
 
 /** Opaque type representing an atomically-modifiable integer
  * that can be used from multiple threads.
@@ -398,9 +347,9 @@ dbus_bool_t _dbus_become_daemon   (const DBusString *pidfile,
 dbus_bool_t _dbus_write_pid_file  (const DBusString *filename,
                                    unsigned long     pid,
                                    DBusError        *error);
-dbus_bool_t _dbus_change_identity (unsigned long     uid,
-                                   unsigned long     gid,
-                                   DBusError        *error);
+dbus_bool_t _dbus_verify_daemon_user    (const char *user);
+dbus_bool_t _dbus_change_to_daemon_user (const char *user,
+                                         DBusError  *error);
 
 /** A UNIX signal handler */
 typedef void (* DBusSignalHandler) (int sig);
@@ -446,9 +395,6 @@ dbus_bool_t _dbus_user_at_console (const char *username,
       _DBUS_BYTE_OF_PRIMITIVE (a, 6) == _DBUS_BYTE_OF_PRIMITIVE (b, 6) &&       \
       _DBUS_BYTE_OF_PRIMITIVE (a, 7) == _DBUS_BYTE_OF_PRIMITIVE (b, 7))
 
-dbus_bool_t _dbus_parse_uid (const DBusString  *uid_str,
-                             dbus_uid_t        *uid);
-
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
 					  DBusError *error);
 
@@ -471,6 +417,8 @@ dbus_bool_t _dbus_threads_init_platform_specific (void);
 dbus_bool_t _dbus_split_paths_and_append (DBusString *dirs, 
                                           const char *suffix, 
                                           DBusList **dir_list);
+
+unsigned long _dbus_pid_for_log (void);
 
 /** @} */
 

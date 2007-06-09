@@ -31,6 +31,7 @@
 #include "dbus-string.h"
 #include "dbus-userdb.h"
 #include "dbus-list.h"
+#include "dbus-credentials.h"
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
@@ -85,6 +86,7 @@ _dbus_open_socket (int              *fd_p,
   *fd_p = socket (domain, type, protocol);
   if (*fd_p >= 0)
     {
+      _dbus_verbose ("socket fd %d opened\n", *fd_p);
       return TRUE;
     }
   else
@@ -949,11 +951,14 @@ write_credentials_byte (int             server_fd,
 
 /**
  * Reads a single byte which must be nul (an error occurs otherwise),
- * and reads unix credentials if available. Fills in pid/uid/gid with
- * -1 if no credentials are available. Return value indicates whether
- * a byte was read, not whether we got valid credentials. On some
- * systems, such as Linux, reading/writing the byte isn't actually
- * required, but we do it anyway just to avoid multiple codepaths.
+ * and reads unix credentials if available. Clears the credentials
+ * object, then adds pid/uid if available, so any previous credentials
+ * stored in the object are lost.
+ *
+ * Return value indicates whether a byte was read, not whether
+ * we got valid credentials. On some systems, such as Linux,
+ * reading/writing the byte isn't actually required, but we do it
+ * anyway just to avoid multiple codepaths.
  * 
  * Fails if no byte is available, so you must select() first.
  *
@@ -961,19 +966,24 @@ write_credentials_byte (int             server_fd,
  * use sendmsg()/recvmsg() to transmit credentials.
  *
  * @param client_fd the client file descriptor
- * @param credentials struct to fill with credentials of client
+ * @param credentials object to add client credentials to
  * @param error location to store error code
  * @returns #TRUE on success
  */
 dbus_bool_t
-_dbus_read_credentials_unix_socket  (int              client_fd,
-                                     DBusCredentials *credentials,
-                                     DBusError       *error)
+_dbus_read_credentials_socket  (int              client_fd,
+                                DBusCredentials *credentials,
+                                DBusError       *error)
 {
   struct msghdr msg;
   struct iovec iov;
   char buf;
+  dbus_uid_t uid_read;
+  dbus_pid_t pid_read;
 
+  uid_read = DBUS_UID_UNSET;
+  pid_read = DBUS_PID_UNSET;
+  
 #ifdef HAVE_CMSGCRED 
   struct {
 	  struct cmsghdr hdr;
@@ -993,9 +1003,9 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
    * we need these assertions to fail as soon as we're wrong about
    * it so we can do the porting fixups
    */
-  _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
-  _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
-  _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
+  _dbus_assert (sizeof (pid_t) <= sizeof (dbus_pid_t));
+  _dbus_assert (sizeof (uid_t) <= sizeof (dbus_uid_t));
+  _dbus_assert (sizeof (gid_t) <= sizeof (dbus_gid_t));
 
   _dbus_credentials_clear (credentials);
 
@@ -1056,9 +1066,8 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     if (getsockopt (client_fd, SOL_SOCKET, SO_PEERCRED, &cr, &cr_len) == 0 &&
 	cr_len == sizeof (cr))
       {
-	credentials->pid = cr.pid;
-	credentials->uid = cr.uid;
-	credentials->gid = cr.gid;
+	pid_read = cr.pid;
+	uid_read = cr.uid;
       }
     else
       {
@@ -1066,13 +1075,11 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
 		       cr_len, (int) sizeof (cr), _dbus_strerror (errno));
       }
 #elif defined(HAVE_CMSGCRED)
-    credentials->pid = cmsg.cred.cmcred_pid;
-    credentials->uid = cmsg.cred.cmcred_euid;
-    credentials->gid = cmsg.cred.cmcred_groups[0];
+    pid_read = cmsg.cred.cmcred_pid;
+    uid_read = cmsg.cred.cmcred_euid;
 #elif defined(LOCAL_CREDS)
-    credentials->pid = DBUS_PID_UNSET;
-    credentials->uid = cmsg.cred.sc_uid;
-    credentials->gid = cmsg.cred.sc_gid;
+    pid_read = DBUS_PID_UNSET;
+    uid_read = cmsg.cred.sc_uid;
     /* Since we have already got the credentials from this socket, we can
      * disable its LOCAL_CREDS flag if it was ever set. */
     _dbus_set_local_creds (client_fd, FALSE);
@@ -1081,8 +1088,7 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     gid_t egid;
     if (getpeereid (client_fd, &euid, &egid) == 0)
       {
-        credentials->uid = euid;
-        credentials->gid = egid;
+        uid_read = euid;
       }
     else
       {
@@ -1092,9 +1098,8 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     ucred_t * ucred = NULL;
     if (getpeerucred (client_fd, &ucred) == 0)
       {
-        credentials->pid = ucred_getpid (ucred);
-        credentials->uid = ucred_geteuid (ucred);
-        credentials->gid = ucred_getegid (ucred);
+        pid_read = ucred_getpid (ucred);
+        uid_read = ucred_geteuid (ucred);
       }
     else
       {
@@ -1110,11 +1115,28 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   _dbus_verbose ("Credentials:"
                  "  pid "DBUS_PID_FORMAT
                  "  uid "DBUS_UID_FORMAT
-                 "  gid "DBUS_GID_FORMAT"\n",
-		 credentials->pid,
-		 credentials->uid,
-		 credentials->gid);
-    
+                 "\n",
+		 pid_read,
+		 uid_read);
+
+  if (pid_read != DBUS_PID_UNSET)
+    {
+      if (!_dbus_credentials_add_unix_pid (credentials, pid_read))
+        {
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+    }
+
+  if (uid_read != DBUS_UID_UNSET)
+    {
+      if (!_dbus_credentials_add_unix_uid (credentials, uid_read))
+        {
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+    }
+  
   return TRUE;
 }
 
@@ -1136,8 +1158,8 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
  * @returns #TRUE if the byte was sent
  */
 dbus_bool_t
-_dbus_send_credentials_unix_socket  (int              server_fd,
-                                     DBusError       *error)
+_dbus_send_credentials_socket  (int              server_fd,
+                                DBusError       *error)
 {
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -1171,6 +1193,8 @@ _dbus_accept  (int listen_fd)
       if (errno == EINTR)
         goto retry;
     }
+
+  _dbus_verbose ("client fd %d accepted\n", client_fd);
   
   return client_fd;
 }
@@ -1446,31 +1470,77 @@ _dbus_user_info_fill_uid (DBusUserInfo *info,
 }
 
 /**
- * Gets the credentials of the current process.
+ * Adds the credentials of the current process to the
+ * passed-in credentials object.
  *
- * @param credentials credentials to fill in.
+ * @param credentials credentials to add to
+ * @returns #FALSE if no memory; does not properly roll back on failure, so only some credentials may have been added
  */
-void
-_dbus_credentials_from_current_process (DBusCredentials *credentials)
+dbus_bool_t
+_dbus_credentials_add_from_current_process (DBusCredentials *credentials)
 {
   /* The POSIX spec certainly doesn't promise this, but
    * we need these assertions to fail as soon as we're wrong about
    * it so we can do the porting fixups
    */
-  _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
-  _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
-  _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
-  
-  credentials->pid = getpid ();
-  credentials->uid = getuid ();
-  credentials->gid = getgid ();
+  _dbus_assert (sizeof (pid_t) <= sizeof (dbus_pid_t));
+  _dbus_assert (sizeof (uid_t) <= sizeof (dbus_uid_t));
+  _dbus_assert (sizeof (gid_t) <= sizeof (dbus_gid_t));
+
+  if (!_dbus_credentials_add_unix_pid(credentials, _dbus_getpid()))
+    return FALSE;
+  if (!_dbus_credentials_add_unix_uid(credentials, _dbus_getuid()))
+    return FALSE;
+
+  return TRUE;
+}
+
+/**
+ * Parses a desired identity provided from a client in the auth protocol.
+ * On UNIX this means parsing a UID.
+ *
+ * @todo this is broken because it treats OOM and parse error
+ * the same way. Needs a #DBusError.
+ * 
+ * @param credentials the credentials to add what we parse to
+ * @param desired_identity the string to parse
+ * @returns #TRUE if we successfully parsed something
+ */
+dbus_bool_t
+_dbus_credentials_parse_and_add_desired (DBusCredentials  *credentials,
+                                         const DBusString *desired_identity)
+{
+  dbus_uid_t uid;
+
+  if (!_dbus_parse_uid (desired_identity, &uid))
+    return FALSE;
+
+  if (!_dbus_credentials_add_unix_uid (credentials, uid))
+    return FALSE;
+
+  return TRUE;
+}
+
+/**
+ * Append to the string the identity we would like to have when we authenticate,
+ * on UNIX this is the current process UID and on Windows something else.
+ * No escaping is required, that is done in dbus-auth.c.
+ * 
+ * @param str the string to append to
+ * @returns #FALSE on no memory
+ */
+dbus_bool_t
+_dbus_append_desired_identity (DBusString *str)
+{
+  return _dbus_string_append_uint (str,
+                                   _dbus_getuid ());
 }
 
 /**
  * Gets our process ID
  * @returns process ID
  */
-unsigned long
+dbus_pid_t
 _dbus_getpid (void)
 {
   return getpid ();
@@ -1484,6 +1554,59 @@ _dbus_getuid (void)
 {
   return getuid ();
 }
+
+/**
+ * The only reason this is separate from _dbus_getpid() is to allow it
+ * on Windows for logging but not for other purposes.
+ * 
+ * @returns process ID to put in log messages
+ */
+unsigned long
+_dbus_pid_for_log (void)
+{
+  return getpid ();
+}
+
+/**
+ * Gets a UID from a UID string.
+ *
+ * @param uid_str the UID in string form
+ * @param uid UID to fill in
+ * @returns #TRUE if successfully filled in UID
+ */
+dbus_bool_t
+_dbus_parse_uid (const DBusString      *uid_str,
+                 dbus_uid_t            *uid)
+{
+  int end;
+  long val;
+  
+  if (_dbus_string_get_length (uid_str) == 0)
+    {
+      _dbus_verbose ("UID string was zero length\n");
+      return FALSE;
+    }
+
+  val = -1;
+  end = 0;
+  if (!_dbus_string_parse_int (uid_str, 0, &val,
+                               &end))
+    {
+      _dbus_verbose ("could not parse string as a UID\n");
+      return FALSE;
+    }
+  
+  if (end != _dbus_string_get_length (uid_str))
+    {
+      _dbus_verbose ("string contained trailing stuff after UID\n");
+      return FALSE;
+    }
+
+  *uid = val;
+
+  return TRUE;
+}
+
 
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
 
@@ -1717,6 +1840,8 @@ _dbus_file_get_contents (DBusString       *str,
       return FALSE;
     }
 
+  _dbus_verbose ("file fd %d opened\n", fd);
+  
   if (fstat (fd, &sb) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -1858,6 +1983,8 @@ _dbus_string_save_to_file (const DBusString *str,
       goto out;
     }
 
+  _dbus_verbose ("tmp file fd %d opened\n", fd);
+  
   need_unlink = TRUE;
   
   total = 0;
@@ -1983,6 +2110,8 @@ _dbus_create_file_exclusively (const DBusString *filename,
       return FALSE;
     }
 
+  _dbus_verbose ("exclusive file fd %d opened\n", fd);
+  
   if (!_dbus_close (fd, NULL))
     {
       dbus_set_error (error,
@@ -2181,6 +2310,8 @@ _dbus_generate_random_bytes (DBusString *str,
   if (fd < 0)
     return _dbus_generate_pseudorandom_bytes (str, n_bytes);
 
+  _dbus_verbose ("/dev/urandom fd %d opened\n", fd);
+  
   if (_dbus_read (fd, str, n_bytes) != n_bytes)
     {
       _dbus_close (fd, NULL);
@@ -2571,6 +2702,8 @@ _dbus_get_autolaunch_address (DBusString *address,
         /* huh?! can't open /dev/null? */
         _exit (1);
 
+      _dbus_verbose ("/dev/null fd %d opened\n", fd);
+      
       /* set-up stdXXX */
       close (address_pipe[READ_END]);
       close (errors_pipe[READ_END]);
@@ -2757,7 +2890,7 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
   else
     {
       const DBusString *homedir;
-      const DBusString local_share;
+      DBusString local_share;
 
       if (!_dbus_homedir_from_current_process (&homedir))
         goto oom;

@@ -24,7 +24,11 @@
 #ifndef DBUS_USERDB_H
 #define DBUS_USERDB_H
 
-#include <dbus/dbus-sysdeps.h>
+#include <dbus/dbus-sysdeps-unix.h>
+
+#ifdef DBUS_WIN
+#error "Don't include this on Windows"
+#endif
 
 DBUS_BEGIN_DECLS
 
@@ -86,16 +90,13 @@ void              _dbus_user_database_lock_system   (void);
 void              _dbus_user_database_unlock_system (void);
 void              _dbus_user_database_flush_system  (void);
 
-dbus_bool_t _dbus_username_from_current_process (const DBusString **username);
-dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);
-dbus_bool_t _dbus_homedir_from_username         (const DBusString  *username,
-                                                 DBusString        *homedir);
 dbus_bool_t _dbus_get_user_id                   (const DBusString  *username,
                                                  dbus_uid_t        *uid);
 dbus_bool_t _dbus_get_group_id                  (const DBusString  *group_name,
                                                  dbus_gid_t        *gid);
-dbus_bool_t _dbus_credentials_from_username     (const DBusString  *username,
-                                                 DBusCredentials   *credentials);
+dbus_bool_t _dbus_get_user_id_and_primary_group (const DBusString  *username,
+                                                 dbus_uid_t        *uid_p,
+                                                 dbus_gid_t        *gid_p);
 dbus_bool_t _dbus_credentials_from_uid          (dbus_uid_t         user_id,
                                                  DBusCredentials   *credentials);
 dbus_bool_t _dbus_groups_from_uid		(dbus_uid_t            uid,

@@ -28,8 +28,8 @@
 #include "dbus-auth.h"
 #include "dbus-string.h"
 #include "dbus-hash.h"
+#include "dbus-credentials.h"
 #include "dbus-internals.h"
-#include "dbus-userdb.h"
 
 /**
  * @defgroup DBusAuthScript code for running unit test scripts for DBusAuth
@@ -209,6 +209,29 @@ split_string (DBusString *str)
   return array;
 }
 
+static void
+auth_set_unix_credentials(DBusAuth  *auth,
+                          dbus_uid_t uid,
+                          dbus_pid_t pid)
+{
+  DBusCredentials *credentials;
+
+  credentials = _dbus_credentials_new ();
+  if (credentials == NULL)
+    {
+      _dbus_warn ("no memory\n");
+      return;
+    }
+  if (uid != DBUS_UID_UNSET)
+    _dbus_credentials_add_unix_uid (credentials, uid);
+  if (pid != DBUS_PID_UNSET)
+    _dbus_credentials_add_unix_pid (credentials, pid);
+
+  _dbus_auth_set_credentials (auth, credentials);
+
+  _dbus_credentials_unref (credentials);
+}
+
 /**
  * Runs an "auth script" which is a script for testing the
  * authentication protocol. Scripts send and receive data, and then
@@ -303,7 +326,7 @@ _dbus_auth_script_run (const DBusString *filename)
       else if (_dbus_string_starts_with_c_str (&line,
                                                "CLIENT"))
         {
-          DBusCredentials creds;
+          DBusCredentials *creds;
           
           if (auth != NULL)
             {
@@ -321,14 +344,31 @@ _dbus_auth_script_run (const DBusString *filename)
           /* test ref/unref */
           _dbus_auth_ref (auth);
           _dbus_auth_unref (auth);
+
+          creds = _dbus_credentials_new_from_current_process ();
+          if (creds == NULL)
+            {
+              _dbus_warn ("no memory for credentials\n");
+              _dbus_auth_unref (auth);
+              auth = NULL;
+              goto out;
+            }
+              
+          if (!_dbus_auth_set_credentials (auth, creds))
+            {
+              _dbus_warn ("no memory for setting credentials\n");
+              _dbus_auth_unref (auth);
+              auth = NULL;
+              _dbus_credentials_unref (creds);
+              goto out;
+            }
           
-          _dbus_credentials_from_current_process (&creds);
-          _dbus_auth_set_credentials (auth, &creds);
+          _dbus_credentials_unref (creds);
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "SERVER"))
         {
-          DBusCredentials creds;
+          DBusCredentials *creds;
           
           if (auth != NULL)
             {
@@ -346,9 +386,27 @@ _dbus_auth_script_run (const DBusString *filename)
           /* test ref/unref */
           _dbus_auth_ref (auth);
           _dbus_auth_unref (auth);
+
+          creds = _dbus_credentials_new_from_current_process ();
+          if (creds == NULL)
+            {
+              _dbus_warn ("no memory for credentials\n");
+              _dbus_auth_unref (auth);
+              auth = NULL;
+              goto out;
+            }
+              
+          if (!_dbus_auth_set_credentials (auth, creds))
+            {
+              _dbus_warn ("no memory for setting credentials\n");
+              _dbus_auth_unref (auth);
+              auth = NULL;
+              _dbus_credentials_unref (creds);
+              goto out;
+            }
           
-          _dbus_credentials_from_current_process (&creds);
-          _dbus_auth_set_credentials (auth, &creds);
+          _dbus_credentials_unref (creds);
+
           _dbus_auth_set_context (auth, &context);
         }
       else if (auth == NULL)
@@ -360,20 +418,17 @@ _dbus_auth_script_run (const DBusString *filename)
       else if (_dbus_string_starts_with_c_str (&line,
                                                "NO_CREDENTIALS"))
         {
-          DBusCredentials creds = { -1, -1, -1 };
-          _dbus_auth_set_credentials (auth, &creds);
+          auth_set_unix_credentials (auth, DBUS_UID_UNSET, DBUS_PID_UNSET);
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "ROOT_CREDENTIALS"))
         {
-          DBusCredentials creds = { -1, 0, 0 };
-          _dbus_auth_set_credentials (auth, &creds);          
+          auth_set_unix_credentials (auth, 0, DBUS_PID_UNSET);
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "SILLY_CREDENTIALS"))
         {
-          DBusCredentials creds = { -1, 4312, 1232 };
-          _dbus_auth_set_credentials (auth, &creds);          
+          auth_set_unix_credentials (auth, 4312, DBUS_PID_UNSET);
         }
       else if (_dbus_string_starts_with_c_str (&line,
                                                "ALLOWED_MECHS"))
@@ -432,8 +487,7 @@ _dbus_auth_script_run (const DBusString *filename)
                     goto out;
                   }
 
-                if (!_dbus_string_append_uint (&username,
-                                               _dbus_getuid ()))
+                if (!_dbus_append_desired_identity (&username))
                   {
                     _dbus_warn ("no memory for userid\n");
                     _dbus_string_free (&username);

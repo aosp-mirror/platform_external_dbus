@@ -89,7 +89,7 @@ struct DBusTransport
 
   DBusAuth *auth;                             /**< Authentication conversation */
 
-  DBusCredentials credentials;                /**< Credentials of other end */  
+  DBusCredentials *credentials;               /**< Credentials of other end read from the socket */  
 
   long max_live_messages_size;                /**< Max total size of received messages. */
 

@@ -271,7 +271,7 @@ _dbus_warn_check_failed(const char *format,
   if (!warn_initted)
     init_warnings ();
 
-  fprintf (stderr, "process %lu: ", _dbus_getpid ());
+  fprintf (stderr, "process %lu: ", _dbus_pid_for_log ());
   
   va_start (args, format);
   vfprintf (stderr, format, args);
@@ -349,9 +349,9 @@ _dbus_verbose_real (const char *format,
   if (need_pid)
     {
 #if PTHREAD_IN_VERBOSE
-      fprintf (stderr, "%lu: 0x%lx: ", _dbus_getpid (), pthread_self ());
+      fprintf (stderr, "%lu: 0x%lx: ", _dbus_pid_for_log (), pthread_self ());
 #else
-      fprintf (stderr, "%lu: ", _dbus_getpid ());
+      fprintf (stderr, "%lu: ", _dbus_pid_for_log ());
 #endif
     }
       
@@ -813,7 +813,7 @@ _dbus_real_assert (dbus_bool_t  condition,
   if (_DBUS_UNLIKELY (!condition))
     {
       _dbus_warn ("%lu: assertion failed \"%s\" file \"%s\" line %d function %s\n",
-                  _dbus_getpid (), condition_text, file, line, func);
+                  _dbus_pid_for_log (), condition_text, file, line, func);
       _dbus_abort ();
     }
 }
@@ -834,7 +834,7 @@ _dbus_real_assert_not_reached (const char *explanation,
                                int         line)
 {
   _dbus_warn ("File \"%s\" line %d process %lu should not have been reached: %s\n",
-              file, line, _dbus_getpid (), explanation);
+              file, line, _dbus_pid_for_log (), explanation);
   _dbus_abort ();
 }
 #endif /* DBUS_DISABLE_ASSERT */

@@ -986,7 +986,7 @@ node_read_value (TestTypeNode   *node,
                  DBusTypeReader *reader,
                  int             seed)
 {
-  DBusTypeReader restored;
+  /* DBusTypeReader restored; */
 
   if (!(* node->klass->read_value) (node, reader, seed))
     return FALSE;

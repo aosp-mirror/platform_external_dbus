@@ -22,7 +22,7 @@
  *
  */
 #include "dbus-spawn.h"
-#include "dbus-sysdeps.h"
+#include "dbus-sysdeps-unix.h"
 #include "dbus-internals.h"
 #include "dbus-test.h"
 #include "dbus-protocol.h"
@@ -849,7 +849,7 @@ do_exec (int                       child_err_report_fd,
 #endif
 
   _dbus_verbose_reset ();
-  _dbus_verbose ("Child process has PID %lu\n",
+  _dbus_verbose ("Child process has PID " DBUS_PID_FORMAT "\n",
                  _dbus_getpid ());
   
   if (child_setup)

@@ -27,7 +27,7 @@
 #include "dbus-keyring.h"
 #include "dbus-sha.h"
 #include "dbus-protocol.h"
-#include "dbus-userdb.h"
+#include "dbus-credentials.h"
 
 /**
  * @defgroup DBusAuth Authentication
@@ -162,13 +162,12 @@ struct DBusAuth
                                           *   as.
                                           */
   
-  DBusCredentials credentials;      /**< Credentials read from socket,
-                                     * fields may be -1
-                                     */
+  DBusCredentials *credentials;          /**< Credentials read from socket
+                                          */
 
-  DBusCredentials authorized_identity; /**< Credentials that are authorized */
+  DBusCredentials *authorized_identity; /**< Credentials that are authorized */
 
-  DBusCredentials desired_identity;    /**< Identity client has requested */
+  DBusCredentials *desired_identity;    /**< Identity client has requested */
   
   DBusString context;               /**< Cookie scope */
   DBusKeyring *keyring;             /**< Keyring for cookie mechanism. */
@@ -331,10 +330,6 @@ _dbus_auth_new (int size)
     return NULL;
   
   auth->refcount = 1;
-
-  _dbus_credentials_clear (&auth->credentials);
-  _dbus_credentials_clear (&auth->authorized_identity);
-  _dbus_credentials_clear (&auth->desired_identity);
   
   auth->keyring = NULL;
   auth->cookie_id = -1;
@@ -365,9 +360,31 @@ _dbus_auth_new (int size)
   /* default context if none is specified */
   if (!_dbus_string_append (&auth->context, "org_freedesktop_general"))
     goto enomem_5;
+
+  auth->credentials = _dbus_credentials_new ();
+  if (auth->credentials == NULL)
+    goto enomem_6;
+  
+  auth->authorized_identity = _dbus_credentials_new ();
+  if (auth->authorized_identity == NULL)
+    goto enomem_7;
+
+  auth->desired_identity = _dbus_credentials_new ();
+  if (auth->desired_identity == NULL)
+    goto enomem_8;
   
   return auth;
 
+#if 0
+ enomem_9:
+  _dbus_credentials_unref (auth->desired_identity);
+#endif
+ enomem_8:
+  _dbus_credentials_unref (auth->authorized_identity);
+ enomem_7:
+  _dbus_credentials_unref (auth->credentials);
+ enomem_6:
+ /* last alloc was an append to context, which is freed already below */ ;
  enomem_5:
   _dbus_string_free (&auth->challenge);
  enomem_4:
@@ -390,8 +407,8 @@ shutdown_mech (DBusAuth *auth)
   auth->already_asked_for_initial_response = FALSE;
   _dbus_string_set_length (&auth->identity, 0);
 
-  _dbus_credentials_clear (&auth->authorized_identity);
-  _dbus_credentials_clear (&auth->desired_identity);
+  _dbus_credentials_clear (auth->authorized_identity);
+  _dbus_credentials_clear (auth->desired_identity);
   
   if (auth->mech != NULL)
     {
@@ -513,7 +530,7 @@ sha1_handle_first_client_response (DBusAuth         *auth,
         }
     }
       
-  if (!_dbus_credentials_from_username (data, &auth->desired_identity))
+  if (!_dbus_credentials_add_from_username (auth->desired_identity, data))
     {
       _dbus_verbose ("%s: Did not get a valid username from client\n",
                      DBUS_AUTH_NAME (auth));
@@ -706,14 +723,17 @@ sha1_handle_second_client_response (DBusAuth         *auth,
         retval = TRUE;
       goto out_3;
     }
-      
+
+  if (!_dbus_credentials_add_credentials (auth->authorized_identity,
+                                          auth->desired_identity))
+    goto out_3;
+  
   if (!send_ok (auth))
     goto out_3;
 
-  _dbus_verbose ("%s: authenticated client with UID "DBUS_UID_FORMAT" using DBUS_COOKIE_SHA1\n",
-                 DBUS_AUTH_NAME (auth), auth->desired_identity.uid);
+  _dbus_verbose ("%s: authenticated client using DBUS_COOKIE_SHA1\n",
+                 DBUS_AUTH_NAME (auth));
   
-  auth->authorized_identity = auth->desired_identity;
   retval = TRUE;
   
  out_3:
@@ -966,7 +986,7 @@ static dbus_bool_t
 handle_server_data_external_mech (DBusAuth         *auth,
                                   const DBusString *data)
 {
-  if (auth->credentials.uid == DBUS_UID_UNSET)
+  if (_dbus_credentials_are_empty (auth->credentials))
     {
       _dbus_verbose ("%s: no credentials, mechanism EXTERNAL can't authenticate\n",
                      DBUS_AUTH_NAME (auth));
@@ -1005,7 +1025,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
         return FALSE;
     }
 
-  _dbus_credentials_clear (&auth->desired_identity);
+  _dbus_credentials_clear (auth->desired_identity);
   
   /* If auth->identity is still empty here, then client
    * responded with an empty string after we poked it for
@@ -1014,12 +1034,16 @@ handle_server_data_external_mech (DBusAuth         *auth,
    */
   if (_dbus_string_get_length (&auth->identity) == 0)
     {
-      auth->desired_identity.uid = auth->credentials.uid;
+      if (!_dbus_credentials_add_credentials (auth->desired_identity,
+                                              auth->credentials))
+        {
+          return FALSE; /* OOM */
+        }
     }
   else
     {
-      if (!_dbus_parse_uid (&auth->identity,
-                            &auth->desired_identity.uid))
+      if (!_dbus_credentials_parse_and_add_desired(auth->desired_identity,
+                                                   &auth->identity))
         {
           _dbus_verbose ("%s: could not get credentials from uid string\n",
                          DBUS_AUTH_NAME (auth));
@@ -1027,7 +1051,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
         }
     }
 
-  if (auth->desired_identity.uid == DBUS_UID_UNSET)
+  if (_dbus_credentials_are_empty(auth->desired_identity))
     {
       _dbus_verbose ("%s: desired user %s is no good\n",
                      DBUS_AUTH_NAME (auth),
@@ -1035,32 +1059,34 @@ handle_server_data_external_mech (DBusAuth         *auth,
       return send_rejected (auth);
     }
   
-  if (_dbus_credentials_match (&auth->desired_identity,
-                               &auth->credentials))
+  if (_dbus_credentials_are_superset (auth->credentials,
+                                      auth->desired_identity))
     {
-      /* client has authenticated */      
+      /* client has authenticated */
+      if (!_dbus_credentials_add_credentials (auth->authorized_identity,
+                                              auth->desired_identity))
+        return FALSE;
+
+      /* also copy process ID from the socket credentials - FIXME this
+       * should be done even if auth EXTERNAL not used
+       */
+      if (!_dbus_credentials_add_credential (auth->authorized_identity,
+                                             DBUS_CREDENTIAL_UNIX_PROCESS_ID,
+                                             auth->credentials))
+        return FALSE;
+      
       if (!send_ok (auth))
         return FALSE;
 
-      _dbus_verbose ("%s: authenticated client with UID "DBUS_UID_FORMAT
-                     " matching socket credentials UID "DBUS_UID_FORMAT"\n",
-                     DBUS_AUTH_NAME (auth),
-                     auth->desired_identity.uid,
-                     auth->credentials.uid);
+      _dbus_verbose ("%s: authenticated client based on socket credentials\n",
+                     DBUS_AUTH_NAME (auth));
 
-      auth->authorized_identity.pid = auth->credentials.pid;
-      auth->authorized_identity.uid = auth->desired_identity.uid;
       return TRUE;
     }
   else
     {
-      _dbus_verbose ("%s: credentials uid="DBUS_UID_FORMAT
-                     " gid="DBUS_GID_FORMAT
-                     " do not allow uid="DBUS_UID_FORMAT
-                     " gid="DBUS_GID_FORMAT"\n",
-                     DBUS_AUTH_NAME (auth),
-                     auth->credentials.uid, auth->credentials.gid,
-                     auth->desired_identity.uid, auth->desired_identity.gid);
+      _dbus_verbose ("%s: desired identity not found in socket credentials\n",
+                     DBUS_AUTH_NAME (auth));
       return send_rejected (auth);
     }
 }
@@ -1084,9 +1110,8 @@ handle_client_initial_response_external_mech (DBusAuth         *auth,
 
   if (!_dbus_string_init (&plaintext))
     return FALSE;
-  
-  if (!_dbus_string_append_uint (&plaintext,
-                                 _dbus_getuid ()))
+
+  if (!_dbus_append_desired_identity (&plaintext))
     goto failed;
 
   if (!_dbus_string_hex_encode (&plaintext, 0,
@@ -2105,6 +2130,10 @@ _dbus_auth_unref (DBusAuth *auth)
       _dbus_string_free (&auth->outgoing);
 
       dbus_free_string_array (auth->allowed_mechs);
+
+      _dbus_credentials_unref (auth->credentials);
+      _dbus_credentials_unref (auth->authorized_identity);
+      _dbus_credentials_unref (auth->desired_identity);
       
       dbus_free (auth);
     }
@@ -2435,29 +2464,42 @@ _dbus_auth_decode_data (DBusAuth         *auth,
  *
  * @param auth the auth conversation
  * @param credentials the credentials received
+ * @returns #FALSE on OOM
  */
-void
+dbus_bool_t
 _dbus_auth_set_credentials (DBusAuth               *auth,
-                            const DBusCredentials  *credentials)
+                            DBusCredentials        *credentials)
 {
-  auth->credentials = *credentials;
+  _dbus_credentials_clear (auth->credentials);
+  return _dbus_credentials_add_credentials (auth->credentials,
+                                            credentials);
 }
 
 /**
  * Gets the identity we authorized the client as.  Apps may have
  * different policies as to what identities they allow.
  *
+ * Returned credentials are not a copy and should not be modified
+ *
  * @param auth the auth conversation
- * @param credentials the credentials we've authorized
+ * @returns the credentials we've authorized BY REFERENCE do not modify
  */
-void
-_dbus_auth_get_identity (DBusAuth               *auth,
-                         DBusCredentials        *credentials)
+DBusCredentials*
+_dbus_auth_get_identity (DBusAuth               *auth)
 {
   if (auth->state == &common_state_authenticated)
-    *credentials = auth->authorized_identity;
+    {
+      return auth->authorized_identity;
+    }
   else
-    _dbus_credentials_clear (credentials);
+    {
+      /* FIXME instead of this, keep an empty credential around that
+       * doesn't require allocation or something
+       */
+      /* return empty credentials */
+      _dbus_assert (_dbus_credentials_are_empty (auth->authorized_identity));
+      return auth->authorized_identity;
+    }
 }
 
 /**

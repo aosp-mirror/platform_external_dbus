@@ -42,7 +42,6 @@
 #include "dbus-protocol.h"
 #include "dbus-hash.h"
 #include "dbus-sockets-win.h"
-#include "dbus-userdb.h"
 #include "dbus-list.h"
 
 #include <windows.h>
