@@ -424,6 +424,10 @@ shutdown_mech (DBusAuth *auth)
     }
 }
 
+/*
+ * DBUS_COOKIE_SHA1 mechanism
+ */
+
 /* Returns TRUE but with an empty string hash if the
  * cookie_id isn't known. As with all this code
  * TRUE just means we had enough memory.
@@ -982,6 +986,10 @@ handle_client_shutdown_cookie_sha1_mech (DBusAuth *auth)
   _dbus_string_set_length (&auth->challenge, 0);
 }
 
+/*
+ * EXTERNAL mechanism
+ */
+
 static dbus_bool_t
 handle_server_data_external_mech (DBusAuth         *auth,
                                   const DBusString *data)
@@ -1051,7 +1059,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
         }
     }
 
-  if (_dbus_credentials_are_empty(auth->desired_identity))
+  if (_dbus_credentials_are_empty (auth->desired_identity))
     {
       _dbus_verbose ("%s: desired user %s is no good\n",
                      DBUS_AUTH_NAME (auth),
@@ -1142,13 +1150,120 @@ handle_client_shutdown_external_mech (DBusAuth *auth)
 
 }
 
+/*
+ * ANONYMOUS mechanism
+ */
+
+static dbus_bool_t
+handle_server_data_anonymous_mech (DBusAuth         *auth,
+                                   const DBusString *data)
+{  
+  if (_dbus_string_get_length (data) > 0)
+    {
+      /* Client is allowed to send "trace" data, the only defined
+       * meaning is that if it contains '@' it is an email address,
+       * and otherwise it is anything else, and it's supposed to be
+       * UTF-8
+       */
+      if (!_dbus_string_validate_utf8 (data, 0, _dbus_string_get_length (data)))
+        {
+          _dbus_verbose ("%s: Received invalid UTF-8 trace data from ANONYMOUS client\n",
+                         DBUS_AUTH_NAME (auth));
+
+          {
+            DBusString plaintext;
+            DBusString encoded;
+            _dbus_string_init_const (&plaintext, "D-Bus " VERSION);
+            _dbus_string_init (&encoded);
+            _dbus_string_hex_encode (&plaintext, 0,
+                                     &encoded,
+                                     0);
+              _dbus_verbose ("%s: try '%s'\n",
+                             DBUS_AUTH_NAME (auth), _dbus_string_get_const_data (&encoded));
+          }
+          return send_rejected (auth);
+        }
+      
+      _dbus_verbose ("%s: ANONYMOUS client sent trace string: '%s'\n",
+                     DBUS_AUTH_NAME (auth),
+                     _dbus_string_get_const_data (data));
+    }
+
+  /* We want to be anonymous (clear in case some other protocol got midway through I guess) */
+  _dbus_credentials_clear (auth->desired_identity);
+
+  /* Anonymous is always allowed */
+  if (!send_ok (auth))
+    return FALSE;
+
+  _dbus_verbose ("%s: authenticated client as anonymous\n",
+                 DBUS_AUTH_NAME (auth));
+
+  return TRUE;
+}
+
+static void
+handle_server_shutdown_anonymous_mech (DBusAuth *auth)
+{
+  
+}
+
+static dbus_bool_t
+handle_client_initial_response_anonymous_mech (DBusAuth         *auth,
+                                               DBusString       *response)
+{
+  /* Our initial response is a "trace" string which must be valid UTF-8
+   * and must be an email address if it contains '@'.
+   * We just send the dbus implementation info, like a user-agent or
+   * something, because... why not. There's nothing guaranteed here
+   * though, we could change it later.
+   */
+  DBusString plaintext;
+
+  if (!_dbus_string_init (&plaintext))
+    return FALSE;
+
+  if (!_dbus_string_append (&plaintext,
+                            "libdbus " VERSION))
+    goto failed;
+
+  if (!_dbus_string_hex_encode (&plaintext, 0,
+				response,
+				_dbus_string_get_length (response)))
+    goto failed;
+
+  _dbus_string_free (&plaintext);
+  
+  return TRUE;
+
+ failed:
+  _dbus_string_free (&plaintext);
+  return FALSE;  
+}
+
+static dbus_bool_t
+handle_client_data_anonymous_mech (DBusAuth         *auth,
+                                  const DBusString *data)
+{
+  
+  return TRUE;
+}
+
+static void
+handle_client_shutdown_anonymous_mech (DBusAuth *auth)
+{
+  
+}
+
 /* Put mechanisms here in order of preference.
- * What I eventually want to have is:
+ * Right now we have:
  *
- *  - a mechanism that checks UNIX domain socket credentials
- *  - a simple magic cookie mechanism like X11 or ICE
- *  - mechanisms that chain to Cyrus SASL, so we can use anything it
- *    offers such as Kerberos, X509, whatever.
+ * - EXTERNAL checks socket credentials (or in the future, other info from the OS)
+ * - DBUS_COOKIE_SHA1 uses a cookie in the home directory, like xauth or ICE
+ * - ANONYMOUS checks nothing but doesn't auth the person as a user
+ *
+ * We might ideally add a mechanism to chain to Cyrus SASL so we can
+ * use its mechanisms as well.
  * 
  */
 static const DBusAuthMechanismHandler
@@ -1169,6 +1284,14 @@ all_mechanisms[] = {
     handle_client_data_cookie_sha1_mech,
     NULL, NULL,
     handle_client_shutdown_cookie_sha1_mech },
+  { "ANONYMOUS",
+    handle_server_data_anonymous_mech,
+    NULL, NULL,
+    handle_server_shutdown_anonymous_mech,
+    handle_client_initial_response_anonymous_mech,
+    handle_client_data_anonymous_mech,
+    NULL, NULL,
+    handle_client_shutdown_anonymous_mech },  
   { NULL, NULL }
 };
 
@@ -1881,7 +2004,8 @@ lookup_command_from_name (DBusString *command)
 }
 
 static void
-goto_state (DBusAuth *auth, const DBusAuthStateData *state)
+goto_state (DBusAuth *auth,
+            const DBusAuthStateData *state)
 {
   _dbus_verbose ("%s: going from state %s to state %s\n",
                  DBUS_AUTH_NAME (auth),

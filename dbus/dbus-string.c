@@ -1804,9 +1804,9 @@ _dbus_string_find (const DBusString *str,
  */
 dbus_bool_t
 _dbus_string_find_eol (const DBusString *str,
-                   int               start,
-                   int              *found,
-                   int              *found_len)
+                       int               start,
+                       int              *found,
+                       int              *found_len)
 {
   int i;
 
@@ -1843,7 +1843,7 @@ _dbus_string_find_eol (const DBusString *str,
           if (found_len)
             *found_len = 1;
           return TRUE;
-        }      
+        }
       ++i;
     }
 
@@ -2093,17 +2093,33 @@ _dbus_string_pop_line (DBusString *source,
   _dbus_string_set_length (dest, 0);
   
   eol = 0;
+  eol_len = 0;
   if (!_dbus_string_find_eol (source, 0, &eol, &eol_len))
-      eol = _dbus_string_get_length (source);
+    {
+      _dbus_assert (eol == _dbus_string_get_length (source));
+      if (eol == 0)
+        {
+          /* If there's no newline and source has zero length, we're done */
+          return FALSE;
+        }
+      /* otherwise, the last line of the file has no eol characters */
+    }
 
-  if (eol == 0)
-    return FALSE; /* eof */
+  /* remember eol can be 0 if it's an empty line, but eol_len should not be zero also
+   * since find_eol returned TRUE
+   */
   
   if (!_dbus_string_move_len (source, 0, eol + eol_len, dest, 0))
-	  return FALSE;
-
+    return FALSE;
+  
   /* remove line ending */
-  return _dbus_string_set_length(dest, eol);
+  if (!_dbus_string_set_length (dest, eol))
+    {
+      _dbus_assert_not_reached ("out of memory when shortening a string");
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 #ifdef DBUS_BUILD_TESTS

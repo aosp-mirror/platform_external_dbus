@@ -218,10 +218,8 @@ auth_set_unix_credentials(DBusAuth  *auth,
 
   credentials = _dbus_credentials_new ();
   if (credentials == NULL)
-    {
-      _dbus_warn ("no memory\n");
-      return;
-    }
+    _dbus_assert_not_reached ("no memory");
+
   if (uid != DBUS_UID_UNSET)
     _dbus_credentials_add_unix_uid (credentials, uid);
   if (pid != DBUS_PID_UNSET)
@@ -288,11 +286,14 @@ _dbus_auth_script_run (const DBusString *filename)
 
   state = DBUS_AUTH_STATE_NEED_DISCONNECT;
   line_no = 0;
+
  next_iteration:
   while (_dbus_string_pop_line (&file, &line))
     {      
       line_no += 1;
 
+      /* _dbus_warn ("%s\n", _dbus_string_get_const_data (&line)); */
+      
       _dbus_string_delete_leading_blanks (&line);
 
       if (auth != NULL)
@@ -659,6 +660,30 @@ _dbus_auth_script_run (const DBusString *filename)
             }
         }
       else if (_dbus_string_starts_with_c_str (&line,
+                                               "EXPECT_HAVE_NO_CREDENTIALS"))
+        {
+          DBusCredentials *authorized_identity;
+          
+          authorized_identity = _dbus_auth_get_identity (auth);
+          if (!_dbus_credentials_are_empty (authorized_identity))
+            {
+              _dbus_warn ("Expected anonymous login or failed login, but some credentials were authorized\n");
+              goto out;
+            }
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "EXPECT_HAVE_SOME_CREDENTIALS"))
+        {
+          DBusCredentials *authorized_identity;
+          
+          authorized_identity = _dbus_auth_get_identity (auth);
+          if (_dbus_credentials_are_empty (authorized_identity))
+            {
+              _dbus_warn ("Expected to have some credentials, but we don't\n");
+              goto out;
+            }
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
                                                "EXPECT"))
         {
           DBusString expected;
@@ -708,8 +733,12 @@ _dbus_auth_script_run (const DBusString *filename)
       }
     }
 
-  if (auth != NULL &&
-      state == DBUS_AUTH_STATE_AUTHENTICATED)
+  if (auth == NULL)
+    {
+      _dbus_warn ("Auth script is bogus, did not even have CLIENT or SERVER\n");
+      goto out;
+    }
+  else if (state == DBUS_AUTH_STATE_AUTHENTICATED)
     {
       const DBusString *unused;
 

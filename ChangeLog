@@ -1,5 +1,22 @@
 2007-06-09  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-string.c (_dbus_string_pop_line): fix this not to
+	think an empty line is the end of the file.
+	Also, fix some whitespace.
+
+	* dbus/dbus-string-util.c: add more tests for
+	_dbus_string_pop_line() revealing that it thinks an empty line is
+	the end of the file, which broke dbus-auth-script.c so 
+	it didn't really run the scripts
+
+	* dbus/dbus-auth.c: add ANONYMOUS mechanism
+
+	* dbus/dbus-auth-script.c (_dbus_auth_script_run): fix to detect
+	an empty/no-op auth script; add commands to check that we have or
+	don't have the expected credentials	
+
+2007-06-09  Havoc Pennington  <hp@redhat.com>
+
 	* bus/policy.c (bus_policy_create_client_policy): gracefully
 	continue if the connection has no unix user - just don't apply 
 	any unix user dependent rules.

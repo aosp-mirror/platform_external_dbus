@@ -705,43 +705,93 @@ _dbus_string_test (void)
   _dbus_string_free (&str);
 
   {                                                                                           
-  int found,found_len;                                                                        
-  _dbus_string_init_const (&str, "012\r\n567\n90");                                           
-                                                                                           
-  if (!_dbus_string_find_eol(&str, 0, &found, &found_len) || found != 3 || found_len != 2)    
-     _dbus_assert_not_reached ("Did not find '\\r\\n'");                                       
-  if (found != 3 || found_len != 2)                                                           
-     _dbus_assert_not_reached ("invalid return values");                                       
-                                                                                           
-  if (!_dbus_string_find_eol(&str, 5, &found, &found_len))                                    
-    _dbus_assert_not_reached ("Did not find '\\n'");                                          
-  if (found != 8 || found_len != 1)                                                           
-    _dbus_assert_not_reached ("invalid return values");                                       
-                                                                                           
-  if (_dbus_string_find_eol(&str, 9, &found, &found_len))                                     
-    _dbus_assert_not_reached ("Found not expected '\\n'");                                    
-  else if (found != 11 || found_len != 0)                                                     
-    _dbus_assert_not_reached ("invalid return values '\\n'");                                 
-                                                                                           
-  _dbus_string_free (&str);                                                                   
-  }                                                                                                                                                                                    
+    int found, found_len;  
+
+    _dbus_string_init_const (&str, "012\r\n567\n90");
+    
+    if (!_dbus_string_find_eol (&str, 0, &found, &found_len) || found != 3 || found_len != 2)
+      _dbus_assert_not_reached ("Did not find '\\r\\n'");                                       
+    if (found != 3 || found_len != 2)                                                           
+      _dbus_assert_not_reached ("invalid return values");                                       
+    
+    if (!_dbus_string_find_eol (&str, 5, &found, &found_len))                                    
+      _dbus_assert_not_reached ("Did not find '\\n'");                                          
+    if (found != 8 || found_len != 1)                                                           
+      _dbus_assert_not_reached ("invalid return values");                                       
+    
+    if (_dbus_string_find_eol (&str, 9, &found, &found_len))                                     
+      _dbus_assert_not_reached ("Found not expected '\\n'");                                    
+    else if (found != 11 || found_len != 0)                                                     
+      _dbus_assert_not_reached ("invalid return values '\\n'");                                 
+
+    found = -1;
+    found_len = -1;
+    _dbus_string_init_const (&str, "");
+    if (_dbus_string_find_eol (&str, 0, &found, &found_len))
+      _dbus_assert_not_reached ("found an eol in an empty string");
+    _dbus_assert (found == 0);
+    _dbus_assert (found_len == 0);
+    
+    found = -1;
+    found_len = -1;
+    _dbus_string_init_const (&str, "foobar");
+    if (_dbus_string_find_eol (&str, 0, &found, &found_len))
+      _dbus_assert_not_reached ("found eol in string that lacks one");
+    _dbus_assert (found == 6);
+    _dbus_assert (found_len == 0);
+
+    found = -1;
+    found_len = -1;
+    _dbus_string_init_const (&str, "foobar\n");
+    if (!_dbus_string_find_eol (&str, 0, &found, &found_len))
+      _dbus_assert_not_reached ("did not find eol in string that has one at end");
+    _dbus_assert (found == 6);
+    _dbus_assert (found_len == 1);
+  }
+
+  {
+    DBusString line;
+
+#define FIRST_LINE "this is a line"
+#define SECOND_LINE "this is a second line"
+    /* third line is empty */
+#define THIRD_LINE ""
+#define FOURTH_LINE "this is a fourth line"
+    
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, FIRST_LINE "\n" SECOND_LINE "\r\n" THIRD_LINE "\n" FOURTH_LINE))
+      _dbus_assert_not_reached ("no memory");
+    
+    if (!_dbus_string_init (&line))
+      _dbus_assert_not_reached ("no memory");
+    
+    if (!_dbus_string_pop_line (&str, &line))
+      _dbus_assert_not_reached ("failed to pop first line");
+
+    _dbus_assert (_dbus_string_equal_c_str (&line, FIRST_LINE));
+    
+    if (!_dbus_string_pop_line (&str, &line))
+      _dbus_assert_not_reached ("failed to pop second line");
+
+    _dbus_assert (_dbus_string_equal_c_str (&line, SECOND_LINE));
+    
+    if (!_dbus_string_pop_line (&str, &line))
+      _dbus_assert_not_reached ("failed to pop third line");
+
+    _dbus_assert (_dbus_string_equal_c_str (&line, THIRD_LINE));
+    
+    if (!_dbus_string_pop_line (&str, &line))
+      _dbus_assert_not_reached ("failed to pop fourth line");
+
+    _dbus_assert (_dbus_string_equal_c_str (&line, FOURTH_LINE));
+    
+    _dbus_string_free (&str);
+    _dbus_string_free (&line);
+  }
   
   return TRUE;
 }
 
 #endif /* DBUS_BUILD_TESTS */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
