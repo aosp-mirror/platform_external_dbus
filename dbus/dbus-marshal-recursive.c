@@ -1645,9 +1645,18 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
 
       if (expected != sub->container_type)
         {
-          _dbus_warn_check_failed ("Writing an element of type %s, but the expected type here is %s\n",
-                                   _dbus_type_to_string (sub->container_type),
-                                   _dbus_type_to_string (expected));
+          if (expected != DBUS_TYPE_INVALID)
+            _dbus_warn_check_failed ("Writing an element of type %s, but the expected type here is %s\n"
+                                     "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
+                                     _dbus_type_to_string (sub->container_type),
+                                     _dbus_type_to_string (expected),
+                                     _dbus_string_get_const_data (writer->type_str), writer->type_pos);
+          else
+            _dbus_warn_check_failed ("Writing an element of type %s, but no value is expected here\n",
+                                     "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
+                                     _dbus_type_to_string (sub->container_type),
+                                     _dbus_string_get_const_data (writer->type_str), writer->type_pos);
+          
           _dbus_assert_not_reached ("bad array element or variant content written");
         }
     }
@@ -1703,11 +1712,15 @@ write_or_verify_typecode (DBusTypeWriter *writer,
         if (expected != typecode)
           {
             if (expected != DBUS_TYPE_INVALID)
-              _dbus_warn_check_failed ("Array or variant type requires that type %s be written, but %s was written\n",
-                                       _dbus_type_to_string (expected), _dbus_type_to_string (typecode));
+              _dbus_warn_check_failed ("Array or variant type requires that type %s be written, but %s was written.\n"
+                                       "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
+                                       _dbus_type_to_string (expected), _dbus_type_to_string (typecode),
+                                       _dbus_string_get_const_data (writer->type_str), writer->type_pos);
             else
-              _dbus_warn_check_failed ("Array or variant type wasn't expecting any more values to be written into it, but a value %s was written\n",
-                                       _dbus_type_to_string (typecode));
+              _dbus_warn_check_failed ("Array or variant type wasn't expecting any more values to be written into it, but a value %s was written.\n"
+                                       "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
+                                       _dbus_type_to_string (typecode),
+                                       _dbus_string_get_const_data (writer->type_str), writer->type_pos);
             _dbus_assert_not_reached ("bad type inserted somewhere inside an array or variant");
           }
       }

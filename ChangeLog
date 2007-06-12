@@ -1,5 +1,10 @@
 2007-06-12  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-message.c (dbus_message_iter_open_container): improve
+	the checks/warnings for contained_signature a bit
+
+2007-06-12  Havoc Pennington  <hp@redhat.com>
+	
 	* dbus/dbus-marshal-recursive.c (write_or_verify_typecode):
 	improve the warning a bit if you write extra data into a message
 

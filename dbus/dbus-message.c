@@ -2350,16 +2350,19 @@ dbus_message_iter_open_container (DBusMessageIter *iter,
                              contained_signature == NULL) ||
                             (type == DBUS_TYPE_DICT_ENTRY &&
                              contained_signature == NULL) ||
-                            contained_signature != NULL, FALSE);
+                            (type == DBUS_TYPE_VARIANT &&
+                             contained_signature != NULL) ||
+                            (type == DBUS_TYPE_ARRAY &&
+                             contained_signature != NULL), FALSE);
   
-#if 0
-  /* FIXME this would fail if the contained_signature is a dict entry,
-   * since dict entries are invalid signatures standalone (they must be in
+  /* this would fail if the contained_signature is a dict entry, since
+   * dict entries are invalid signatures standalone (they must be in
    * an array)
    */
-  _dbus_return_val_if_fail (contained_signature == NULL ||
-                            _dbus_check_is_valid_signature (contained_signature));
-#endif
+  _dbus_return_val_if_fail (type == DBUS_TYPE_DICT_ENTRY ||
+                            (contained_signature == NULL ||
+                             _dbus_check_is_valid_signature (contained_signature)),
+                            FALSE);
 
   if (!_dbus_message_iter_open_signature (real))
     return FALSE;
