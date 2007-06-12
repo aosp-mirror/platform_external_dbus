@@ -1,3 +1,21 @@
+2007-06-12  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-marshal-recursive.c (write_or_verify_typecode):
+	improve the warning a bit if you write extra data into a message
+
+2007-06-12  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-auth.c (sha1_handle_second_client_response)
+	(handle_server_data_anonymous_mech): add the process ID from
+	socket credentials, if available, even if not using EXTERNAL
+
+	* dbus/dbus-transport.c (auth_via_default_rules): support
+	allow_anonymous flag
+
+	* dbus/dbus-connection.c (dbus_connection_get_is_anonymous)
+	(dbus_connection_set_allow_anonymous): new API for controlling
+	anonymous access
+
 2007-06-09  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-string.c (_dbus_string_pop_line): fix this not to

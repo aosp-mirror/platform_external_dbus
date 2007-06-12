@@ -1702,8 +1702,12 @@ write_or_verify_typecode (DBusTypeWriter *writer,
 
         if (expected != typecode)
           {
-            _dbus_warn_check_failed ("Array or variant type requires that type %s be written, but %s was written\n",
-                                     _dbus_type_to_string (expected), _dbus_type_to_string (typecode));
+            if (expected != DBUS_TYPE_INVALID)
+              _dbus_warn_check_failed ("Array or variant type requires that type %s be written, but %s was written\n",
+                                       _dbus_type_to_string (expected), _dbus_type_to_string (typecode));
+            else
+              _dbus_warn_check_failed ("Array or variant type wasn't expecting any more values to be written into it, but a value %s was written\n",
+                                       _dbus_type_to_string (typecode));
             _dbus_assert_not_reached ("bad type inserted somewhere inside an array or variant");
           }
       }
