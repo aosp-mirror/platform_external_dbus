@@ -2811,6 +2811,40 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
 }
 
 /**
+ * Gets whether the connection is not authenticated as a specific
+ * user.  If the connection is not authenticated, this function
+ * returns #TRUE, and if it is authenticated but as an anonymous user,
+ * it returns #TRUE.  If it is authenticated as a specific user, then
+ * this returns #FALSE. (Note that if the connection was authenticated
+ * as anonymous then disconnected, this function still returns #TRUE.)
+ *
+ * If the connection is not anonymous, you can use
+ * dbus_connection_get_unix_user() and
+ * dbus_connection_get_windows_user() to see who it's authorized as.
+ *
+ * If you want to prevent non-anonymous authorization, use
+ * dbus_server_set_auth_mechanisms() to remove the mechanisms that
+ * allow proving user identity (i.e. only allow the ANONYMOUS
+ * mechanism).
+ * 
+ * @param connection the connection
+ * @returns #TRUE if not authenticated or authenticated as anonymous 
+ */
+dbus_bool_t
+dbus_connection_get_is_anonymous (DBusConnection *connection)
+{
+  dbus_bool_t res;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+  res = _dbus_transport_get_is_anonymous (connection->transport);
+  CONNECTION_UNLOCK (connection);
+  
+  return res;
+}
+
+/**
  * Set whether _exit() should be called when the connection receives a
  * disconnect signal. The call to _exit() comes after any handlers for
  * the disconnect signal run; handlers can cancel the exit by calling
@@ -4987,6 +5021,43 @@ dbus_connection_set_windows_user_function (DBusConnection              *connecti
 }
 
 /**
+ * This function must be called on the server side of a connection when the
+ * connection is first seen in the #DBusNewConnectionFunction. If set to
+ * #TRUE (the default is #FALSE), then the connection can proceed even if
+ * the client does not authenticate as some user identity, i.e. clients
+ * can connect anonymously.
+ * 
+ * This setting interacts with the available authorization mechanisms
+ * (see dbus_server_set_auth_mechanisms()). Namely, an auth mechanism
+ * such as ANONYMOUS that supports anonymous auth must be included in
+ * the list of available mechanisms for anonymous login to work.
+ *
+ * This setting also changes the default rule for connections
+ * authorized as a user; normally, if a connection authorizes as
+ * a user identity, it is permitted if the user identity is
+ * root or the user identity matches the user identity of the server
+ * process. If anonymous connections are allowed, however,
+ * then any user identity is allowed.
+ *
+ * You can override the rules for connections authorized as a
+ * user identity with dbus_connection_set_unix_user_function()
+ * and dbus_connection_set_windows_user_function().
+ * 
+ * @param connection the connection
+ * @param value whether to allow authentication as an anonymous user
+ */
+void
+dbus_connection_set_allow_anonymous (DBusConnection             *connection,
+                                     dbus_bool_t                 value)
+{
+  _dbus_return_if_fail (connection != NULL);
+  
+  CONNECTION_LOCK (connection);
+  _dbus_transport_set_allow_anonymous (connection->transport, value);
+  CONNECTION_UNLOCK (connection);
+}
+
+/**
  *
  * Normally #DBusConnection automatically handles all messages to the
  * org.freedesktop.DBus.Peer interface. However, the message bus wants
@@ -4996,7 +5067,6 @@ dbus_connection_set_windows_user_function (DBusConnection              *connecti
  * have a bus destination name set will not be automatically
  * handled by the #DBusConnection and instead will be dispatched
  * normally to the application.
- *
  *
  * If a normal application sets this flag, it can break things badly.
  * So don't set this unless you are the message bus.

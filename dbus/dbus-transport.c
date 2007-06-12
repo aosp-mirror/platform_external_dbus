@@ -603,10 +603,10 @@ auth_via_default_rules (DBusTransport *transport)
   auth_identity = _dbus_auth_get_identity (transport->auth);
   _dbus_assert (auth_identity != NULL);
 
-  /* By default, connection is allowed if the client is
-   * 1) root or 2) has the same UID as us
+  /* By default, connection is allowed if the client is 1) root or 2)
+   * has the same UID as us or 3) anonymous is allowed.
    */
-              
+  
   our_identity = _dbus_credentials_new_from_current_process ();
   if (our_identity == NULL)
     {
@@ -614,7 +614,8 @@ auth_via_default_rules (DBusTransport *transport)
       return FALSE;
     }
               
-  if (_dbus_credentials_get_unix_uid (auth_identity) == 0 ||
+  if (transport->allow_anonymous ||
+      _dbus_credentials_get_unix_uid (auth_identity) == 0 ||
       _dbus_credentials_same_user (our_identity,
                                    auth_identity))
     {
@@ -753,6 +754,28 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
       _dbus_connection_unref_unlocked (transport->connection);
       return maybe_authenticated;
     }
+}
+
+/**
+ * See dbus_connection_get_is_anonymous().
+ *
+ * @param transport the transport
+ * @returns #TRUE if not authenticated or authenticated as anonymous
+ */
+dbus_bool_t
+_dbus_transport_get_is_anonymous (DBusTransport *transport)
+{
+  DBusCredentials *auth_identity;
+  
+  if (!transport->authenticated)
+    return TRUE;
+  
+  auth_identity = _dbus_auth_get_identity (transport->auth);
+
+  if (_dbus_credentials_are_anonymous (auth_identity))
+    return TRUE;
+  else
+    return FALSE;
 }
 
 /**
@@ -1298,5 +1321,17 @@ _dbus_transport_set_auth_mechanisms (DBusTransport  *transport,
   return _dbus_auth_set_mechanisms (transport->auth, mechanisms);
 }
 
+/**
+ * See dbus_connection_set_allow_anonymous()
+ *
+ * @param transport the transport
+ * @param value #TRUE to allow anonymous connection
+ */
+void
+_dbus_transport_set_allow_anonymous (DBusTransport              *transport,
+                                     dbus_bool_t                 value)
+{
+  transport->allow_anonymous = value != FALSE;
+}
 
 /** @} */

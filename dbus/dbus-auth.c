@@ -731,6 +731,13 @@ sha1_handle_second_client_response (DBusAuth         *auth,
   if (!_dbus_credentials_add_credentials (auth->authorized_identity,
                                           auth->desired_identity))
     goto out_3;
+
+  /* Copy process ID from the socket credentials if it's there
+   */
+  if (!_dbus_credentials_add_credential (auth->authorized_identity,
+                                         DBUS_CREDENTIAL_UNIX_PROCESS_ID,
+                                         auth->credentials))
+    goto out_3;
   
   if (!send_ok (auth))
     goto out_3;
@@ -994,7 +1001,7 @@ static dbus_bool_t
 handle_server_data_external_mech (DBusAuth         *auth,
                                   const DBusString *data)
 {
-  if (_dbus_credentials_are_empty (auth->credentials))
+  if (_dbus_credentials_are_anonymous (auth->credentials))
     {
       _dbus_verbose ("%s: no credentials, mechanism EXTERNAL can't authenticate\n",
                      DBUS_AUTH_NAME (auth));
@@ -1059,7 +1066,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
         }
     }
 
-  if (_dbus_credentials_are_empty (auth->desired_identity))
+  if (_dbus_credentials_are_anonymous (auth->desired_identity))
     {
       _dbus_verbose ("%s: desired user %s is no good\n",
                      DBUS_AUTH_NAME (auth),
@@ -1075,8 +1082,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
                                               auth->desired_identity))
         return FALSE;
 
-      /* also copy process ID from the socket credentials - FIXME this
-       * should be done even if auth EXTERNAL not used
+      /* also copy process ID from the socket credentials
        */
       if (!_dbus_credentials_add_credential (auth->authorized_identity,
                                              DBUS_CREDENTIAL_UNIX_PROCESS_ID,
@@ -1192,6 +1198,13 @@ handle_server_data_anonymous_mech (DBusAuth         *auth,
   /* We want to be anonymous (clear in case some other protocol got midway through I guess) */
   _dbus_credentials_clear (auth->desired_identity);
 
+  /* Copy process ID from the socket credentials
+   */
+  if (!_dbus_credentials_add_credential (auth->authorized_identity,
+                                         DBUS_CREDENTIAL_UNIX_PROCESS_ID,
+                                         auth->credentials))
+    return FALSE;
+  
   /* Anonymous is always allowed */
   if (!send_ok (auth))
     return FALSE;

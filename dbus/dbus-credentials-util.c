@@ -104,6 +104,7 @@ _dbus_credentials_test (const char *test_data_dir)
   _dbus_assert (strcmp (_dbus_credentials_get_windows_sid (creds), SAMPLE_SID) == 0);
 
   _dbus_assert (!_dbus_credentials_are_empty (creds));
+  _dbus_assert (!_dbus_credentials_are_anonymous (creds));
 
   /* Test copy */
   creds2 = _dbus_credentials_copy (creds);
@@ -193,6 +194,7 @@ _dbus_credentials_test (const char *test_data_dir)
   _dbus_assert (_dbus_credentials_get_windows_sid (creds) == NULL);
 
   _dbus_assert (_dbus_credentials_are_empty (creds));
+  _dbus_assert (_dbus_credentials_are_anonymous (creds));
 
   _dbus_credentials_unref (creds);
   

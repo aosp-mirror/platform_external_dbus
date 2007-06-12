@@ -178,6 +178,7 @@ void               dbus_connection_unref                        (DBusConnection 
 void               dbus_connection_close                        (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_connected             (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_authenticated         (DBusConnection             *connection);
+dbus_bool_t        dbus_connection_get_is_anonymous             (DBusConnection             *connection);
 void               dbus_connection_set_exit_on_disconnect       (DBusConnection             *connection,
                                                                  dbus_bool_t                 exit_on_disconnect);
 void               dbus_connection_flush                        (DBusConnection             *connection);
@@ -239,6 +240,8 @@ void               dbus_connection_set_windows_user_function    (DBusConnection 
                                                                  DBusAllowWindowsUserFunction function,
                                                                  void                       *data,
                                                                  DBusFreeFunction            free_data_function);
+void               dbus_connection_set_allow_anonymous          (DBusConnection             *connection,
+                                                                 dbus_bool_t                 value);
 void               dbus_connection_set_route_peer_messages      (DBusConnection             *connection,
                                                                  dbus_bool_t                 value);
 

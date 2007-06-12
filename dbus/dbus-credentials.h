@@ -54,6 +54,7 @@ const char*      _dbus_credentials_get_windows_sid          (DBusCredentials    
 dbus_bool_t      _dbus_credentials_are_superset             (DBusCredentials    *credentials,
                                                              DBusCredentials    *possible_subset);
 dbus_bool_t      _dbus_credentials_are_empty                (DBusCredentials    *credentials);
+dbus_bool_t      _dbus_credentials_are_anonymous            (DBusCredentials    *credentials);
 dbus_bool_t      _dbus_credentials_add_credentials          (DBusCredentials    *credentials,
                                                              DBusCredentials    *other_credentials);
 /* must silently allow 'which' to not exist */

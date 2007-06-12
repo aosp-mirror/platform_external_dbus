@@ -665,7 +665,7 @@ _dbus_auth_script_run (const DBusString *filename)
           DBusCredentials *authorized_identity;
           
           authorized_identity = _dbus_auth_get_identity (auth);
-          if (!_dbus_credentials_are_empty (authorized_identity))
+          if (!_dbus_credentials_are_anonymous (authorized_identity))
             {
               _dbus_warn ("Expected anonymous login or failed login, but some credentials were authorized\n");
               goto out;
@@ -677,7 +677,7 @@ _dbus_auth_script_run (const DBusString *filename)
           DBusCredentials *authorized_identity;
           
           authorized_identity = _dbus_auth_get_identity (auth);
-          if (_dbus_credentials_are_empty (authorized_identity))
+          if (_dbus_credentials_are_anonymous (authorized_identity))
             {
               _dbus_warn ("Expected to have some credentials, but we don't\n");
               goto out;

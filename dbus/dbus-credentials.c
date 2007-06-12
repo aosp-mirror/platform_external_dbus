@@ -289,6 +289,20 @@ _dbus_credentials_are_empty (DBusCredentials    *credentials)
 }
 
 /**
+ * Checks whether a credentials object contains a user identity.
+ * 
+ * @param credentials the object
+ * @returns #TRUE if there are no user identities in the object
+ */
+dbus_bool_t
+_dbus_credentials_are_anonymous (DBusCredentials    *credentials)
+{
+  return
+    credentials->unix_uid == DBUS_UID_UNSET &&
+    credentials->windows_sid == NULL;
+}
+
+/**
  * Merge all credentials found in the second object into the first object,
  * overwriting the first object if there are any overlaps.
  * 
