@@ -29,6 +29,8 @@
 #include "config-parser.h"
 
 #ifdef HAVE_SELINUX
+#include <sys/types.h>
+#include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
 #include <syslog.h>
@@ -38,6 +40,7 @@
 #include <selinux/flask.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdio.h>
 #ifdef HAVE_LIBAUDIT
 #include <libaudit.h>
 #endif /* HAVE_LIBAUDIT */

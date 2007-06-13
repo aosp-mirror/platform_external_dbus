@@ -1,5 +1,18 @@
 2007-06-13  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-server-socket.c (_dbus_server_listen_socket): support
+	all_interfaces=true|false for tcp servers
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_listen_tcp_socket): support
+	inaddr_any flag
+
+	* bus/selinux.c: fix some missing includes
+
+	* dbus/dbus-server-socket.c (_dbus_server_listen_socket): allow
+	port to simply be omitted in addition to specifying 0
+
+2007-06-13  Havoc Pennington  <hp@redhat.com>
+
 	* configure.ac, bus/selinux.c, dbus/dbus-sysdeps-unix-util.c: add
 	libaudit support, no clue what this means really but now we have
 	it. Patches from Fedora package.

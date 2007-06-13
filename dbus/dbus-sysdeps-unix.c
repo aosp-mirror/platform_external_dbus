@@ -807,30 +807,28 @@ _dbus_connect_tcp_socket (const char     *host,
 }
 
 /**
- * Creates a socket and binds it to the given path,
- * then listens on the socket. The socket is
- * set to be nonblocking. 
- * In case of port=0 a random free port is used and 
- * returned in the port parameter. 
+ * Creates a socket and binds it to the given path, then listens on
+ * the socket. The socket is set to be nonblocking.  In case of port=0
+ * a random free port is used and returned in the port parameter.
+ * If inaddr_any is specified, the hostname is ignored.
  *
  * @param host the host name to listen on
- * @param port the prot to listen on, if zero a free port will be used 
+ * @param port the prot to listen on, if zero a free port will be used
+ * @param inaddr_any TRUE to listen on all local interfaces instead of on the host name
  * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
 int
 _dbus_listen_tcp_socket (const char     *host,
                          dbus_uint32_t  *port,
+                         dbus_bool_t     inaddr_any,
                          DBusError      *error)
 {
   int listen_fd;
   struct sockaddr_in addr;
-  struct hostent *he;
-  struct in_addr *haddr;
   socklen_t len = (socklen_t) sizeof (struct sockaddr);
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);  
   
   if (!_dbus_open_tcp_socket (&listen_fd, error))
     {
@@ -839,21 +837,33 @@ _dbus_listen_tcp_socket (const char     *host,
     }
   _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
-  he = gethostbyname (host);
-  if (he == NULL) 
+  _DBUS_ZERO (addr);
+  
+  if (inaddr_any)
     {
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to lookup hostname: %s",
-                      host);
-      _dbus_close (listen_fd, NULL);
-      return -1;
+      addr.sin_addr.s_addr = INADDR_ANY;
+    }
+  else
+    {
+      struct hostent *he;
+      struct in_addr *haddr;      
+
+      he = gethostbyname (host);
+      if (he == NULL) 
+        {
+          dbus_set_error (error,
+                          _dbus_error_from_errno (errno),
+                          "Failed to lookup hostname: %s",
+                          host);
+          _dbus_close (listen_fd, NULL);
+          return -1;
+        }
+  
+      haddr = ((struct in_addr *) (he->h_addr_list)[0]);
+      
+      memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
     }
   
-  haddr = ((struct in_addr *) (he->h_addr_list)[0]);
-
-  _DBUS_ZERO (addr);
-  memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons (*port);
 

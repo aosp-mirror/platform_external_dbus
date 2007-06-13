@@ -151,6 +151,7 @@ int _dbus_connect_tcp_socket  (const char     *host,
                                DBusError      *error);
 int _dbus_listen_tcp_socket   (const char     *host,
                                dbus_uint32_t  *port,
+                               dbus_bool_t     inaddr_any,
                                DBusError      *error);
 int _dbus_accept              (int             listen_fd);
 

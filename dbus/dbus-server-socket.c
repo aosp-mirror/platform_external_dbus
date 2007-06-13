@@ -295,17 +295,24 @@ _dbus_server_new_for_socket (int               fd,
 }
 
 /**
- * Creates a new server listening on the given hostname and port.
- * If the hostname is NULL, listens on localhost.
+ * Creates a new server listening on TCP.
+ * If inaddr_any is TRUE, listens on all local interfaces.
+ * Otherwise, it resolves the hostname and listens only on
+ * the resolved address of the hostname. The hostname is used
+ * even if inaddr_any is TRUE, as the hostname to report when
+ * dbus_server_get_address() is called. If the hostname is #NULL,
+ * localhost is used.
  *
  * @param host the hostname to listen on.
- * @param port the port to listen on.
+ * @param port the port to listen on or 0 to let the OS choose
+ * @param inaddr_any #TRUE to listen on all local interfaces
  * @param error location to store reason for failure.
  * @returns the new server, or #NULL on failure.
  */
 DBusServer*
 _dbus_server_new_for_tcp_socket (const char     *host,
                                  dbus_uint32_t   port,
+                                 dbus_bool_t     inaddr_any,
                                  DBusError      *error)
 {
   DBusServer *server;
@@ -324,7 +331,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   if (host == NULL)
     host = "localhost";
   
-  listen_fd = _dbus_listen_tcp_socket (host, &port, error);
+  listen_fd = _dbus_listen_tcp_socket (host, &port, inaddr_any, error);
   _dbus_fd_set_close_on_exec (listen_fd);
 
   _dbus_string_init_const (&host_str, host);
@@ -386,30 +393,57 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
   
   if (strcmp (method, "tcp") == 0)
     {
-      const char *host = dbus_address_entry_get_value (entry, "host");
-      const char *port = dbus_address_entry_get_value (entry, "port");
-      DBusString  str;
+      const char *host;
+      const char *port;
+      const char *all_interfaces;
+      dbus_bool_t inaddr_any;
       long lport;
-      dbus_bool_t sresult;
-          
+
+      host = dbus_address_entry_get_value (entry, "host");
+      port = dbus_address_entry_get_value (entry, "port");
+      all_interfaces = dbus_address_entry_get_value (entry, "all_interfaces");
+
+      inaddr_any = FALSE;
+      if (all_interfaces != NULL)
+        {
+          if (strcmp (all_interfaces, "true") == 0)
+            {
+              inaddr_any = TRUE;
+            }
+          else if (strcmp (all_interfaces, "false") == 0)
+            {
+              inaddr_any = FALSE;
+            }
+          else
+            {
+              _dbus_set_bad_address(error, NULL, NULL, 
+                                    "all_interfaces flag in tcp: address should be 'true' or 'false'");
+              return DBUS_SERVER_LISTEN_BAD_ADDRESS;
+            }
+        }
+      
       if (port == NULL)
         {
-          _dbus_set_bad_address(error, "tcp", "port", NULL);
-          return DBUS_SERVER_LISTEN_BAD_ADDRESS;
+          lport = 0;
         }
-
-      _dbus_string_init_const (&str, port);
-      sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-      _dbus_string_free (&str);
-          
-      if (sresult == FALSE || lport < 0 || lport > 65535)
+      else
         {
-          _dbus_set_bad_address(error, NULL, NULL, 
-                                "Port is not an integer between 0 and 65535");
-          return DBUS_SERVER_LISTEN_BAD_ADDRESS;
+          dbus_bool_t sresult;
+          DBusString  str;
+          
+          _dbus_string_init_const (&str, port);
+          sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
+          _dbus_string_free (&str);
+          
+          if (sresult == FALSE || lport < 0 || lport > 65535)
+            {
+              _dbus_set_bad_address(error, NULL, NULL, 
+                                    "Port is not an integer between 0 and 65535");
+              return DBUS_SERVER_LISTEN_BAD_ADDRESS;
+            }
         }
           
-      *server_p = _dbus_server_new_for_tcp_socket (host, lport, error);
+      *server_p = _dbus_server_new_for_tcp_socket (host, lport, inaddr_any, error);
 
       if (*server_p)
         {
