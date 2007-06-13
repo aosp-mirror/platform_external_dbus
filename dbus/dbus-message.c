@@ -2359,7 +2359,7 @@ dbus_message_iter_open_container (DBusMessageIter *iter,
    * dict entries are invalid signatures standalone (they must be in
    * an array)
    */
-  _dbus_return_val_if_fail (type == DBUS_TYPE_DICT_ENTRY ||
+  _dbus_return_val_if_fail ((type == DBUS_TYPE_ARRAY && contained_signature && *contained_signature == DBUS_DICT_ENTRY_BEGIN_CHAR) ||
                             (contained_signature == NULL ||
                              _dbus_check_is_valid_signature (contained_signature)),
                             FALSE);

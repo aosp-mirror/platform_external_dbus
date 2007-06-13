@@ -1,4 +1,10 @@
 2007-06-13  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-message.c (dbus_message_iter_open_container): Fix
+	broken return_if_fail (kind of scary that test suite does not
+	cover this)
+
+2007-06-13  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-server-socket.c (_dbus_server_listen_socket): support
 	all_interfaces=true|false for tcp servers
