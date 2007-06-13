@@ -739,11 +739,6 @@ bus_context_new (const DBusString *config_file,
       _dbus_string_free (&pid);
     }
 
-  if (!bus_selinux_full_init ())
-    {
-      _dbus_warn ("SELinux initialization failed\n");
-    }
-
   if (!process_config_postinit (context, parser, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -766,6 +761,11 @@ bus_context_new (const DBusString *config_file,
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
 	  goto failed;
 	}
+    }
+
+  if (!bus_selinux_full_init ())
+    {
+      _dbus_warn ("SELinux initialization failed\n");
     }
   
   dbus_server_free_data_slot (&server_data_slot);

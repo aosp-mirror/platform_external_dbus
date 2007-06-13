@@ -516,9 +516,9 @@ auth_via_unix_user_function (DBusTransport *transport)
   connection = transport->connection;
   unix_user_function = transport->unix_user_function;
   unix_user_data = transport->unix_user_data;
-  uid = _dbus_credentials_get_unix_uid (auth_identity),
+  uid = _dbus_credentials_get_unix_uid (auth_identity);
               
-    _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
   _dbus_connection_unlock (connection);
 
   allow = (* unix_user_function) (connection,

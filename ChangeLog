@@ -1,3 +1,14 @@
+2007-06-13  Havoc Pennington  <hp@redhat.com>
+
+	* configure.ac, bus/selinux.c, dbus/dbus-sysdeps-unix-util.c: add
+	libaudit support, no clue what this means really but now we have
+	it. Patches from Fedora package.
+
+	* bus/bus.c (bus_context_new): move selinux initialization after
+	changing to daemon user, patch from Fedora package
+
+	* dbus/dbus-transport.c (auth_via_unix_user_function): fix a typo
+
 2007-06-12  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message.c (dbus_message_iter_open_container): improve

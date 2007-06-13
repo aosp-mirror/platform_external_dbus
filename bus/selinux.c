@@ -38,6 +38,9 @@
 #include <selinux/flask.h>
 #include <signal.h>
 #include <stdarg.h>
+#ifdef HAVE_LIBAUDIT
+#include <libaudit.h>
+#endif /* HAVE_LIBAUDIT */
 #endif /* HAVE_SELINUX */
 
 #define BUS_SID_FROM_SELINUX(sid)  ((BusSELinuxID*) (sid))
@@ -100,11 +103,50 @@ static const struct avc_lock_callback lock_cb =
  * @param variable argument list
  */
 #ifdef HAVE_SELINUX
+
+#ifdef HAVE_LIBAUDIT
+static int audit_fd = -1;
+#endif
+
+static void
+audit_init(void)
+{
+#ifdef HAVE_LIBAUDIT  
+  audit_fd = audit_open ();
+
+  if (audit_fd < 0)
+    {
+      /* If kernel doesn't support audit, bail out */
+      if (errno == EINVAL || errno == EPROTONOSUPPORT || errno == EAFNOSUPPORT)
+        return;
+      /* If user bus, bail out */
+      if (errno == EPERM && getuid() != 0)
+        return;
+      _dbus_warn ("Failed opening connection to the audit subsystem");
+    }
+#endif /* HAVE_LIBAUDIT */
+}
+
 static void 
 log_callback (const char *fmt, ...) 
 {
   va_list ap;
+
   va_start(ap, fmt);
+
+#ifdef HAVE_LIBAUDIT
+  if (audit_fd >= 0)
+  {
+    char buf[PATH_MAX*2];
+    
+    /* FIXME: need to change this to show real user */
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    audit_log_user_avc_message(audit_fd, AUDIT_USER_AVC, buf, NULL, NULL,
+                               NULL, getuid());
+    return;
+  }
+#endif /* HAVE_LIBAUDIT */
+  
   vsyslog (LOG_INFO, fmt, ap);
   va_end(ap);
 }
@@ -303,6 +345,8 @@ bus_selinux_full_init (void)
 
   freecon (bus_context);
   
+  audit_init ();
+
   return TRUE;
 #else
   return TRUE;
@@ -925,12 +969,18 @@ bus_selinux_shutdown (void)
     {
       sidput (bus_sid);
       bus_sid = SECSID_WILD;
-      
+
 #ifdef DBUS_ENABLE_VERBOSE_MODE
-      bus_avc_print_stats ();
+ 
+      if (_dbus_is_verbose()) 
+        bus_avc_print_stats ();
+ 
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
 
       avc_destroy ();
+#ifdef HAVE_LIBAUDIT
+      audit_close (audit_fd);
+#endif /* HAVE_LIBAUDIT */
     }
 #endif /* HAVE_SELINUX */
 }
