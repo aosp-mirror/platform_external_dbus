@@ -162,11 +162,9 @@ dbus_bool_t _dbus_read_credentials_socket (int               client_fd,
 dbus_bool_t _dbus_send_credentials_socket (int              server_fd,
                                            DBusError       *error);
 
-dbus_bool_t _dbus_credentials_add_from_username        (DBusCredentials  *credentials,
+dbus_bool_t _dbus_credentials_add_from_user            (DBusCredentials  *credentials,
                                                         const DBusString *username);
 dbus_bool_t _dbus_credentials_add_from_current_process (DBusCredentials  *credentials);
-dbus_bool_t _dbus_credentials_parse_and_add_user       (DBusCredentials  *credentials,
-                                                        const DBusString *desired_identity);
 dbus_bool_t _dbus_append_user_from_current_process     (DBusString        *str);
 
 dbus_bool_t _dbus_parse_unix_user_from_config   (const DBusString  *username,

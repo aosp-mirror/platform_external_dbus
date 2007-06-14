@@ -477,13 +477,20 @@ _dbus_homedir_from_uid (dbus_uid_t         uid,
 /**
  * Adds the credentials corresponding to the given username.
  *
+ * Used among other purposes to parses a desired identity provided
+ * from a client in the auth protocol. On UNIX this means parsing a
+ * UID, on Windows probably parsing an SID string.
+ * 
+ * @todo this is broken because it treats OOM and parse error
+ * the same way. Needs a #DBusError.
+ * 
  * @param credentials credentials to fill in 
  * @param username the username
  * @returns #TRUE if the username existed and we got some credentials
  */
 dbus_bool_t
-_dbus_credentials_add_from_username (DBusCredentials  *credentials,
-                                     const DBusString *username)
+_dbus_credentials_add_from_user (DBusCredentials  *credentials,
+                                 const DBusString *username)
 {
   DBusUserDatabase *db;
   const DBusUserInfo *info;

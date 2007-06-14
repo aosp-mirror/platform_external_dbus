@@ -1,5 +1,11 @@
 2007-06-14  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-sysdeps-unix.c (_dbus_credentials_parse_and_add_user):
+	delete this function since it was effectively the same as
+	_dbus_credentials_add_from_username()
+
+2007-06-14  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-auth.c: adapt to keyring changes
 
 	* dbus/dbus-keyring.c: change to avoid using user ID and home

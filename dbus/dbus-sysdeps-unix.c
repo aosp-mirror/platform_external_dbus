@@ -1506,33 +1506,6 @@ _dbus_credentials_add_from_current_process (DBusCredentials *credentials)
 }
 
 /**
- * Parses a desired identity provided from a client in the auth protocol.
- * On UNIX this means parsing a UID, on Windows probably parsing an
- * SID string.
- *
- * @todo this is broken because it treats OOM and parse error
- * the same way. Needs a #DBusError.
- * 
- * @param credentials the credentials to add what we parse to
- * @param desired_identity the string to parse
- * @returns #TRUE if we successfully parsed something
- */
-dbus_bool_t
-_dbus_credentials_parse_and_add_user (DBusCredentials  *credentials,
-                                         const DBusString *desired_identity)
-{
-  dbus_uid_t uid;
-
-  if (!_dbus_parse_uid (desired_identity, &uid))
-    return FALSE;
-
-  if (!_dbus_credentials_add_unix_uid (credentials, uid))
-    return FALSE;
-
-  return TRUE;
-}
-
-/**
  * Append to the string the identity we would like to have when we
  * authenticate, on UNIX this is the current process UID and on
  * Windows something else, probably a Windows SID string.  No escaping
