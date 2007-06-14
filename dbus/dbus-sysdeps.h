@@ -168,7 +168,7 @@ dbus_bool_t _dbus_credentials_add_from_current_process (DBusCredentials  *creden
 dbus_bool_t _dbus_credentials_parse_and_add_desired    (DBusCredentials  *credentials,
                                                         const DBusString *desired_identity);
 
-dbus_bool_t _dbus_append_desired_identity (const DBusString **username);
+dbus_bool_t _dbus_username_from_current_process (const DBusString **username);
 dbus_bool_t _dbus_append_desired_identity       (DBusString *str);
 
 dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);

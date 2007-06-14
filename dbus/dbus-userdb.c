@@ -360,7 +360,7 @@ _dbus_user_database_flush_system (void)
  * @returns #FALSE if no memory
  */
 dbus_bool_t
-_dbus_append_desired_identity (const DBusString **username)
+_dbus_username_from_current_process (const DBusString **username)
 {
   _dbus_user_database_lock_system ();
   if (!init_system_db ())
