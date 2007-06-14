@@ -1,10 +1,17 @@
 2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
     
+	* dbus/dbus-auth.c (handle_client_initial_response_cookie_sha1_mech): 
+	fixed usage of _dbus_append_desired_identity()
+
+	* dbus/dbus-sysdeps.h (_dbus_username_from_current_process): removed prototype
+
+2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
+    
 	* dbus/dbus-sysdeps.c: moved global lock system_users from dbus-userdb.c
 
 2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
     
-	* global rename of function dbus_username_from_current_process
+	* global rename of function _dbus_username_from_current_process
 	to _dbus_append_desired_identity. 
 	Approved by Havoc Pennington
 
