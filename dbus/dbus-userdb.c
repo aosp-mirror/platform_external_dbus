@@ -218,7 +218,6 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
     }
 }
 
-_DBUS_DEFINE_GLOBAL_LOCK(system_users);
 static dbus_bool_t database_locked = FALSE;
 static DBusUserDatabase *system_db = NULL;
 static DBusString process_username;
