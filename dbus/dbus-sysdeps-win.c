@@ -1919,6 +1919,20 @@ _dbus_getuid(void)
   return retval;
 }
 
+/**
+ * The only reason this is separate from _dbus_getpid() is to allow it
+ * on Windows for logging but not for other purposes.
+ * 
+ * @returns process ID to put in log messages
+ */
+unsigned long
+_dbus_pid_for_log (void)
+{
+  return _dbus_getpid ();
+}
+
+
+
 #ifdef DBUS_BUILD_TESTS
 /** Gets our GID
  * @returns process GID
@@ -3677,6 +3691,19 @@ again:
 }
 
 /**
+ * Gets the credentials of the current process.
+ *
+ * @param credentials credentials to fill in.
+ */
+void
+_dbus_credentials_from_current_process (DBusCredentials *credentials)
+{
+  credentials->pid = _dbus_getpid ();
+  credentials->uid = _dbus_getuid ();
+  credentials->gid = _dbus_getgid ();
+}
+
+/**
  * Reads a single byte which must be nul (an error occurs otherwise),
  * and reads unix credentials if available. Fills in pid/uid/gid with
  * -1 if no credentials are available. Return value indicates whether
@@ -3938,18 +3965,6 @@ _dbus_disable_sigpipe (void)
     _dbus_verbose("FIXME: implement _dbus_disable_sigpipe (void)\n");
 }
 
-/**
- * Gets the credentials of the current process.
- *
- * @param credentials credentials to fill in.
- */
-void
-_dbus_credentials_from_current_process (DBusCredentials *credentials)
-{
-  credentials->pid = _dbus_getpid ();
-  credentials->uid = _dbus_getuid ();
-  credentials->gid = _dbus_getgid ();
-}
 
 /**
  * Appends the contents of the given file to the string,
@@ -5131,6 +5146,18 @@ _dbus_atomic_dec (DBusAtomic *atomic)
 
 #endif /* asserts or tests enabled */
 
-/** @} end of sysdeps-win */
+/**
+ * Called when the bus daemon is signaled to reload its configuration; any
+ * caches should be nuked. Of course any caches that need explicit reload
+ * are probably broken, but c'est la vie.
+ *
+ * 
+ */
+void
+_dbus_flush_caches (void)
+{
 
+}
+
+/** @} end of sysdeps-win */
 /* tests in dbus-sysdeps-util.c */

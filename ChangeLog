@@ -1,4 +1,9 @@
 2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c (_dbus_pid_for_log,_dbus_flush_caches): 
+	new win32 functions as counterpart of unix related
+
+2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
 	
 	* cmake/modules/FindKDEWIN.cmake,
 	  cmake/modules/FindKDEWIN_Packager.cmake, 
