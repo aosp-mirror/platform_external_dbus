@@ -436,6 +436,45 @@ _dbus_homedir_from_username (const DBusString *username,
 }
 
 /**
+ * Gets the home directory for the given user.
+ *
+ * @param uid the uid
+ * @param homedir string to append home directory to
+ * @returns #TRUE if user existed and we appended their homedir
+ */
+dbus_bool_t
+_dbus_homedir_from_uid (dbus_uid_t         uid,
+                        DBusString        *homedir)
+{
+  DBusUserDatabase *db;
+  const DBusUserInfo *info;
+  _dbus_user_database_lock_system ();
+
+  db = _dbus_user_database_get_system ();
+  if (db == NULL)
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+
+  if (!_dbus_user_database_get_uid (db, uid,
+                                    &info, NULL))
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+
+  if (!_dbus_string_append (homedir, info->homedir))
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+  
+  _dbus_user_database_unlock_system ();
+  return TRUE;
+}
+
+/**
  * Adds the credentials corresponding to the given username.
  *
  * @param credentials credentials to fill in 

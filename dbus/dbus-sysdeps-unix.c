@@ -1507,7 +1507,8 @@ _dbus_credentials_add_from_current_process (DBusCredentials *credentials)
 
 /**
  * Parses a desired identity provided from a client in the auth protocol.
- * On UNIX this means parsing a UID.
+ * On UNIX this means parsing a UID, on Windows probably parsing an
+ * SID string.
  *
  * @todo this is broken because it treats OOM and parse error
  * the same way. Needs a #DBusError.
@@ -1517,7 +1518,7 @@ _dbus_credentials_add_from_current_process (DBusCredentials *credentials)
  * @returns #TRUE if we successfully parsed something
  */
 dbus_bool_t
-_dbus_credentials_parse_and_add_desired (DBusCredentials  *credentials,
+_dbus_credentials_parse_and_add_user (DBusCredentials  *credentials,
                                          const DBusString *desired_identity)
 {
   dbus_uid_t uid;
@@ -1532,15 +1533,18 @@ _dbus_credentials_parse_and_add_desired (DBusCredentials  *credentials,
 }
 
 /**
- * Append to the string the identity we would like to have when we authenticate,
- * on UNIX this is the current process UID and on Windows something else.
- * No escaping is required, that is done in dbus-auth.c.
+ * Append to the string the identity we would like to have when we
+ * authenticate, on UNIX this is the current process UID and on
+ * Windows something else, probably a Windows SID string.  No escaping
+ * is required, that is done in dbus-auth.c. The username here
+ * need not be anything human-readable, it can be the machine-readable
+ * form i.e. a user id.
  * 
  * @param str the string to append to
  * @returns #FALSE on no memory
  */
 dbus_bool_t
-_dbus_append_desired_identity (DBusString *str)
+_dbus_append_user_from_current_process (DBusString *str)
 {
   return _dbus_string_append_uint (str,
                                    _dbus_getuid ());
@@ -2937,6 +2941,83 @@ void
 _dbus_flush_caches (void)
 {
   _dbus_user_database_flush_system ();
+}
+
+/**
+ * Appends the directory in which a keyring for the given credentials
+ * should be stored.  The credentials should have either a Windows or
+ * UNIX user in them.  The directory should be an absolute path.
+ *
+ * On UNIX the directory is ~/.dbus-keyrings while on Windows it should probably
+ * be something else, since the dotfile convention is not normal on Windows.
+ * 
+ * @param directory string to append directory to
+ * @param credentials credentials the directory should be for
+ *  
+ * @returns #FALSE on no memory
+ */
+dbus_bool_t
+_dbus_append_keyring_directory_for_credentials (DBusString      *directory,
+                                                DBusCredentials *credentials)
+{
+  DBusString homedir;
+  DBusString dotdir;
+  dbus_uid_t uid;
+  
+  _dbus_assert (credentials != NULL);
+  _dbus_assert (!_dbus_credentials_are_anonymous (credentials));
+  
+  if (!_dbus_string_init (&homedir))
+    return FALSE;
+
+  uid = _dbus_credentials_get_unix_uid (credentials);
+  _dbus_assert (uid != DBUS_UID_UNSET);
+
+  if (!_dbus_homedir_from_uid (uid, &homedir))
+    goto failed;
+  
+#ifdef DBUS_BUILD_TESTS
+  {
+    const char *override;
+    
+    override = _dbus_getenv ("DBUS_TEST_HOMEDIR");
+    if (override != NULL && *override != '\0')
+      {
+        _dbus_string_set_length (&homedir, 0);
+        if (!_dbus_string_append (&homedir, override))
+          goto failed;
+
+        _dbus_verbose ("Using fake homedir for testing: %s\n",
+                       _dbus_string_get_const_data (&homedir));
+      }
+    else
+      {
+        static dbus_bool_t already_warned = FALSE;
+        if (!already_warned)
+          {
+            _dbus_warn ("Using your real home directory for testing, set DBUS_TEST_HOMEDIR to avoid\n");
+            already_warned = TRUE;
+          }
+      }
+  }
+#endif
+
+  _dbus_string_init_const (&dotdir, ".dbus-keyrings");
+  if (!_dbus_concat_dir_and_file (&homedir,
+                                  &dotdir))
+    goto failed;
+  
+  if (!_dbus_string_copy (&homedir, 0,
+                          directory, _dbus_string_get_length (directory))) {
+    goto failed;
+  }
+
+  _dbus_string_free (&homedir);
+  return TRUE;
+  
+ failed: 
+  _dbus_string_free (&homedir);
+  return FALSE;
 }
 
 /* tests in dbus-sysdeps-util.c */

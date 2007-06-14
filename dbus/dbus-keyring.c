@@ -110,12 +110,12 @@ typedef struct
 struct DBusKeyring
 {
   int refcount;             /**< Reference count */
-  DBusString username;      /**< Username keyring is for */
   DBusString directory;     /**< Directory the below two items are inside */
   DBusString filename;      /**< Keyring filename */
   DBusString filename_lock; /**< Name of lockfile */
   DBusKey *keys; /**< Keys loaded from the file */
   int n_keys;    /**< Number of keys */
+  DBusCredentials *credentials; /**< Credentials containing user the keyring is for */
 };
 
 static DBusKeyring*
@@ -135,9 +135,6 @@ _dbus_keyring_new (void)
 
   if (!_dbus_string_init (&keyring->filename_lock))
     goto out_3;
-
-  if (!_dbus_string_init (&keyring->username))
-    goto out_4;
   
   keyring->refcount = 1;
   keyring->keys = NULL;
@@ -145,7 +142,7 @@ _dbus_keyring_new (void)
 
   return keyring;
 
- out_4:
+  /*  out_4: */
   _dbus_string_free (&keyring->filename_lock);
  out_3:
   _dbus_string_free (&keyring->filename);
@@ -691,7 +688,9 @@ _dbus_keyring_unref (DBusKeyring *keyring)
 
   if (keyring->refcount == 0)
     {
-      _dbus_string_free (&keyring->username);
+      if (keyring->credentials)
+        _dbus_credentials_unref (keyring->credentials);
+
       _dbus_string_free (&keyring->filename);
       _dbus_string_free (&keyring->filename_lock);
       _dbus_string_free (&keyring->directory);
@@ -701,9 +700,9 @@ _dbus_keyring_unref (DBusKeyring *keyring)
 }
 
 /**
- * Creates a new keyring that lives in the ~/.dbus-keyrings
- * directory of the given user. If the username is #NULL,
- * uses the user owning the current process.
+ * Creates a new keyring that lives in the ~/.dbus-keyrings directory
+ * of the given user credentials. If the credentials are #NULL or
+ * empty, uses those of the current process.
  *
  * @param username username to get keyring for, or #NULL
  * @param context which keyring to get
@@ -711,79 +710,58 @@ _dbus_keyring_unref (DBusKeyring *keyring)
  * @returns the keyring or #NULL on error
  */
 DBusKeyring*
-_dbus_keyring_new_homedir (const DBusString *username,
-                           const DBusString *context,
-                           DBusError        *error)
+_dbus_keyring_new_for_credentials (DBusCredentials  *credentials,
+                                   const DBusString *context,
+                                   DBusError        *error)
 {
-  DBusString homedir;
+  DBusString ringdir;
   DBusKeyring *keyring;
   dbus_bool_t error_set;
-  DBusString dotdir;
   DBusError tmp_error;
-
+  DBusCredentials *our_credentials;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   keyring = NULL;
   error_set = FALSE;
+  our_credentials = NULL;
   
-  if (!_dbus_string_init (&homedir))
+  if (!_dbus_string_init (&ringdir))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
 
-  _dbus_string_init_const (&dotdir, ".dbus-keyrings");
-  
-  if (username == NULL)
+  if (credentials != NULL)
     {
-      const DBusString *const_homedir;
-
-      if (!_dbus_username_from_current_process (&username) ||
-          !_dbus_homedir_from_current_process (&const_homedir))
-        goto failed;
-
-      if (!_dbus_string_copy (const_homedir, 0,
-                              &homedir, 0))
-        goto failed;
+      our_credentials = _dbus_credentials_copy (credentials);
     }
   else
     {
-      if (!_dbus_homedir_from_username (username, &homedir))
+      our_credentials = _dbus_credentials_new_from_current_process ();
+    }
+  
+  if (our_credentials == NULL)
+    goto failed;
+
+  if (_dbus_credentials_are_anonymous (our_credentials))
+    {
+      if (!_dbus_credentials_add_from_current_process (our_credentials))
         goto failed;
     }
-
-#ifdef DBUS_BUILD_TESTS
- {
-   const char *override;
-
-   override = _dbus_getenv ("DBUS_TEST_HOMEDIR");
-   if (override != NULL && *override != '\0')
-     {
-       _dbus_string_set_length (&homedir, 0);
-       if (!_dbus_string_append (&homedir, override))
-         goto failed;
-
-       _dbus_verbose ("Using fake homedir for testing: %s\n",
-                      _dbus_string_get_const_data (&homedir));
-     }
-   else
-     {
-       static dbus_bool_t already_warned = FALSE;
-       if (!already_warned)
-         {
-           _dbus_warn ("Using your real home directory for testing, set DBUS_TEST_HOMEDIR to avoid\n");
-           already_warned = TRUE;
-         }
-     }
- }
-#endif
   
-  _dbus_assert (username != NULL);    
+  if (!_dbus_append_keyring_directory_for_credentials (&ringdir,
+                                                       our_credentials))
+    goto failed;
   
   keyring = _dbus_keyring_new ();
   if (keyring == NULL)
     goto failed;
 
+  _dbus_assert (keyring->credentials == NULL);
+  keyring->credentials = our_credentials;
+  our_credentials = NULL; /* so we don't unref it again later */
+  
   /* should have been validated already, but paranoia check here */
   if (!_dbus_keyring_validate_context (context))
     {
@@ -794,18 +772,12 @@ _dbus_keyring_new_homedir (const DBusString *username,
       goto failed;
     }
 
-  if (!_dbus_string_copy (username, 0,
-                          &keyring->username, 0))
-    goto failed;
-  
-  if (!_dbus_string_copy (&homedir, 0,
+  /* Save keyring dir in the keyring object */
+  if (!_dbus_string_copy (&ringdir, 0,
                           &keyring->directory, 0))
-    goto failed;
-  
-  if (!_dbus_concat_dir_and_file (&keyring->directory,
-                                  &dotdir))
-    goto failed;
+    goto failed;  
 
+  /* Create keyring->filename based on keyring dir and context */
   if (!_dbus_string_copy (&keyring->directory, 0,
                           &keyring->filename, 0))
     goto failed;
@@ -814,6 +786,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
                                   context))
     goto failed;
 
+  /* Create lockfile name */
   if (!_dbus_string_copy (&keyring->filename, 0,
                           &keyring->filename_lock, 0))
     goto failed;
@@ -821,6 +794,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
   if (!_dbus_string_append (&keyring->filename_lock, ".lock"))
     goto failed;
 
+  /* Reload keyring */
   dbus_error_init (&tmp_error);
   if (!_dbus_keyring_reload (keyring, FALSE, &tmp_error))
     {
@@ -842,7 +816,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
       dbus_error_free (&tmp_error);
     }
 
-  _dbus_string_free (&homedir);
+  _dbus_string_free (&ringdir);
   
   return keyring;
   
@@ -851,9 +825,11 @@ _dbus_keyring_new_homedir (const DBusString *username,
     dbus_set_error_const (error,
                           DBUS_ERROR_NO_MEMORY,
                           NULL);
+  if (our_credentials)
+    _dbus_credentials_unref (our_credentials);
   if (keyring)
     _dbus_keyring_unref (keyring);
-  _dbus_string_free (&homedir);
+  _dbus_string_free (&ringdir);
   return NULL;
 
 }
@@ -998,19 +974,19 @@ _dbus_keyring_get_best_key (DBusKeyring  *keyring,
 }
 
 /**
- * Checks whether the keyring is for the given username.
+ * Checks whether the keyring is for the same user as the given credentials.
  *
  * @param keyring the keyring
- * @param username the username to check
+ * @param credentials the credentials to check
  *
  * @returns #TRUE if the keyring belongs to the given user
  */
 dbus_bool_t
-_dbus_keyring_is_for_user (DBusKeyring       *keyring,
-                           const DBusString  *username)
+_dbus_keyring_is_for_credentials (DBusKeyring           *keyring,
+                                  DBusCredentials       *credentials)
 {
-  return _dbus_string_equal (&keyring->username,
-                             username);
+  return _dbus_credentials_same_user (keyring->credentials,
+                                      credentials);
 }
 
 /**
@@ -1100,8 +1076,8 @@ _dbus_keyring_test (void)
 
   _dbus_string_init_const (&context, "org_freedesktop_dbus_testsuite");
   dbus_error_init (&error);
-  ring1 = _dbus_keyring_new_homedir (NULL, &context,
-                                     &error);
+  ring1 = _dbus_keyring_new_for_credentials (NULL, &context,
+                                             &error);
   _dbus_assert (ring1);
   _dbus_assert (error.name == NULL);
 
@@ -1113,7 +1089,7 @@ _dbus_keyring_test (void)
       goto failure;
     }
 
-  ring2 = _dbus_keyring_new_homedir (NULL, &context, &error);
+  ring2 = _dbus_keyring_new_for_credentials (NULL, &context, &error);
   _dbus_assert (ring2);
   _dbus_assert (error.name == NULL);
   

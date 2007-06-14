@@ -165,15 +165,10 @@ dbus_bool_t _dbus_send_credentials_socket (int              server_fd,
 dbus_bool_t _dbus_credentials_add_from_username        (DBusCredentials  *credentials,
                                                         const DBusString *username);
 dbus_bool_t _dbus_credentials_add_from_current_process (DBusCredentials  *credentials);
-dbus_bool_t _dbus_credentials_parse_and_add_desired    (DBusCredentials  *credentials,
+dbus_bool_t _dbus_credentials_parse_and_add_user       (DBusCredentials  *credentials,
                                                         const DBusString *desired_identity);
+dbus_bool_t _dbus_append_user_from_current_process     (DBusString        *str);
 
-dbus_bool_t _dbus_username_from_current_process (const DBusString **username);
-dbus_bool_t _dbus_append_desired_identity       (DBusString *str);
-
-dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);
-dbus_bool_t _dbus_homedir_from_username         (const DBusString  *username,
-                                                 DBusString        *homedir);
 dbus_bool_t _dbus_parse_unix_user_from_config   (const DBusString  *username,
                                                  dbus_uid_t        *uid_p);
 dbus_bool_t _dbus_parse_unix_group_from_config  (const DBusString  *groupname,
@@ -186,6 +181,8 @@ dbus_bool_t _dbus_unix_user_is_at_console       (dbus_uid_t         uid,
 dbus_bool_t _dbus_unix_user_is_process_owner    (dbus_uid_t         uid);
 dbus_bool_t _dbus_windows_user_is_process_owner (const char        *windows_sid);
 
+dbus_bool_t _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
+                                                            DBusCredentials *credentials);
 
 /** Opaque type representing an atomically-modifiable integer
  * that can be used from multiple threads.

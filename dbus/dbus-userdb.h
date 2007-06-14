@@ -108,6 +108,13 @@ dbus_bool_t _dbus_is_console_user               (dbus_uid_t         uid,
 dbus_bool_t _dbus_is_a_number                   (const DBusString *str, 
                                                  unsigned long    *num);
 
+dbus_bool_t _dbus_username_from_current_process (const DBusString **username);
+dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);
+dbus_bool_t _dbus_homedir_from_username         (const DBusString  *username,
+                                                 DBusString        *homedir);
+
+dbus_bool_t _dbus_homedir_from_uid              (dbus_uid_t         uid,
+                                                 DBusString        *homedir);
 
 DBUS_END_DECLS
 

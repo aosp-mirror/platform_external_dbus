@@ -555,8 +555,8 @@ sha1_handle_first_client_response (DBusAuth         *auth,
    * a different DBusAuth for every connection.
    */
   if (auth->keyring &&
-      !_dbus_keyring_is_for_user (auth->keyring,
-                                  data))
+      !_dbus_keyring_is_for_credentials (auth->keyring,
+                                         auth->desired_identity))
     {
       _dbus_keyring_unref (auth->keyring);
       auth->keyring = NULL;
@@ -565,9 +565,9 @@ sha1_handle_first_client_response (DBusAuth         *auth,
   if (auth->keyring == NULL)
     {
       dbus_error_init (&error);
-      auth->keyring = _dbus_keyring_new_homedir (data,
-                                                 &auth->context,
-                                                 &error);
+      auth->keyring = _dbus_keyring_new_for_credentials (auth->desired_identity,
+                                                         &auth->context,
+                                                         &error);
 
       if (auth->keyring == NULL)
         {
@@ -780,15 +780,18 @@ static dbus_bool_t
 handle_client_initial_response_cookie_sha1_mech (DBusAuth   *auth,
                                                  DBusString *response)
 {
-  const DBusString *username;
+  DBusString username;
   dbus_bool_t retval;
 
   retval = FALSE;
 
-  if (!_dbus_username_from_current_process (&username))
+  if (!_dbus_string_init (&username))
+    return FALSE;
+  
+  if (!_dbus_append_user_from_current_process (&username))
     goto out_0;
 
-  if (!_dbus_string_hex_encode (username, 0,
+  if (!_dbus_string_hex_encode (&username, 0,
 				response,
 				_dbus_string_get_length (response)))
     goto out_0;
@@ -796,6 +799,8 @@ handle_client_initial_response_cookie_sha1_mech (DBusAuth   *auth,
   retval = TRUE;
   
  out_0:
+  _dbus_string_free (&username);
+  
   return retval;
 }
 
@@ -887,9 +892,9 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
       DBusError error;
 
       dbus_error_init (&error);
-      auth->keyring = _dbus_keyring_new_homedir (NULL,
-                                                 &context,
-                                                 &error);
+      auth->keyring = _dbus_keyring_new_for_credentials (NULL,
+                                                         &context,
+                                                         &error);
 
       if (auth->keyring == NULL)
         {
@@ -1057,7 +1062,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
     }
   else
     {
-      if (!_dbus_credentials_parse_and_add_desired(auth->desired_identity,
+      if (!_dbus_credentials_parse_and_add_user(auth->desired_identity,
                                                    &auth->identity))
         {
           _dbus_verbose ("%s: could not get credentials from uid string\n",
@@ -1125,7 +1130,7 @@ handle_client_initial_response_external_mech (DBusAuth         *auth,
   if (!_dbus_string_init (&plaintext))
     return FALSE;
 
-  if (!_dbus_append_desired_identity (&plaintext))
+  if (!_dbus_append_user_from_current_process (&plaintext))
     goto failed;
 
   if (!_dbus_string_hex_encode (&plaintext, 0,
