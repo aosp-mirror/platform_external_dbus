@@ -414,7 +414,7 @@ _dbus_userdb_test (const char *test_data_dir)
   unsigned long *group_ids;
   int n_group_ids, i;
 
-  if (!_dbus_username_from_current_process (&username))
+  if (!_dbus_append_desired_identity (&username))
     _dbus_assert_not_reached ("didn't get username");
 
   if (!_dbus_homedir_from_current_process (&homedir))

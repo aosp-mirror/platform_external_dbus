@@ -785,7 +785,7 @@ handle_client_initial_response_cookie_sha1_mech (DBusAuth   *auth,
 
   retval = FALSE;
 
-  if (!_dbus_username_from_current_process (&username))
+  if (!_dbus_append_desired_identity (&username))
     goto out_0;
 
   if (!_dbus_string_hex_encode (username, 0,

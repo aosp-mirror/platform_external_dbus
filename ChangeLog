@@ -1,4 +1,10 @@
 2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
+    
+	* global rename of function dbus_username_from_current_process
+	to _dbus_append_desired_identity. 
+	Approved by Havoc Pennington
+
+2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-win.c: disabled DBusUserInfo related code
 		(_dbus_append_desired_identity,	_dbus_windows_user_is_process_owner):

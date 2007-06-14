@@ -738,7 +738,7 @@ _dbus_keyring_new_homedir (const DBusString *username,
     {
       const DBusString *const_homedir;
 
-      if (!_dbus_username_from_current_process (&username) ||
+      if (!_dbus_append_desired_identity (&username) ||
           !_dbus_homedir_from_current_process (&const_homedir))
         goto failed;
 
