@@ -22,6 +22,15 @@
  *
  */
 
+/* #define ENABLE_DBUSGROUPINFO */
+
+#ifdef ENABLE_DBUSGROUPINFO
+typedef struct {
+    int gid;
+    char *groupname;
+} DBusGroupInfo;
+#endif
+
 #undef open
 
 #define STRSAFE_NO_DEPRECATE
@@ -206,6 +215,32 @@ _dbus_write_pid_file (const DBusString *filename,
       return FALSE;
     }
 
+  return TRUE;
+}
+
+/**
+ * Verify that after the fork we can successfully change to this user.
+ *
+ * @param user the username given in the daemon configuration
+ * @returns #TRUE if username is valid
+ */
+dbus_bool_t
+_dbus_verify_daemon_user (const char *user)
+{
+  return TRUE;
+}
+
+/**
+ * Changes the user and group the bus is running as.
+ *
+ * @param user the user to become
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_change_to_daemon_user  (const char    *user,
+                              DBusError     *error)
+{
   return TRUE;
 }
 
@@ -755,7 +790,7 @@ _dbus_path_is_absolute (const DBusString *filename)
     return FALSE;
 }
 
-
+#ifdef ENABLE_DBUSGROPINFO
 static dbus_bool_t
 fill_group_info(DBusGroupInfo    *info,
                 dbus_gid_t        gid,
@@ -866,6 +901,7 @@ _dbus_group_info_fill (DBusGroupInfo    *info,
   return fill_group_info (info, DBUS_GID_UNSET,
                           groupname, error);
 }
+#endif
 
 /** @} */ /* End of DBusInternalsUtils functions */
 

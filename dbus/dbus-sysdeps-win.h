@@ -78,7 +78,7 @@ void _dbus_win_warn_win_error  (const char *message,
                                 int         code);
 extern const char* _dbus_lm_strerror  (int error_number);
 
-
+#ifdef ENABLE_DBUSUSERINFO
 dbus_bool_t
 fill_win_user_info_from_uid (dbus_uid_t    uid,
                              DBusUserInfo *info,
@@ -87,6 +87,13 @@ dbus_bool_t
 fill_win_user_info_from_name (wchar_t      *wname,
                               DBusUserInfo *info,
                               DBusError    *error);
+
+dbus_bool_t
+fill_user_info (DBusUserInfo       *info,
+                dbus_uid_t          uid,
+                const DBusString   *username,
+                DBusError          *error);
+#endif
 
 dbus_bool_t _dbus_win_account_to_sid (const wchar_t *waccount,
                                       void         **ppsid,
@@ -154,13 +161,7 @@ struct DBusFile
 void _dbus_handle_to_socket (int          handle,
                              DBusSocket **socket);
 int  _dbus_socket_to_handle (DBusSocket  *socket);
-
-dbus_bool_t
-fill_user_info (DBusUserInfo       *info,
-                dbus_uid_t          uid,
-                const DBusString   *username,
-                DBusError          *error);
-
+#if 0
 // replace with a windows version
 dbus_bool_t _dbus_open_unix_socket (int              *fd,
                                     DBusError        *error);
@@ -171,6 +172,7 @@ int _dbus_listen_unix_socket  (const char     *path,
                                dbus_bool_t     abstract,
                                DBusError      *error);
 
+#endif
 dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 
                                        char *s);
 

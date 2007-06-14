@@ -1,3 +1,16 @@
+2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c: disabled DBusUserInfo related code
+		(_dbus_append_desired_identity,	_dbus_windows_user_is_process_owner):
+    		new win32 functions as counterpart of unix related 
+		(_dbus_send_credentials_socket,_dbus_read_credentials_socket): 
+	    	renamed from ..._unix_socket
+		(_dbus_send_credentials_unix_socket): removed obsolate function
+	
+	* dbus/dbus-sysdeps-win-util.c: disabled DBusGroupInfo related code
+		(_dbus_verify_daemon_user,_dbus_change_to_daemon_user): 
+		    new win32 functions as counterpart of unix related
+	
 2007-06-14  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* doc/dbus-specification.xml: say the protocol version is 1 instead of

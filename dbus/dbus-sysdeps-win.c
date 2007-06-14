@@ -25,6 +25,15 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+
+/* #define ENABLE_DBUSUSERINFO */
+
+typedef struct DBusCredentials{
+    int uid;
+    int gid;
+    int pid;
+} DBusCredentials;
+
 #undef open
 
 #define STRSAFE_NO_DEPRECATE
@@ -62,6 +71,16 @@
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
+#ifdef ENABLE_DBUSUSERINFO
+typedef struct {
+    int uid;
+    char *username;
+    int n_group_ids;
+    dbus_gid_t *group_ids;
+    int primary_gid;
+    char *homedir;
+} DBusUserInfo;
+#endif
 
 static
 void 
@@ -855,6 +874,7 @@ _dbus_write_socket_two (int               handle,
   return 0;
 }
 
+#if 0
 /**
  * @def _DBUS_MAX_SUN_PATH_LENGTH
  *
@@ -1074,6 +1094,7 @@ _dbus_listen_unix_socket (const char     *path,
   return listen_handle;
 #endif //DBUS_WINCE
 }
+#endif
 
 #if 0
 
@@ -1158,7 +1179,7 @@ out1:
   return retval;
 }
 
-
+#ifdef ENABLE_DBUSUSERINFO
 dbus_bool_t
 fill_win_user_info_name_and_groups (wchar_t 	  *wname,
                                     wchar_t 	  *wdomain,
@@ -1537,7 +1558,7 @@ out0:
 #endif //DBUS_WINCE
 }
 
-
+#endif
 
 
 void
@@ -3632,7 +3653,7 @@ retry:
 
 
 dbus_bool_t
-write_credentials_byte (int            handle,
+_dbus_send_credentials_socket (int            handle,
                         DBusError      *error)
 {
 /* FIXME: for the session bus credentials shouldn't matter (?), but
@@ -3722,7 +3743,7 @@ _dbus_credentials_from_current_process (DBusCredentials *credentials)
  * @returns #TRUE on success
  */
 dbus_bool_t
-_dbus_read_credentials_unix_socket  (int              handle,
+_dbus_read_credentials_socket  (int              handle,
                                      DBusCredentials *credentials,
                                      DBusError       *error)
 {
@@ -3762,42 +3783,7 @@ _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
   return TRUE;
 }
 
-
-/**
- * Gets user info for the given user ID.
- *
- * @param info user info object to initialize
- * @param uid the user ID
- * @param error error return
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_user_info_fill_uid (DBusUserInfo *info,
-                          dbus_uid_t    uid,
-                          DBusError    *error)
-{
-  return fill_user_info (info, uid,
-                         NULL, error);
-}
-
-/**
- * Gets user info for the given username.
- *
- * @param info user info object to initialize
- * @param username the username
- * @param error error return
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_user_info_fill (DBusUserInfo     *info,
-                      const DBusString *username,
-                      DBusError        *error)
-{
-  return fill_user_info (info, DBUS_UID_UNSET,
-                         username, error);
-}
-
-
+#ifdef ENABLE_DBUSUSERINFO
 dbus_bool_t
 fill_user_info (DBusUserInfo       *info,
                 dbus_uid_t          uid,
@@ -3847,7 +3833,41 @@ fill_user_info (DBusUserInfo       *info,
 
   return TRUE;
 }
+/**
+ * Gets user info for the given user ID.
+ *
+ * @param info user info object to initialize
+ * @param uid the user ID
+ * @param error error return
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_user_info_fill_uid (DBusUserInfo *info,
+                          dbus_uid_t    uid,
+                          DBusError    *error)
+{
+  return fill_user_info (info, uid,
+                         NULL, error);
+}
 
+
+/**
+ * Gets user info for the given username.
+ *
+ * @param info user info object to initialize
+ * @param username the username
+ * @param error error return
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_user_info_fill (DBusUserInfo     *info,
+                      const DBusString *username,
+                      DBusError        *error)
+{
+  return fill_user_info (info, DBUS_UID_UNSET,
+                         username, error);
+}
+#endif
 
 /**
  * Appends the given filename to the given directory.
@@ -3892,8 +3912,21 @@ _dbus_concat_dir_and_file (DBusString       *dir,
                             _dbus_string_get_length (dir));
 }
 
-
-
+/**
+ * Append to the string the identity we would like to have when we authenticate,
+ * on UNIX this is the current process UID and on Windows something else.
+ * No escaping is required, that is done in dbus-auth.c.
+ * 
+ * @param str the string to append to
+ * @returns #FALSE on no memory
+ */
+dbus_bool_t
+_dbus_append_desired_identity (DBusString *str)
+{
+    /* FIXME: */
+  return _dbus_string_append_uint (str,
+                                   _dbus_getuid ());
+}
 
 /**
  * Gets our process ID
@@ -4675,35 +4708,6 @@ void _dbus_print_backtrace(void)
 }
 #endif
 
-/**
- * Sends a single nul byte with our UNIX credentials as ancillary
- * data.  Returns #TRUE if the data was successfully written.  On
- * systems that don't support sending credentials, just writes a byte,
- * doesn't send any credentials.  On some systems, such as Linux,
- * reading/writing the byte isn't actually required, but we do it
- * anyway just to avoid multiple codepaths.
- *
- * Fails if no byte can be written, so you must select() first.
- *
- * The point of the byte is that on some systems we have to
- * use sendmsg()/recvmsg() to transmit credentials.
- *
- * @param server_fd file descriptor for connection to server
- * @param error return location for error code
- * @returns #TRUE if the byte was sent
- */
-dbus_bool_t
-_dbus_send_credentials_unix_socket  (int              server_fd,
-                                     DBusError       *error)
-{
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  if (write_credentials_byte (server_fd, error))
-    return TRUE;
-  else
-    return FALSE;
-}
-
 static dbus_uint32_t fromAscii(char ascii)
 {
     if(ascii >= '0' && ascii <= '9')
@@ -5158,6 +5162,12 @@ _dbus_flush_caches (void)
 {
 
 }
+
+dbus_bool_t _dbus_windows_user_is_process_owner (const char *windows_sid)
+{
+    return TRUE;
+}
+
 
 /** @} end of sysdeps-win */
 /* tests in dbus-sysdeps-util.c */
