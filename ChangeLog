@@ -1,5 +1,11 @@
 2007-06-14  Havoc Pennington  <hp@redhat.com>
 
+	* bus/dispatch.c (check_get_connection_unix_process_id): mop up
+	getpid() (noticed by Peter KKümmel) and adapt the test to 
+	expect a "pid unknown" error when running on Windows.
+
+2007-06-14  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps-unix.c (_dbus_credentials_parse_and_add_user):
 	delete this function since it was effectively the same as
 	_dbus_credentials_add_from_username()
@@ -214,7 +220,7 @@
 2007-05-27  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* bus/policy.c,dbus/dbus-internals.c: fixed inconsistant line endings 
-	as reported by Peter K�mmel.
+	as reported by Peter Kümmel.
 
 2007-05-25  John (J5) Palmieri  <johnp@redhat.com>
 
