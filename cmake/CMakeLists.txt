@@ -11,9 +11,6 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.4.4 FATAL_ERROR)
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
 
-find_package(KDEWIN_INSTALLER)
-
-
 #enable building of shared library
 SET(BUILD_SHARED_LIBS ON)
 
@@ -21,10 +18,13 @@ if (CYGWIN)
    set (WIN32)
 endif (CYGWIN)
     
-# search packages used by KDE
+# search for required packages
 if (WIN32)
-	find_package(GNUWIN32)
+	find_package(KDEWIN)
+    find_package(KDEWIN_Packager)
 	find_package(LibIconv)
+    include(Win32Macros)
+    addExplorerWrapper(${PACKAGE})
 endif (WIN32)
 find_package(LibXml2)
 find_package(LibExpat)
@@ -538,33 +538,8 @@ if (DBUS_DISABLE_CHECKS)
 endif(DBUS_DISABLE_CHECKS)
 MESSAGE(" ")
 
-
 INCLUDE(modules/CPackInstallConfig.cmake)
 
-if (KDEWIN_INSTALLER_FOUND)
-    if (MSVC)
-        add_custom_target(kdewinpackage
-            COMMAND ${KDEWIN_PACKAGER} 
-                -name dbus
-                -root ${CMAKE_INSTALL_PREFIX} 
-                -srcroot ${CMAKE_SOURCE_DIR}/.. 
-                -version ${VERSION} 
-                -notes "ipc service"
-                -type msvc
-                -strip
-                -complete
-        )
-    else (MSVC)
-        add_custom_target(kdewinpackage
-            COMMAND ${KDEWIN_PACKAGER} 
-                -name dbus
-                -root ${CMAKE_INSTALL_PREFIX} 
-                -srcroot ${CMAKE_SOURCE_DIR}/.. 
-                -version ${VERSION} 
-                -notes "ipc service"
-                -strip
-                -type mingw
-                -complete
-        )
-    endif (MSVC)
-endif (KDEWIN_INSTALLER_FOUND)
+if (KDEWIN_PACKAGER_FOUND)
+    KDEWIN_PACKAGER(${PACKAGE} ${VERSION} "ipc library" "")
+endif (KDEWIN_PACKAGER_FOUND)

@@ -1,3 +1,12 @@
+2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
+	
+	* cmake/modules/FindKDEWIN.cmake,
+	  cmake/modules/FindKDEWIN_Packager.cmake, 
+	  cmake/modules/Win32Macros.cmake: new files from the 
+	  kdewin32 project
+	* cmake/CMakeLists.txt: cleaned support for kdewin installer and 
+	  win32 explorer wrapper
+
 2007-06-13  Havoc Pennington  <hp@redhat.com>
 	
 	* dbus/dbus-message.c (dbus_message_iter_open_container): Fix
