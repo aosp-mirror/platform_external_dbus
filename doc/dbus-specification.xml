@@ -757,9 +757,7 @@
                 the major protocol version of the receiving application does not
                 match, the applications will not be able to communicate and the
                 D-Bus connection must be disconnected. The major protocol
-                version for this version of the specification is 0.
-                  FIXME this field is stupid and pointless to put in 
-                  every message.
+                version for this version of the specification is 1.
                 </entry>
               </row>
               <row>

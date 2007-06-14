@@ -1,3 +1,10 @@
+2007-06-14  Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
+	* doc/dbus-specification.xml: say the protocol version is 1 instead of
+	0 (patch from Kristoffer Lundén, fd.o#10033) and remove the FIXME
+	about removing protocol version from messages (as per Havoc's comment
+	on that bug)
+
 2007-06-14  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-win.c (_dbus_pid_for_log,_dbus_flush_caches): 
