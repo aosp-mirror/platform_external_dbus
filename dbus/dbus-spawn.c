@@ -31,8 +31,10 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include <errno.h>
 #include <stdlib.h>
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
 
 /**
  * @addtogroup DBusInternalsUtils

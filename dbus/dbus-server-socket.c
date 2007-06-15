@@ -169,11 +169,11 @@ socket_handle_watch (DBusWatch    *watch,
         {
           /* EINTR handled for us */
           
-          if (errno == EAGAIN || errno == EWOULDBLOCK)
+          if (_dbus_get_is_errno_eagain_or_ewouldblock ())
             _dbus_verbose ("No client available to accept after all\n");
           else
             _dbus_verbose ("Failed to accept a client connection: %s\n",
-                           _dbus_strerror (errno));
+                           _dbus_strerror_from_errno ());
 
           SERVER_UNLOCK (server);
         }

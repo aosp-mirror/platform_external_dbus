@@ -967,6 +967,55 @@ _dbus_error_from_errno (int error_number)
   return DBUS_ERROR_FAILED;
 }
 
+/**
+ * Assign 0 to the global errno variable
+ */
+void
+_dbus_set_errno_to_zero (void)
+{
+  errno = 0;
+}
+
+/**
+ * See if errno is set
+ * @returns #TRUE if errno is not 0
+ */
+dbus_bool_t
+_dbus_get_is_errno_nonzero (void)
+{
+  return errno != 0;
+}
+
+/**
+ * See if errno is ENOMEM
+ * @returns #TRUE if errno == ENOMEM
+ */
+dbus_bool_t
+_dbus_get_is_errno_enomem (void)
+{
+  return errno == ENOMEM;
+}
+
+/**
+ * See if errno is EINTR
+ * @returns #TRUE if errno == EINTR
+ */
+dbus_bool_t
+_dbus_get_is_errno_eintr (void)
+{
+  return errno == EINTR;
+}
+
+/**
+ * Get error message from errno
+ * @returns _dbus_strerror(errno)
+ */
+const char*
+_dbus_strerror_from_errno (void)
+{
+  return _dbus_strerror (errno);
+}
+
 /** @} end of sysdeps */
 
 /* tests in dbus-sysdeps-util.c */

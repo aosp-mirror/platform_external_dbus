@@ -27,7 +27,9 @@
 #include <libxml/parser.h>
 #include <libxml/globals.h>
 #include <libxml/xmlmemory.h>
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 #include <string.h>
 
 /* About the error handling: 

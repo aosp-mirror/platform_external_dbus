@@ -29,6 +29,10 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
 #include "bus.h"
 #include <dbus/dbus-watch.h>
 

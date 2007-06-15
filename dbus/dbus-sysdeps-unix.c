@@ -32,6 +32,7 @@
 #include "dbus-userdb.h"
 #include "dbus-list.h"
 #include "dbus-credentials.h"
+
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2327,7 +2328,8 @@ _dbus_exit (int code)
 
 /**
  * A wrapper around strerror() because some platforms
- * may be lame and not have strerror().
+ * may be lame and not have strerror(). Also, never
+ * returns NULL.
  *
  * @param error_number errno.
  * @returns error description.
@@ -2991,6 +2993,19 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
  failed: 
   _dbus_string_free (&homedir);
   return FALSE;
+}
+
+
+/**
+ * See if errno is EAGAIN or EWOULDBLOCK (this has to be done differently
+ * for Winsock so is abstracted)
+ *
+ * @returns #TRUE if errno == EAGAIN or errno == EWOULDBLOCK
+ */
+dbus_bool_t
+_dbus_get_is_errno_eagain_or_ewouldblock (void)
+{
+  return errno == EAGAIN || errno == EWOULDBLOCK;
 }
 
 /* tests in dbus-sysdeps-util.c */

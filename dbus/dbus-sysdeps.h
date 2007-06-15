@@ -33,10 +33,6 @@
  * stuff straight out of string.h, so have this here for now.
  */
 #include <string.h>
-
-/* and it would just be annoying to abstract this */
-#include <errno.h>
-
 #include <stdarg.h>
 
 DBUS_BEGIN_DECLS
@@ -314,6 +310,13 @@ dbus_bool_t _dbus_generate_random_ascii        (DBusString *str,
                                                 int         n_bytes);
 
 const char* _dbus_error_from_errno (int error_number);
+
+void        _dbus_set_errno_to_zero                  (void);
+dbus_bool_t _dbus_get_is_errno_nonzero               (void);
+dbus_bool_t _dbus_get_is_errno_eagain_or_ewouldblock (void);
+dbus_bool_t _dbus_get_is_errno_enomem                (void);
+dbus_bool_t _dbus_get_is_errno_eintr                 (void);
+const char* _dbus_strerror_from_errno                (void);
 
 void _dbus_disable_sigpipe (void);
 

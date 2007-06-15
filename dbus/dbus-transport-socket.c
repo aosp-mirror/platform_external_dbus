@@ -267,17 +267,16 @@ read_data_into_auth (DBusTransport *transport,
     {
       /* EINTR already handled for us */
 
-      if (errno == ENOMEM)
+      if (_dbus_get_is_errno_enomem ())
         {
           *oom = TRUE;
         }
-      else if (errno == EAGAIN ||
-               errno == EWOULDBLOCK)
+      else if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         ; /* do nothing, just return FALSE below */
       else
         {
           _dbus_verbose ("Error reading from remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
         }
 
@@ -319,13 +318,12 @@ write_data_from_auth (DBusTransport *transport)
     {
       /* EINTR already handled for us */
       
-      if (errno == EAGAIN ||
-          errno == EWOULDBLOCK)
+      if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         ;
       else
         {
           _dbus_verbose ("Error writing to remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
         }
     }
@@ -613,13 +611,12 @@ do_writing (DBusTransport *transport)
         {
           /* EINTR already handled for us */
           
-          if (errno == EAGAIN ||
-              errno == EWOULDBLOCK)
+          if (_dbus_get_is_errno_eagain_or_ewouldblock ())
             goto out;
           else
             {
               _dbus_verbose ("Error writing to remote app: %s\n",
-                             _dbus_strerror (errno));
+                             _dbus_strerror_from_errno ());
               do_io_error (transport);
               goto out;
             }
@@ -749,19 +746,18 @@ do_reading (DBusTransport *transport)
     {
       /* EINTR already handled for us */
 
-      if (errno == ENOMEM)
+      if (_dbus_get_is_errno_enomem ())
         {
           _dbus_verbose ("Out of memory in read()/do_reading()\n");
           oom = TRUE;
           goto out;
         }
-      else if (errno == EAGAIN ||
-               errno == EWOULDBLOCK)
+      else if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         goto out;
       else
         {
           _dbus_verbose ("Error reading from remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
           goto out;
         }
@@ -1038,7 +1034,7 @@ socket_do_iteration (DBusTransport *transport,
     again:
       poll_res = _dbus_poll (&poll_fd, 1, poll_timeout);
 
-      if (poll_res < 0 && errno == EINTR)
+      if (poll_res < 0 && _dbus_get_is_errno_eintr ())
 	goto again;
 
       if (flags & DBUS_ITERATION_BLOCK)
@@ -1081,7 +1077,7 @@ socket_do_iteration (DBusTransport *transport,
       else
         {
           _dbus_verbose ("Error from _dbus_poll(): %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
         }
     }
 

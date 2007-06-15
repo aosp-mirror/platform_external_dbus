@@ -29,6 +29,10 @@
 #include <pthread.h>
 #include <string.h>
 
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
 typedef struct {
   pthread_mutex_t lock; /**< lock protecting count field */
   volatile int count;   /**< count of how many times lock holder has recursively locked */

@@ -24,14 +24,13 @@
 #include "driver.h"
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-watch.h>
-#ifdef DBUS_WIN
-#include <dbus/dbus-sysdeps-win.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 #include "selinux.h"
 
 static BusContext *context;

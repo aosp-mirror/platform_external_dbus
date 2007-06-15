@@ -34,7 +34,9 @@
 #include <dbus/dbus-spawn.h>
 #include <dbus/dbus-timeout.h>
 #include <dbus/dbus-sysdeps.h>
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 
 #define DBUS_SERVICE_SECTION "D-BUS Service"
 #define DBUS_SERVICE_NAME "Name"

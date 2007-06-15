@@ -1,3 +1,17 @@
+2007-06-15  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps.c (_dbus_set_errno_to_zero)
+	(_dbus_get_is_errno_nonzero, _dbus_get_is_errno_eintr)
+	(_dbus_strerror_from_errno): family of functions to abstract
+	errno, though these are somewhat bogus (really we should make our
+	socket wrappers not use errno probably - the issue is that any
+	usage of errno that isn't socket-related probably is not
+	cross-platform, so should either be in a unix-only file that can
+	use errno directly, or is a bug - these general errno wrappers
+	hide issues of this nature in non-socket code, while
+	socket-specific API changes would not since sockets are allowed
+	cross-platform)
+
 2007-06-14  Havoc Pennington  <hp@redhat.com>
 
 	* bus/dispatch.c (check_get_connection_unix_process_id): mop up

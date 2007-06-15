@@ -31,7 +31,9 @@
 #ifdef HAVE_SELINUX
 #include <sys/types.h>
 #include <unistd.h>
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 #include <pthread.h>
 #include <syslog.h>
 #include <selinux/selinux.h>

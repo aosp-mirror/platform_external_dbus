@@ -27,6 +27,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
 
 #include <dbus/dbus-internals.h>
 #include "dir-watch.h"
