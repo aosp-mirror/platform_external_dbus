@@ -161,18 +161,7 @@ struct DBusFile
 void _dbus_handle_to_socket (int          handle,
                              DBusSocket **socket);
 int  _dbus_socket_to_handle (DBusSocket  *socket);
-#if 0
-// replace with a windows version
-dbus_bool_t _dbus_open_unix_socket (int              *fd,
-                                    DBusError        *error);
-int _dbus_connect_unix_socket (const char     *path,
-                               dbus_bool_t     abstract,
-                               DBusError      *error);
-int _dbus_listen_unix_socket  (const char     *path,
-                               dbus_bool_t     abstract,
-                               DBusError      *error);
 
-#endif
 dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 
                                        char *s);
 

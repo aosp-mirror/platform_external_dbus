@@ -14,6 +14,7 @@ set (dbusinclude_HEADERS
 	${DBUS_DIR}/dbus-address.h
 	${DBUS_DIR}/dbus-bus.h
 	${DBUS_DIR}/dbus-connection.h
+	${DBUS_DIR}/dbus-credentials.h
 	${DBUS_DIR}/dbus-errors.h
 	${DBUS_DIR}/dbus-macros.h
 	${DBUS_DIR}/dbus-memory.h
@@ -37,6 +38,7 @@ set (DBUS_LIB_SOURCES
 	${DBUS_DIR}/dbus-auth-script.c
 	${DBUS_DIR}/dbus-bus.c
 	${DBUS_DIR}/dbus-connection.c
+	${DBUS_DIR}/dbus-credentials.c
 	${DBUS_DIR}/dbus-errors.c
 	${DBUS_DIR}/dbus-keyring.c
 	${DBUS_DIR}/dbus-marshal-header.c
@@ -64,14 +66,14 @@ set (DBUS_LIB_SOURCES
 #  and move code to a *-win.c file
 )
 if(UNIX)
-    set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
-	    ${DBUS_DIR}/dbus-transport-unix.c
-	    ${DBUS_DIR}/dbus-server-unix.c
+	set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
+		${DBUS_DIR}/dbus-transport-unix.c
+		${DBUS_DIR}/dbus-server-unix.c
 	)
 else(UNIX)
-    set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
-#	    ${DBUS_DIR}/dbus-transport-win.c
-	    ${DBUS_DIR}/dbus-server-win.c
+	set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
+		${DBUS_DIR}/dbus-transport-win.c
+		${DBUS_DIR}/dbus-server-win.c
 	)
 endif(UNIX)
 
@@ -99,11 +101,21 @@ set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-threads-internal.h
 	${DBUS_DIR}/dbus-transport.h
 	${DBUS_DIR}/dbus-transport-protected.h
-	${DBUS_DIR}/dbus-transport-unix.h
 	${DBUS_DIR}/dbus-watch.h
 	${CMAKE_BINARY_DIR}/config.h
 ##dbus-md5.h
 )
+if(UNIX)
+	set (DBUS_LIB_HEADERS ${DBUS_LIB_HEADERS} 
+		${DBUS_DIR}/dbus-transport-unix.h
+	)
+else(UNIX)
+	set (DBUS_LIB_HEADERS ${DBUS_LIB_HEADERS} 
+		${DBUS_DIR}/dbus-transport-win.h
+	)
+endif(UNIX)
+
+
 ### source code that goes in the installed client library
 ### AND is generic utility functionality used by the 
 ### daemon or test programs (all symbols in here should 
@@ -119,8 +131,8 @@ set (DBUS_SHARED_SOURCES
 	${DBUS_DIR}/dbus-string.c
 	${DBUS_DIR}/dbus-sysdeps.c
 	${DBUS_DIR}/dbus-sysdeps-util.c
-	${DBUS_DIR}/dbus-userdb.c
 )
+#	${DBUS_DIR}/dbus-userdb.c
 
 set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-dataslot.h
@@ -142,6 +154,7 @@ set (DBUS_SHARED_HEADERS
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 set (DBUS_UTIL_SOURCES
 	${DBUS_DIR}/dbus-auth-util.c
+	${DBUS_DIR}/dbus-credentials-util.c
 	${DBUS_DIR}/dbus-mainloop.c
 	${DBUS_DIR}/dbus-marshal-byteswap-util.c
 	${DBUS_DIR}/dbus-marshal-recursive-util.c
@@ -150,8 +163,8 @@ set (DBUS_UTIL_SOURCES
 	${DBUS_DIR}/dbus-message-util.c
 	${DBUS_DIR}/dbus-shell.c
 	${DBUS_DIR}/dbus-string-util.c
-	${DBUS_DIR}/dbus-userdb-util.c
 )
+#${DBUS_DIR}/dbus-userdb-util.c
 
 if (DBUS_BUILD_TESTS)
 	set (DBUS_UTIL_SOURCES 
@@ -177,9 +190,9 @@ if (WIN32)
 		${DBUS_DIR}/dbus-spawn-win.c
 	)
 	set (DBUS_SHARED_HEADERS ${DBUS_SHARED_HEADERS} 
-    ${DBUS_DIR}/dbus-sockets-win.h
-    ${DBUS_DIR}/dbus-sysdeps-win.h
-  )
+		${DBUS_DIR}/dbus-sockets-win.h
+		${DBUS_DIR}/dbus-sysdeps-win.h
+	)
 	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
 
 else (WIN32)
@@ -190,10 +203,10 @@ else (WIN32)
 		${DBUS_DIR}/dbus-spawn.c
 	)
 	set (DBUS_SHARED_HEADERS ${DBUS_SHARED_HEADERS} 
-    ${DBUS_DIR}/dbus-server-unix.h
-    ${DBUS_DIR}/dbus-transport-unix.h
-    ${DBUS_DIR}/dbus-sysdeps-unix.h
-  )
+		${DBUS_DIR}/dbus-server-unix.h
+		${DBUS_DIR}/dbus-transport-unix.h
+		${DBUS_DIR}/dbus-sysdeps-unix.h
+	)
 endif (WIN32)
 
 set(libdbus_SOURCES

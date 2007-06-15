@@ -85,6 +85,9 @@
 /* Define to 1 if you have unistd.h */
 #cmakedefine   HAVE_UNISTD_H 1
 
+/* Define to 1 if you have errno.h */
+#cmakedefine   HAVE_ERRNO_H 1
+
 /* Define to 1 if you have stdio.h */
 #cmakedefine   HAVE_STDIO_H 1
 

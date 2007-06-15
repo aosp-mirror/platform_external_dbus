@@ -50,6 +50,7 @@ typedef struct {
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #ifdef __MINGW32__
 /* save string functions version
@@ -72,80 +73,6 @@ errno_t strcpy_s(char *dest, int size, char *src)
 }
 #endif
 
-/**
- * return the absolute path of the dbus installation 
- *
- * @param s buffer for installation path
- * @param len length of buffer
- * @returns #FALSE on failure
- */
-dbus_bool_t 
-_dbus_get_install_root(char *s, int len)
-{
-  char *p = NULL;
-  int ret = GetModuleFileName(NULL,s,len);
-  if ( ret == 0 
-    || ret == len && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-    {
-      *s = '\0';
-      return FALSE;
-    }
-  else if ((p = strstr(s,"\\bin\\")))
-    {
-      *(p+1)= '\0';
-      return TRUE;
-    }
-  else
-    {
-      *s = '\0';
-      return FALSE;
-    }
-}
-
-/* 
-  find session.conf either from installation or build root according to 
-  the following path layout 
-    install-root/
-      bin/dbus-daemon[d].exe
-      etc/session.conf 
-
-    build-root/
-      bin/dbus-daemon[d].exe
-      bus/session.conf 
-*/             
-dbus_bool_t 
-_dbus_get_config_file_name(DBusString *config_file, char *s)
-{
-  char path[MAX_PATH*2];
-  int path_size = sizeof(path);
-
-  if (!_dbus_get_install_root(path,path_size))
-    return FALSE;
-
-  strcat_s(path,path_size,"etc\\");
-  strcat_s(path,path_size,s);
-  if (_dbus_file_exists(path)) 
-    {
-      // find path from executable 
-      if (!_dbus_string_append (config_file, path))
-        return FALSE;
-    }
-  else 
-    {
-      if (!_dbus_get_install_root(path,path_size))
-        return FALSE;
-      strcat_s(path,path_size,"bus\\");
-      strcat_s(path,path_size,s);
-  
-      if (_dbus_file_exists(path)) 
-        {
-          if (!_dbus_string_append (config_file, path))
-            return FALSE;
-        }
-    }
-  return TRUE;
-}    
-    
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.
  *
@@ -975,6 +902,92 @@ _dbus_string_get_dirname(const DBusString *filename,
     return _dbus_string_copy_len (filename, 0, sep - 0,
                                   dirname, _dbus_string_get_length (dirname));
 }
+
+
+/**
+ * Checks to see if the UNIX user ID matches the UID of
+ * the process. Should always return #FALSE on Windows.
+ *
+ * @param uid the UNIX user ID
+ * @returns #TRUE if this uid owns the process.
+ */
+dbus_bool_t
+_dbus_unix_user_is_process_owner (dbus_uid_t uid)
+{
+  return FALSE;
+}
+
+/*=====================================================================
+  unix emulation functions - should be removed sometime in the future
+ =====================================================================*/
+
+/**
+ * Checks to see if the UNIX user ID is at the console.
+ * Should always fail on Windows (set the error to
+ * #DBUS_ERROR_NOT_SUPPORTED).
+ *
+ * @param uid UID of person to check 
+ * @param error return location for errors
+ * @returns #TRUE if the UID is the same as the console user and there are no errors
+ */
+dbus_bool_t
+_dbus_unix_user_is_at_console (dbus_uid_t         uid,
+                               DBusError         *error)
+{
+  return FALSE;
+}
+
+
+/**
+ * Parse a UNIX group from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param groupname the groupname text
+ * @param gid_p place to return the gid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_group_from_config (const DBusString  *groupname,
+                                    dbus_gid_t        *gid_p)
+{
+  return FALSE;
+}
+
+/**
+ * Parse a UNIX user from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param username the username text
+ * @param uid_p place to return the uid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_user_from_config (const DBusString  *username,
+                                   dbus_uid_t        *uid_p)
+{
+  return FALSE;
+}
+
+
+/**
+ * Gets all groups corresponding to the given UNIX user ID. On UNIX,
+ * just calls _dbus_groups_from_uid(). On Windows, should always
+ * fail since we don't know any UNIX groups.
+ *
+ * @param uid the UID
+ * @param group_ids return location for array of group IDs
+ * @param n_group_ids return location for length of returned array
+ * @returns #TRUE if the UID existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_unix_groups_from_uid (dbus_uid_t            uid,
+                            dbus_gid_t          **group_ids,
+                            int                  *n_group_ids)
+{
+  return FALSE;
+}
+
+
 
 /** @} */ /* DBusString stuff */
 
