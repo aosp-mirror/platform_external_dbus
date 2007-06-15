@@ -1,5 +1,16 @@
 2007-06-15  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-sysdeps-unix.c (_dbus_append_session_config_file)
+	(_dbus_append_system_config_file): new functions
+
+	* bus/main.c (main): use _dbus_append_system_config_file() and 
+	_dbus_append_session_config_file()
+
+	* dbus/Makefile.am (INCLUDES): move DBUS_SYSTEM_CONFIG_FILE and
+	DBUS_SESSION_CONFIG_FILE into this makefile
+
+2007-06-15  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps.c (_dbus_set_errno_to_zero)
 	(_dbus_get_is_errno_nonzero, _dbus_get_is_errno_eintr)
 	(_dbus_strerror_from_errno): family of functions to abstract

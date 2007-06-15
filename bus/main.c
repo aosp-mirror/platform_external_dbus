@@ -291,21 +291,15 @@ main (int argc, char **argv)
         {
           check_two_config_files (&config_file, "system");
 
-          if (!_dbus_string_append (&config_file, DBUS_SYSTEM_CONFIG_FILE))
+          if (!_dbus_append_system_config_file (&config_file))
             exit (1);
         }
       else if (strcmp (arg, "--session") == 0)
         {
           check_two_config_files (&config_file, "session");
 
-#ifdef DBUS_WIN
-          if (!_dbus_get_config_file_name (&config_file,"session.conf"))
+          if (!_dbus_append_session_config_file (&config_file))
             exit (1);
-          /* don't know how to map DBUS_SESSION_CONFIG_FILE to the function above */
-#else
-          if (!_dbus_string_append (&config_file, DBUS_SESSION_CONFIG_FILE))
-            exit (1);
-#endif
         }
       else if (strstr (arg, "--config-file=") == arg)
         {

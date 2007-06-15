@@ -2906,6 +2906,32 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
 }
 
 /**
+ * Append the absolute path of the system.conf file
+ * (there is no system bus on Windows so this can just
+ * return FALSE and print a warning or something)
+ * 
+ * @param str the string to append to
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_append_system_config_file (DBusString *str)
+{
+  return _dbus_string_append (str, DBUS_SYSTEM_CONFIG_FILE);
+}
+
+/**
+ * Append the absolute path of the session.conf file.
+ * 
+ * @param str the string to append to
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_append_session_config_file (DBusString *str)
+{
+  return _dbus_string_append (str, DBUS_SESSION_CONFIG_FILE);
+}
+
+/**
  * Called when the bus daemon is signaled to reload its configuration; any
  * caches should be nuked. Of course any caches that need explicit reload
  * are probably broken, but c'est la vie.

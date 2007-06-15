@@ -2,9 +2,7 @@
 configdir=$(sysconfdir)/dbus-1
 
 INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS)				\
-	-DDAEMON_NAME=\"dbus-daemon\"  -DDBUS_COMPILATION		\
-	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"	\
-	-DDBUS_SESSION_CONFIG_FILE=\""$(configdir)/session.conf"\"
+	-DDAEMON_NAME=\"dbus-daemon\"  -DDBUS_COMPILATION
 
 EFENCE=
 
