@@ -28,11 +28,11 @@
 
 /* #define ENABLE_DBUSUSERINFO */
 
-typedef struct DBusCredentials{
+struct DBusCredentials{
     int uid;
     int gid;
     int pid;
-} DBusCredentials;
+};
 
 #undef open
 

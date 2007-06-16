@@ -20,7 +20,9 @@ endif (CYGWIN)
     
 # search for required packages
 if (WIN32)
-	find_package(KDEWIN)
+    # include local header first to avoid using old installed header
+    set (CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${CMAKE_SOURCE_DIR}/..)
+    find_package(KDEWIN)
     find_package(KDEWIN_Packager)
 	find_package(LibIconv)
     include(Win32Macros)
@@ -87,6 +89,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
    set (CMAKE_DEBUG_POSTFIX "d")
 endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -save-temps")
+message(STATUS "-----" ${CMAKE_INCLUDE_PATH})
 
 #########################################################################
 # Windows CE

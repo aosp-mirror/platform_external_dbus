@@ -1,3 +1,29 @@
+2007-06-15  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/CMakeLists.txt: use local include header first
+
+	* dbus/dbus-sysdeps-win.c: mingw fix of DBusCredential struct
+
+2007-06-15  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/ConfigureChecks.cmake,cmake/config.h.cmake: 
+	added check for HAVE_ERRNO_H
+
+	* cmake/dbus/CMakeLists.txt: added missing files 
+	
+	* dbus/dbus-transport-win.c/.h: new files
+
+	* dbus/dbus-sysdeps-win.c,.h: added required _unix functions 
+	to make dbus compilable on win32 
+	
+	* dbus/dbus-sysdeps-win-utils.c,.h: moved some functions to 
+	dbus-sysdeps-win.c
+	
+	* dbus-win.patch: removed applied or obsolate patches
+	
+	Note: dbus-win32 is now compilable, no guarantee that it runs 
+	without any problems 
+
 2007-06-15  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps-unix.c (_dbus_append_session_config_file)
