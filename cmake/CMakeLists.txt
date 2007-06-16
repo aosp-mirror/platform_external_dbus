@@ -89,9 +89,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
    set (CMAKE_DEBUG_POSTFIX "d")
 endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -save-temps")
-message(STATUS "-----" ${CMAKE_INCLUDE_PATH})
-
 #########################################################################
 # Windows CE
 #
