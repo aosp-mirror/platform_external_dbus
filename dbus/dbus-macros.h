@@ -51,9 +51,11 @@
 #endif
 
 #if  __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
-#define DBUS_GNUC_DEPRECATED __attribute__((__deprecated__))
+#  define DBUS_DEPRECATED __attribute__ ((__deprecated__))
+#elif defined(_MSC_VER) && (_MSC_VER >= 1300)
+#  define DBUS_DEPRECATED __declspec(deprecated)
 #else
-#define DBUS_GNUC_DEPRECATED
+#  define DBUS_DEPRECATED
 #endif
 
 /* Normally docs are in .c files, but there isn't a .c file for this. */
@@ -103,9 +105,9 @@
  * A null pointer, defined appropriately for C or C++.
  */
 /**
- * @def DBUS_GNUC_DEPRECATED
+ * @def DBUS_DEPRECATED
  *
- * Tells gcc to warn about a function or type if it's used.
+ * Tells the compiler to warn about a function or type if it's used.
  * Code marked in this way should also be enclosed in
  * @code
  * #ifndef DBUS_DISABLE_DEPRECATED

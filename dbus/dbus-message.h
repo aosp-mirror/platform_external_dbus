@@ -173,7 +173,7 @@ void        dbus_message_iter_get_basic        (DBusMessageIter *iter,
 /* This function returns the wire protocol size of the array in bytes,
  * you do not want to know that probably
  */
-int         dbus_message_iter_get_array_len    (DBusMessageIter *iter) DBUS_GNUC_DEPRECATED;
+DBUS_DEPRECATED int         dbus_message_iter_get_array_len    (DBusMessageIter *iter);
 #endif
 void        dbus_message_iter_get_fixed_array  (DBusMessageIter *iter,
                                                 void            *value,

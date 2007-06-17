@@ -1,3 +1,9 @@
+2007-06-16  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-macros.h, dbus/dbus-message.c, 
+	dbus/dbus-message.h: renamed DBUS_GNUC_DEPRECATED 
+	to DBUS_DEPRECATED and extended to msvc compiler
+
 2007-06-15  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* cmake/CMakeLists.txt: use local include header first

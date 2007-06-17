@@ -1256,7 +1256,7 @@ dbus_message_new_error (DBusMessage *reply_to,
  * aside from the printf formatting.
  *
  * @todo add _DBUS_GNUC_PRINTF to this (requires moving _DBUS_GNUC_PRINTF to
- * public header, see DBUS_GNUC_DEPRECATED for an example)
+ * public header, see DBUS_DEPRECATED for an example)
  * 
  * @param reply_to the original message
  * @param error_name the error name
