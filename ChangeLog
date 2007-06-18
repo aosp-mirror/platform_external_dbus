@@ -1,3 +1,12 @@
+2007-06-18  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-watch.c (dbus_watch_get_socket)
+	(dbus_watch_get_unix_fd): new API to match DBusConnection
+	(dbus_watch_get_fd): deprecate this
+
+	Throughout: just s/dbus_watch_get_fd/dbus_watch_get_socket/g for
+	now since all the transports use sockets anyway
+	
 2007-06-16  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-macros.h, dbus/dbus-message.c, 

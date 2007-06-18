@@ -722,7 +722,7 @@ handle_watch (DBusWatch       *watch,
   if (condition & DBUS_WATCH_HANGUP)
     revents |= _DBUS_POLLHUP;
 
-  fd = dbus_watch_get_fd (watch);
+  fd = dbus_watch_get_socket (watch);
 
   if (fd == sitter->error_pipe_from_child)
     handle_error_pipe (sitter, revents);

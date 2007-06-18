@@ -286,7 +286,7 @@ _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
             
             _dbus_verbose ("Adding a %s watch on fd %d using newly-set add watch function\n",
                            watch_type,
-                           dbus_watch_get_fd (link->data));
+                           dbus_watch_get_socket (link->data));
           }
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
           
@@ -302,7 +302,7 @@ _dbus_watch_list_set_functions (DBusWatchList           *watch_list,
                                                              link2);
                   
                   _dbus_verbose ("Removing watch on fd %d using newly-set remove function because initial add failed\n",
-                                 dbus_watch_get_fd (link2->data));
+                                 dbus_watch_get_socket (link2->data));
                   
                   (* remove_function) (link2->data, data);
                   
@@ -359,7 +359,7 @@ _dbus_watch_list_add_watch (DBusWatchList *watch_list,
   if (watch_list->add_watch_function != NULL)
     {
       _dbus_verbose ("Adding watch on fd %d\n",
-                     dbus_watch_get_fd (watch));
+                     dbus_watch_get_socket (watch));
       
       if (!(* watch_list->add_watch_function) (watch,
                                                watch_list->watch_data))
@@ -390,7 +390,7 @@ _dbus_watch_list_remove_watch  (DBusWatchList *watch_list,
   if (watch_list->remove_watch_function != NULL)
     {
       _dbus_verbose ("Removing watch on fd %d\n",
-                     dbus_watch_get_fd (watch));
+                     dbus_watch_get_socket (watch));
       
       (* watch_list->remove_watch_function) (watch,
                                              watch_list->watch_data);
@@ -422,7 +422,7 @@ _dbus_watch_list_toggle_watch (DBusWatchList           *watch_list,
   if (watch_list->watch_toggled_function != NULL)
     {
       _dbus_verbose ("Toggling watch %p on fd %d to %d\n",
-                     watch, dbus_watch_get_fd (watch), watch->enabled);
+                     watch, dbus_watch_get_socket (watch), watch->enabled);
       
       (* watch_list->watch_toggled_function) (watch,
                                               watch_list->watch_data);
@@ -481,16 +481,59 @@ _dbus_watch_set_handler (DBusWatch        *watch,
  */
 
 /**
- * Gets the file descriptor that should be watched.
- *
- * On Windows, this will be a socket. On UNIX right now it will be a
- * socket but in principle it could be something else.
+ * Deprecated former name of dbus_watch_get_unix_fd().
  * 
  * @param watch the DBusWatch object.
  * @returns the file descriptor to watch.
  */
 int
 dbus_watch_get_fd (DBusWatch *watch)
+{
+  return dbus_watch_get_unix_fd (watch);
+}
+
+/**
+ * Returns a UNIX file descriptor to be watched,
+ * which may be a pipe, socket, or other type of
+ * descriptor. On UNIX this is preferred to
+ * dbus_watch_get_socket() since it works with
+ * more kinds of #DBusWatch.
+ *
+ * Always returns -1 on Windows. On Windows you use
+ * dbus_watch_get_socket() to get a Winsock socket to watch.
+ * 
+ * @param watch the DBusWatch object.
+ * @returns the file descriptor to watch.
+ */
+int
+dbus_watch_get_unix_fd (DBusWatch *watch)
+{
+  /* FIXME remove #ifdef and do this on a lower level
+   * (watch should have set_socket and set_unix_fd and track
+   * which it has, and the transport should provide the
+   * appropriate watch type)
+   */
+#ifdef DBUS_UNIX
+  return watch->fd;
+#else
+  return -1;
+#endif
+}
+
+/**
+ * Returns a socket to be watched, on UNIX this will return -1 if our
+ * transport is not socket-based so dbus_watch_get_unix_fd() is
+ * preferred.
+ *
+ * On Windows, dbus_watch_get_unix_fd() returns -1 but this function
+ * returns a Winsock socket (assuming the transport is socket-based,
+ * as it always is for now).
+ * 
+ * @param watch the DBusWatch object.
+ * @returns the socket to watch.
+ */
+int
+dbus_watch_get_socket (DBusWatch *watch)
 {
   return watch->fd;
 }
@@ -546,7 +589,7 @@ dbus_watch_set_data (DBusWatch        *watch,
                      DBusFreeFunction  free_data_function)
 {
   _dbus_verbose ("Setting watch fd %d data to data = %p function = %p from data = %p function = %p\n",
-                 dbus_watch_get_fd (watch),
+                 dbus_watch_get_socket (watch),
                  data, free_data_function, watch->data, watch->free_data_function);
   
   if (watch->free_data_function != NULL)

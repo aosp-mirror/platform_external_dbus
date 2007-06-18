@@ -161,7 +161,7 @@ socket_handle_watch (DBusWatch    *watch,
       int client_fd;
       int listen_fd;
       
-      listen_fd = dbus_watch_get_fd (watch);
+      listen_fd = dbus_watch_get_socket (watch);
 
       client_fd = _dbus_accept (listen_fd);
       

@@ -880,7 +880,7 @@ socket_handle_watch (DBusTransport *transport,
                        flags);
       else
         _dbus_verbose ("asked to handle watch %p on fd %d that we don't recognize\n",
-                       watch, dbus_watch_get_fd (watch));
+                       watch, dbus_watch_get_socket (watch));
     }
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
 

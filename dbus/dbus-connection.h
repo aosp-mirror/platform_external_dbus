@@ -352,7 +352,12 @@ dbus_bool_t dbus_connection_get_socket             (DBusConnection              
  * @{
  */
 
-int          dbus_watch_get_fd      (DBusWatch        *watch);
+#ifndef DBUS_DISABLE_DEPRECATED
+DBUS_DEPRECATED int dbus_watch_get_fd      (DBusWatch        *watch);
+#endif
+
+int          dbus_watch_get_unix_fd (DBusWatch        *watch);
+int          dbus_watch_get_socket  (DBusWatch        *watch);
 unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
 void*        dbus_watch_get_data    (DBusWatch        *watch);
 void         dbus_watch_set_data    (DBusWatch        *watch,

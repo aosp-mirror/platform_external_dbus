@@ -812,7 +812,7 @@ _dbus_transport_handle_watch (DBusTransport           *transport,
   if (transport->disconnected)
     return TRUE;
 
-  if (dbus_watch_get_fd (watch) < 0)
+  if (dbus_watch_get_socket (watch) < 0)
     {
       _dbus_warn_check_failed ("Tried to handle an invalidated watch; this watch should have been removed\n");
       return TRUE;

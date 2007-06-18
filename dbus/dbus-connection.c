@@ -4475,12 +4475,13 @@ dbus_connection_dispatch (DBusConnection *connection)
  * dbus_watch_get_enabled() every time anyway.
  * 
  * The DBusWatch can be queried for the file descriptor to watch using
- * dbus_watch_get_fd(), and for the events to watch for using
- * dbus_watch_get_flags(). The flags returned by
- * dbus_watch_get_flags() will only contain DBUS_WATCH_READABLE and
- * DBUS_WATCH_WRITABLE, never DBUS_WATCH_HANGUP or DBUS_WATCH_ERROR;
- * all watches implicitly include a watch for hangups, errors, and
- * other exceptional conditions.
+ * dbus_watch_get_unix_fd() or dbus_watch_get_socket(), and for the
+ * events to watch for using dbus_watch_get_flags(). The flags
+ * returned by dbus_watch_get_flags() will only contain
+ * DBUS_WATCH_READABLE and DBUS_WATCH_WRITABLE, never
+ * DBUS_WATCH_HANGUP or DBUS_WATCH_ERROR; all watches implicitly
+ * include a watch for hangups, errors, and other exceptional
+ * conditions.
  *
  * Once a file descriptor becomes readable or writable, or an exception
  * occurs, dbus_watch_handle() should be called to
@@ -4732,7 +4733,7 @@ dbus_connection_set_dispatch_status_function (DBusConnection             *connec
  * example. DO NOT read or write to the file descriptor, or try to
  * select() on it; use DBusWatch for main loop integration. Not all
  * connections will have a file descriptor. So for adding descriptors
- * to the main loop, use dbus_watch_get_fd() and so forth.
+ * to the main loop, use dbus_watch_get_unix_fd() and so forth.
  *
  * If the connection is socket-based, you can also use
  * dbus_connection_get_socket(), which will work on Windows too.
@@ -4765,7 +4766,7 @@ dbus_connection_get_unix_fd (DBusConnection *connection,
  * of the connection, if any. DO NOT read or write to the file descriptor, or try to
  * select() on it; use DBusWatch for main loop integration. Not all
  * connections will have a socket. So for adding descriptors
- * to the main loop, use dbus_watch_get_fd() and so forth.
+ * to the main loop, use dbus_watch_get_socket() and so forth.
  *
  * If the connection is not socket-based, this function will return FALSE,
  * even if the connection does have a file descriptor of some kind.
