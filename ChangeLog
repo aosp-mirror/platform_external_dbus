@@ -1,5 +1,9 @@
 2007-06-18  Havoc Pennington  <hp@redhat.com>
 
+	* Release 1.1.1
+
+2007-06-18  Havoc Pennington  <hp@redhat.com>
+
 	* doc/dbus-specification.xml: document org.freedesktop.DBus.GetId()
 
 	* bus/driver.c (bus_driver_handle_get_id): implement org.freedesktop.DBus.GetId()

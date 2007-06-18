@@ -1,9 +1,33 @@
+D-Bus 1.1.1 (18 June 2007)
+==
+- This is a development release, unless you need specific 
+  functionality please use the stable releases as API's may change
+  (though we will try hard not to)
+- The bus daemon now generates a globally-unique ID for itself, which is available 
+  using the convenience function dbus_bus_get_id(). Use this as a unique ID 
+  for a user's session, for example.
+- dbus_server_get_id(), dbus_connection_get_server_id() now available to access
+  the unique ID of a particular address
+- dbus_watch_get_fd() deprecated since it had unclear cross-platform semantics.
+  dbus_watch_get_unix_fd() and dbus_watch_get_socket() replace it.
+- support ANONYMOUS mechanism for authentication, which allows a client to 
+  authenticate as nobody in particular
+- add API dbus_connection_set_allow_anonymous() which will allow the message
+  stream to begin if the client auths as anonymous (otherwise, the client 
+  will be dropped unless they auth as a user).
+- the ANONYMOUS support means you can now use D-Bus (without a bus daemon) as 
+  a protocol for a network service provided to anonymous Internet or LAN  
+  clients
+- many internal changes to better support the Windows port, though the 
+  port is still not complete in this release
+- some improved documentation and return_if_fail checks
+- some small bug fixes
+
 D-Bus 1.1.0 (25 May 2007)
 ==
 - first release in the development series, unless you need specific 
   functionality please use the stable releases as API's may change
   (though we will try hard not to)
-- now works on windows thanks to the hard work of the windows porting team
 - better eavesdropping support now picks up reply messages for debugging
 - .pc file now lists the directory the daemon is installed into (daemondir)
 - GetAll call added to the properties interface
