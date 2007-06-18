@@ -1,5 +1,10 @@
 2007-06-18  Havoc Pennington  <hp@redhat.com>
 
+	* configure.in: bump version to 1.1.2 so CVS is higher than last
+	release (this is not the 1.1.2 release)
+
+2007-06-18  Havoc Pennington  <hp@redhat.com>
+
 	* Release 1.1.1
 
 2007-06-18  Havoc Pennington  <hp@redhat.com>
