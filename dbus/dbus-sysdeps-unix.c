@@ -991,20 +991,21 @@ _dbus_read_credentials_socket  (int              client_fd,
   char buf;
   dbus_uid_t uid_read;
   dbus_pid_t pid_read;
-
+  int bytes_read;
+  
   uid_read = DBUS_UID_UNSET;
   pid_read = DBUS_PID_UNSET;
   
 #ifdef HAVE_CMSGCRED 
   struct {
-	  struct cmsghdr hdr;
-	  struct cmsgcred cred;
+    struct cmsghdr hdr;
+    struct cmsgcred cred;
   } cmsg;
 
 #elif defined(LOCAL_CREDS)
   struct {
-	  struct cmsghdr hdr;
-	  struct sockcred cred;
+    struct cmsghdr hdr;
+    struct sockcred cred;
   } cmsg;
 #endif
 
@@ -1040,18 +1041,33 @@ _dbus_read_credentials_socket  (int              client_fd,
 #endif
 
  again:
-  if (recvmsg (client_fd, &msg, 0) < 0)
+  bytes_read = recvmsg (client_fd, &msg, 0);
+
+  if (bytes_read < 0)
     {
       if (errno == EINTR)
 	goto again;
 
+      /* EAGAIN or EWOULDBLOCK would be unexpected here since we would
+       * normally only call read_credentials if the socket was ready
+       * for reading
+       */
+      
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to read credentials byte: %s",
                       _dbus_strerror (errno));
       return FALSE;
     }
-
-  if (buf != '\0')
+  else if (bytes_read == 0)
+    {
+      /* this should not happen unless we are using recvmsg wrong,
+       * so is essentially here for paranoia
+       */
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Failed to read credentials byte (zero-length read)");
+      return FALSE;
+    }
+  else if (buf != '\0')
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Credentials byte was not nul");

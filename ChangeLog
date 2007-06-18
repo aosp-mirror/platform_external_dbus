@@ -1,4 +1,12 @@
 2007-06-18  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-sysdeps-unix.c (_dbus_read_credentials_socket): clean
+	this up a little bit, to try and understand why telnet'ing to a
+	server and sending a non-nul byte didn't disconnect immediately;
+	now it seems that it does disconnect immediately as it should,
+	though I don't understand what has changed.
+
+2007-06-18  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-watch.c (dbus_watch_get_socket)
 	(dbus_watch_get_unix_fd): new API to match DBusConnection

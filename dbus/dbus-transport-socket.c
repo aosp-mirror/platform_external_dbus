@@ -361,7 +361,13 @@ exchange_credentials (DBusTransport *transport,
   
   if (do_reading && transport->receive_credentials_pending)
     {
-      /* FIXME this can fail due to IO error _or_ OOM, broken */
+      /* FIXME this can fail due to IO error _or_ OOM, broken
+       * (somewhat tricky to fix since the OOM error can be set after
+       * we already read the credentials byte, so basically we need to
+       * separate reading the byte and storing it in the
+       * transport->credentials). Does not really matter for now
+       * because storing in credentials never actually fails on unix.
+       */      
       if (_dbus_read_credentials_socket (socket_transport->fd,
                                          transport->credentials,
                                          &error))
