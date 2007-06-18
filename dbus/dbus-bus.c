@@ -865,6 +865,85 @@ dbus_bus_get_unix_user (DBusConnection *connection,
   return (unsigned long) uid;
 }
 
+/**
+ * Asks the bus to return its globally unique ID, as described in the
+ * D-Bus specification. For the session bus, this is useful as a way
+ * to uniquely identify each user session. For the system bus,
+ * probably the bus ID is not useful; instead, use the machine ID
+ * since it's accessible without necessarily connecting to the bus and
+ * may be persistent beyond a single bus instance (across reboots for
+ * example). See dbus_get_local_machine_id().
+ *
+ * In addition to an ID for each bus and an ID for each machine, there is
+ * an ID for each address that the bus is listening on; that can
+ * be retrieved with dbus_connection_get_server_id(), though it is
+ * probably not very useful.
+ * 
+ * @param connection the connection
+ * @param error location to store the error
+ * @returns the bus ID or #NULL if error is set
+ */ 
+char*
+dbus_bus_get_id (DBusConnection *connection,
+                 DBusError      *error)
+{
+  DBusMessage *message, *reply;
+  char *id;
+  const char *v_STRING;
+
+  _dbus_return_val_if_fail (connection != NULL, NULL);
+  _dbus_return_val_if_error_is_set (error, NULL);
+  
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
+                                          "GetId");
+  
+  if (message == NULL)
+    {
+      _DBUS_SET_OOM (error);
+      return NULL;
+    }
+  
+  reply = dbus_connection_send_with_reply_and_block (connection, message, -1,
+                                                     error);
+  
+  dbus_message_unref (message);
+  
+  if (reply == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return NULL;
+    }  
+
+  if (dbus_set_error_from_message (error, reply))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return NULL;
+    }
+
+  v_STRING = NULL;
+  if (!dbus_message_get_args (reply, error,
+                              DBUS_TYPE_STRING, &v_STRING,
+                              DBUS_TYPE_INVALID))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return NULL;
+    }
+
+  id = _dbus_strdup (v_STRING); /* may be NULL */
+  
+  dbus_message_unref (reply);
+
+  if (id == NULL)
+    _DBUS_SET_OOM (error);
+
+  /* FIXME it might be nice to cache the ID locally */
+  
+  return id;
+}
 
 /**
  * Asks the bus to assign the given name to this connection by invoking

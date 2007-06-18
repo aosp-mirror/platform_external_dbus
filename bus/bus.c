@@ -38,6 +38,7 @@
 struct BusContext
 {
   int refcount;
+  DBusGUID uuid;
   char *config_file;
   char *type;
   char *address;
@@ -552,6 +553,8 @@ bus_context_new (const DBusString *config_file,
     }
   context->refcount = 1;
 
+  _dbus_generate_uuid (&context->uuid);
+  
   if (!_dbus_string_copy_data (config_file, &context->config_file))
     {
       BUS_SET_OOM (error);
@@ -782,6 +785,13 @@ bus_context_new (const DBusString *config_file,
     dbus_server_free_data_slot (&server_data_slot);
   
   return NULL;
+}
+
+dbus_bool_t
+bus_context_get_id (BusContext       *context,
+                    DBusString       *uuid)
+{
+  return _dbus_uuid_encode (&context->uuid, uuid);
 }
 
 dbus_bool_t

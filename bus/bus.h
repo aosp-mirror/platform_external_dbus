@@ -78,6 +78,8 @@ dbus_bool_t       bus_context_reload_config                      (BusContext    
 void              bus_context_shutdown                           (BusContext       *context);
 BusContext*       bus_context_ref                                (BusContext       *context);
 void              bus_context_unref                              (BusContext       *context);
+dbus_bool_t       bus_context_get_id                             (BusContext       *context,
+                                                                  DBusString       *uuid);
 const char*       bus_context_get_type                           (BusContext       *context);
 const char*       bus_context_get_address                        (BusContext       *context);
 BusRegistry*      bus_context_get_registry                       (BusContext       *context);

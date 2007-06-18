@@ -1,6 +1,6 @@
 #! /bin/sh
 
-ie()
+die()
 {
     if ! test -z "$DBUS_SESSION_BUS_PID" ; then
         echo "killing message bus "$DBUS_SESSION_BUS_PID >&2
@@ -24,11 +24,14 @@ if test -z "$DBUS_TEST_NAME_IN_RUN_TEST"; then
   export DBUS_TEST_NAME_IN_RUN_TEST
   exec $DBUS_TOP_SRCDIR/tools/run-with-tmp-session-bus.sh $SCRIPTNAME $MODE
 fi 
+echo "running test-ids"
+libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-ids || die "test-ids failed"
+
 echo "running test-names"
-libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-names || die "test-client failed"
+libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-names || die "test-names failed"
 
 echo "running test-pending-call-dispatch"
-libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-pending-call-dispatch || die "test-client failed"
+libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-pending-call-dispatch || die "test-pending-call-dispatch failed"
 
 echo "running test-threads-init"
-libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-threads-init || die "test-client failed"
+libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-threads-init || die "test-threads-init failed"

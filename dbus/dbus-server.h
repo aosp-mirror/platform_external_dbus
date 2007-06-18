@@ -55,6 +55,7 @@ void        dbus_server_unref            (DBusServer     *server);
 void        dbus_server_disconnect       (DBusServer     *server);
 dbus_bool_t dbus_server_get_is_connected (DBusServer     *server);
 char*       dbus_server_get_address      (DBusServer     *server);
+char*       dbus_server_get_id           (DBusServer     *server);
 void        dbus_server_set_new_connection_function (DBusServer                *server,
                                                      DBusNewConnectionFunction  function,
                                                      void                      *data,

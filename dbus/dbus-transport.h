@@ -41,6 +41,7 @@ dbus_bool_t        _dbus_transport_get_is_connected       (DBusTransport        
 dbus_bool_t        _dbus_transport_get_is_authenticated   (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_get_is_anonymous       (DBusTransport              *transport);
 const char*        _dbus_transport_get_address            (DBusTransport              *transport);
+const char*        _dbus_transport_get_server_id          (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_handle_watch           (DBusTransport              *transport,
                                                            DBusWatch                  *watch,
                                                            unsigned int                condition);

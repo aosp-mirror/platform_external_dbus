@@ -792,6 +792,22 @@ _dbus_transport_get_address (DBusTransport *transport)
 }
 
 /**
+ * Gets the id of the server we are connected to (see
+ * dbus_server_get_id()). Only works on client side.
+ *
+ * @param transport the transport
+ * @returns transport's server's id or #NULL if we are the server side
+ */
+const char*
+_dbus_transport_get_server_id (DBusTransport *transport)
+{
+  if (transport->is_server)
+    return NULL;
+  else
+    return transport->expected_guid;
+}
+
+/**
  * Handles a watch by reading data, writing data, or disconnecting
  * the transport, as appropriate for the given condition.
  *

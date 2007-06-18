@@ -1,3 +1,5 @@
+## the "name-test" subdir in fact contains a bunch of tests now that need a temporary bus 
+## to be running to do stuff with. The directory should be renamed.
 SUBDIRS=name-test 
 DIST_SUBDIRS=name-test
 
@@ -6,9 +8,11 @@ INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS)
 
 if DBUS_BUILD_TESTS
 ## break-loader removed for now
+## most of these binaries are used in tests but are not themselves tests
 TEST_BINARIES=test-service test-names test-shell-service shell-test spawn-test test-segfault test-exit test-sleep-forever
 
-#enable stand alone make check test
+## these are the things to run in make check (i.e. they are actual tests)
+## (binaries in here must also be in TEST_BINARIES)
 TESTS=shell-test
 else
 TEST_BINARIES=

@@ -49,6 +49,8 @@ const char*     dbus_bus_get_unique_name  (DBusConnection *connection);
 unsigned long   dbus_bus_get_unix_user    (DBusConnection *connection,
 			                   const char     *name,
                                            DBusError      *error);
+char*           dbus_bus_get_id           (DBusConnection *connection,
+                                           DBusError      *error);
 int             dbus_bus_request_name     (DBusConnection *connection,
 					   const char     *name,
 					   unsigned int    flags,

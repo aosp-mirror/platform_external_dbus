@@ -1382,6 +1382,61 @@ bus_driver_handle_reload_config (DBusConnection *connection,
   return FALSE;
 }
 
+static dbus_bool_t
+bus_driver_handle_get_id (DBusConnection *connection,
+                          BusTransaction *transaction,
+                          DBusMessage    *message,
+                          DBusError      *error)
+{
+  BusContext *context;
+  DBusMessage *reply;
+  DBusString uuid;
+  const char *v_STRING;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (!_dbus_string_init (&uuid))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  reply = NULL;
+  
+  context = bus_connection_get_context (connection);
+  if (!bus_context_get_id (context, &uuid))
+    goto oom;
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    goto oom;
+
+  v_STRING = _dbus_string_get_const_data (&uuid);
+  if (!dbus_message_append_args (reply,
+                                 DBUS_TYPE_STRING, &v_STRING,
+                                 DBUS_TYPE_INVALID))
+    goto oom;
+  
+  _dbus_assert (dbus_message_has_signature (reply, "s"));
+  
+  if (! bus_transaction_send_from_driver (transaction, connection, reply))
+    goto oom;
+
+  _dbus_string_free (&uuid);  
+  dbus_message_unref (reply);
+  return TRUE;
+
+ oom:
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  BUS_SET_OOM (error);
+
+  if (reply)
+    dbus_message_unref (reply);
+  _dbus_string_free (&uuid);  
+  return FALSE;
+}
+
 /* For speed it might be useful to sort this in order of
  * frequency of use (but doesn't matter with only a few items
  * anyhow)
@@ -1396,6 +1451,10 @@ struct
                            DBusMessage    *message,
                            DBusError      *error);
 } message_handlers[] = {
+  { "Hello",
+    "",
+    DBUS_TYPE_STRING_AS_STRING,
+    bus_driver_handle_hello },  
   { "RequestName",
     DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
     DBUS_TYPE_UINT32_AS_STRING,
@@ -1408,10 +1467,6 @@ struct
     DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
     DBUS_TYPE_UINT32_AS_STRING,
     bus_driver_handle_activate_service },
-  { "Hello",
-    "",
-    DBUS_TYPE_STRING_AS_STRING,
-    bus_driver_handle_hello },
   { "NameHasOwner",
     DBUS_TYPE_STRING_AS_STRING,
     DBUS_TYPE_BOOLEAN_AS_STRING,
@@ -1455,7 +1510,11 @@ struct
   { "ReloadConfig",
     "",
     "",
-    bus_driver_handle_reload_config }
+    bus_driver_handle_reload_config },
+  { "GetId",
+    "",
+    DBUS_TYPE_STRING_AS_STRING,
+    bus_driver_handle_get_id }
 };
 
 static dbus_bool_t

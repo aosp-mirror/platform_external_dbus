@@ -1,5 +1,19 @@
 2007-06-18  Havoc Pennington  <hp@redhat.com>
-	
+
+	* doc/dbus-specification.xml: document org.freedesktop.DBus.GetId()
+
+	* bus/driver.c (bus_driver_handle_get_id): implement org.freedesktop.DBus.GetId()
+
+	* bus/bus.c (bus_context_new): generate a unique ID for each bus context
+
+	* dbus/dbus-connection.c (dbus_connection_get_server_id): new function
+
+	* dbus/dbus-bus.c (dbus_bus_get_id): new function
+
+	* dbus/dbus-server.c (dbus_server_get_id): new function
+
+2007-06-18  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-sysdeps-unix.c (_dbus_read_credentials_socket): clean
 	this up a little bit, to try and understand why telnet'ing to a
 	server and sending a non-nul byte didn't disconnect immediately;

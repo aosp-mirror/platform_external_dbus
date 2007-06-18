@@ -2845,6 +2845,51 @@ dbus_connection_get_is_anonymous (DBusConnection *connection)
 }
 
 /**
+ * Gets the ID of the server address we are authenticated to, if this
+ * connection is on the client side. If the connection is on the
+ * server side, this will always return #NULL - use dbus_server_get_id()
+ * to get the ID of your own server, if you are the server side.
+ * 
+ * If a client-side connection is not authenticated yet, the ID may be
+ * available if it was included in the server address, but may not be
+ * available. The only way to be sure the server ID is available
+ * is to wait for authentication to complete.
+ *
+ * In general, each mode of connecting to a given server will have
+ * its own ID. So for example, if the session bus daemon is listening
+ * on UNIX domain sockets and on TCP, then each of those modalities
+ * will have its own server ID.
+ *
+ * If you want an ID that identifies an entire session bus, look at
+ * dbus_bus_get_id() instead (which is just a convenience wrapper
+ * around the org.freedesktop.DBus.GetId method invoked on the bus).
+ *
+ * You can also get a machine ID; see dbus_get_local_machine_id() to
+ * get the machine you are on.  There isn't a convenience wrapper, but
+ * you can invoke org.freedesktop.DBus.Peer.GetMachineId on any peer
+ * to get the machine ID on the other end.
+ * 
+ * The D-Bus specification describes the server ID and other IDs in a
+ * bit more detail.
+ *
+ * @param connection the connection
+ * @returns the server ID or #NULL if no memory or the connection is server-side
+ */
+char*
+dbus_connection_get_server_id (DBusConnection *connection)
+{
+  char *id;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+  id = _dbus_strdup (_dbus_transport_get_server_id (connection->transport));
+  CONNECTION_UNLOCK (connection);
+  
+  return id;
+}
+
+/**
  * Set whether _exit() should be called when the connection receives a
  * disconnect signal. The call to _exit() comes after any handlers for
  * the disconnect signal run; handlers can cancel the exit by calling

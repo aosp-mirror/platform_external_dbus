@@ -799,6 +799,43 @@ dbus_server_get_address (DBusServer *server)
 }
 
 /**
+ * Returns the unique ID of the server, as a newly-allocated
+ * string which must be freed by the caller. This ID is
+ * normally used by clients to tell when two #DBusConnection
+ * would be equivalent (because the server address passed
+ * to dbus_connection_open() will have the same guid in the
+ * two cases). dbus_connection_open() can re-use an existing
+ * connection with the same ID instead of opening a new
+ * connection.
+ *
+ * This is an ID unique to each #DBusServer. Remember that
+ * a #DBusServer represents only one mode of connecting,
+ * so e.g. a bus daemon can listen on multiple addresses
+ * which will mean it has multiple #DBusServer each with
+ * their own ID.
+ *
+ * The ID is not a UUID in the sense of RFC4122; the details
+ * are explained in the D-Bus specification.
+ *
+ * @param server the server
+ * @returns the id of the server or #NULL if no memory
+ */
+char*
+dbus_server_get_id (DBusServer *server)
+{
+  char *retval;
+  
+  _dbus_return_val_if_fail (server != NULL, NULL);
+
+  SERVER_LOCK (server);
+  retval = NULL;
+  _dbus_string_copy_data (&server->guid_hex, &retval);
+  SERVER_UNLOCK (server);
+
+  return retval;
+}
+
+/**
  * Sets a function to be used for handling new connections.  The given
  * function is passed each new connection as the connection is
  * created. If the new connection function increments the connection's
@@ -1110,6 +1147,7 @@ dbus_server_get_data (DBusServer   *server,
 
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"
+#include <string.h>
 
 dbus_bool_t
 _dbus_server_test (void)
@@ -1130,8 +1168,8 @@ _dbus_server_test (void)
   for (i = 0; i < _DBUS_N_ELEMENTS (valid_addresses); i++)
     {
       DBusError error;
-
-      /* FIXME um, how are the two tests here different? */
+      char *address;
+      char *id;
       
       dbus_error_init (&error);
       server = dbus_server_listen (valid_addresses[i], &error);
@@ -1142,18 +1180,21 @@ _dbus_server_test (void)
           _dbus_assert_not_reached ("Failed to listen for valid address.");
         }
 
-      dbus_server_disconnect (server);
-      dbus_server_unref (server);
+      id = dbus_server_get_id (server);
+      _dbus_assert (id != NULL);
+      address = dbus_server_get_address (server);
+      _dbus_assert (address != NULL);
 
-      /* Try disconnecting before unreffing */
-      server = dbus_server_listen (valid_addresses[i], &error);
-      if (server == NULL)
+      if (strstr (address, id) == NULL)
         {
-          _dbus_warn ("server listen error: %s: %s\n", error.name, error.message);
-          dbus_error_free (&error);          
-          _dbus_assert_not_reached ("Failed to listen for valid address.");
+          _dbus_warn ("server id '%s' is not in the server address '%s'\n",
+                      id, address);
+          _dbus_assert_not_reached ("bad server id or address");
         }
 
+      dbus_free (id);
+      dbus_free (address);
+      
       dbus_server_disconnect (server);
       dbus_server_unref (server);
     }
