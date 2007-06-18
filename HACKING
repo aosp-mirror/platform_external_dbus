@@ -99,7 +99,7 @@ To make a release of D-Bus, do the following:
    than anything released.
 
  - scp your tarball to freedesktop.org server and copy it 
-   to /srv/dbus.freedesktop.org/www/releases. This should 
+   to /srv/dbus.freedesktop.org/www/releases/dbus. This should 
    be possible if you're in group "dbus"
 
  - update the wiki page http://www.freedesktop.org/Software/dbus by
