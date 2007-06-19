@@ -1,3 +1,7 @@
+2007-06-18  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus-win.patch: removed obsolate patches
+
 2007-06-18  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: bump version to 1.1.2 so CVS is higher than last
