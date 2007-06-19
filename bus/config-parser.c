@@ -487,7 +487,15 @@ bus_config_parser_new (const DBusString      *basedir,
       
       parser->limits.max_pending_activations = 512;
       parser->limits.max_services_per_connection = 512;
-      
+
+      /* For this one, keep in mind that it isn't only the memory used
+       * by the match rules, but slowdown from linearly walking a big
+       * list of them. A client adding more than this is almost
+       * certainly a bad idea for that reason, and should change to a
+       * smaller number of wider-net match rules - getting every last
+       * message to the bus is probably better than having a thousand
+       * match rules.
+       */
       parser->limits.max_match_rules_per_connection = 512;
       
       parser->limits.reply_timeout = 5 * 60 * 1000; /* 5 minutes */
