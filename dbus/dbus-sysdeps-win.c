@@ -69,7 +69,10 @@ struct DBusCredentials{
 #define socklen_t int
 #endif
 
+#ifdef ENABLE_DBUSSOCKET
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
+#endif
+
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
 #ifdef ENABLE_DBUSUSERINFO
@@ -83,6 +86,7 @@ typedef struct {
 } DBusUserInfo;
 #endif
 
+#ifdef ENABLE_DBUSSOCKET
 static
 void 
 _dbus_lock_sockets()
@@ -98,6 +102,7 @@ _dbus_unlock_sockets()
 	_dbus_assert (win_fds!=0); 
 	_DBUS_UNLOCK (win_fds);
 }
+#endif
 
 #ifdef _DBUS_WIN_USE_RANDOMIZER
 static int  win_encap_randomizer;
@@ -346,8 +351,10 @@ _dbus_pipe_close  (DBusPipe         *pipe,
  *
  */
 
+#ifdef ENABLE_DBUSSOCKET
 static DBusSocket *win_fds = NULL;
 static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
+
 
 #if 0
 #define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
@@ -535,6 +542,7 @@ _dbus_handle_to_socket (int          handle,
   _dbus_unlock_sockets();
 }
 
+
 #undef TO_HANDLE
 #undef IS_HANDLE
 #undef FROM_HANDLE
@@ -542,7 +550,7 @@ _dbus_handle_to_socket (int          handle,
 #define win_fds 1==DBUS_WIN_DONT_USE_win_fds_DIRECTLY
 
 
-
+#endif
 
 /**
  * Thin wrapper around the read() system call that appends
@@ -562,7 +570,9 @@ _dbus_read_socket (int               handle,
                    DBusString       *buffer,
                    int               count)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket *s;
+#endif
   int bytes_read;
   int start;
   char *data;
@@ -579,12 +589,19 @@ _dbus_read_socket (int               handle,
 
   data = _dbus_string_get_data_len (buffer, start, count);
 
+#ifdef ENABLE_DBUSSOCKET
   _dbus_handle_to_socket(handle, &s);
 
   if(s->is_used)
     {
       _dbus_verbose ("recv: count=%d socket=%d\n", count, s->fd);
       bytes_read = recv (s->fd, data, count, 0);
+#else
+	if(1)
+    {
+      _dbus_verbose ("recv: count=%d socket=%d\n", count, handle);
+      bytes_read = recv (handle, data, count, 0);
+#endif
       if (bytes_read == SOCKET_ERROR)
         {
           DBUS_SOCKET_SET_ERRNO();
@@ -636,19 +653,28 @@ _dbus_write_socket (int               handle,
                     int               start,
                     int               len)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket *s;
+#endif
   int is_used;
   const char *data;
   int bytes_written;
 
   data = _dbus_string_get_const_data_len (buffer, start, len);
 
+#ifdef ENABLE_DBUSSOCKET
   _dbus_handle_to_socket(handle, &s);
 
   if (s->is_used)
     {
       _dbus_verbose ("send: len=%d socket=%d\n", len, s->fd);
       bytes_written = send (s->fd, data, len, 0);
+#else
+  if (1)
+    {
+      _dbus_verbose ("send: len=%d socket=%d\n", len, handle);
+	  bytes_written = send (handle, data, len, 0);
+#endif
       if (bytes_written == SOCKET_ERROR)
         {
           DBUS_SOCKET_SET_ERRNO();
@@ -683,6 +709,7 @@ dbus_bool_t
 _dbus_close_socket (int        handle,
                     DBusError *error)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket *s;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -726,6 +753,32 @@ _dbus_close_socket (int        handle,
 
   return TRUE;
 
+#else
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+
+  if (1)
+    {
+      if (closesocket (handle) == SOCKET_ERROR)
+        {
+          DBUS_SOCKET_SET_ERRNO ();
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+              "Could not close socket: socket=%d, , %s",
+                          handle, _dbus_strerror (errno));
+          return FALSE;
+        }
+      _dbus_verbose ("_dbus_close_socket: socket=%d, \n",
+                     handle);
+    }
+  else
+    {
+      _dbus_assert_not_reached ("unhandled fd type");
+    }
+
+  return TRUE;
+#endif
+
 }
 
 /**
@@ -738,6 +791,7 @@ _dbus_close_socket (int        handle,
 void
 _dbus_fd_set_close_on_exec (int handle)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket *s;
   if (handle < 0)
     return;
@@ -748,6 +802,20 @@ _dbus_fd_set_close_on_exec (int handle)
   s->close_on_exec = TRUE;
 
   _dbus_unlock_sockets();
+#else
+  /* TODO unic code.
+  int val;
+  
+  val = fcntl (fd, F_GETFD, 0);
+  
+  if (val < 0)
+    return;
+
+  val |= FD_CLOEXEC;
+  
+  fcntl (fd, F_SETFD, val);
+  */
+#endif
 }
 
 /**
@@ -761,6 +829,7 @@ dbus_bool_t
 _dbus_set_fd_nonblocking (int             handle,
                           DBusError      *error)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket *s;
   u_long one = 1;
 
@@ -789,6 +858,27 @@ _dbus_set_fd_nonblocking (int             handle,
   _dbus_unlock_sockets();
 
   return TRUE;
+#else
+  u_long one = 1;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (1)
+    {
+      if (ioctlsocket (handle, FIONBIO, &one) == SOCKET_ERROR)
+        {
+          dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
+                          "Failed to set socket %d:%d to nonblocking: %s", handle,
+                          _dbus_strerror (WSAGetLastError ()));
+          return FALSE;
+        }
+    }
+  else
+    {
+      _dbus_assert_not_reached ("unhandled fd type");
+    }
+  return TRUE;
+#endif
 }
 
 
@@ -821,6 +911,7 @@ _dbus_write_socket_two (int               handle,
                         int               start2,
                         int               len2)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket *s;
   WSABUF vectors[2];
   const char *data1;
@@ -873,6 +964,58 @@ _dbus_write_socket_two (int               handle,
       _dbus_assert_not_reached ("unhandled fd type");
     }
   return 0;
+#else
+  WSABUF vectors[2];
+  const char *data1;
+  const char *data2;
+  int rc;
+  DWORD bytes_written;
+  int ret1;
+
+  _dbus_assert (buffer1 != NULL);
+  _dbus_assert (start1 >= 0);
+  _dbus_assert (start2 >= 0);
+  _dbus_assert (len1 >= 0);
+  _dbus_assert (len2 >= 0);
+
+
+  data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
+
+  if (buffer2 != NULL)
+    data2 = _dbus_string_get_const_data_len (buffer2, start2, len2);
+  else
+    {
+      data2 = NULL;
+      start2 = 0;
+      len2 = 0;
+    }
+
+  if (1)
+    {
+      vectors[0].buf = (char*) data1;
+      vectors[0].len = len1;
+      vectors[1].buf = (char*) data2;
+      vectors[1].len = len2;
+
+      _dbus_verbose ("WSASend: len1+2=%d+%d socket=%d\n", len1, len2, handle);
+      rc = WSASend (handle, vectors, data2 ? 2 : 1, &bytes_written,
+                    0, NULL, NULL);
+      if (rc < 0)
+        {
+          DBUS_SOCKET_SET_ERRNO ();
+          _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
+          bytes_written = -1;
+        }
+      else
+        _dbus_verbose ("WSASend: = %ld\n", bytes_written);
+      return bytes_written;
+    }
+  else
+    {
+      _dbus_assert_not_reached ("unhandled fd type");
+    }
+  return 0;
+#endif
 }
 
 #if 0
@@ -1810,7 +1953,9 @@ _dbus_full_duplex_pipe (int        *fd1,
   u_long arg;
   fd_set read_set, write_set;
   struct timeval tv;
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket sock;
+#endif
 
 
   _dbus_win_startup_winsock ();
@@ -1935,10 +2080,15 @@ _dbus_full_duplex_pipe (int        *fd1,
         }
     }
 
+#ifdef ENABLE_DBUSSOCKET
   sock.fd = socket1;
   *fd1 = _dbus_socket_to_handle (&sock);
   sock.fd = socket2;
   *fd2 = _dbus_socket_to_handle (&sock);
+#else
+  *fd1 = socket1;
+  *fd2 = socket2;
+#endif
 
   _dbus_verbose ("full-duplex pipe %d:%d <-> %d:%d\n",
                  *fd1, socket1, *fd2, socket2);
@@ -2139,6 +2289,8 @@ _dbus_poll (DBusPollFD *fds,
 
 #else   // USE_CHRIS_IMPL
 
+#ifdef ENABLE_DBUSSOCKET
+
 int
 _dbus_poll (DBusPollFD *fds,
             int         n_fds,
@@ -2282,6 +2434,139 @@ _dbus_poll (DBusPollFD *fds,
       }
   return ready;
 }
+#else // ENABLE_DBUSSOCKET
+
+int
+_dbus_poll (DBusPollFD *fds,
+            int         n_fds,
+            int         timeout_milliseconds)
+{
+#define DBUS_POLL_CHAR_BUFFER_SIZE 2000
+  char msg[DBUS_POLL_CHAR_BUFFER_SIZE];
+  char *msgp;
+
+  fd_set read_set, write_set, err_set;
+  int max_fd = 0;
+  int i;
+  struct timeval tv;
+  int ready;
+
+  FD_ZERO (&read_set);
+  FD_ZERO (&write_set);
+  FD_ZERO (&err_set);
+
+
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+  msgp = msg;
+  msgp += sprintf (msgp, "select: to=%d\n\t", timeout_milliseconds);
+  for (i = 0; i < n_fds; i++)
+    {
+      static dbus_bool_t warned = FALSE;
+      int fd;
+      DBusPollFD *fdp = &fds[i];
+      fd = fdp->fd;  
+
+
+      if (fdp->events & _DBUS_POLLIN)
+        msgp += sprintf (msgp, "R:%d ", fd);
+
+      if (fdp->events & _DBUS_POLLOUT)
+        msgp += sprintf (msgp, "W:%d ", fd);
+
+      msgp += sprintf (msgp, "E:%d\n\t", fd);
+
+      // FIXME: more robust code for long  msg
+      //        create on heap when msg[] becomes too small
+      if (msgp >= msg + DBUS_POLL_CHAR_BUFFER_SIZE)
+        {
+          _dbus_assert_not_reached ("buffer overflow in _dbus_poll");
+        }
+    }
+
+  msgp += sprintf (msgp, "\n");
+  _dbus_verbose ("%s",msg);
+#endif
+  for (i = 0; i < n_fds; i++)
+    {
+        int fd;
+      DBusPollFD *fdp = &fds[i];
+      fd = fdp->fd;  
+
+      if (fdp->events & _DBUS_POLLIN)
+        FD_SET (fd, &read_set);
+
+      if (fdp->events & _DBUS_POLLOUT)
+        FD_SET (fd, &write_set);
+
+      FD_SET (fd, &err_set);
+
+      max_fd = MAX (max_fd, fd);
+    }
+
+
+  tv.tv_sec = timeout_milliseconds / 1000;
+  tv.tv_usec = (timeout_milliseconds % 1000) * 1000;
+
+  ready = select (max_fd + 1, &read_set, &write_set, &err_set,
+                  timeout_milliseconds < 0 ? NULL : &tv);
+
+  if (DBUS_SOCKET_API_RETURNS_ERROR (ready))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      if (errno != EWOULDBLOCK)
+        _dbus_verbose ("select: failed: %s\n", _dbus_strerror (errno));
+    }
+  else if (ready == 0)
+    _dbus_verbose ("select: = 0\n");
+  else
+    if (ready > 0)
+      {
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+        msgp = msg;
+        msgp += sprintf (msgp, "select: = %d:\n\t", ready);
+
+        for (i = 0; i < n_fds; i++)
+          {
+            int fd;
+            DBusPollFD *fdp = &fds[i];
+            fd = fdp->fd;  
+
+            if (FD_ISSET (fd, &read_set))
+              msgp += sprintf (msgp, "R:%d ", fd);
+
+            if (FD_ISSET (fd, &write_set))
+              msgp += sprintf (msgp, "W:%d ", fd);
+
+            if (FD_ISSET (fd, &err_set))
+              msgp += sprintf (msgp, "E:%d\n\t", fd);
+          }
+        msgp += sprintf (msgp, "\n");
+        _dbus_verbose ("%s",msg);
+#endif
+
+        for (i = 0; i < n_fds; i++)
+          {
+            int fd;
+            DBusPollFD *fdp = &fds[i];
+            fd = fdp->fd;  
+
+            fdp->revents = 0;
+
+            if (FD_ISSET (fd, &read_set))
+              fdp->revents |= _DBUS_POLLIN;
+
+            if (FD_ISSET (fd, &write_set))
+              fdp->revents |= _DBUS_POLLOUT;
+
+            if (FD_ISSET (fd, &err_set))
+              fdp->revents |= _DBUS_POLLERR;
+          }
+      }
+  return ready;
+}
+
+#endif  //ENABLE_DBUSSOCKET
+
 #endif  // USE_CHRIS_IMPL
 
 
@@ -3199,6 +3484,7 @@ _dbus_connect_tcp_socket (const char     *host,
                           dbus_uint32_t   port,
                           DBusError      *error)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket s;
   int handle;
   struct sockaddr_in addr;
@@ -3275,6 +3561,81 @@ _dbus_connect_tcp_socket (const char     *host,
     }
 
   return handle;
+#else
+  int fd;
+  struct sockaddr_in addr;
+  struct hostent *he;
+  struct in_addr *haddr;
+  struct in_addr ina;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  _dbus_win_startup_winsock ();
+
+  fd = socket (AF_INET, SOCK_STREAM, 0);
+
+  if (DBUS_SOCKET_IS_INVALID (fd))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to create socket: %s",
+                      _dbus_strerror (errno));
+
+      return -1;
+    }
+
+  if (host == NULL)
+    {
+      host = "localhost";
+      ina.s_addr = htonl (INADDR_LOOPBACK);
+      haddr = &ina;
+    }
+
+  he = gethostbyname (host);
+  if (he == NULL)
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to lookup hostname: %s",
+                      host);
+      DBUS_CLOSE_SOCKET (fd);
+      return -1;
+    }
+
+  haddr = ((struct in_addr *) (he->h_addr_list)[0]);
+
+  _DBUS_ZERO (addr);
+  memcpy (&addr.sin_addr, haddr, sizeof(struct in_addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons (port);
+
+  if (DBUS_SOCKET_API_RETURNS_ERROR
+      (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to connect to socket %s:%d %s",
+                      host, port, _dbus_strerror (errno));
+
+      DBUS_CLOSE_SOCKET (fd);
+      fd = -1;
+
+      return -1;
+    }
+
+  if (!_dbus_set_fd_nonblocking (fd, error))
+    {
+      _dbus_close_socket (fd, NULL);
+      fd = -1;
+
+      return -1;
+    }
+
+  return fd;
+#endif
 }
 
 void
@@ -3298,6 +3659,7 @@ _dbus_listen_tcp_socket (const char     *host,
                          dbus_bool_t     inaddr_any,
                          DBusError      *error)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket slisten;
   int handle;
   struct sockaddr_in addr;
@@ -3388,7 +3750,97 @@ _dbus_listen_tcp_socket (const char     *host,
     }
 
   return handle;
+#else
+  int fd;
+  struct sockaddr_in addr;
+  struct hostent *he;
+  struct in_addr *haddr;
+  socklen_t len = (socklen_t) sizeof (struct sockaddr);
+  struct in_addr ina;
+
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  _dbus_win_startup_winsock ();
+
+  fd = socket (AF_INET, SOCK_STREAM, 0);
+
+  if (DBUS_SOCKET_IS_INVALID (fd))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to create socket \"%s:%d\": %s",
+                      host, port, _dbus_strerror (errno));
+      return -1;
+    }
+  if (host == NULL)
+    {
+      host = "localhost";
+      ina.s_addr = htonl (INADDR_LOOPBACK);
+      haddr = &ina;
+    }
+  else if (!host[0])
+    {
+      ina.s_addr = htonl (INADDR_ANY);
+      haddr = &ina;
+    }
+  else
+    {
+      he = gethostbyname (host);
+      if (he == NULL)
+        {
+          DBUS_SOCKET_SET_ERRNO ();
+          dbus_set_error (error,
+                          _dbus_error_from_errno (errno),
+                          "Failed to lookup hostname: %s",
+                          host);
+          DBUS_CLOSE_SOCKET (fd);
+          return -1;
+        }
+
+      haddr = ((struct in_addr *) (he->h_addr_list)[0]);
+    }
+
+  _DBUS_ZERO (addr);
+  memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons (*port);
+
+  if (bind (fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to bind socket \"%s:%d\": %s",
+                      host, *port, _dbus_strerror (errno));
+      DBUS_CLOSE_SOCKET (fd);
+      return -1;
+    }
+
+  if (DBUS_SOCKET_API_RETURNS_ERROR (listen (fd, 30 /* backlog */)))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to listen on socket \"%s:%d\": %s",
+                      host, *port, _dbus_strerror (errno));
+      DBUS_CLOSE_SOCKET (fd);
+      return -1;
+    }
+
+  getsockname(fd, (struct sockaddr*) &addr, &len);
+  *port = (dbus_uint32_t) ntohs(addr.sin_port);
+  
+  _dbus_daemon_init(host, ntohs(addr.sin_port));
+
+  if (!_dbus_set_fd_nonblocking (fd, error))
+    {
+      _dbus_close_socket (fd, NULL);
+      return -1;
+    }
+
+  return fd;
+#endif
 }
+
 
 /**
  * Accepts a connection on a listening socket.
@@ -3400,6 +3852,7 @@ _dbus_listen_tcp_socket (const char     *host,
 int
 _dbus_accept  (int listen_handle)
 {
+#ifdef ENABLE_DBUSSOCKET
   DBusSocket *slisten;
   DBusSocket sclient;
   struct sockaddr addr;
@@ -3428,7 +3881,38 @@ retry:
     }
 
   return _dbus_socket_to_handle (&sclient);
+#else
+  int fd;
+  int sclient;
+  struct sockaddr addr;
+  socklen_t addrlen;
+
+  fd = listen_handle;
+
+  addrlen = sizeof (addr);
+
+  //FIXME:  why do we not try it again on Windows?
+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
+retry:
+#endif
+
+  sclient = accept (fd, &addr, &addrlen);
+
+  if (DBUS_SOCKET_IS_INVALID (sclient))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
+      if (errno == EINTR)
+        goto retry;
+#else
+      return -1;
+#endif
+    }
+
+  return sclient;
+#endif
 }
+
 
 
 

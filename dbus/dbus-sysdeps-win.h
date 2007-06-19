@@ -56,6 +56,10 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 
 #define DBUS_CONSOLE_DIR "/var/run/console/"
 
+
+//#define ENABLE_DBUSSOCKET
+
+#ifdef ENABLE_DBUSSOCKET
 typedef struct
   {
     int fd;               /* File descriptor, SOCKET or file HANDLE */
@@ -71,6 +75,7 @@ DBusSocket;
 
 extern DBusSocket *win_fds;
 extern int win32_n_fds;
+#endif
 
 
 void _dbus_win_startup_winsock (void);
@@ -157,13 +162,17 @@ struct DBusFile
     int FDATA;
   };
 
-
+#ifdef ENABLE_DBUSSOCKET
 void _dbus_handle_to_socket (int          handle,
                              DBusSocket **socket);
 int  _dbus_socket_to_handle (DBusSocket  *socket);
+#endif
+
 
 dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 
                                        char *s);
+
+
 
 #endif
 

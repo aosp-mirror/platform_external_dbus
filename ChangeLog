@@ -1,3 +1,9 @@
+2007-06-19  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c, dbus/dbus-sysdeps-spawn-win.c, 
+	dbus/dbus-sysdeps-win.h: disabled DBusSocket implementation
+	Patch by Peter Kuemmel 
+
 2007-06-18  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus-win.patch: removed obsolate patches
