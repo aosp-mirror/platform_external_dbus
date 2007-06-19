@@ -25,19 +25,19 @@
 #include <string.h>
 #include <assert.h>
 
-#ifdef __MINGW32__
+#if defined __MINGW32__ || (defined _MSC_VER && _MSC_VER <= 1310)
 /* save string functions version
 */ 
 #define errno_t int
 
-errno_t strcat_s(char *dest, int size, char *src) 
+errno_t strcat_s(char *dest, size_t size, char *src) 
 {
   assert(strlen(dest) + strlen(src) +1 <= size);
   strcat(dest,src);
   return 0;
 }
 
-errno_t strcpy_s(char *dest, int size, char *src)
+errno_t strcpy_s(char *dest, size_t size, char *src)
 {
   assert(strlen(src) +1 <= size);
   strcpy(dest,src);  
