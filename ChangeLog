@@ -1,3 +1,9 @@
+2007-06-21 Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c, dbus/dbus-sysdeps-util-win.c, 
+	dbus/dbus-sysdeps-win.h: disabled uid/sid conversation stuff
+	implementation by Peter Kuemmel 
+
 2007-06-21  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-watch.c (dbus_watch_get_fd): this function is 

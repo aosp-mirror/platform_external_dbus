@@ -120,6 +120,7 @@ char       *_dbus_win_utf16_to_utf8 (const wchar_t *str,
 
 void        _dbus_win_set_error_from_win_error (DBusError *error, int code);
 
+#ifdef ENABLE_UID_TO_SID
 dbus_uid_t  _dbus_win_sid_to_uid_t (void        *psid);
 dbus_bool_t _dbus_uid_t_to_win_sid (dbus_uid_t   uid,
                                     void       **ppsid);
@@ -127,6 +128,8 @@ dbus_bool_t
 _dbus_account_to_win_sid (const wchar_t  *waccount,
                           void          **ppsid,
                           DBusError      *error);
+#endif
+
 dbus_bool_t
 _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
                                   wchar_t  **wname,

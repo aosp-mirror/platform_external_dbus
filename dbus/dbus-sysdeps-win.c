@@ -73,7 +73,9 @@ struct DBusCredentials{
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 #endif
 
+#ifdef ENABLE_UID_TO_SID
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
+#endif
 
 #ifdef ENABLE_DBUSUSERINFO
 typedef struct {
@@ -107,8 +109,10 @@ _dbus_unlock_sockets()
 #ifdef _DBUS_WIN_USE_RANDOMIZER
 static int  win_encap_randomizer;
 #endif
-static DBusHashTable *sid_atom_cache = NULL;
 
+#ifdef ENABLE_UID_TO_SID
+static DBusHashTable *sid_atom_cache = NULL;
+#endif
 
 static DBusString dbusdir;
 static int working_dir_init = 0;
@@ -1726,6 +1730,7 @@ out1:
   return retval;
 }
 
+#ifdef ENABLE_UID_TO_SID
 static void
 _sid_atom_cache_shutdown (void *unused)
 {
@@ -1829,7 +1834,7 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
   _dbus_verbose("%s converted %s into sid \n",__FUNCTION__, string);
   return TRUE;
 }
-
+#endif
 
 /** @} end of sysdeps-win */
 
@@ -1840,6 +1845,9 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 dbus_uid_t
 _dbus_getuid(void)
 {
+#ifndef ENABLE_UID_TO_SID
+	return DBUS_UID_UNSET;
+#else
   dbus_uid_t retval = DBUS_UID_UNSET;
   HANDLE process_token = NULL;
   TOKEN_USER *token_user = NULL;
@@ -1860,6 +1868,7 @@ _dbus_getuid(void)
 
   _dbus_verbose("_dbus_getuid() returns %d\n",retval);
   return retval;
+#endif
 }
 
 /**
@@ -1883,6 +1892,9 @@ _dbus_pid_for_log (void)
 dbus_gid_t
 _dbus_getgid (void)
 {
+#ifndef ENABLE_UID_TO_SID
+	return DBUS_GID_UNSET;
+#else
   dbus_gid_t retval = DBUS_GID_UNSET;
   HANDLE process_token = NULL;
   TOKEN_PRIMARY_GROUP *token_primary_group = NULL;
@@ -1904,6 +1916,7 @@ _dbus_getgid (void)
     CloseHandle (process_token);
 
   return retval;
+#endif
 }
 
 #if 0

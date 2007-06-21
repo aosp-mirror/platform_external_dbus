@@ -413,8 +413,11 @@ _dbus_stat(const DBusString *filename,
       return FALSE;
     }
 
+#ifdef ENABLE_UID_TO_SID
+  /* FIXME */
   statbuf->uid = _dbus_win_sid_to_uid_t (owner_sid);
   statbuf->gid = _dbus_win_sid_to_uid_t (group_sid);
+#endif
 
   LocalFree (sd);
 
