@@ -1,8 +1,16 @@
 set (PACKAGE dbus)
+
+# the version major, minor and release number should be synchron to the dbus cvs - windows releases should only update the patch level
 set (VERSION_MAJOR "1")
 set (VERSION_MINOR "1")
-set (VERSION_PATCH "0")
-set (VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} )
+set (VERSION_RELEASE "1")
+set (VERSION_PATCH "2")
+if (VERSION_PATCH)
+    set (VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_RELEASE}-${VERSION_PATCH}" )
+else (VERSION_PATCH)
+    set (VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_RELEASE}" )
+endif (VERSION_PATCH)
+
 project(${PACKAGE})
 
 # we need to be up to date
@@ -85,8 +93,8 @@ endif(MSVC)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
    # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
-   set (CMAKE_EXE_POSTFIX "d")
-   set (CMAKE_DEBUG_POSTFIX "d")
+   #set (CMAKE_EXE_POSTFIX "d")
+   #set (CMAKE_DEBUG_POSTFIX "d")
 endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 #########################################################################

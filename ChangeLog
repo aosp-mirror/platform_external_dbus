@@ -1,5 +1,10 @@
 2007-06-21 Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* cmake/CMakeLists.txt: added VERSION_PATCH to be able to 
+	distinguish win32 binary release from dbus versioning
+
+2007-06-21 Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-win.c: deleted local DBusCredentials structure
 	    (_dbus_getsid): new function
 	    (_dbus_read_credentials_socket): used correct function
