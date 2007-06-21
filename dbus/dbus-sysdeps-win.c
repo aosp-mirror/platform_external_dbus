@@ -4306,55 +4306,6 @@ _dbus_append_user_from_current_process (DBusString *str)
 }
 
 /**
- * Gets the home directory for the given user.
- *
- * @param username the username
- * @param homedir string to append home directory to
- * @returns #TRUE if user existed and we appended their homedir
- */
-dbus_bool_t
-_dbus_homedir_from_username (const DBusString *username,
-                             DBusString       *homedir)
-{
-    _dbus_string_append (homedir, "/");
-    return TRUE;
-}
-
-/**
- * Gets homedir of user owning current process.  The returned string
- * is valid until dbus_shutdown() is called.
- *
- * @param homedir place to store pointer to homedir
- * @returns #FALSE if no memory
- */
-dbus_bool_t
-_dbus_homedir_from_current_process (const DBusString  **homedir)
-{
-  char *s = getenv("HOMEPATH");
-  DBusString *dir=0;
-  _dbus_string_init(dir);
-  _dbus_string_append (dir, s);
-  *homedir = dir;
-  return TRUE;
-}
-
-/**
- * Append to the string the identity we would like to have when we authenticate,
- * on UNIX this is the current process UID and on Windows something else.
- * No escaping is required, that is done in dbus-auth.c.
- * 
- * @param str the string to append to
- * @returns #FALSE on no memory
- */
-dbus_bool_t
-_dbus_append_desired_identity (DBusString *str)
-{
-    /* FIXME: */
-  return _dbus_string_append_uint (str,
-                                   _dbus_getuid ());
-}
-
-/**
  * Gets our process ID
  * @returns process ID
  */
