@@ -1,3 +1,9 @@
+2007-06-21  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-watch.c (dbus_watch_get_fd): this function is 
+	deprecated and its behavior should be as before until all 
+	client code is migrated. 
+
 2007-06-19  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-util-win.c, tools/dbus-launch-win.c: 

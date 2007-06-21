@@ -489,7 +489,11 @@ _dbus_watch_set_handler (DBusWatch        *watch,
 int
 dbus_watch_get_fd (DBusWatch *watch)
 {
-  return dbus_watch_get_unix_fd (watch);
+#ifdef DBUS_WIN_FIXME
+  return watch->fd;
+#else
+  return dbus_watch_get_unix_fd(watch);
+#endif
 }
 
 /**
