@@ -28,12 +28,6 @@
 
 /* #define ENABLE_DBUSUSERINFO */
 
-struct DBusCredentials{
-    int uid;
-    int gid;
-    int pid;
-};
-
 #undef open
 
 #define STRSAFE_NO_DEPRECATE
@@ -1883,6 +1877,52 @@ _dbus_pid_for_log (void)
   return _dbus_getpid ();
 }
 
+/** Gets our SID
+ * @param points to sid buffer, need to be freed with LocalFree()
+ * @returns process sid
+ */
+dbus_bool_t
+_dbus_getsid(char **sid)
+{
+  HANDLE process_token = NULL;
+  TOKEN_USER *token_user = NULL;
+  DWORD n;
+  PSID psid;
+  int retval = FALSE;
+  
+  if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &process_token)) 
+    {
+      _dbus_win_warn_win_error ("OpenProcessToken failed", GetLastError ());
+      goto failed;
+    }
+  if ((!GetTokenInformation (process_token, TokenUser, NULL, 0, &n)
+            && GetLastError () != ERROR_INSUFFICIENT_BUFFER)
+           || (token_user = alloca (n)) == NULL
+           || !GetTokenInformation (process_token, TokenUser, token_user, n, &n))
+    {
+      _dbus_win_warn_win_error ("GetTokenInformation failed", GetLastError ());
+      goto failed;
+    }
+  psid = token_user->User.Sid;
+  if (!IsValidSid (psid))
+    {
+      _dbus_verbose("%s invalid sid\n",__FUNCTION__);
+      goto failed;
+    }
+  if (!ConvertSidToStringSidA (psid, sid))
+    {
+      _dbus_verbose("%s invalid sid\n",__FUNCTION__);
+      goto failed;
+    }
+okay:
+  retval = TRUE;
+failed:
+  if (process_token != NULL)
+    CloseHandle (process_token);
+
+  _dbus_verbose("_dbus_getsid() returns %d\n",retval);
+  return retval;
+}
 
 
 #ifdef DBUS_BUILD_TESTS
@@ -3989,19 +4029,6 @@ again:
 }
 
 /**
- * Gets the credentials of the current process.
- *
- * @param credentials credentials to fill in.
- */
-void
-_dbus_credentials_from_current_process (DBusCredentials *credentials)
-{
-  credentials->pid = _dbus_getpid ();
-  credentials->uid = _dbus_getuid ();
-  credentials->gid = _dbus_getgid ();
-}
-
-/**
  * Reads a single byte which must be nul (an error occurs otherwise),
  * and reads unix credentials if available. Fills in pid/uid/gid with
  * -1 if no credentials are available. Return value indicates whether
@@ -4035,7 +4062,7 @@ _dbus_read_credentials_socket  (int              handle,
     }
 
   _dbus_string_free(&buf);
-  _dbus_credentials_from_current_process (credentials);
+  _dbus_credentials_add_from_current_process (credentials);
   _dbus_verbose("FIXME: get faked credentials from current process");
 
   return TRUE;
@@ -4189,88 +4216,7 @@ _dbus_concat_dir_and_file (DBusString       *dir,
                             _dbus_string_get_length (dir));
 }
 
-/**
- * Adds the credentials of the current process to the
- * passed-in credentials object.
- *
- * @param credentials credentials to add to
- * @returns #FALSE if no memory; does not properly roll back on failure, so only some credentials may have been added
- */
-
-dbus_bool_t
-_dbus_credentials_add_from_current_process (DBusCredentials *credentials)
-{
-  credentials->pid = _dbus_getpid();
-  credentials->uid = _dbus_getuid();
-  return TRUE;
-}
-
-
-/**
- * Gets a UID from a UID string.
- *
- * @param uid_str the UID in string form
- * @param uid UID to fill in
- * @returns #TRUE if successfully filled in UID
- */
-dbus_bool_t
-_dbus_parse_uid (const DBusString      *uid_str,
-                 dbus_uid_t            *uid)
-{
-  int end;
-  long val;
-  
-  if (_dbus_string_get_length (uid_str) == 0)
-    {
-      _dbus_verbose ("UID string was zero length\n");
-      return FALSE;
-    }
-
-  val = -1;
-  end = 0;
-  if (!_dbus_string_parse_int (uid_str, 0, &val,
-                               &end))
-    {
-      _dbus_verbose ("could not parse string as a UID\n");
-      return FALSE;
-    }
-  
-  if (end != _dbus_string_get_length (uid_str))
-    {
-      _dbus_verbose ("string contained trailing stuff after UID\n");
-      return FALSE;
-    }
-
-  *uid = val;
-
-  return TRUE;
-}
-
-/**
- * Parses a desired identity provided from a client in the auth protocol.
- * On UNIX this means parsing a UID.
- *
- * @todo this is broken because it treats OOM and parse error
- * the same way. Needs a #DBusError.
- * 
- * @param credentials the credentials to add what we parse to
- * @param desired_identity the string to parse
- * @returns #TRUE if we successfully parsed something
- */
-dbus_bool_t
-_dbus_credentials_parse_and_add_desired (DBusCredentials  *credentials,
-                                         const DBusString *desired_identity)
-{
-  dbus_uid_t uid;
-
-  if (!_dbus_parse_uid (desired_identity, &uid))
-    return FALSE;
-
-  if (!_dbus_credentials_add_unix_uid (credentials, uid))
-    return FALSE;
-
-  return TRUE;
-}
+/*---------------- DBusCredentials ----------------------------------
 
 /**
  * Adds the credentials corresponding to the given username.
@@ -4283,8 +4229,42 @@ dbus_bool_t
 _dbus_credentials_add_from_user (DBusCredentials  *credentials,
                                      const DBusString *username)
 {
-  _dbus_verbose("_dbus_credentials_add_from_user is not implemented");
-  return FALSE;
+  return _dbus_credentials_add_windows_sid (credentials,
+                    _dbus_string_get_const_data(username));
+}
+
+/**
+ * Adds the credentials of the current process to the
+ * passed-in credentials object.
+ *
+ * @param credentials credentials to add to
+ * @returns #FALSE if no memory; does not properly roll back on failure, so only some credentials may have been added
+ */
+
+dbus_bool_t
+_dbus_credentials_add_from_current_process (DBusCredentials *credentials)
+{
+  dbus_bool_t retval = FALSE;
+  char *sid = NULL;
+
+  if (!_dbus_getsid(&sid))
+    goto failed;
+
+  if (!_dbus_credentials_add_unix_pid(credentials, _dbus_getpid()))
+    goto failed;
+
+  if (!_dbus_credentials_add_windows_sid (credentials,sid))
+    goto failed;
+
+  retval = TRUE;
+  goto end;
+failed:
+  retval = FALSE;
+end:
+  if (sid)
+    LocalFree(sid);
+
+  return retval;
 }
 
 /**
@@ -4297,12 +4277,21 @@ _dbus_credentials_add_from_user (DBusCredentials  *credentials,
  * 
  * @param str the string to append to
  * @returns #FALSE on no memory
+ * @todo to which class belongs this 
  */
 dbus_bool_t
 _dbus_append_user_from_current_process (DBusString *str)
 {
-  return _dbus_string_append_uint (str,
-                                   _dbus_getuid ());
+  dbus_bool_t retval = FALSE;
+  char *sid = NULL;
+
+  if (!_dbus_getsid(&sid))
+    return FALSE;
+
+  retval = _dbus_string_append (str,sid);
+
+  LocalFree(sid);
+  return retval;
 }
 
 /**

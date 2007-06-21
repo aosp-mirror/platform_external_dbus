@@ -1,6 +1,17 @@
 2007-06-21 Ralf Habacker  <ralf.habacker@freenet.de>
 
-	* dbus/dbus-sysdeps-win.c (_dbus_sysdeps_test): don't check 
+	* dbus/dbus-sysdeps-win.c: deleted local DBusCredentials structure
+	    (_dbus_getsid): new function
+	    (_dbus_read_credentials_socket): used correct function
+	    (_dbus_append_user_from_current_process, 
+	        _dbus_credentials_add_from_current_process): added real 
+	            sid reading
+	    (_dbus_credentials_parse_and_add_desired,_dbus_parse_uid): 
+	        deleted
+
+2007-06-21 Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-util.c (_dbus_sysdeps_test): don't check 
 	0xff as floating point, this isn't supported on win32 math 
 	implementation
 
