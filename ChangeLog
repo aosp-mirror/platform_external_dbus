@@ -1,5 +1,11 @@
 2007-06-21 Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* dbus/dbus-sysdeps-win.c (_dbus_sysdeps_test): don't check 
+	0xff as floating point, this isn't supported on win32 math 
+	implementation
+
+2007-06-21 Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-win.c (_dbus_homedir_from_username, 
 	_dbus_homedir_from_current_process, _dbus_append_desired_identity): 
 	removed obsolate functions
