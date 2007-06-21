@@ -1,5 +1,10 @@
 2007-06-21  Havoc Pennington  <hp@redhat.com>
 
+	* dbus/dbus-tranport.c (auth_via_default_rules): made the verbose spam
+	cross-platform
+
+2007-06-21  Havoc Pennington  <hp@redhat.com>
+
 	* dbus/dbus-watch.c (dbus_watch_get_fd): 1) its behavior should
 	not be the same as before, the ABI has never been declared stable
 	on Windows and 2) do not commit to cross-platform files without
