@@ -1,3 +1,22 @@
+2007-06-21  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-watch.c (dbus_watch_get_fd): 1) its behavior should
+	not be the same as before, the ABI has never been declared stable
+	on Windows and 2) do not commit to cross-platform files without
+	posting the exact patch to the mailing list
+	
+	* dbus/dbus-sysdeps-util.c (_dbus_sysdeps_test): as I have pointed
+	out before, either 0xff needs to work on both platforms, or none
+	of the dbus code can rely on it working. That means the options
+	are 1) audit the code for anywhere that relies on 0xff working, if
+	none found ideally add a test that it *doesn't* work and make unix
+	reject it explicitly, but in any case this test would go away or
+	2) make it work on Windows also, then we don't have to figure out 
+	whether we rely on it.
+
+	And in either case, post the exact patch to the mailing list and
+	don't just commit.
+
 2007-06-21 Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* cmake/CMakeLists.txt: added VERSION_PATCH to be able to 
