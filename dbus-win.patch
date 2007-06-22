@@ -219,3 +219,22 @@ diff -u -r1.36 dbus-threads.c
  }
  
  #endif /* DBUS_BUILD_TESTS */
+Index: dbus/dbus-watch.c
+===================================================================
+RCS file: /cvs/dbus/dbus/dbus/dbus-watch.c,v
+retrieving revision 1.25
+diff -u -r1.25 dbus-watch.c
+--- dbus/dbus-watch.c	21 Jun 2007 21:28:59 -0000	1.25
++++ dbus/dbus-watch.c	22 Jun 2007 09:55:03 -0000
+@@ -513,11 +513,7 @@
+    * which it has, and the transport should provide the
+    * appropriate watch type)
+    */
+-#ifdef DBUS_UNIX
+   return watch->fd;
+-#else
+-  return -1;
+-#endif
+ }
+ 
+ /**
