@@ -324,6 +324,38 @@ _dbus_auth_script_run (const DBusString *filename)
           /* Ignore this comment */
           goto next_iteration;
         }
+#ifdef DBUS_WIN
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "WIN_ONLY"))
+        {
+          /* Ignore this line */
+          goto next_iteration;
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "UNIX_ONLY"))
+        {
+          /* skip this file */
+          _dbus_warn ("skipping unix only auth script\n");
+          retval = TRUE;
+          goto out;
+        }
+#endif
+#ifdef DBUS_UNIX
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "UNIX_ONLY"))
+        {
+          /* Ignore this line */
+          goto next_iteration;
+        }
+      else if (_dbus_string_starts_with_c_str (&line,
+                                               "WIN_ONLY"))
+        {
+          /* skip this file */
+          _dbus_warn ("skipping windows only auth script\n");
+          retval = TRUE;
+          goto out;
+        }
+#endif
       else if (_dbus_string_starts_with_c_str (&line,
                                                "CLIENT"))
         {

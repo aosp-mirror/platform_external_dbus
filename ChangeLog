@@ -1,3 +1,9 @@
+2007-06-23  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-auth-script.c (_dbus_auth_script_run): added UNIX_ONLY and 
+	WIN_ONLY commands for auth scripts
+	* test/data/auth/external-root.auth-script: limit execution to unix
+
 2007-06-21  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-tranport.c (auth_via_default_rules): made the verbose spam
