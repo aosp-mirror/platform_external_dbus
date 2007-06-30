@@ -14,7 +14,6 @@ set (dbusinclude_HEADERS
 	${DBUS_DIR}/dbus-address.h
 	${DBUS_DIR}/dbus-bus.h
 	${DBUS_DIR}/dbus-connection.h
-	${DBUS_DIR}/dbus-credentials.h
 	${DBUS_DIR}/dbus-errors.h
 	${DBUS_DIR}/dbus-macros.h
 	${DBUS_DIR}/dbus-memory.h
@@ -81,6 +80,7 @@ set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-auth.h
 	${DBUS_DIR}/dbus-auth-script.h
 	${DBUS_DIR}/dbus-connection-internal.h
+	${DBUS_DIR}/dbus-credentials.h
 	${DBUS_DIR}/dbus-keyring.h
 	${DBUS_DIR}/dbus-marshal-header.h
 	${DBUS_DIR}/dbus-marshal-byteswap.h
@@ -132,7 +132,6 @@ set (DBUS_SHARED_SOURCES
 	${DBUS_DIR}/dbus-sysdeps.c
 	${DBUS_DIR}/dbus-sysdeps-util.c
 )
-#	${DBUS_DIR}/dbus-userdb.c
 
 set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-dataslot.h
@@ -144,7 +143,6 @@ set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-string.h
 	${DBUS_DIR}/dbus-string-private.h
 	${DBUS_DIR}/dbus-sysdeps.h
-	${DBUS_DIR}/dbus-userdb.h
 )
 
 ### source code that is generic utility functionality used
@@ -164,7 +162,6 @@ set (DBUS_UTIL_SOURCES
 	${DBUS_DIR}/dbus-shell.c
 	${DBUS_DIR}/dbus-string-util.c
 )
-#${DBUS_DIR}/dbus-userdb-util.c
 
 if (DBUS_BUILD_TESTS)
 	set (DBUS_UTIL_SOURCES 
@@ -201,11 +198,16 @@ else (WIN32)
 		${DBUS_DIR}/dbus-sysdeps-pthread.c
 		${DBUS_DIR}/dbus-sysdeps-util-unix.c
 		${DBUS_DIR}/dbus-spawn.c
+		${DBUS_DIR}/dbus-userdb.c
 	)
 	set (DBUS_SHARED_HEADERS ${DBUS_SHARED_HEADERS} 
 		${DBUS_DIR}/dbus-server-unix.h
 		${DBUS_DIR}/dbus-transport-unix.h
 		${DBUS_DIR}/dbus-sysdeps-unix.h
+		${DBUS_DIR}/dbus-userdb.h
+	)
+	set (DBUS_UTIL_SOURCES ${DBUS_UTIL_SOURCES}
+		${DBUS_DIR}/dbus-userdb-util.c
 	)
 endif (WIN32)
 

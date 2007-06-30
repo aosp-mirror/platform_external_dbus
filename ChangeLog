@@ -1,5 +1,9 @@
 2007-06-30  Ralf Habacker  <ralf.habacker@freenet.de>
 
+	* cmake/dbus/CMakeLists.txt: handle userdb as unix file
+
+2007-06-30  Ralf Habacker  <ralf.habacker@freenet.de>
+
 	* dbus/dbus-sysdeps-win.c,dbus/dbus-sysdeps-win.h: removed obsolate 
 	DBusUserInfo code
 
