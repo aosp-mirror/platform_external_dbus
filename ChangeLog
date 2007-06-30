@@ -1,3 +1,7 @@
+2007-06-30  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c (_dbus_daemon_init): reduced compiler warnings
+
 2007-06-23  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-auth-script.c (_dbus_auth_script_run): added UNIX_ONLY and 

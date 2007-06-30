@@ -5241,10 +5241,10 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
 
   _dbus_assert( adr );
 
-  strcpy(adr, szAddress);
+  strcpy( (char*) adr, szAddress);
 
   // cleanup
-  UnmapViewOfFile( adr );
+  UnmapViewOfFile( (char*) adr );
 
   _dbus_global_unlock( lock );
 }
@@ -5305,7 +5305,7 @@ _dbus_get_autolaunch_shm(DBusString *adress)
   _dbus_string_append( adress, adr ); 
 
   // cleanup
-  UnmapViewOfFile( adr );
+  UnmapViewOfFile( (char*) adr );
 
   CloseHandle( sharedMem );
 
