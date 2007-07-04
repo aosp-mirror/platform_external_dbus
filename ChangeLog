@@ -1,3 +1,8 @@
+2007-07-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/modules/FindKDEWIN.cmake: search in <program files dir>\win32libs 
+	for windows supplementary packages too
+
 2007-06-30  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* cmake/dbus/CMakeLists.txt: handle userdb as unix file
