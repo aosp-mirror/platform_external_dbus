@@ -1,3 +1,12 @@
+2007-07-07  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c 
+		(_dbus_getsid): remove unused jump label
+		(_dbus_read_credentials_socket): _dbus_string_init could fail, 
+	        check initialisation
+		(_dbus_get_working_dir, _dbus_init_working_dir): remove unused 
+			functions
+
 2007-07-04  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* cmake/modules/FindKDEWIN.cmake: search in <program files dir>\win32libs 

@@ -95,44 +95,6 @@ static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
 #endif
 
-static DBusString dbusdir;
-static int working_dir_init = 0;
-
-int _dbus_init_working_dir(char *s)
-{
-  /* change working directory to one level above 
-     of dbus-daemon executable path.  
-     This allows the usage of relative path in 
-     config files or command line parameters */
-  DBusString daemon_path,bin_path;
-
-  if (!_dbus_string_init (&daemon_path))
-    return FALSE;
-  
-  if (!_dbus_string_init (&bin_path))
-    return FALSE;
-
-  if (!_dbus_string_init (&dbusdir))
-    return FALSE;
-  
-  _dbus_string_append(&daemon_path,s);
-  _dbus_string_get_dirname(&daemon_path,&bin_path);
-  _dbus_string_get_dirname(&bin_path,&dbusdir);
-  chdir(_dbus_string_get_const_data(&dbusdir));
-  _dbus_verbose ("Change working path to %s\n",_dbus_string_get_const_data (&dbusdir));
-  working_dir_init = 1;
-  return TRUE;
-}
-
-DBusString *_dbus_get_working_dir(void)
-{
-  if (!working_dir_init) 
-    return NULL;
-	
-  _dbus_verbose ("retrieving working path %s\n",_dbus_string_get_const_data (&dbusdir));
-  return &dbusdir;
-}
-
 /**
  * File interface
  *
@@ -1457,8 +1419,9 @@ _dbus_getsid(char **sid)
       _dbus_verbose("%s invalid sid\n",__FUNCTION__);
       goto failed;
     }
-okay:
+
   retval = TRUE;
+
 failed:
   if (process_token != NULL)
     CloseHandle (process_token);
@@ -3591,20 +3554,23 @@ again:
  */
 dbus_bool_t
 _dbus_read_credentials_socket  (int              handle,
-                                     DBusCredentials *credentials,
-                                     DBusError       *error)
+                                DBusCredentials *credentials,
+                                DBusError       *error)
 {
-  int bytes_read;
+  int bytes_read = 0;
   DBusString buf;
-  _dbus_string_init(&buf);
-
-  bytes_read = _dbus_read_socket(handle, &buf, 1 );
-  if (bytes_read > 0) 
+  
+  // could fail due too OOM
+  if (_dbus_string_init(&buf))
     {
-		_dbus_verbose("got one zero byte from server");
+      bytes_read = _dbus_read_socket(handle, &buf, 1 );
+
+      if (bytes_read > 0) 
+        _dbus_verbose("got one zero byte from server");
+
+      _dbus_string_free(&buf);
     }
 
-  _dbus_string_free(&buf);
   _dbus_credentials_add_from_current_process (credentials);
   _dbus_verbose("FIXME: get faked credentials from current process");
 
