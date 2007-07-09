@@ -57,31 +57,11 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 #define DBUS_CONSOLE_DIR "/var/run/console/"
 
 
-//#define ENABLE_DBUSSOCKET
-
-#ifdef ENABLE_DBUSSOCKET
-typedef struct
-  {
-    int fd;               /* File descriptor, SOCKET or file HANDLE */
-    int port_file_fd;     /* File descriptor for file containing
-                           * port number for "pseudo-unix" sockets
-                           */
-    DBusString port_file; /* File name for said file */
-    dbus_bool_t close_on_exec;
-    dbus_bool_t non_blocking;
-    int is_used; 
-  }
-DBusSocket;
-
-extern DBusSocket *win_fds;
-extern int win32_n_fds;
-#endif
-
-
 void _dbus_win_startup_winsock (void);
 void _dbus_win_warn_win_error  (const char *message,
                                 int         code);
 extern const char* _dbus_lm_strerror  (int error_number);
+
 
 dbus_bool_t _dbus_win_account_to_sid (const wchar_t *waccount,
                                       void         **ppsid,
@@ -102,16 +82,6 @@ char       *_dbus_win_utf16_to_utf8 (const wchar_t *str,
                                      DBusError *error);
 
 void        _dbus_win_set_error_from_win_error (DBusError *error, int code);
-
-#ifdef ENABLE_UID_TO_SID
-dbus_uid_t  _dbus_win_sid_to_uid_t (void        *psid);
-dbus_bool_t _dbus_uid_t_to_win_sid (dbus_uid_t   uid,
-                                    void       **ppsid);
-dbus_bool_t
-_dbus_account_to_win_sid (const wchar_t  *waccount,
-                          void          **ppsid,
-                          DBusError      *error);
-#endif
 
 dbus_bool_t
 _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
@@ -147,12 +117,6 @@ struct DBusFile
   {
     int FDATA;
   };
-
-#ifdef ENABLE_DBUSSOCKET
-void _dbus_handle_to_socket (int          handle,
-                             DBusSocket **socket);
-int  _dbus_socket_to_handle (DBusSocket  *socket);
-#endif
 
 
 dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 

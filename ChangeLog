@@ -1,3 +1,8 @@
+2007-07-09  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c,dbus-sysdeps-win.h,dbus-sysdeps-win-util.c,
+	dbus-sysdeps-spawn-win.c: synced with windbus sources 
+
 2007-07-07  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-win.c 

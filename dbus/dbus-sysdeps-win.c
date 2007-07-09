@@ -61,40 +61,6 @@
 #define socklen_t int
 #endif
 
-#ifdef ENABLE_DBUSSOCKET
-_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
-#endif
-
-#ifdef ENABLE_UID_TO_SID
-_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
-#endif
-
-#ifdef ENABLE_DBUSSOCKET
-static
-void 
-_dbus_lock_sockets()
-{
-	_dbus_assert (win_fds!=0); 
-	_DBUS_LOCK   (win_fds);
-}
-
-static
-void 
-_dbus_unlock_sockets()
-{
-	_dbus_assert (win_fds!=0); 
-	_DBUS_UNLOCK (win_fds);
-}
-#endif
-
-#ifdef _DBUS_WIN_USE_RANDOMIZER
-static int  win_encap_randomizer;
-#endif
-
-#ifdef ENABLE_UID_TO_SID
-static DBusHashTable *sid_atom_cache = NULL;
-#endif
-
 /**
  * File interface
  *
@@ -298,207 +264,6 @@ _dbus_pipe_close  (DBusPipe         *pipe,
  *
  */
 
-#ifdef ENABLE_DBUSSOCKET
-static DBusSocket *win_fds = NULL;
-static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
-
-
-#if 0
-#define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
-#define FROM_HANDLE(n) ((n)^win32_encap_randomizer)
-#else
-#define TO_HANDLE(n)   ((n)+0x10000000)
-#define FROM_HANDLE(n) ((n)-0x10000000)
-#define IS_HANDLE(n)   ((n)&0x10000000)
-#endif
-
-
-static
-void
-_dbus_win_deallocate_fd (int fd)
-{
-  _DBUS_LOCK (win_fds);
-  win_fds[FROM_HANDLE (fd)].is_used = 0;
-  _DBUS_UNLOCK (win_fds);
-}
-
-static
-int
-_dbus_win_allocate_fd (void)
-{
-  int i;
-
-  _DBUS_LOCK (win_fds);
-
-  if (win_fds == NULL)
-    {
-#ifdef _DBUS_WIN_USE_RANDOMIZER
-      DBusString random;
-#endif
-
-      win_n_fds = 16;
-      /* Use malloc to avoid memory leak failure in dbus-test */
-      win_fds = malloc (win_n_fds * sizeof (*win_fds));
-
-      _dbus_assert (win_fds != NULL);
-
-      for (i = 0; i < win_n_fds; i++)
-        win_fds[i].is_used = 0;
-
-#ifdef _DBUS_WIN_USE_RANDOMIZER
-
-      _dbus_string_init (&random);
-      _dbus_generate_random_bytes (&random, sizeof (int));
-      memmove (&win_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
-      win_encap_randomizer &= 0xFF;
-      _dbus_string_free (&random);
-#endif
-
-    }
-
-  for (i = 0; i < win_n_fds && win_fds[i].is_used != 0; i++)
-    ;
-
-  if (i == win_n_fds)
-    {
-      int oldn = win_n_fds;
-      int j;
-
-      win_n_fds += 16;
-      win_fds = realloc (win_fds, win_n_fds * sizeof (*win_fds));
-
-      _dbus_assert (win_fds != NULL);
-
-      for (j = oldn; j < win_n_fds; j++)
-        win_fds[i].is_used = 0;
-    }
-
-  memset(&win_fds[i], 0, sizeof(win_fds[i]));
-
-  win_fds[i].is_used = 1;
-  win_fds[i].fd = -1;
-  win_fds[i].port_file_fd = -1;
-  win_fds[i].close_on_exec = FALSE;
-  win_fds[i].non_blocking = FALSE;
-
-  _DBUS_UNLOCK (win_fds);
-
-  return i;
-}
-
-static
-int
-_dbus_create_handle_from_socket (int s)
-{
-  int i;
-  int handle = -1;
-
-  // check: parameter must be a valid value
-  _dbus_assert(s != -1);
-  _dbus_assert(!IS_HANDLE(s));
-
-  // get index of a new position in the map
-  i = _dbus_win_allocate_fd ();
-
-  // fill new posiiton in the map: value->index
-  win_fds[i].fd = s;
-  win_fds[i].is_used = 1;
-
-  // create handle from the index: index->handle
-  handle = TO_HANDLE (i);
-
-  _dbus_verbose ("_dbus_create_handle_from_value, value: %d, handle: %d\n", s, handle);
-
-  return handle;
-}
-
-int
-_dbus_socket_to_handle (DBusSocket *s)
-{
-  int i;
-  int handle = -1;
-
-  // check: parameter must be a valid socket
-  _dbus_assert(s != NULL);
-  _dbus_assert(s->fd != -1);
-  _dbus_assert(!IS_HANDLE(s->fd));
-
-  _DBUS_LOCK (win_fds);
-
-  // at the first call there is no win_fds
-  // will be constructed  _dbus_create_handle_from_socket
-  // because handle = -1
-  if (win_fds != NULL)
-    {
-      // search for the value in the map
-      // find the index of the value: value->index
-      for (i = 0; i < win_n_fds; i++)
-        if (win_fds[i].is_used == 1 && win_fds[i].fd == s->fd)
-          {
-            // create handle from the index: index->handle
-            handle = TO_HANDLE (i);
-            break;
-          }
-    }
-  _DBUS_UNLOCK (win_fds);
-
-
-  if (handle == -1)
-    {
-      handle = _dbus_create_handle_from_socket(s->fd);
-    }
-
-  _dbus_assert(handle != -1);
-
-  return handle;
-}
-
-static
-void 
-_dbus_handle_to_socket_unlocked (int          handle,
-                                 DBusSocket **ptr)
-{
-  int i;
-
-  // check: parameter must be a valid handle
-  _dbus_assert(handle != -1);
-  _dbus_assert(IS_HANDLE(handle));
-  _dbus_assert(ptr != NULL);
-
-  // map from handle to index: handle->index
-  i = FROM_HANDLE (handle);
-
-  _dbus_assert (win_fds != NULL);
-  _dbus_assert (i >= 0 && i < win_n_fds);
-
-  // check for if fd is valid
-  _dbus_assert (win_fds[i].is_used == 1);
-
-  // get socket from index: index->socket
-  *ptr = &win_fds[i];
-
-  _dbus_verbose ("_dbus_socket_to_handle_unlocked: socket=%d, handle=%d, index=%d\n", (*ptr)->fd, handle, i);
-}
-
-void 
-_dbus_handle_to_socket (int          handle,
-                        DBusSocket **ptr)
-{
-  _dbus_lock_sockets();
-  _dbus_handle_to_socket_unlocked (handle, ptr);
-  _dbus_unlock_sockets();
-}
-
-
-#undef TO_HANDLE
-#undef IS_HANDLE
-#undef FROM_HANDLE
-#define FROM_HANDLE(n) 1==DBUS_WIN_DONT_USE__FROM_HANDLE__DIRECTLY
-#define win_fds 1==DBUS_WIN_DONT_USE_win_fds_DIRECTLY
-
-
-#endif
-
 /**
  * Thin wrapper around the read() system call that appends
  * the data it reads to the DBusString buffer. It appends
@@ -513,13 +278,10 @@ _dbus_handle_to_socket (int          handle,
  * @returns the number of bytes read or -1
  */
 int
-_dbus_read_socket (int               handle,
+_dbus_read_socket (int               fd,
                    DBusString       *buffer,
                    int               count)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *s;
-#endif
   int bytes_read;
   int start;
   char *data;
@@ -536,38 +298,30 @@ _dbus_read_socket (int               handle,
 
   data = _dbus_string_get_data_len (buffer, start, count);
 
-#ifdef ENABLE_DBUSSOCKET
-  _dbus_handle_to_socket(handle, &s);
-
-  if(s->is_used)
-    {
-      _dbus_verbose ("recv: count=%d socket=%d\n", count, s->fd);
-      bytes_read = recv (s->fd, data, count, 0);
-#else
-	if(1)
-    {
-      _dbus_verbose ("recv: count=%d socket=%d\n", count, handle);
-      bytes_read = recv (handle, data, count, 0);
-#endif
-      if (bytes_read == SOCKET_ERROR)
-        {
-          DBUS_SOCKET_SET_ERRNO();
-          _dbus_verbose ("recv: failed: %s\n", _dbus_strerror (errno));
-          bytes_read = -1;
-        }
-      else
-        _dbus_verbose ("recv: = %d\n", bytes_read);
-    }
-  else
-    {
-      _dbus_assert_not_reached ("no valid socket");
-    }
+ again:
+ 
+  _dbus_verbose ("recv: count=%d fd=%d\n", count, fd);
+  bytes_read = recv (fd, data, count, 0);
+  
+  if (bytes_read == SOCKET_ERROR)
+	{
+	  DBUS_SOCKET_SET_ERRNO();
+	  _dbus_verbose ("recv: failed: %s\n", _dbus_strerror (errno));
+	  bytes_read = -1;
+	}
+	else
+	  _dbus_verbose ("recv: = %d\n", bytes_read);
 
   if (bytes_read < 0)
     {
-      /* put length back (note that this doesn't actually realloc anything) */
-      _dbus_string_set_length (buffer, start);
-      return -1;
+      if (errno == EINTR)
+        goto again;
+      else    	
+        {
+          /* put length back (note that this doesn't actually realloc anything) */
+          _dbus_string_set_length (buffer, start);
+          return -1;
+        }
     }
   else
     {
@@ -575,7 +329,6 @@ _dbus_read_socket (int               handle,
       _dbus_string_set_length (buffer, start + bytes_read);
 
 #if 0
-
       if (bytes_read > 0)
         _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
 #endif
@@ -595,47 +348,33 @@ _dbus_read_socket (int               handle,
  * @returns the number of bytes written or -1 on error
  */
 int
-_dbus_write_socket (int               handle,
+_dbus_write_socket (int               fd,
                     const DBusString *buffer,
                     int               start,
                     int               len)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *s;
-#endif
-  int is_used;
   const char *data;
   int bytes_written;
 
   data = _dbus_string_get_const_data_len (buffer, start, len);
 
-#ifdef ENABLE_DBUSSOCKET
-  _dbus_handle_to_socket(handle, &s);
+ again:
 
-  if (s->is_used)
-    {
-      _dbus_verbose ("send: len=%d socket=%d\n", len, s->fd);
-      bytes_written = send (s->fd, data, len, 0);
-#else
-  if (1)
-    {
-      _dbus_verbose ("send: len=%d socket=%d\n", len, handle);
-	  bytes_written = send (handle, data, len, 0);
-#endif
-      if (bytes_written == SOCKET_ERROR)
-        {
-          DBUS_SOCKET_SET_ERRNO();
-          _dbus_verbose ("send: failed: %s\n", _dbus_strerror (errno));
-          bytes_written = -1;
-        }
-      else
-        _dbus_verbose ("send: = %d\n", bytes_written);
-    }
-  else
-    {
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
+  _dbus_verbose ("send: len=%d fd=%d\n", len, fd);
+  bytes_written = send (fd, data, len, 0);
 
+  if (bytes_written == SOCKET_ERROR)
+    {
+      DBUS_SOCKET_SET_ERRNO();
+      _dbus_verbose ("send: failed: %s\n", _dbus_strerror (errno));
+      bytes_written = -1;
+    }
+    else
+      _dbus_verbose ("send: = %d\n", bytes_written);
+
+  if (bytes_written < 0 && errno == EINTR)
+    goto again;
+    
 #if 0
   if (bytes_written > 0)
     _dbus_verbose_bytes_of_string (buffer, start, bytes_written);
@@ -653,79 +392,27 @@ _dbus_write_socket (int               handle,
  * @returns #FALSE if error set
  */
 dbus_bool_t
-_dbus_close_socket (int        handle,
+_dbus_close_socket (int        fd,
                     DBusError *error)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *s;
-
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  _dbus_lock_sockets();
-
-  _dbus_handle_to_socket_unlocked (handle, &s);
-
-
-  if (s->is_used)
+ again:
+  if (closesocket (fd) == SOCKET_ERROR)
     {
-      if (s->port_file_fd >= 0)
-        {
-          _chsize (s->port_file_fd, 0);
-          close (s->port_file_fd);
-          s->port_file_fd = -1;
-          unlink (_dbus_string_get_const_data (&s->port_file));
-          free ((char *) _dbus_string_get_const_data (&s->port_file));
-        }
-
-      if (closesocket (s->fd) == SOCKET_ERROR)
-        {
-          DBUS_SOCKET_SET_ERRNO ();
-          dbus_set_error (error, _dbus_error_from_errno (errno),
-              "Could not close socket: socket=%d, handle=%d, %s",
-                          s->fd, handle, _dbus_strerror (errno));
-          _dbus_unlock_sockets();
-          return FALSE;
-        }
-      _dbus_verbose ("_dbus_close_socket: socket=%d, handle=%d\n",
-                     s->fd, handle);
+      DBUS_SOCKET_SET_ERRNO ();
+      
+      if (errno == EINTR)
+        goto again;
+        
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not close socket: socket=%d, , %s",
+                      fd, _dbus_strerror (errno));
+      return FALSE;
     }
-  else
-    {
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
-
-  _dbus_unlock_sockets();
-
-  _dbus_win_deallocate_fd (handle);
+  _dbus_verbose ("_dbus_close_socket: socket=%d, \n", fd);
 
   return TRUE;
-
-#else
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-
-  if (1)
-    {
-      if (closesocket (handle) == SOCKET_ERROR)
-        {
-          DBUS_SOCKET_SET_ERRNO ();
-          dbus_set_error (error, _dbus_error_from_errno (errno),
-              "Could not close socket: socket=%d, , %s",
-                          handle, _dbus_strerror (errno));
-          return FALSE;
-        }
-      _dbus_verbose ("_dbus_close_socket: socket=%d, \n",
-                     handle);
-    }
-  else
-    {
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
-
-  return TRUE;
-#endif
-
 }
 
 /**
@@ -776,56 +463,19 @@ dbus_bool_t
 _dbus_set_fd_nonblocking (int             handle,
                           DBusError      *error)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *s;
   u_long one = 1;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  _dbus_lock_sockets();
-
-  _dbus_handle_to_socket_unlocked(handle, &s);
-
-  if (s->is_used)
+  if (ioctlsocket (handle, FIONBIO, &one) == SOCKET_ERROR)
     {
-      if (ioctlsocket (s->fd, FIONBIO, &one) == SOCKET_ERROR)
-        {
-          dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
-                          "Failed to set socket %d:%d to nonblocking: %s", s->fd,
-                          _dbus_strerror (WSAGetLastError ()));
-          _dbus_unlock_sockets();
-          return FALSE;
-        }
+      dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
+                      "Failed to set socket %d:%d to nonblocking: %s", handle,
+                      _dbus_strerror (WSAGetLastError ()));
+      return FALSE;
     }
-  else
-    {
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
-
-  _dbus_unlock_sockets();
 
   return TRUE;
-#else
-  u_long one = 1;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  if (1)
-    {
-      if (ioctlsocket (handle, FIONBIO, &one) == SOCKET_ERROR)
-        {
-          dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
-                          "Failed to set socket %d:%d to nonblocking: %s", handle,
-                          _dbus_strerror (WSAGetLastError ()));
-          return FALSE;
-        }
-    }
-  else
-    {
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
-  return TRUE;
-#endif
 }
 
 
@@ -850,7 +500,7 @@ _dbus_set_fd_nonblocking (int             handle,
  * @returns total bytes written from both buffers, or -1 on error
  */
 int
-_dbus_write_socket_two (int               handle,
+_dbus_write_socket_two (int               fd,
                         const DBusString *buffer1,
                         int               start1,
                         int               len1,
@@ -858,60 +508,6 @@ _dbus_write_socket_two (int               handle,
                         int               start2,
                         int               len2)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *s;
-  WSABUF vectors[2];
-  const char *data1;
-  const char *data2;
-  int rc;
-  DWORD bytes_written;
-  int ret1;
-
-  _dbus_assert (buffer1 != NULL);
-  _dbus_assert (start1 >= 0);
-  _dbus_assert (start2 >= 0);
-  _dbus_assert (len1 >= 0);
-  _dbus_assert (len2 >= 0);
-
-  _dbus_handle_to_socket(handle, &s);
-
-  data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
-
-  if (buffer2 != NULL)
-    data2 = _dbus_string_get_const_data_len (buffer2, start2, len2);
-  else
-    {
-      data2 = NULL;
-      start2 = 0;
-      len2 = 0;
-    }
-
-  if (s->is_used)
-    {
-      vectors[0].buf = (char*) data1;
-      vectors[0].len = len1;
-      vectors[1].buf = (char*) data2;
-      vectors[1].len = len2;
-
-      _dbus_verbose ("WSASend: len1+2=%d+%d socket=%d\n", len1, len2, s->fd);
-      rc = WSASend (s->fd, vectors, data2 ? 2 : 1, &bytes_written,
-                    0, NULL, NULL);
-      if (rc < 0)
-        {
-          DBUS_SOCKET_SET_ERRNO ();
-          _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
-          bytes_written = -1;
-        }
-      else
-        _dbus_verbose ("WSASend: = %ld\n", bytes_written);
-      return bytes_written;
-    }
-  else
-    {
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
-  return 0;
-#else
   WSABUF vectors[2];
   const char *data1;
   const char *data2;
@@ -937,32 +533,35 @@ _dbus_write_socket_two (int               handle,
       len2 = 0;
     }
 
-  if (1)
-    {
-      vectors[0].buf = (char*) data1;
-      vectors[0].len = len1;
-      vectors[1].buf = (char*) data2;
-      vectors[1].len = len2;
+  vectors[0].buf = (char*) data1;
+  vectors[0].len = len1;
+  vectors[1].buf = (char*) data2;
+  vectors[1].len = len2;
 
-      _dbus_verbose ("WSASend: len1+2=%d+%d socket=%d\n", len1, len2, handle);
-      rc = WSASend (handle, vectors, data2 ? 2 : 1, &bytes_written,
-                    0, NULL, NULL);
-      if (rc < 0)
-        {
-          DBUS_SOCKET_SET_ERRNO ();
-          _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
-          bytes_written = -1;
-        }
-      else
-        _dbus_verbose ("WSASend: = %ld\n", bytes_written);
-      return bytes_written;
+ again:
+ 
+  _dbus_verbose ("WSASend: len1+2=%d+%d fd=%d\n", len1, len2, fd);
+  rc = WSASend (fd, 
+                vectors,
+                data2 ? 2 : 1, 
+                &bytes_written,
+                0, 
+                NULL, 
+                NULL);
+                
+  if (rc < 0)
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
+      bytes_written = -1;
     }
   else
-    {
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
-  return 0;
-#endif
+    _dbus_verbose ("WSASend: = %ld\n", bytes_written);
+    
+  if (bytes_written < 0 && errno == EINTR)
+    goto again;
+      
+  return bytes_written;
 }
 
 #if 0
@@ -1162,7 +761,6 @@ _dbus_win_utf16_to_utf8 (const wchar_t *str,
 
 /************************************************************************
  
- uid ... <-> win sid functions
  
  ************************************************************************/
 
@@ -1229,112 +827,6 @@ out1:
   return retval;
 }
 
-#ifdef ENABLE_UID_TO_SID
-static void
-_sid_atom_cache_shutdown (void *unused)
-{
-  DBusHashIter iter;
-  _DBUS_LOCK (sid_atom_cache);
-  _dbus_hash_iter_init (sid_atom_cache, &iter);
-  while (_dbus_hash_iter_next (&iter))
-    {
-      ATOM atom;
-      atom = (ATOM) _dbus_hash_iter_get_value (&iter);
-      GlobalDeleteAtom(atom);
-      _dbus_hash_iter_remove_entry(&iter);
-    }
-  _DBUS_UNLOCK (sid_atom_cache);
-  _dbus_hash_table_unref (sid_atom_cache);
-  sid_atom_cache = NULL;
-}
-
-/**
- * Returns the 2-way associated dbus_uid_t form a SID.
- *
- * @param psid pointer to the SID
- */
-dbus_uid_t
-_dbus_win_sid_to_uid_t (PSID psid)
-{
-  dbus_uid_t uid;
-  dbus_uid_t olduid;
-  char *string;
-  ATOM atom;
-
-  if (!IsValidSid (psid))
-    {
-      _dbus_verbose("%s invalid sid\n",__FUNCTION__);
-      return DBUS_UID_UNSET;
-    }
-  if (!ConvertSidToStringSidA (psid, &string))
-    {
-      _dbus_verbose("%s invalid sid\n",__FUNCTION__);
-      return DBUS_UID_UNSET;
-    }
-
-  atom = GlobalAddAtom(string);
-
-  if (atom == 0)
-    {
-      _dbus_verbose("%s GlobalAddAtom failed\n",__FUNCTION__);
-      LocalFree (string);
-      return DBUS_UID_UNSET;
-    }
-
-  _DBUS_LOCK (sid_atom_cache);
-
-  if (sid_atom_cache == NULL)
-    {
-      sid_atom_cache = _dbus_hash_table_new (DBUS_HASH_ULONG, NULL, NULL);
-      _dbus_register_shutdown_func (_sid_atom_cache_shutdown, NULL);
-    }
-
-  uid = atom;
-  olduid = (dbus_uid_t) _dbus_hash_table_lookup_ulong (sid_atom_cache, uid);
-
-  if (olduid)
-    {
-      _dbus_verbose("%s sid with id %i found in cache\n",__FUNCTION__, olduid);
-      uid = olduid;
-    }
-  else
-    {
-      _dbus_hash_table_insert_ulong (sid_atom_cache, uid, (void*) uid);
-      _dbus_verbose("%s sid %s added with uid %i to cache\n",__FUNCTION__, string, uid);
-    }
-
-  _DBUS_UNLOCK (sid_atom_cache);
-
-  return uid;
-}
-
-dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
-{
-  void* atom;
-  char string[255];
-
-  atom = _dbus_hash_table_lookup_ulong (sid_atom_cache, uid);
-  if (atom == NULL)
-    {
-      _dbus_verbose("%s uid %i not found in cache\n",__FUNCTION__,uid);
-      return FALSE;
-    }
-  memset( string, '.', sizeof(string) );
-  if (!GlobalGetAtomNameA( (ATOM) atom, string, 255 ))
-    {
-      _dbus_verbose("%s uid %i not found in cache\n",__FUNCTION__, uid);
-      return FALSE;
-    }
-  if (!ConvertStringSidToSidA(string, ppsid))
-    {
-      _dbus_verbose("%s could not convert %s into sid \n",__FUNCTION__, string);
-      return FALSE;
-    }
-  _dbus_verbose("%s converted %s into sid \n",__FUNCTION__, string);
-  return TRUE;
-}
-#endif
-
 /** @} end of sysdeps-win */
 
 
@@ -1344,30 +836,7 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 dbus_uid_t
 _dbus_getuid(void)
 {
-#ifndef ENABLE_UID_TO_SID
 	return DBUS_UID_UNSET;
-#else
-  dbus_uid_t retval = DBUS_UID_UNSET;
-  HANDLE process_token = NULL;
-  TOKEN_USER *token_user = NULL;
-  DWORD n;
-
-  if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &process_token))
-    _dbus_win_warn_win_error ("OpenProcessToken failed", GetLastError ());
-  else if ((!GetTokenInformation (process_token, TokenUser, NULL, 0, &n)
-            && GetLastError () != ERROR_INSUFFICIENT_BUFFER)
-           || (token_user = alloca (n)) == NULL
-           || !GetTokenInformation (process_token, TokenUser, token_user, n, &n))
-    _dbus_win_warn_win_error ("GetTokenInformation failed", GetLastError ());
-  else
-    retval = _dbus_win_sid_to_uid_t (token_user->User.Sid);
-
-  if (process_token != NULL)
-    CloseHandle (process_token);
-
-  _dbus_verbose("_dbus_getuid() returns %d\n",retval);
-  return retval;
-#endif
 }
 
 /**
@@ -1419,7 +888,7 @@ _dbus_getsid(char **sid)
       _dbus_verbose("%s invalid sid\n",__FUNCTION__);
       goto failed;
     }
-
+//okay:
   retval = TRUE;
 
 failed:
@@ -1438,31 +907,7 @@ failed:
 dbus_gid_t
 _dbus_getgid (void)
 {
-#ifndef ENABLE_UID_TO_SID
 	return DBUS_GID_UNSET;
-#else
-  dbus_gid_t retval = DBUS_GID_UNSET;
-  HANDLE process_token = NULL;
-  TOKEN_PRIMARY_GROUP *token_primary_group = NULL;
-  DWORD n;
-
-  if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &process_token))
-    _dbus_win_warn_win_error ("OpenProcessToken failed", GetLastError ());
-  else if ((!GetTokenInformation (process_token, TokenPrimaryGroup,
-                                  NULL, 0, &n) &&
-            GetLastError () != ERROR_INSUFFICIENT_BUFFER) ||
-           (token_primary_group = alloca (n)) == NULL ||
-           !GetTokenInformation (process_token, TokenPrimaryGroup,
-                                 token_primary_group, n, &n))
-    _dbus_win_warn_win_error ("GetTokenInformation failed", GetLastError ());
-  else
-    retval = _dbus_win_sid_to_uid_t (token_primary_group->PrimaryGroup);
-
-  if (process_token != NULL)
-    CloseHandle (process_token);
-
-  return retval;
-#endif
 }
 
 #if 0
@@ -1512,10 +957,6 @@ _dbus_full_duplex_pipe (int        *fd1,
   u_long arg;
   fd_set read_set, write_set;
   struct timeval tv;
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket sock;
-#endif
-
 
   _dbus_win_startup_winsock ();
 
@@ -1639,15 +1080,8 @@ _dbus_full_duplex_pipe (int        *fd1,
         }
     }
 
-#ifdef ENABLE_DBUSSOCKET
-  sock.fd = socket1;
-  *fd1 = _dbus_socket_to_handle (&sock);
-  sock.fd = socket2;
-  *fd2 = _dbus_socket_to_handle (&sock);
-#else
   *fd1 = socket1;
   *fd2 = socket2;
-#endif
 
   _dbus_verbose ("full-duplex pipe %d:%d <-> %d:%d\n",
                  *fd1, socket1, *fd2, socket2);
@@ -1702,7 +1136,6 @@ _dbus_poll (DBusPollFD *fds,
   else
     pEvents = eventsOnStack;
 
-  _dbus_lock_sockets();
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
   msgp = msg;
@@ -1710,24 +1143,16 @@ _dbus_poll (DBusPollFD *fds,
   for (i = 0; i < n_fds; i++)
     {
       static dbus_bool_t warned = FALSE;
-      DBusSocket *s;
       DBusPollFD *fdp = &fds[i];
 
-      _dbus_handle_to_socket_unlocked(fdp->fd, &s);  
-
-      if (s->is_used == 0)
-        {
-          _dbus_warn ("no valid socket");
-          warned = TRUE;
-        }
 
       if (fdp->events & _DBUS_POLLIN)
-        msgp += sprintf (msgp, "R:%d ", s->fd);
+        msgp += sprintf (msgp, "R:%d ", fdp->fd);
 
       if (fdp->events & _DBUS_POLLOUT)
-        msgp += sprintf (msgp, "W:%d ", s->fd);
+        msgp += sprintf (msgp, "W:%d ", fdp->fd);
 
-      msgp += sprintf (msgp, "E:%d\n\t", s->fd);
+      msgp += sprintf (msgp, "E:%d\n\t", fdp->fd);
 
       // FIXME: more robust code for long  msg
       //        create on heap when msg[] becomes too small
@@ -1742,15 +1167,9 @@ _dbus_poll (DBusPollFD *fds,
 #endif
   for (i = 0; i < n_fds; i++)
     {
-      DBusSocket *s;
       DBusPollFD *fdp = &fds[i];
       WSAEVENT ev;
       long lNetworkEvents = FD_OOB;
-
-      _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
-
-      if (s->is_used == 0)
-        continue;
 
       ev = WSACreateEvent();
 
@@ -1760,12 +1179,11 @@ _dbus_poll (DBusPollFD *fds,
       if (fdp->events & _DBUS_POLLOUT)
         lNetworkEvents |= FD_WRITE | FD_CONNECT;
 
-      WSAEventSelect(s->fd, ev, lNetworkEvents);
+      WSAEventSelect(fdp->fd, ev, lNetworkEvents);
 
       pEvents[i] = ev;
     }
 
-  _dbus_unlock_sockets();
 
   ready = WSAWaitForMultipleEvents (n_fds, pEvents, FALSE, timeout_milliseconds, FALSE);
 
@@ -1786,18 +1204,14 @@ _dbus_poll (DBusPollFD *fds,
       msgp = msg;
       msgp += sprintf (msgp, "WSAWaitForMultipleEvents: =%d\n\t", ready);
 
-      _dbus_lock_sockets();
       for (i = 0; i < n_fds; i++)
         {
-          DBusSocket *s;
           DBusPollFD *fdp = &fds[i];
           WSANETWORKEVENTS ne;
 
-          _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
-
           fdp->revents = 0;
 
-          WSAEnumNetworkEvents(s->fd, pEvents[i], &ne);
+          WSAEnumNetworkEvents(fdp->fd, pEvents[i], &ne);
 
           if (ne.lNetworkEvents & (FD_READ | FD_ACCEPT | FD_CLOSE))
             fdp->revents |= _DBUS_POLLIN;
@@ -1809,22 +1223,21 @@ _dbus_poll (DBusPollFD *fds,
             fdp->revents |= _DBUS_POLLERR;
 
           if (ne.lNetworkEvents & (FD_READ | FD_ACCEPT | FD_CLOSE))
-              msgp += sprintf (msgp, "R:%d ", s->fd);
+              msgp += sprintf (msgp, "R:%d ", fdp->fd);
 
           if (ne.lNetworkEvents & (FD_WRITE | FD_CONNECT))
-              msgp += sprintf (msgp, "W:%d ", s->fd);
+              msgp += sprintf (msgp, "W:%d ", fdp->fd);
 
           if (ne.lNetworkEvents & (FD_OOB))
-              msgp += sprintf (msgp, "E:%d ", s->fd);
+              msgp += sprintf (msgp, "E:%d ", fdp->fd);
 
           msgp += sprintf (msgp, "lNetworkEvents:%d ", ne.lNetworkEvents);
 
           if(ne.lNetworkEvents)
             ret++;
 
-          WSAEventSelect(s->fd, pEvents[i], 0);
+          WSAEventSelect(fdp->fd, pEvents[i], 0);
         }
-      _dbus_unlock_sockets();
 
       msgp += sprintf (msgp, "\n");
       _dbus_verbose ("%s",msg);
@@ -1848,153 +1261,6 @@ _dbus_poll (DBusPollFD *fds,
 
 #else   // USE_CHRIS_IMPL
 
-#ifdef ENABLE_DBUSSOCKET
-
-int
-_dbus_poll (DBusPollFD *fds,
-            int         n_fds,
-            int         timeout_milliseconds)
-{
-#define DBUS_POLL_CHAR_BUFFER_SIZE 2000
-  char msg[DBUS_POLL_CHAR_BUFFER_SIZE];
-  char *msgp;
-
-  fd_set read_set, write_set, err_set;
-  int max_fd = 0;
-  int i;
-  struct timeval tv;
-  int ready;
-
-  FD_ZERO (&read_set);
-  FD_ZERO (&write_set);
-  FD_ZERO (&err_set);
-
-  _dbus_lock_sockets();
-
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-  msgp = msg;
-  msgp += sprintf (msgp, "select: to=%d\n\t", timeout_milliseconds);
-  for (i = 0; i < n_fds; i++)
-    {
-      static dbus_bool_t warned = FALSE;
-      DBusSocket *s;
-      DBusPollFD *fdp = &fds[i];
-
-      _dbus_handle_to_socket_unlocked(fdp->fd, &s);  
-
-      if (s->is_used == 0)
-        {
-          _dbus_warn ("no valid socket");
-          warned = TRUE;
-        }
-
-      if (fdp->events & _DBUS_POLLIN)
-        msgp += sprintf (msgp, "R:%d ", s->fd);
-
-      if (fdp->events & _DBUS_POLLOUT)
-        msgp += sprintf (msgp, "W:%d ", s->fd);
-
-      msgp += sprintf (msgp, "E:%d\n\t", s->fd);
-
-      // FIXME: more robust code for long  msg
-      //        create on heap when msg[] becomes too small
-      if (msgp >= msg + DBUS_POLL_CHAR_BUFFER_SIZE)
-        {
-          _dbus_assert_not_reached ("buffer overflow in _dbus_poll");
-        }
-    }
-
-  msgp += sprintf (msgp, "\n");
-  _dbus_verbose ("%s",msg);
-#endif
-  for (i = 0; i < n_fds; i++)
-    {
-      DBusSocket *s;
-      DBusPollFD *fdp = &fds[i];
-
-      _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
-
-      if (s->is_used != 1)
-        continue;
-
-      if (fdp->events & _DBUS_POLLIN)
-        FD_SET (s->fd, &read_set);
-
-      if (fdp->events & _DBUS_POLLOUT)
-        FD_SET (s->fd, &write_set);
-
-      FD_SET (s->fd, &err_set);
-
-      max_fd = MAX (max_fd, s->fd);
-    }
-
-  _dbus_unlock_sockets();
-
-  tv.tv_sec = timeout_milliseconds / 1000;
-  tv.tv_usec = (timeout_milliseconds % 1000) * 1000;
-
-  ready = select (max_fd + 1, &read_set, &write_set, &err_set,
-                  timeout_milliseconds < 0 ? NULL : &tv);
-
-  if (DBUS_SOCKET_API_RETURNS_ERROR (ready))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      if (errno != EWOULDBLOCK)
-        _dbus_verbose ("select: failed: %s\n", _dbus_strerror (errno));
-    }
-  else if (ready == 0)
-    _dbus_verbose ("select: = 0\n");
-  else
-    if (ready > 0)
-      {
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-        msgp = msg;
-        msgp += sprintf (msgp, "select: = %d:\n\t", ready);
-        _dbus_lock_sockets();
-        for (i = 0; i < n_fds; i++)
-          {
-            DBusSocket *s;
-            DBusPollFD *fdp = &fds[i];
-
-            _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
-
-            if (FD_ISSET (s->fd, &read_set))
-              msgp += sprintf (msgp, "R:%d ", s->fd);
-
-            if (FD_ISSET (s->fd, &write_set))
-              msgp += sprintf (msgp, "W:%d ", s->fd);
-
-            if (FD_ISSET (s->fd, &err_set))
-              msgp += sprintf (msgp, "E:%d\n\t", s->fd);
-          }
-        msgp += sprintf (msgp, "\n");
-        _dbus_verbose ("%s",msg);
-#endif
-
-        for (i = 0; i < n_fds; i++)
-          {
-            DBusSocket *s;
-            DBusPollFD *fdp = &fds[i];
-
-            _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
-
-            fdp->revents = 0;
-
-            if (FD_ISSET (s->fd, &read_set))
-              fdp->revents |= _DBUS_POLLIN;
-
-            if (FD_ISSET (s->fd, &write_set))
-              fdp->revents |= _DBUS_POLLOUT;
-
-            if (FD_ISSET (s->fd, &err_set))
-              fdp->revents |= _DBUS_POLLERR;
-          }
-        _dbus_unlock_sockets();
-      }
-  return ready;
-}
-#else // ENABLE_DBUSSOCKET
-
 int
 _dbus_poll (DBusPollFD *fds,
             int         n_fds,
@@ -2021,18 +1287,16 @@ _dbus_poll (DBusPollFD *fds,
   for (i = 0; i < n_fds; i++)
     {
       static dbus_bool_t warned = FALSE;
-      int fd;
       DBusPollFD *fdp = &fds[i];
-      fd = fdp->fd;  
 
 
       if (fdp->events & _DBUS_POLLIN)
-        msgp += sprintf (msgp, "R:%d ", fd);
+        msgp += sprintf (msgp, "R:%d ", fdp->fd);
 
       if (fdp->events & _DBUS_POLLOUT)
-        msgp += sprintf (msgp, "W:%d ", fd);
+        msgp += sprintf (msgp, "W:%d ", fdp->fd);
 
-      msgp += sprintf (msgp, "E:%d\n\t", fd);
+      msgp += sprintf (msgp, "E:%d\n\t", fdp->fd);
 
       // FIXME: more robust code for long  msg
       //        create on heap when msg[] becomes too small
@@ -2047,19 +1311,17 @@ _dbus_poll (DBusPollFD *fds,
 #endif
   for (i = 0; i < n_fds; i++)
     {
-        int fd;
-      DBusPollFD *fdp = &fds[i];
-      fd = fdp->fd;  
+      DBusPollFD *fdp = &fds[i]; 
 
       if (fdp->events & _DBUS_POLLIN)
-        FD_SET (fd, &read_set);
+        FD_SET (fdp->fd, &read_set);
 
       if (fdp->events & _DBUS_POLLOUT)
-        FD_SET (fd, &write_set);
+        FD_SET (fdp->fd, &write_set);
 
-      FD_SET (fd, &err_set);
+      FD_SET (fdp->fd, &err_set);
 
-      max_fd = MAX (max_fd, fd);
+      max_fd = MAX (max_fd, fdp->fd);
     }
 
 
@@ -2086,18 +1348,16 @@ _dbus_poll (DBusPollFD *fds,
 
         for (i = 0; i < n_fds; i++)
           {
-            int fd;
             DBusPollFD *fdp = &fds[i];
-            fd = fdp->fd;  
 
-            if (FD_ISSET (fd, &read_set))
-              msgp += sprintf (msgp, "R:%d ", fd);
+            if (FD_ISSET (fdp->fd, &read_set))
+              msgp += sprintf (msgp, "R:%d ", fdp->fd);
 
-            if (FD_ISSET (fd, &write_set))
-              msgp += sprintf (msgp, "W:%d ", fd);
+            if (FD_ISSET (fdp->fd, &write_set))
+              msgp += sprintf (msgp, "W:%d ", fdp->fd);
 
-            if (FD_ISSET (fd, &err_set))
-              msgp += sprintf (msgp, "E:%d\n\t", fd);
+            if (FD_ISSET (fdp->fd, &err_set))
+              msgp += sprintf (msgp, "E:%d\n\t", fdp->fd);
           }
         msgp += sprintf (msgp, "\n");
         _dbus_verbose ("%s",msg);
@@ -2105,872 +1365,24 @@ _dbus_poll (DBusPollFD *fds,
 
         for (i = 0; i < n_fds; i++)
           {
-            int fd;
             DBusPollFD *fdp = &fds[i];
-            fd = fdp->fd;  
 
             fdp->revents = 0;
 
-            if (FD_ISSET (fd, &read_set))
+            if (FD_ISSET (fdp->fd, &read_set))
               fdp->revents |= _DBUS_POLLIN;
 
-            if (FD_ISSET (fd, &write_set))
+            if (FD_ISSET (fdp->fd, &write_set))
               fdp->revents |= _DBUS_POLLOUT;
 
-            if (FD_ISSET (fd, &err_set))
+            if (FD_ISSET (fdp->fd, &err_set))
               fdp->revents |= _DBUS_POLLERR;
           }
       }
   return ready;
 }
-
-#endif  //ENABLE_DBUSSOCKET
 
 #endif  // USE_CHRIS_IMPL
-
-
-/************************************************************************
- 
- error handling
- 
- ************************************************************************/
-
-
-/**
- * Assigns an error name and message corresponding to a Win32 error
- * code to a DBusError. Does nothing if error is #NULL.
- *
- * @param error the error.
- * @param code the Win32 error code
- */
-void
-_dbus_win_set_error_from_win_error (DBusError *error,
-                                    int        code)
-{
-  char *msg;
-
-  /* As we want the English message, use the A API */
-  FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                  FORMAT_MESSAGE_IGNORE_INSERTS |
-                  FORMAT_MESSAGE_FROM_SYSTEM,
-                  NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
-                  (LPTSTR) &msg, 0, NULL);
-  if (msg)
-    {
-      char *msg_copy;
-
-      msg_copy = dbus_malloc (strlen (msg));
-      strcpy (msg_copy, msg);
-      LocalFree (msg);
-
-      dbus_set_error (error, "win32.error", "%s", msg_copy);
-    }
-  else
-    dbus_set_error (error, "win32.error", "Unknown error code %d or FormatMessage failed", code);
-}
-
-void
-_dbus_win_warn_win_error (const char *message,
-                          int         code)
-{
-  DBusError error;
-
-  dbus_error_init (&error);
-  _dbus_win_set_error_from_win_error (&error, code);
-  _dbus_warn ("%s: %s\n", message, error.message);
-  dbus_error_free (&error);
-}
-
-/**
- * A wrapper around strerror() because some platforms
- * may be lame and not have strerror().
- *
- * @param error_number errno.
- * @returns error description.
- */
-const char*
-_dbus_strerror (int error_number)
-{
-#ifdef DBUS_WINCE
-  // TODO
-  return "unknown";
-#else
-  const char *msg;
-
-  switch (error_number)
-    {
-    case WSAEINTR:
-      return "Interrupted function call";
-    case WSAEACCES:
-      return "Permission denied";
-    case WSAEFAULT:
-      return "Bad address";
-    case WSAEINVAL:
-      return "Invalid argument";
-    case WSAEMFILE:
-      return "Too many open files";
-    case WSAEWOULDBLOCK:
-      return "Resource temporarily unavailable";
-    case WSAEINPROGRESS:
-      return "Operation now in progress";
-    case WSAEALREADY:
-      return "Operation already in progress";
-    case WSAENOTSOCK:
-      return "Socket operation on nonsocket";
-    case WSAEDESTADDRREQ:
-      return "Destination address required";
-    case WSAEMSGSIZE:
-      return "Message too long";
-    case WSAEPROTOTYPE:
-      return "Protocol wrong type for socket";
-    case WSAENOPROTOOPT:
-      return "Bad protocol option";
-    case WSAEPROTONOSUPPORT:
-      return "Protocol not supported";
-    case WSAESOCKTNOSUPPORT:
-      return "Socket type not supported";
-    case WSAEOPNOTSUPP:
-      return "Operation not supported";
-    case WSAEPFNOSUPPORT:
-      return "Protocol family not supported";
-    case WSAEAFNOSUPPORT:
-      return "Address family not supported by protocol family";
-    case WSAEADDRINUSE:
-      return "Address already in use";
-    case WSAEADDRNOTAVAIL:
-      return "Cannot assign requested address";
-    case WSAENETDOWN:
-      return "Network is down";
-    case WSAENETUNREACH:
-      return "Network is unreachable";
-    case WSAENETRESET:
-      return "Network dropped connection on reset";
-    case WSAECONNABORTED:
-      return "Software caused connection abort";
-    case WSAECONNRESET:
-      return "Connection reset by peer";
-    case WSAENOBUFS:
-      return "No buffer space available";
-    case WSAEISCONN:
-      return "Socket is already connected";
-    case WSAENOTCONN:
-      return "Socket is not connected";
-    case WSAESHUTDOWN:
-      return "Cannot send after socket shutdown";
-    case WSAETIMEDOUT:
-      return "Connection timed out";
-    case WSAECONNREFUSED:
-      return "Connection refused";
-    case WSAEHOSTDOWN:
-      return "Host is down";
-    case WSAEHOSTUNREACH:
-      return "No route to host";
-    case WSAEPROCLIM:
-      return "Too many processes";
-    case WSAEDISCON:
-      return "Graceful shutdown in progress";
-    case WSATYPE_NOT_FOUND:
-      return "Class type not found";
-    case WSAHOST_NOT_FOUND:
-      return "Host not found";
-    case WSATRY_AGAIN:
-      return "Nonauthoritative host not found";
-    case WSANO_RECOVERY:
-      return "This is a nonrecoverable error";
-    case WSANO_DATA:
-      return "Valid name, no data record of requested type";
-    case WSA_INVALID_HANDLE:
-      return "Specified event object handle is invalid";
-    case WSA_INVALID_PARAMETER:
-      return "One or more parameters are invalid";
-    case WSA_IO_INCOMPLETE:
-      return "Overlapped I/O event object not in signaled state";
-    case WSA_IO_PENDING:
-      return "Overlapped operations will complete later";
-    case WSA_NOT_ENOUGH_MEMORY:
-      return "Insufficient memory available";
-    case WSA_OPERATION_ABORTED:
-      return "Overlapped operation aborted";
-#ifdef WSAINVALIDPROCTABLE
-
-    case WSAINVALIDPROCTABLE:
-      return "Invalid procedure table from service provider";
-#endif
-#ifdef WSAINVALIDPROVIDER
-
-    case WSAINVALIDPROVIDER:
-      return "Invalid service provider version number";
-#endif
-#ifdef WSAPROVIDERFAILEDINIT
-
-    case WSAPROVIDERFAILEDINIT:
-      return "Unable to initialize a service provider";
-#endif
-
-    case WSASYSCALLFAILURE:
-      return "System call failure";
-    }
-  msg = strerror (error_number);
-  if (msg == NULL)
-    msg = "unknown";
-
-  return msg;
-#endif //DBUS_WINCE
-}
-
-
-
-/* lan manager error codes */
-const char*
-_dbus_lm_strerror(int error_number)
-{
-#ifdef DBUS_WINCE
-  // TODO
-  return "unknown";
-#else
-  const char *msg;
-  switch (error_number)
-    {
-    case NERR_NetNotStarted:
-      return "The workstation driver is not installed.";
-    case NERR_UnknownServer:
-      return "The server could not be located.";
-    case NERR_ShareMem:
-      return "An internal error occurred. The network cannot access a shared memory segment.";
-    case NERR_NoNetworkResource:
-      return "A network resource shortage occurred.";
-    case NERR_RemoteOnly:
-      return "This operation is not supported on workstations.";
-    case NERR_DevNotRedirected:
-      return "The device is not connected.";
-    case NERR_ServerNotStarted:
-      return "The Server service is not started.";
-    case NERR_ItemNotFound:
-      return "The queue is empty.";
-    case NERR_UnknownDevDir:
-      return "The device or directory does not exist.";
-    case NERR_RedirectedPath:
-      return "The operation is invalid on a redirected resource.";
-    case NERR_DuplicateShare:
-      return "The name has already been shared.";
-    case NERR_NoRoom:
-      return "The server is currently out of the requested resource.";
-    case NERR_TooManyItems:
-      return "Requested addition of items exceeds the maximum allowed.";
-    case NERR_InvalidMaxUsers:
-      return "The Peer service supports only two simultaneous users.";
-    case NERR_BufTooSmall:
-      return "The API return buffer is too small.";
-    case NERR_RemoteErr:
-      return "A remote API error occurred.";
-    case NERR_LanmanIniError:
-      return "An error occurred when opening or reading the configuration file.";
-    case NERR_NetworkError:
-      return "A general network error occurred.";
-    case NERR_WkstaInconsistentState:
-      return "The Workstation service is in an inconsistent state. Restart the computer before restarting the Workstation service.";
-    case NERR_WkstaNotStarted:
-      return "The Workstation service has not been started.";
-    case NERR_BrowserNotStarted:
-      return "The requested information is not available.";
-    case NERR_InternalError:
-      return "An internal error occurred.";
-    case NERR_BadTransactConfig:
-      return "The server is not configured for transactions.";
-    case NERR_InvalidAPI:
-      return "The requested API is not supported on the remote server.";
-    case NERR_BadEventName:
-      return "The event name is invalid.";
-    case NERR_DupNameReboot:
-      return "The computer name already exists on the network. Change it and restart the computer.";
-    case NERR_CfgCompNotFound:
-      return "The specified component could not be found in the configuration information.";
-    case NERR_CfgParamNotFound:
-      return "The specified parameter could not be found in the configuration information.";
-    case NERR_LineTooLong:
-      return "A line in the configuration file is too long.";
-    case NERR_QNotFound:
-      return "The printer does not exist.";
-    case NERR_JobNotFound:
-      return "The print job does not exist.";
-    case NERR_DestNotFound:
-      return "The printer destination cannot be found.";
-    case NERR_DestExists:
-      return "The printer destination already exists.";
-    case NERR_QExists:
-      return "The printer queue already exists.";
-    case NERR_QNoRoom:
-      return "No more printers can be added.";
-    case NERR_JobNoRoom:
-      return "No more print jobs can be added.";
-    case NERR_DestNoRoom:
-      return "No more printer destinations can be added.";
-    case NERR_DestIdle:
-      return "This printer destination is idle and cannot accept control operations.";
-    case NERR_DestInvalidOp:
-      return "This printer destination request contains an invalid control function.";
-    case NERR_ProcNoRespond:
-      return "The print processor is not responding.";
-    case NERR_SpoolerNotLoaded:
-      return "The spooler is not running.";
-    case NERR_DestInvalidState:
-      return "This operation cannot be performed on the print destination in its current state.";
-    case NERR_QInvalidState:
-      return "This operation cannot be performed on the printer queue in its current state.";
-    case NERR_JobInvalidState:
-      return "This operation cannot be performed on the print job in its current state.";
-    case NERR_SpoolNoMemory:
-      return "A spooler memory allocation failure occurred.";
-    case NERR_DriverNotFound:
-      return "The device driver does not exist.";
-    case NERR_DataTypeInvalid:
-      return "The data type is not supported by the print processor.";
-    case NERR_ProcNotFound:
-      return "The print processor is not installed.";
-    case NERR_ServiceTableLocked:
-      return "The service database is locked.";
-    case NERR_ServiceTableFull:
-      return "The service table is full.";
-    case NERR_ServiceInstalled:
-      return "The requested service has already been started.";
-    case NERR_ServiceEntryLocked:
-      return "The service does not respond to control actions.";
-    case NERR_ServiceNotInstalled:
-      return "The service has not been started.";
-    case NERR_BadServiceName:
-      return "The service name is invalid.";
-    case NERR_ServiceCtlTimeout:
-      return "The service is not responding to the control function.";
-    case NERR_ServiceCtlBusy:
-      return "The service control is busy.";
-    case NERR_BadServiceProgName:
-      return "The configuration file contains an invalid service program name.";
-    case NERR_ServiceNotCtrl:
-      return "The service could not be controlled in its present state.";
-    case NERR_ServiceKillProc:
-      return "The service ended abnormally.";
-    case NERR_ServiceCtlNotValid:
-      return "The requested pause or stop is not valid for this service.";
-    case NERR_NotInDispatchTbl:
-      return "The service control dispatcher could not find the service name in the dispatch table.";
-    case NERR_BadControlRecv:
-      return "The service control dispatcher pipe read failed.";
-    case NERR_ServiceNotStarting:
-      return "A thread for the new service could not be created.";
-    case NERR_AlreadyLoggedOn:
-      return "This workstation is already logged on to the local-area network.";
-    case NERR_NotLoggedOn:
-      return "The workstation is not logged on to the local-area network.";
-    case NERR_BadUsername:
-      return "The user name or group name parameter is invalid.";
-    case NERR_BadPassword:
-      return "The password parameter is invalid.";
-    case NERR_UnableToAddName_W:
-      return "@W The logon processor did not add the message alias.";
-    case NERR_UnableToAddName_F:
-      return "The logon processor did not add the message alias.";
-    case NERR_UnableToDelName_W:
-      return "@W The logoff processor did not delete the message alias.";
-    case NERR_UnableToDelName_F:
-      return "The logoff processor did not delete the message alias.";
-    case NERR_LogonsPaused:
-      return "Network logons are paused.";
-    case NERR_LogonServerConflict:
-      return "A centralized logon-server conflict occurred.";
-    case NERR_LogonNoUserPath:
-      return "The server is configured without a valid user path.";
-    case NERR_LogonScriptError:
-      return "An error occurred while loading or running the logon script.";
-    case NERR_StandaloneLogon:
-      return "The logon server was not specified. Your computer will be logged on as STANDALONE.";
-    case NERR_LogonServerNotFound:
-      return "The logon server could not be found.";
-    case NERR_LogonDomainExists:
-      return "There is already a logon domain for this computer.";
-    case NERR_NonValidatedLogon:
-      return "The logon server could not validate the logon.";
-    case NERR_ACFNotFound:
-      return "The security database could not be found.";
-    case NERR_GroupNotFound:
-      return "The group name could not be found.";
-    case NERR_UserNotFound:
-      return "The user name could not be found.";
-    case NERR_ResourceNotFound:
-      return "The resource name could not be found.";
-    case NERR_GroupExists:
-      return "The group already exists.";
-    case NERR_UserExists:
-      return "The user account already exists.";
-    case NERR_ResourceExists:
-      return "The resource permission list already exists.";
-    case NERR_NotPrimary:
-      return "This operation is only allowed on the primary domain controller of the domain.";
-    case NERR_ACFNotLoaded:
-      return "The security database has not been started.";
-    case NERR_ACFNoRoom:
-      return "There are too many names in the user accounts database.";
-    case NERR_ACFFileIOFail:
-      return "A disk I/O failure occurred.";
-    case NERR_ACFTooManyLists:
-      return "The limit of 64 entries per resource was exceeded.";
-    case NERR_UserLogon:
-      return "Deleting a user with a session is not allowed.";
-    case NERR_ACFNoParent:
-      return "The parent directory could not be located.";
-    case NERR_CanNotGrowSegment:
-      return "Unable to add to the security database session cache segment.";
-    case NERR_SpeGroupOp:
-      return "This operation is not allowed on this special group.";
-    case NERR_NotInCache:
-      return "This user is not cached in user accounts database session cache.";
-    case NERR_UserInGroup:
-      return "The user already belongs to this group.";
-    case NERR_UserNotInGroup:
-      return "The user does not belong to this group.";
-    case NERR_AccountUndefined:
-      return "This user account is undefined.";
-    case NERR_AccountExpired:
-      return "This user account has expired.";
-    case NERR_InvalidWorkstation:
-      return "The user is not allowed to log on from this workstation.";
-    case NERR_InvalidLogonHours:
-      return "The user is not allowed to log on at this time.";
-    case NERR_PasswordExpired:
-      return "The password of this user has expired.";
-    case NERR_PasswordCantChange:
-      return "The password of this user cannot change.";
-    case NERR_PasswordHistConflict:
-      return "This password cannot be used now.";
-    case NERR_PasswordTooShort:
-      return "The password does not meet the password policy requirements. Check the minimum password length, password complexity and password history requirements.";
-    case NERR_PasswordTooRecent:
-      return "The password of this user is too recent to change.";
-    case NERR_InvalidDatabase:
-      return "The security database is corrupted.";
-    case NERR_DatabaseUpToDate:
-      return "No updates are necessary to this replicant network/local security database.";
-    case NERR_SyncRequired:
-      return "This replicant database is outdated; synchronization is required.";
-    case NERR_UseNotFound:
-      return "The network connection could not be found.";
-    case NERR_BadAsgType:
-      return "This asg_type is invalid.";
-    case NERR_DeviceIsShared:
-      return "This device is currently being shared.";
-    case NERR_NoComputerName:
-      return "The computer name could not be added as a message alias. The name may already exist on the network.";
-    case NERR_MsgAlreadyStarted:
-      return "The Messenger service is already started.";
-    case NERR_MsgInitFailed:
-      return "The Messenger service failed to start.";
-    case NERR_NameNotFound:
-      return "The message alias could not be found on the network.";
-    case NERR_AlreadyForwarded:
-      return "This message alias has already been forwarded.";
-    case NERR_AddForwarded:
-      return "This message alias has been added but is still forwarded.";
-    case NERR_AlreadyExists:
-      return "This message alias already exists locally.";
-    case NERR_TooManyNames:
-      return "The maximum number of added message aliases has been exceeded.";
-    case NERR_DelComputerName:
-      return "The computer name could not be deleted.";
-    case NERR_LocalForward:
-      return "Messages cannot be forwarded back to the same workstation.";
-    case NERR_GrpMsgProcessor:
-      return "An error occurred in the domain message processor.";
-    case NERR_PausedRemote:
-      return "The message was sent, but the recipient has paused the Messenger service.";
-    case NERR_BadReceive:
-      return "The message was sent but not received.";
-    case NERR_NameInUse:
-      return "The message alias is currently in use. Try again later.";
-    case NERR_MsgNotStarted:
-      return "The Messenger service has not been started.";
-    case NERR_NotLocalName:
-      return "The name is not on the local computer.";
-    case NERR_NoForwardName:
-      return "The forwarded message alias could not be found on the network.";
-    case NERR_RemoteFull:
-      return "The message alias table on the remote station is full.";
-    case NERR_NameNotForwarded:
-      return "Messages for this alias are not currently being forwarded.";
-    case NERR_TruncatedBroadcast:
-      return "The broadcast message was truncated.";
-    case NERR_InvalidDevice:
-      return "This is an invalid device name.";
-    case NERR_WriteFault:
-      return "A write fault occurred.";
-    case NERR_DuplicateName:
-      return "A duplicate message alias exists on the network.";
-    case NERR_DeleteLater:
-      return "@W This message alias will be deleted later.";
-    case NERR_IncompleteDel:
-      return "The message alias was not successfully deleted from all networks.";
-    case NERR_MultipleNets:
-      return "This operation is not supported on computers with multiple networks.";
-    case NERR_NetNameNotFound:
-      return "This shared resource does not exist.";
-    case NERR_DeviceNotShared:
-      return "This device is not shared.";
-    case NERR_ClientNameNotFound:
-      return "A session does not exist with that computer name.";
-    case NERR_FileIdNotFound:
-      return "There is not an open file with that identification number.";
-    case NERR_ExecFailure:
-      return "A failure occurred when executing a remote administration command.";
-    case NERR_TmpFile:
-      return "A failure occurred when opening a remote temporary file.";
-    case NERR_TooMuchData:
-      return "The data returned from a remote administration command has been truncated to 64K.";
-    case NERR_DeviceShareConflict:
-      return "This device cannot be shared as both a spooled and a non-spooled resource.";
-    case NERR_BrowserTableIncomplete:
-      return "The information in the list of servers may be incorrect.";
-    case NERR_NotLocalDomain:
-      return "The computer is not active in this domain.";
-#ifdef NERR_IsDfsShare
-
-    case NERR_IsDfsShare:
-      return "The share must be removed from the Distributed File System before it can be deleted.";
-#endif
-
-    case NERR_DevInvalidOpCode:
-      return "The operation is invalid for this device.";
-    case NERR_DevNotFound:
-      return "This device cannot be shared.";
-    case NERR_DevNotOpen:
-      return "This device was not open.";
-    case NERR_BadQueueDevString:
-      return "This device name list is invalid.";
-    case NERR_BadQueuePriority:
-      return "The queue priority is invalid.";
-    case NERR_NoCommDevs:
-      return "There are no shared communication devices.";
-    case NERR_QueueNotFound:
-      return "The queue you specified does not exist.";
-    case NERR_BadDevString:
-      return "This list of devices is invalid.";
-    case NERR_BadDev:
-      return "The requested device is invalid.";
-    case NERR_InUseBySpooler:
-      return "This device is already in use by the spooler.";
-    case NERR_CommDevInUse:
-      return "This device is already in use as a communication device.";
-    case NERR_InvalidComputer:
-      return "This computer name is invalid.";
-    case NERR_MaxLenExceeded:
-      return "The string and prefix specified are too long.";
-    case NERR_BadComponent:
-      return "This path component is invalid.";
-    case NERR_CantType:
-      return "Could not determine the type of input.";
-    case NERR_TooManyEntries:
-      return "The buffer for types is not big enough.";
-    case NERR_ProfileFileTooBig:
-      return "Profile files cannot exceed 64K.";
-    case NERR_ProfileOffset:
-      return "The start offset is out of range.";
-    case NERR_ProfileCleanup:
-      return "The system cannot delete current connections to network resources.";
-    case NERR_ProfileUnknownCmd:
-      return "The system was unable to parse the command line in this file.";
-    case NERR_ProfileLoadErr:
-      return "An error occurred while loading the profile file.";
-    case NERR_ProfileSaveErr:
-      return "@W Errors occurred while saving the profile file. The profile was partially saved.";
-    case NERR_LogOverflow:
-      return "Log file %1 is full.";
-    case NERR_LogFileChanged:
-      return "This log file has changed between reads.";
-    case NERR_LogFileCorrupt:
-      return "Log file %1 is corrupt.";
-    case NERR_SourceIsDir:
-      return "The source path cannot be a directory.";
-    case NERR_BadSource:
-      return "The source path is illegal.";
-    case NERR_BadDest:
-      return "The destination path is illegal.";
-    case NERR_DifferentServers:
-      return "The source and destination paths are on different servers.";
-    case NERR_RunSrvPaused:
-      return "The Run server you requested is paused.";
-    case NERR_ErrCommRunSrv:
-      return "An error occurred when communicating with a Run server.";
-    case NERR_ErrorExecingGhost:
-      return "An error occurred when starting a background process.";
-    case NERR_ShareNotFound:
-      return "The shared resource you are connected to could not be found.";
-    case NERR_InvalidLana:
-      return "The LAN adapter number is invalid.";
-    case NERR_OpenFiles:
-      return "There are open files on the connection.";
-    case NERR_ActiveConns:
-      return "Active connections still exist.";
-    case NERR_BadPasswordCore:
-      return "This share name or password is invalid.";
-    case NERR_DevInUse:
-      return "The device is being accessed by an active process.";
-    case NERR_LocalDrive:
-      return "The drive letter is in use locally.";
-    case NERR_AlertExists:
-      return "The specified client is already registered for the specified event.";
-    case NERR_TooManyAlerts:
-      return "The alert table is full.";
-    case NERR_NoSuchAlert:
-      return "An invalid or nonexistent alert name was raised.";
-    case NERR_BadRecipient:
-      return "The alert recipient is invalid.";
-    case NERR_AcctLimitExceeded:
-      return "A user's session with this server has been deleted.";
-    case NERR_InvalidLogSeek:
-      return "The log file does not contain the requested record number.";
-    case NERR_BadUasConfig:
-      return "The user accounts database is not configured correctly.";
-    case NERR_InvalidUASOp:
-      return "This operation is not permitted when the Netlogon service is running.";
-    case NERR_LastAdmin:
-      return "This operation is not allowed on the last administrative account.";
-    case NERR_DCNotFound:
-      return "Could not find domain controller for this domain.";
-    case NERR_LogonTrackingError:
-      return "Could not set logon information for this user.";
-    case NERR_NetlogonNotStarted:
-      return "The Netlogon service has not been started.";
-    case NERR_CanNotGrowUASFile:
-      return "Unable to add to the user accounts database.";
-    case NERR_TimeDiffAtDC:
-      return "This server's clock is not synchronized with the primary domain controller's clock.";
-    case NERR_PasswordMismatch:
-      return "A password mismatch has been detected.";
-    case NERR_NoSuchServer:
-      return "The server identification does not specify a valid server.";
-    case NERR_NoSuchSession:
-      return "The session identification does not specify a valid session.";
-    case NERR_NoSuchConnection:
-      return "The connection identification does not specify a valid connection.";
-    case NERR_TooManyServers:
-      return "There is no space for another entry in the table of available servers.";
-    case NERR_TooManySessions:
-      return "The server has reached the maximum number of sessions it supports.";
-    case NERR_TooManyConnections:
-      return "The server has reached the maximum number of connections it supports.";
-    case NERR_TooManyFiles:
-      return "The server cannot open more files because it has reached its maximum number.";
-    case NERR_NoAlternateServers:
-      return "There are no alternate servers registered on this server.";
-    case NERR_TryDownLevel:
-      return "Try down-level (remote admin protocol) version of API instead.";
-    case NERR_UPSDriverNotStarted:
-      return "The UPS driver could not be accessed by the UPS service.";
-    case NERR_UPSInvalidConfig:
-      return "The UPS service is not configured correctly.";
-    case NERR_UPSInvalidCommPort:
-      return "The UPS service could not access the specified Comm Port.";
-    case NERR_UPSSignalAsserted:
-      return "The UPS indicated a line fail or low battery situation. Service not started.";
-    case NERR_UPSShutdownFailed:
-      return "The UPS service failed to perform a system shut down.";
-    case NERR_BadDosRetCode:
-      return "The program below returned an MS-DOS error code:";
-    case NERR_ProgNeedsExtraMem:
-      return "The program below needs more memory:";
-    case NERR_BadDosFunction:
-      return "The program below called an unsupported MS-DOS function:";
-    case NERR_RemoteBootFailed:
-      return "The workstation failed to boot.";
-    case NERR_BadFileCheckSum:
-      return "The file below is corrupt.";
-    case NERR_NoRplBootSystem:
-      return "No loader is specified in the boot-block definition file.";
-    case NERR_RplLoadrNetBiosErr:
-      return "NetBIOS returned an error:      The NCB and SMB are dumped above.";
-    case NERR_RplLoadrDiskErr:
-      return "A disk I/O error occurred.";
-    case NERR_ImageParamErr:
-      return "Image parameter substitution failed.";
-    case NERR_TooManyImageParams:
-      return "Too many image parameters cross disk sector boundaries.";
-    case NERR_NonDosFloppyUsed:
-      return "The image was not generated from an MS-DOS diskette formatted with /S.";
-    case NERR_RplBootRestart:
-      return "Remote boot will be restarted later.";
-    case NERR_RplSrvrCallFailed:
-      return "The call to the Remoteboot server failed.";
-    case NERR_CantConnectRplSrvr:
-      return "Cannot connect to the Remoteboot server.";
-    case NERR_CantOpenImageFile:
-      return "Cannot open image file on the Remoteboot server.";
-    case NERR_CallingRplSrvr:
-      return "Connecting to the Remoteboot server...";
-    case NERR_StartingRplBoot:
-      return "Connecting to the Remoteboot server...";
-    case NERR_RplBootServiceTerm:
-      return "Remote boot service was stopped; check the error log for the cause of the problem.";
-    case NERR_RplBootStartFailed:
-      return "Remote boot startup failed; check the error log for the cause of the problem.";
-    case NERR_RPL_CONNECTED:
-      return "A second connection to a Remoteboot resource is not allowed.";
-    case NERR_BrowserConfiguredToNotRun:
-      return "The browser service was configured with MaintainServerList=No.";
-    case NERR_RplNoAdaptersStarted:
-      return "Service failed to start since none of the network adapters started with this service.";
-    case NERR_RplBadRegistry:
-      return "Service failed to start due to bad startup information in the registry.";
-    case NERR_RplBadDatabase:
-      return "Service failed to start because its database is absent or corrupt.";
-    case NERR_RplRplfilesShare:
-      return "Service failed to start because RPLFILES share is absent.";
-    case NERR_RplNotRplServer:
-      return "Service failed to start because RPLUSER group is absent.";
-    case NERR_RplCannotEnum:
-      return "Cannot enumerate service records.";
-    case NERR_RplWkstaInfoCorrupted:
-      return "Workstation record information has been corrupted.";
-    case NERR_RplWkstaNotFound:
-      return "Workstation record was not found.";
-    case NERR_RplWkstaNameUnavailable:
-      return "Workstation name is in use by some other workstation.";
-    case NERR_RplProfileInfoCorrupted:
-      return "Profile record information has been corrupted.";
-    case NERR_RplProfileNotFound:
-      return "Profile record was not found.";
-    case NERR_RplProfileNameUnavailable:
-      return "Profile name is in use by some other profile.";
-    case NERR_RplProfileNotEmpty:
-      return "There are workstations using this profile.";
-    case NERR_RplConfigInfoCorrupted:
-      return "Configuration record information has been corrupted.";
-    case NERR_RplConfigNotFound:
-      return "Configuration record was not found.";
-    case NERR_RplAdapterInfoCorrupted:
-      return "Adapter ID record information has been corrupted.";
-    case NERR_RplInternal:
-      return "An internal service error has occurred.";
-    case NERR_RplVendorInfoCorrupted:
-      return "Vendor ID record information has been corrupted.";
-    case NERR_RplBootInfoCorrupted:
-      return "Boot block record information has been corrupted.";
-    case NERR_RplWkstaNeedsUserAcct:
-      return "The user account for this workstation record is missing.";
-    case NERR_RplNeedsRPLUSERAcct:
-      return "The RPLUSER local group could not be found.";
-    case NERR_RplBootNotFound:
-      return "Boot block record was not found.";
-    case NERR_RplIncompatibleProfile:
-      return "Chosen profile is incompatible with this workstation.";
-    case NERR_RplAdapterNameUnavailable:
-      return "Chosen network adapter ID is in use by some other workstation.";
-    case NERR_RplConfigNotEmpty:
-      return "There are profiles using this configuration.";
-    case NERR_RplBootInUse:
-      return "There are workstations, profiles, or configurations using this boot block.";
-    case NERR_RplBackupDatabase:
-      return "Service failed to backup Remoteboot database.";
-    case NERR_RplAdapterNotFound:
-      return "Adapter record was not found.";
-    case NERR_RplVendorNotFound:
-      return "Vendor record was not found.";
-    case NERR_RplVendorNameUnavailable:
-      return "Vendor name is in use by some other vendor record.";
-    case NERR_RplBootNameUnavailable:
-      return "(boot name, vendor ID) is in use by some other boot block record.";
-    case NERR_RplConfigNameUnavailable:
-      return "Configuration name is in use by some other configuration.";
-    case NERR_DfsInternalCorruption:
-      return "The internal database maintained by the Dfs service is corrupt.";
-    case NERR_DfsVolumeDataCorrupt:
-      return "One of the records in the internal Dfs database is corrupt.";
-    case NERR_DfsNoSuchVolume:
-      return "There is no DFS name whose entry path matches the input Entry Path.";
-    case NERR_DfsVolumeAlreadyExists:
-      return "A root or link with the given name already exists.";
-    case NERR_DfsAlreadyShared:
-      return "The server share specified is already shared in the Dfs.";
-    case NERR_DfsNoSuchShare:
-      return "The indicated server share does not support the indicated DFS namespace.";
-    case NERR_DfsNotALeafVolume:
-      return "The operation is not valid on this portion of the namespace.";
-    case NERR_DfsLeafVolume:
-      return "The operation is not valid on this portion of the namespace.";
-    case NERR_DfsVolumeHasMultipleServers:
-      return "The operation is ambiguous because the link has multiple servers.";
-    case NERR_DfsCantCreateJunctionPoint:
-      return "Unable to create a link.";
-    case NERR_DfsServerNotDfsAware:
-      return "The server is not Dfs Aware.";
-    case NERR_DfsBadRenamePath:
-      return "The specified rename target path is invalid.";
-    case NERR_DfsVolumeIsOffline:
-      return "The specified DFS link is offline.";
-    case NERR_DfsNoSuchServer:
-      return "The specified server is not a server for this link.";
-    case NERR_DfsCyclicalName:
-      return "A cycle in the Dfs name was detected.";
-    case NERR_DfsNotSupportedInServerDfs:
-      return "The operation is not supported on a server-based Dfs.";
-    case NERR_DfsDuplicateService:
-      return "This link is already supported by the specified server-share.";
-    case NERR_DfsCantRemoveLastServerShare:
-      return "Can't remove the last server-share supporting this root or link.";
-    case NERR_DfsVolumeIsInterDfs:
-      return "The operation is not supported for an Inter-DFS link.";
-    case NERR_DfsInconsistent:
-      return "The internal state of the Dfs Service has become inconsistent.";
-    case NERR_DfsServerUpgraded:
-      return "The Dfs Service has been installed on the specified server.";
-    case NERR_DfsDataIsIdentical:
-      return "The Dfs data being reconciled is identical.";
-    case NERR_DfsCantRemoveDfsRoot:
-      return "The DFS root cannot be deleted. Uninstall DFS if required.";
-    case NERR_DfsChildOrParentInDfs:
-      return "A child or parent directory of the share is already in a Dfs.";
-    case NERR_DfsInternalError:
-      return "Dfs internal error.";
-      /* the following are not defined in mingw */
-#if 0
-
-    case NERR_SetupAlreadyJoined:
-      return "This machine is already joined to a domain.";
-    case NERR_SetupNotJoined:
-      return "This machine is not currently joined to a domain.";
-    case NERR_SetupDomainController:
-      return "This machine is a domain controller and cannot be unjoined from a domain.";
-    case NERR_DefaultJoinRequired:
-      return "The destination domain controller does not support creating machine accounts in OUs.";
-    case NERR_InvalidWorkgroupName:
-      return "The specified workgroup name is invalid.";
-    case NERR_NameUsesIncompatibleCodePage:
-      return "The specified computer name is incompatible with the default language used on the domain controller.";
-    case NERR_ComputerAccountNotFound:
-      return "The specified computer account could not be found.";
-    case NERR_PersonalSku:
-      return "This version of Windows cannot be joined to a domain.";
-    case NERR_PasswordMustChange:
-      return "The password must change at the next logon.";
-    case NERR_AccountLockedOut:
-      return "The account is locked out.";
-    case NERR_PasswordTooLong:
-      return "The password is too long.";
-    case NERR_PasswordNotComplexEnough:
-      return "The password does not meet the complexity policy.";
-    case NERR_PasswordFilterError:
-      return "The password does not meet the requirements of the password filter DLLs.";
-#endif
-
-    }
-  msg = strerror (error_number);
-  if (msg == NULL)
-    msg = "unknown";
-
-  return msg;
-#endif //DBUS_WINCE
-}
-
-
-
-
-
 
 
 
@@ -3043,84 +1455,6 @@ _dbus_connect_tcp_socket (const char     *host,
                           dbus_uint32_t   port,
                           DBusError      *error)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket s;
-  int handle;
-  struct sockaddr_in addr;
-  struct hostent *he;
-  struct in_addr *haddr;
-  struct in_addr ina;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  _dbus_win_startup_winsock ();
-
-  s.fd = socket (AF_INET, SOCK_STREAM, 0);
-
-  if (DBUS_SOCKET_IS_INVALID (s.fd))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to create socket: %s",
-                      _dbus_strerror (errno));
-
-      return -1;
-    }
-
-  if (host == NULL)
-    {
-      host = "localhost";
-      ina.s_addr = htonl (INADDR_LOOPBACK);
-      haddr = &ina;
-    }
-
-  he = gethostbyname (host);
-  if (he == NULL)
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to lookup hostname: %s",
-                      host);
-      DBUS_CLOSE_SOCKET (s.fd);
-      return -1;
-    }
-
-  haddr = ((struct in_addr *) (he->h_addr_list)[0]);
-
-  _DBUS_ZERO (addr);
-  memcpy (&addr.sin_addr, haddr, sizeof(struct in_addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons (port);
-
-  if (DBUS_SOCKET_API_RETURNS_ERROR
-      (connect (s.fd, (struct sockaddr*) &addr, sizeof (addr)) < 0))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to connect to socket %s:%d %s",
-                      host, port, _dbus_strerror (errno));
-
-      DBUS_CLOSE_SOCKET (s.fd);
-      s.fd = -1;
-
-      return -1;
-    }
-
-  handle = _dbus_socket_to_handle (&s);
-
-  if (!_dbus_set_fd_nonblocking (handle, error))
-    {
-      _dbus_close_socket (handle, NULL);
-      handle = -1;
-
-      return -1;
-    }
-
-  return handle;
-#else
   int fd;
   struct sockaddr_in addr;
   struct hostent *he;
@@ -3194,7 +1528,6 @@ _dbus_connect_tcp_socket (const char     *host,
     }
 
   return fd;
-#endif
 }
 
 void
@@ -3218,98 +1551,6 @@ _dbus_listen_tcp_socket (const char     *host,
                          dbus_bool_t     inaddr_any,
                          DBusError      *error)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket slisten;
-  int handle;
-  struct sockaddr_in addr;
-  struct hostent *he;
-  struct in_addr *haddr;
-  socklen_t len = (socklen_t) sizeof (struct sockaddr);
-  struct in_addr ina;
-
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  _dbus_win_startup_winsock ();
-
-  slisten.fd = socket (AF_INET, SOCK_STREAM, 0);
-
-  if (DBUS_SOCKET_IS_INVALID (slisten.fd))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to create socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
-      return -1;
-    }
-  if (host == NULL)
-    {
-      host = "localhost";
-      ina.s_addr = htonl (INADDR_LOOPBACK);
-      haddr = &ina;
-    }
-  else if (!host[0])
-    {
-      ina.s_addr = htonl (INADDR_ANY);
-      haddr = &ina;
-    }
-  else
-    {
-      he = gethostbyname (host);
-      if (he == NULL)
-        {
-          DBUS_SOCKET_SET_ERRNO ();
-          dbus_set_error (error,
-                          _dbus_error_from_errno (errno),
-                          "Failed to lookup hostname: %s",
-                          host);
-          DBUS_CLOSE_SOCKET (slisten.fd);
-          return -1;
-        }
-
-      haddr = ((struct in_addr *) (he->h_addr_list)[0]);
-    }
-
-  _DBUS_ZERO (addr);
-  memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons (*port);
-
-  if (bind (slisten.fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to bind socket \"%s:%d\": %s",
-                      host, *port, _dbus_strerror (errno));
-      DBUS_CLOSE_SOCKET (slisten.fd);
-      return -1;
-    }
-
-  if (DBUS_SOCKET_API_RETURNS_ERROR (listen (slisten.fd, 30 /* backlog */)))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to listen on socket \"%s:%d\": %s",
-                      host, *port, _dbus_strerror (errno));
-      DBUS_CLOSE_SOCKET (slisten.fd);
-      return -1;
-    }
-
-  getsockname(slisten.fd, (struct sockaddr*) &addr, &len);
-  *port = (dbus_uint32_t) ntohs(addr.sin_port);
-  
-  _dbus_daemon_init(host, ntohs(addr.sin_port));
-
-  handle = _dbus_socket_to_handle (&slisten);
-
-  if (!_dbus_set_fd_nonblocking (handle, error))
-    {
-      _dbus_close_socket (handle, NULL);
-      return -1;
-    }
-
-  return handle;
-#else
   int fd;
   struct sockaddr_in addr;
   struct hostent *he;
@@ -3397,7 +1638,6 @@ _dbus_listen_tcp_socket (const char     *host,
     }
 
   return fd;
-#endif
 }
 
 
@@ -3409,67 +1649,27 @@ _dbus_listen_tcp_socket (const char     *host,
  * @returns the connection fd of the client, or -1 on error
  */
 int
-_dbus_accept  (int listen_handle)
+_dbus_accept  (int listen_fd)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *slisten;
-  DBusSocket sclient;
+  int client_fd;
   struct sockaddr addr;
   socklen_t addrlen;
 
-  _dbus_handle_to_socket(listen_handle, &slisten);
-
   addrlen = sizeof (addr);
 
-  //FIXME:  why do we not try it again on Windows?
-#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-retry:
-#endif
+ retry:
+  client_fd = accept (listen_fd, &addr, &addrlen);
 
-  sclient.fd = accept (slisten->fd, &addr, &addrlen);
-
-  if (DBUS_SOCKET_IS_INVALID (sclient.fd))
+  if (DBUS_SOCKET_IS_INVALID (client_fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
-#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
       if (errno == EINTR)
         goto retry;
-#else
-      return -1;
-#endif
     }
 
-  return _dbus_socket_to_handle (&sclient);
-#else
-  int fd;
-  int sclient;
-  struct sockaddr addr;
-  socklen_t addrlen;
-
-  fd = listen_handle;
-
-  addrlen = sizeof (addr);
-
-  //FIXME:  why do we not try it again on Windows?
-#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-retry:
-#endif
-
-  sclient = accept (fd, &addr, &addrlen);
-
-  if (DBUS_SOCKET_IS_INVALID (sclient))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-      if (errno == EINTR)
-        goto retry;
-#else
-      return -1;
-#endif
-    }
-
-  return sclient;
-#endif
+  _dbus_verbose ("client fd %d accepted\n", client_fd);
+  
+  return client_fd;
 }
 
 
@@ -4921,6 +3121,7 @@ dbus_int32_t
 _dbus_atomic_inc (DBusAtomic *atomic)
 {
   // +/- 1 is needed here!
+  // no volatile argument with mingw
   return InterlockedIncrement (&atomic->value) - 1;
 }
 
@@ -4935,6 +3136,7 @@ dbus_int32_t
 _dbus_atomic_dec (DBusAtomic *atomic)
 {
   // +/- 1 is needed here!
+  // no volatile argument with mingw
   return InterlockedDecrement (&atomic->value) + 1;
 }
 
@@ -5150,3 +3352,4 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
 
 /** @} end of sysdeps-win */
 /* tests in dbus-sysdeps-util.c */
+
