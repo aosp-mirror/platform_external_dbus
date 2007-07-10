@@ -1,3 +1,10 @@
+2007-07-10  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection.c (struct DBusConnection): Fix from Olivier
+	Hochreutiner to avoid trying to protect individual bits in a word
+	with different locks (make dispatch_acquired and io_path_acquired
+	dbus_bool_t rather than bitfields)
+
 2007-07-09  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* dbus/dbus-sysdeps-win.c,dbus-sysdeps-win.h,dbus-sysdeps-win-util.c,
