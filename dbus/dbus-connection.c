@@ -281,10 +281,14 @@ struct DBusConnection
 
   char *server_guid; /**< GUID of server if we are in shared_connections, #NULL if server GUID is unknown or connection is private */
 
+  /* These two MUST be bools and not bitfields, because they are protected by a separate lock
+   * from connection->mutex and all bitfields in a word have to be read/written together.
+   * So you can't have a different lock for different bitfields in the same word.
+   */
+  dbus_bool_t dispatch_acquired; /**< Someone has dispatch path (can drain incoming queue) */
+  dbus_bool_t io_path_acquired;  /**< Someone has transport io path (can use the transport to read/write messages) */
+  
   unsigned int shareable : 1; /**< #TRUE if libdbus owns a reference to the connection and can return it from dbus_connection_open() more than once */
-
-  unsigned int dispatch_acquired : 1; /**< Someone has dispatch path (can drain incoming queue) */
-  unsigned int io_path_acquired : 1;  /**< Someone has transport io path (can use the transport to read/write messages) */
   
   unsigned int exit_on_disconnect : 1; /**< If #TRUE, exit after handling disconnect signal */
 
