@@ -142,20 +142,10 @@ _dbus_sysdeps_test (void)
     }
 
   _dbus_string_init_const (&str, "0xff");
-  if (!_dbus_string_parse_double (&str,
-				  0, &val, &pos))
+  if (_dbus_string_parse_double (&str,
+                                 0, &val, &pos))
     {
-      _dbus_warn ("Failed to parse double");
-      exit (1);
-    }
-  if (ABS (0xff - val) > 1e-6)
-    {
-      _dbus_warn ("Failed to parse 0xff correctly, got: %f\n", val);
-      exit (1);
-    }
-  if (pos != 4)
-    {
-      _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
+      _dbus_warn ("Should not have parsed hex as double\n");
       exit (1);
     }
 
