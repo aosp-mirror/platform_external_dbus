@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-misc.h  A few assorted public functions that don't fit elsewhere
  *
  * Copyright (C) 2006 Red Hat, Inc.

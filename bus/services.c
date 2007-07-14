@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* services.c  Service management
  *
  * Copyright (C) 2003  Red Hat, Inc.

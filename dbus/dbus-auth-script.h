@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-auth-script.h Test DBusAuth using a special script file (internal to D-Bus implementation)
  * 
  * Copyright (C) 2003 Red Hat, Inc.

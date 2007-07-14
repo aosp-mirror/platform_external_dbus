@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-credentials.c Credentials provable through authentication
  *
  * Copyright (C) 2007 Red Hat Inc.

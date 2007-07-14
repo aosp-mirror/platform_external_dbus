@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* signals.c  Bus signal connection implementation
  *
  * Copyright (C) 2003, 2005  Red Hat, Inc.

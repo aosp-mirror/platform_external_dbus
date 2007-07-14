@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-viewer.c Graphical D-Bus frontend utility
  *
  * Copyright (C) 2003 Red Hat, Inc.

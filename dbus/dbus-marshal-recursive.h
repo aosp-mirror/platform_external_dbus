@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-recursive.h  Marshalling routines for recursive types
  *
  * Copyright (C) 2004, 2005 Red Hat, Inc.

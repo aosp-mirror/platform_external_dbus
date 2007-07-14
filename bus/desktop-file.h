@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* desktop-file.h  .desktop file parser
  *
  * Copyright (C) 2003  CodeFactory AB

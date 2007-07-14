@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-launch.c  dbus-launch utility
  *
  * Copyright (C) 2007 Ralf Habacker <ralf.habacker@freenet.de>

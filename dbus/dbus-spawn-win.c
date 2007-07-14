@@ -13,7 +13,7 @@
 #include <process.h>
 #endif
 
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-spawn-win32.c Wrapper around g_spawn
  * 
  * Copyright (C) 2002, 2003, 2004  Red Hat, Inc.

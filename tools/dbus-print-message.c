@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-print-message.h  Utility function to print out a message
  *
  * Copyright (C) 2003 Philip Blundell <philb@gnu.org>

@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-uuidgen.c  The guts of the dbus-uuidgen binary live in libdbus, in this file.
  *
  * Copyright (C) 2006  Red Hat, Inc.

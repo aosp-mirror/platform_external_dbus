@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-types.h  types such as dbus_bool_t
  *
  * Copyright (C) 2002  Red Hat Inc.

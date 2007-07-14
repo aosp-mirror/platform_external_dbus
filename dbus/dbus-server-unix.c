@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-server-unix.c Server implementation for Unix network protocols.
  *
  * Copyright (C) 2002, 2003, 2004  Red Hat Inc.

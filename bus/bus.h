@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* bus.h  message bus context object
  *
  * Copyright (C) 2003 Red Hat, Inc.

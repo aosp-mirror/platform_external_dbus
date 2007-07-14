@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-server-protected.h Used by subclasses of DBusServer object (internal to D-Bus implementation)
  *
  * Copyright (C) 2002  Red Hat Inc.

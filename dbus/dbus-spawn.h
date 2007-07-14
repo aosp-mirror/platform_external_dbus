@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-spawn.h Wrapper around fork/exec
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.

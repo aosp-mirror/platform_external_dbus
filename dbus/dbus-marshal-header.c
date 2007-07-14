@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-header.c  Managing marshaling/demarshaling of message headers
  *
  * Copyright (C) 2005  Red Hat, Inc.

@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sysdeps-pthread.c Implements threads using Windows threads (internal to libdbus)
  * 
  * Copyright (C) 2006  Red Hat, Inc.

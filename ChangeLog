@@ -1,3 +1,7 @@
+2007-07-13  Havoc Pennington  <hp@redhat.com>
+
+	* Add indent-tabs-mode: nil to all file headers.
+
 2007-07-12  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-sysdeps-util.c (_dbus_sysdeps_test): invert the test

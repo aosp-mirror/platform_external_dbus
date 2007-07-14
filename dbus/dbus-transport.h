@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-transport.h DBusTransport object (internal to D-BUS implementation)
  *
  * Copyright (C) 2002, 2004  Red Hat Inc.

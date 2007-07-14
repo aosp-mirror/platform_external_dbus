@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* policy.c  Bus security policy
  *
  * Copyright (C) 2003, 2004  Red Hat, Inc.

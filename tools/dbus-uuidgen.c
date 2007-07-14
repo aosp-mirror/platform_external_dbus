@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-uuidgen.c  Utility program to create UUIDs
  *
  * Copyright (C) 2006 Red Hat, Inc.

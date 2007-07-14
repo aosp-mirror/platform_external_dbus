@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-validate-util.c Would be in dbus-marshal-validate.c, but only used by tests/bus
  *
  * Copyright (C) 2005 Red Hat, Inc.

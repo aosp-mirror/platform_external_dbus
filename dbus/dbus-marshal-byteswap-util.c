@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-byteswap-util.c  Would be in dbus-marshal-byteswap.c but tests/bus only
  *
  * Copyright (C) 2005 Red Hat, Inc.

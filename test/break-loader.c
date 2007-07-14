@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-break-loader.c  Program to find byte streams that break the message loader
  *
  * Copyright (C) 2003  Red Hat Inc.

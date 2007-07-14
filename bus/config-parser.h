@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* config-parser.h  XML-library-agnostic configuration file parser
  *
  * Copyright (C) 2003 Red Hat, Inc.

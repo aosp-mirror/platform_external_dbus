@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-bus.c  Convenience functions for communicating with the bus.
  *
  * Copyright (C) 2003  CodeFactory AB

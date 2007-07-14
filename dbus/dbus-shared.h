@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-shared.h  Stuff used by both dbus/dbus.h low-level and C/C++ binding APIs
  *
  * Copyright (C) 2004 Red Hat, Inc.

@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dispatch.c  Message dispatcher
  *
  * Copyright (C) 2003  CodeFactory AB

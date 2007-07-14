@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* config-loader-libxml.c  libxml2 XML loader
  *
  * Copyright (C) 2003 Red Hat, Inc.

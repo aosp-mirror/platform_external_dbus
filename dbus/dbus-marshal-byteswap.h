@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-byteswap.h  Swap a block of marshaled data
  *
  * Copyright (C) 2005 Red Hat, Inc.

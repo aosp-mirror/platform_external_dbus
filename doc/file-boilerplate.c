@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* FILENAME  BRIEF FILE DESCRIPTION
  *
  * Copyright (C) YEAR  COPYRIGHT HOLDER

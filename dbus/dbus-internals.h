@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-internals.h  random utility stuff (internal to D-Bus implementation)
  *
  * Copyright (C) 2002, 2003  Red Hat, Inc.

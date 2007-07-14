@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sysdeps-unix.c Wrappers around UNIX system/libc features (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003, 2006  Red Hat, Inc.

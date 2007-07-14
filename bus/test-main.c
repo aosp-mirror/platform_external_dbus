@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* test-main.c  main() for make check
  *
  * Copyright (C) 2003 Red Hat, Inc.

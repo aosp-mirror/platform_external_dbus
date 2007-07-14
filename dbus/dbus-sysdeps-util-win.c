@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sysdeps-util.c Would be in dbus-sysdeps.c, but not used in libdbus
  * 
  * Copyright (C) 2002, 2003, 2004, 2005  Red Hat, Inc.

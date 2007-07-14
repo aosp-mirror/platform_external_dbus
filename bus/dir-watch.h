@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dir-watch.h  Watch directories
  *
  * Copyright (C) 2005 Red Hat, Inc.
