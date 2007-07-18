@@ -1,3 +1,10 @@
+2007-07-18  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.c (dbus_message_get_cached)
+	(dbus_message_cache_or_finalize): don't mess with message from
+	message cache outside of the cache lock. Bug #9164 from Jonathan
+	Matthew.
+
 2007-07-13  Havoc Pennington  <hp@redhat.com>
 
 	* Add indent-tabs-mode: nil to all file headers.

@@ -482,10 +482,10 @@ dbus_message_get_cached (void)
   _dbus_assert (i < MAX_MESSAGE_CACHE_SIZE);
   _dbus_assert (message != NULL);
 
-  _DBUS_UNLOCK (message_cache);
-
   _dbus_assert (message->refcount.value == 0);
   _dbus_assert (message->size_counters == NULL);
+  
+  _DBUS_UNLOCK (message_cache);
 
   return message;
 }
@@ -571,9 +571,9 @@ dbus_message_cache_or_finalize (DBusMessage *message)
 #endif
 
  out:
-  _DBUS_UNLOCK (message_cache);
-
   _dbus_assert (message->refcount.value == 0);
+  
+  _DBUS_UNLOCK (message_cache);
   
   if (!was_cached)
     dbus_message_finalize (message);
