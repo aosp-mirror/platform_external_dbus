@@ -1,3 +1,8 @@
+2007-07-19  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/modules/FindKDEWIN.cmake: fixed comment
+	* cmake/modules/FindKDEWIN32.cmake: removed obsolate cmake module
+
 2007-07-18  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-message.c (dbus_message_get_cached)

@@ -1,4 +1,4 @@
-# - Try to find the KDEWIN library
+# - Try to find the install path of the required win32 supplementary libraries 
 # 
 # used environment vars 
 #  KDEWIN_DIR  - kdewin root dir 
