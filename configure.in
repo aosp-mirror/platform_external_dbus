@@ -958,10 +958,15 @@ DBUS_CLIENT_LIBS="$THREAD_LIBS"
 AC_SUBST(DBUS_CLIENT_CFLAGS)
 AC_SUBST(DBUS_CLIENT_LIBS)
 
-DBUS_BUS_CFLAGS=$XML_CFLAGS
+DBUS_BUS_CFLAGS="$XML_CFLAGS"
 DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS $INTLLIBS $THREAD_LIBS"
 AC_SUBST(DBUS_BUS_CFLAGS)
 AC_SUBST(DBUS_BUS_LIBS)
+
+DBUS_LAUNCHER_CFLAGS="$XML_CFLAGS"
+DBUS_LAUNCHER_LIBS="$XML_LIBS"
+AC_SUBST(DBUS_LAUNCHER_CFLAGS)
+AC_SUBST(DBUS_LAUNCHER_LIBS)
 
 DBUS_TEST_CFLAGS=
 DBUS_TEST_LIBS="$THREAD_LIBS"
@@ -1060,6 +1065,7 @@ AS_AC_EXPAND(EXPANDED_LOCALSTATEDIR, "$localstatedir")
 AS_AC_EXPAND(EXPANDED_SYSCONFDIR, "$sysconfdir")
 AS_AC_EXPAND(EXPANDED_BINDIR, "$bindir")
 AS_AC_EXPAND(EXPANDED_LIBDIR, "$libdir")
+AS_AC_EXPAND(EXPANDED_LIBEXECDIR, "$libexecdir")
 AS_AC_EXPAND(EXPANDED_DATADIR, "$datadir")
 
 #### Check our operating system
@@ -1165,9 +1171,14 @@ AC_SUBST(DBUS_DAEMONDIR)
 AC_DEFINE_UNQUOTED(DBUS_DAEMONDIR,"$DBUS_DAEMONDIR", [Directory for installing the DBUS daemon])
 
 #### Directory to install the other binaries
-DBUS_BINDIR=$EXPANDED_BINDIR
+DBUS_BINDIR="$EXPANDED_BINDIR"
 AC_SUBST(DBUS_BINDIR)
 AC_DEFINE_UNQUOTED(DBUS_BINDIR,"$DBUS_BINDIR", [Directory for installing the binaries])
+
+#### Directory to install the libexec binaries
+DBUS_LIBEXECDIR="$EXPANDED_LIBEXECDIR"
+AC_SUBST(DBUS_LIBEXECDIR)
+AC_DEFINE_UNQUOTED(DBUS_LIBEXECDIR,"$DBUS_LIBEXECDIR", [Directory for installing the libexec binaries])
 
 #### Tell tests where to find certain stuff in builddir
 
@@ -1189,6 +1200,12 @@ TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
 AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon",
                    [Full path to the daemon in the builddir])
 AC_SUBST(TEST_BUS_BINARY)
+
+## Export the non-setuid external helper
+TEST_LAUNCH_HELPER_BINARY="$DBUS_PWD/bus/dbus-daemon-launch-helper-test"
+AC_SUBST(TEST_LAUNCH_HELPER_BINARY)
+AC_DEFINE_UNQUOTED(DBUS_TEST_LAUNCH_HELPER_BINARY, "$TEST_LAUNCH_HELPER_BINARY",
+                   [Full path to the launch helper test program in the builddir])
 
 #### Find socket directories
 if ! test -z "$TMPDIR" ; then

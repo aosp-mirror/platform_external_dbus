@@ -1,6 +1,11 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
 	* configure.in:
+	Add the needed library exports for the new laucher.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
+	* configure.in:
 	Check for -Wl,--gc-sections so we can really reduce the size of the
 	setuid binary.
 
