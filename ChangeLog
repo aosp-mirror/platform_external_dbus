@@ -1,5 +1,20 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/Makefile.am:
+	* bus/config-parser.c: (bus_config_parser_unref),
+	(start_busconfig_child), (bus_config_parser_end_element),
+	(servicehelper_path), (bus_config_parser_content),
+	(bus_config_parser_finished),
+	(bus_config_parser_get_servicehelper),
+	(test_default_session_servicedirs),
+	(test_default_system_servicedirs), (bus_config_parser_test):
+	* bus/config-parser.h:
+	Make the config-parser code use the common config code.
+	Also add the session and systemdirs stuff, and make the config parser
+	aware of the servicehelper field.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/system.conf.in:
 	Add new servicehelper fields to the default system.conf file.
 

@@ -20,6 +20,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#include "config-parser-common.h"
 #include "config-parser.h"
 #include "test.h"
 #include "utils.h"
@@ -28,28 +29,6 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-internals.h>
 #include <string.h>
-
-typedef enum
-{
-  ELEMENT_NONE,
-  ELEMENT_BUSCONFIG,
-  ELEMENT_INCLUDE,
-  ELEMENT_USER,
-  ELEMENT_LISTEN,
-  ELEMENT_AUTH,
-  ELEMENT_POLICY,
-  ELEMENT_LIMIT,
-  ELEMENT_ALLOW,
-  ELEMENT_DENY,
-  ELEMENT_FORK,
-  ELEMENT_PIDFILE,
-  ELEMENT_SERVICEDIR,
-  ELEMENT_INCLUDEDIR,
-  ELEMENT_TYPE,
-  ELEMENT_SELINUX,
-  ELEMENT_ASSOCIATE,
-  ELEMENT_STANDARD_SESSION_SERVICEDIRS
-} ElementType;
 
 typedef enum
 {
@@ -108,13 +87,15 @@ struct BusConfigParser
 
   char *user;          /**< user to run as */
 
+  char *servicehelper; /**< location of the setuid helper */
+
   char *bus_type;          /**< Message bus type */
   
   DBusList *listen_on; /**< List of addresses to listen to */
 
   DBusList *mechanisms; /**< Auth mechanisms */
 
-  DBusList *service_dirs; /**< Directories to look for services in */
+  DBusList *service_dirs; /**< Directories to look for session services in */
 
   DBusList *conf_dirs;   /**< Directories to look for policy configuration in */
 
@@ -132,54 +113,6 @@ struct BusConfigParser
 
   unsigned int is_toplevel : 1; /**< FALSE if we are a sub-config-file inside another one */
 };
-
-static const char*
-element_type_to_name (ElementType type)
-{
-  switch (type)
-    {
-    case ELEMENT_NONE:
-      return NULL;
-    case ELEMENT_BUSCONFIG:
-      return "busconfig";
-    case ELEMENT_INCLUDE:
-      return "include";
-    case ELEMENT_USER:
-      return "user";
-    case ELEMENT_LISTEN:
-      return "listen";
-    case ELEMENT_AUTH:
-      return "auth";
-    case ELEMENT_POLICY:
-      return "policy";
-    case ELEMENT_LIMIT:
-      return "limit";
-    case ELEMENT_ALLOW:
-      return "allow";
-    case ELEMENT_DENY:
-      return "deny";
-    case ELEMENT_FORK:
-      return "fork";
-    case ELEMENT_PIDFILE:
-      return "pidfile";
-    case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
-      return "standard_session_servicedirs";
-    case ELEMENT_SERVICEDIR:
-      return "servicedir";
-    case ELEMENT_INCLUDEDIR:
-      return "includedir";
-    case ELEMENT_TYPE:
-      return "type";
-    case ELEMENT_SELINUX:
-      return "selinux";
-    case ELEMENT_ASSOCIATE:
-      return "associate";
-    }
-
-  _dbus_assert_not_reached ("bad element type");
-
-  return NULL;
-}
 
 static Element*
 push_element (BusConfigParser *parser,
@@ -534,6 +467,7 @@ bus_config_parser_unref (BusConfigParser *parser)
         pop_element (parser);
 
       dbus_free (parser->user);
+      dbus_free (parser->servicehelper);
       dbus_free (parser->bus_type);
       dbus_free (parser->pidfile);
       
@@ -722,7 +656,11 @@ start_busconfig_child (BusConfigParser   *parser,
                        const char       **attribute_values,
                        DBusError         *error)
 {
-  if (strcmp (element_name, "user") == 0)
+  ElementType element_type;
+
+  element_type = bus_config_parser_element_name_to_type (element_name);
+
+  if (element_type == ELEMENT_USER)
     {
       if (!check_no_attributes (parser, "user", attribute_names, attribute_values, error))
         return FALSE;
@@ -735,7 +673,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "type") == 0)
+  else if (element_type == ELEMENT_TYPE)
     {
       if (!check_no_attributes (parser, "type", attribute_names, attribute_values, error))
         return FALSE;
@@ -748,7 +686,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "fork") == 0)
+  else if (element_type == ELEMENT_FORK)
     {
       if (!check_no_attributes (parser, "fork", attribute_names, attribute_values, error))
         return FALSE;
@@ -763,7 +701,7 @@ start_busconfig_child (BusConfigParser   *parser,
       
       return TRUE;
     }
-  else if (strcmp (element_name, "pidfile") == 0)
+  else if (element_type == ELEMENT_PIDFILE)
     {
       if (!check_no_attributes (parser, "pidfile", attribute_names, attribute_values, error))
         return FALSE;
@@ -776,7 +714,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "listen") == 0)
+  else if (element_type == ELEMENT_LISTEN)
     {
       if (!check_no_attributes (parser, "listen", attribute_names, attribute_values, error))
         return FALSE;
@@ -789,7 +727,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "auth") == 0)
+  else if (element_type == ELEMENT_AUTH)
     {
       if (!check_no_attributes (parser, "auth", attribute_names, attribute_values, error))
         return FALSE;
@@ -802,7 +740,20 @@ start_busconfig_child (BusConfigParser   *parser,
       
       return TRUE;
     }
-  else if (strcmp (element_name, "includedir") == 0)
+  else if (element_type == ELEMENT_SERVICEHELPER)
+    {
+      if (!check_no_attributes (parser, "servicehelper", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_SERVICEHELPER) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      return TRUE;
+    }
+  else if (element_type == ELEMENT_INCLUDEDIR)
     {
       if (!check_no_attributes (parser, "includedir", attribute_names, attribute_values, error))
         return FALSE;
@@ -815,7 +766,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "standard_session_servicedirs") == 0)
+  else if (element_type == ELEMENT_STANDARD_SESSION_SERVICEDIRS)
     {
       DBusList *link;
       DBusList *dirs;
@@ -841,7 +792,33 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "servicedir") == 0)
+  else if (element_type == ELEMENT_STANDARD_SYSTEM_SERVICEDIRS)
+    {
+      DBusList *link;
+      DBusList *dirs;
+      dirs = NULL;
+
+      if (!check_no_attributes (parser, "standard_system_servicedirs", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_STANDARD_SYSTEM_SERVICEDIRS) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      if (!_dbus_get_standard_system_servicedirs (&dirs))
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+        while ((link = _dbus_list_pop_first_link (&dirs)))
+          service_dirs_append_link_unique_or_free (&parser->service_dirs, link);
+
+      return TRUE;
+    }
+  else if (element_type == ELEMENT_SERVICEDIR)
     {
       if (!check_no_attributes (parser, "servicedir", attribute_names, attribute_values, error))
         return FALSE;
@@ -854,7 +831,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "include") == 0)
+  else if (element_type == ELEMENT_INCLUDE)
     {
       Element *e;
       const char *if_selinux_enabled;
@@ -927,7 +904,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "policy") == 0)
+  else if (element_type == ELEMENT_POLICY)
     {
       Element *e;
       const char *context;
@@ -1034,7 +1011,7 @@ start_busconfig_child (BusConfigParser   *parser,
       
       return TRUE;
     }
-  else if (strcmp (element_name, "limit") == 0)
+  else if (element_type == ELEMENT_LIMIT)
     {
       Element *e;
       const char *name;
@@ -1069,7 +1046,7 @@ start_busconfig_child (BusConfigParser   *parser,
 
       return TRUE;
     }
-  else if (strcmp (element_name, "selinux") == 0)
+  else if (element_type == ELEMENT_SELINUX)
     {
       if (!check_no_attributes (parser, "selinux", attribute_names, attribute_values, error))
         return FALSE;
@@ -1920,7 +1897,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
       return FALSE;
     }
 
-  n = element_type_to_name (t);
+  n = bus_config_parser_element_type_to_name (t);
   _dbus_assert (n != NULL);
   if (strcmp (n, element_name) != 0)
     {
@@ -1949,13 +1926,14 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_PIDFILE:
     case ELEMENT_AUTH:
     case ELEMENT_SERVICEDIR:
+    case ELEMENT_SERVICEHELPER:
     case ELEMENT_INCLUDEDIR:
     case ELEMENT_LIMIT:
       if (!e->had_content)
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "XML element <%s> was expected to have content inside it",
-                          element_type_to_name (e->type));
+                          bus_config_parser_element_type_to_name (e->type));
           return FALSE;
         }
 
@@ -1975,6 +1953,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_SELINUX:
     case ELEMENT_ASSOCIATE:
     case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
+    case ELEMENT_STANDARD_SYSTEM_SERVICEDIRS:
       break;
     }
 
@@ -2085,6 +2064,40 @@ include_file (BusConfigParser   *parser,
       bus_config_parser_unref (included);
       return TRUE;
     }
+}
+
+static dbus_bool_t
+servicehelper_path (BusConfigParser   *parser,
+                    const DBusString  *filename,
+                    DBusError         *error)
+{
+  const char *filename_str;
+  char *servicehelper;
+  filename_str = _dbus_string_get_const_data (filename);
+
+  /* check if helper exists... */
+  if (!_dbus_file_exists (filename_str))
+    {
+      dbus_set_error (error, DBUS_ERROR_FILE_NOT_FOUND,
+                      "setuid helper '%s'not found", filename_str);
+      return FALSE;
+    }
+
+  /* copy to avoid overwriting with NULL on OOM */
+  servicehelper = _dbus_strdup (filename_str);
+
+  /* check for OOM */
+  if (servicehelper == NULL)
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  /* save the latest servicehelper only if not OOM */
+  dbus_free (parser->servicehelper);
+  parser->servicehelper = servicehelper;
+
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -2223,6 +2236,7 @@ bus_config_parser_content (BusConfigParser   *parser,
     case ELEMENT_DENY:
     case ELEMENT_FORK:
     case ELEMENT_STANDARD_SESSION_SERVICEDIRS:    
+    case ELEMENT_STANDARD_SYSTEM_SERVICEDIRS:    
     case ELEMENT_SELINUX:
     case ELEMENT_ASSOCIATE:
       if (all_whitespace (content))
@@ -2231,7 +2245,7 @@ bus_config_parser_content (BusConfigParser   *parser,
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "No text content expected inside XML element %s in configuration file",
-                          element_type_to_name (top_element_type (parser)));
+                          bus_config_parser_element_type_to_name (top_element_type (parser)));
           return FALSE;
         }
 
@@ -2296,6 +2310,31 @@ bus_config_parser_content (BusConfigParser   *parser,
       }
       break;
 
+    case ELEMENT_SERVICEHELPER:
+      {
+        DBusString full_path;
+        
+        e->had_content = TRUE;
+
+        if (!_dbus_string_init (&full_path))
+          goto nomem;
+        
+        if (!make_full_path (&parser->basedir, content, &full_path))
+          {
+            _dbus_string_free (&full_path);
+            goto nomem;
+          }
+
+        if (!servicehelper_path (parser, &full_path, error))
+          {
+            _dbus_string_free (&full_path);
+            return FALSE;
+          }
+
+        _dbus_string_free (&full_path);
+      }
+      break;
+      
     case ELEMENT_INCLUDEDIR:
       {
         DBusString full_path;
@@ -2407,6 +2446,7 @@ bus_config_parser_content (BusConfigParser   *parser,
             goto nomem;
           }
 
+        /* _only_ extra session directories can be specified */
         if (!service_dirs_append_unique_or_free (&parser->service_dirs, s))
           {
             _dbus_string_free (&full_path);
@@ -2460,7 +2500,7 @@ bus_config_parser_finished (BusConfigParser   *parser,
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Element <%s> was not closed in configuration file",
-                      element_type_to_name (top_element_type (parser)));
+                      bus_config_parser_element_type_to_name (top_element_type (parser)));
 
       return FALSE;
     }
@@ -2521,6 +2561,12 @@ const char *
 bus_config_parser_get_pidfile (BusConfigParser   *parser)
 {
   return parser->pidfile;
+}
+
+const char *
+bus_config_parser_get_servicehelper (BusConfigParser   *parser)
+{
+  return parser->servicehelper;
 }
 
 BusPolicy*
@@ -3082,7 +3128,7 @@ process_test_equiv_subdir (const DBusString *test_base_dir,
   
 }
 
-static const char *test_service_dir_matches[] = 
+static const char *test_session_service_dir_matches[] = 
         {
 #ifdef DBUS_UNIX
          "/testusr/testlocal/testshare/dbus-1/services",
@@ -3124,7 +3170,7 @@ test_default_session_servicedirs (void)
           _dbus_string_free (&progs);
           return FALSE;
         }
-      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
+      test_session_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
     }
 #endif
   dirs = NULL;
@@ -3168,7 +3214,7 @@ test_default_session_servicedirs (void)
   while ((link = _dbus_list_pop_first_link (&dirs)))
     {
       printf ("    test service dir: %s\n", (char *)link->data);
-      if (test_service_dir_matches[i] == NULL)
+      if (test_session_service_dir_matches[i] == NULL)
         {
           printf ("more directories parsed than in match set\n");
           dbus_free (link->data);
@@ -3177,12 +3223,12 @@ test_default_session_servicedirs (void)
           return FALSE;
         }
  
-      if (strcmp (test_service_dir_matches[i], 
+      if (strcmp (test_session_service_dir_matches[i], 
                   (char *)link->data) != 0)
         {
           printf ("%s directory does not match %s in the match set\n", 
                   (char *)link->data,
-                  test_service_dir_matches[i]);
+                  test_session_service_dir_matches[i]);
           dbus_free (link->data);
           _dbus_list_free_link (link);
           _dbus_string_free (&progs);
@@ -3195,10 +3241,10 @@ test_default_session_servicedirs (void)
       _dbus_list_free_link (link);
     }
   
-  if (test_service_dir_matches[i] != NULL)
+  if (test_session_service_dir_matches[i] != NULL)
     {
       printf ("extra data %s in the match set was not matched\n",
-              test_service_dir_matches[i]);
+              test_session_service_dir_matches[i]);
 
       _dbus_string_free (&progs);
       return FALSE;
@@ -3207,7 +3253,130 @@ test_default_session_servicedirs (void)
   _dbus_string_free (&progs);
   return TRUE;
 }
-			   
+
+static const char *test_system_service_dir_matches[] = 
+        {
+#ifdef DBUS_UNIX
+         "/testusr/testlocal/testshare/dbus-1/system-services",
+         "/testusr/testshare/dbus-1/system-services",
+#endif
+         DBUS_DATADIR"/dbus-1/system-services",
+         NULL
+        };
+
+static dbus_bool_t
+test_default_system_servicedirs (void)
+{
+  DBusList *dirs;
+  DBusList *link;
+  DBusString progs;
+  const char *common_progs;
+  int i;
+
+  /* On Unix we don't actually use this variable, but it's easier to handle the
+   * deallocation if we always allocate it, whether needed or not */
+  if (!_dbus_string_init (&progs))
+    _dbus_assert_not_reached ("OOM allocating progs");
+
+  common_progs = _dbus_getenv ("CommonProgramFiles");
+#ifndef DBUS_UNIX
+  if (common_progs) 
+    {
+      if (!_dbus_string_append (&progs, common_progs)) 
+        {
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+
+      if (!_dbus_string_append (&progs, "/dbus-1/system-services")) 
+        {
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+      test_system_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
+    }
+#endif
+  dirs = NULL;
+
+  printf ("Testing retrieving the default system service directories\n");
+  if (!_dbus_get_standard_system_servicedirs (&dirs))
+    _dbus_assert_not_reached ("couldn't get stardard dirs");
+
+  /* make sure our defaults end with share/dbus-1/system-service */
+  while ((link = _dbus_list_pop_first_link (&dirs)))
+    {
+      DBusString path;
+      
+      printf ("    default service dir: %s\n", (char *)link->data);
+      _dbus_string_init_const (&path, (char *)link->data);
+      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/system-services"))
+        {
+          printf ("error with default system service directories\n");
+	      dbus_free (link->data);
+    	  _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+ 
+      dbus_free (link->data);
+      _dbus_list_free_link (link);
+    }
+
+#ifdef DBUS_UNIX
+  if (!_dbus_setenv ("XDG_DATA_HOME", "/testhome/foo/.testlocal/testshare"))
+    _dbus_assert_not_reached ("couldn't setenv XDG_DATA_HOME");
+
+  if (!_dbus_setenv ("XDG_DATA_DIRS", ":/testusr/testlocal/testshare: :/testusr/testshare:"))
+    _dbus_assert_not_reached ("couldn't setenv XDG_DATA_DIRS");
+#endif
+  if (!_dbus_get_standard_system_servicedirs (&dirs))
+    _dbus_assert_not_reached ("couldn't get stardard dirs");
+
+  /* make sure we read and parse the env variable correctly */
+  i = 0;
+  while ((link = _dbus_list_pop_first_link (&dirs)))
+    {
+      printf ("    test service dir: %s\n", (char *)link->data);
+      if (test_system_service_dir_matches[i] == NULL)
+        {
+          printf ("more directories parsed than in match set\n");
+          dbus_free (link->data);
+          _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+ 
+      if (strcmp (test_system_service_dir_matches[i], 
+                  (char *)link->data) != 0)
+        {
+          printf ("%s directory does not match %s in the match set\n", 
+                  (char *)link->data,
+                  test_system_service_dir_matches[i]);
+          dbus_free (link->data);
+          _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+
+      ++i;
+
+      dbus_free (link->data);
+      _dbus_list_free_link (link);
+    }
+  
+  if (test_system_service_dir_matches[i] != NULL)
+    {
+      printf ("extra data %s in the match set was not matched\n",
+              test_system_service_dir_matches[i]);
+
+      _dbus_string_free (&progs);
+      return FALSE;
+    }
+    
+  _dbus_string_free (&progs);
+  return TRUE;
+}
+		   
 dbus_bool_t
 bus_config_parser_test (const DBusString *test_data_dir)
 {
@@ -3219,6 +3388,9 @@ bus_config_parser_test (const DBusString *test_data_dir)
     }
 
   if (!test_default_session_servicedirs())
+    return FALSE;
+
+  if (!test_default_system_servicedirs())
     return FALSE;
 
   if (!process_test_valid_subdir (test_data_dir, "valid-config-files", VALID))

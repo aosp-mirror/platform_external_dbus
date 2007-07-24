@@ -2,6 +2,7 @@
 configdir=$(sysconfdir)/dbus-1
 
 INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS)				\
+	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"	\
 	-DDAEMON_NAME=\"dbus-daemon\"  -DDBUS_COMPILATION
 
 EFENCE=
@@ -34,10 +35,13 @@ endif
 BUS_SOURCES=					\
 	activation.c				\
 	activation.h				\
+	activation-exit-codes.h			\
 	bus.c					\
 	bus.h					\
 	config-parser.c				\
 	config-parser.h				\
+	config-parser-common.c			\
+	config-parser-common.h			\
 	connection.c				\
 	connection.h				\
 	desktop-file.c				\
