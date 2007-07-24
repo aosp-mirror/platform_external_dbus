@@ -4408,6 +4408,40 @@ check2_try_iterations (BusContext     *context,
 }
 
 static dbus_bool_t
+setenv_TEST_LAUNCH_HELPER_CONFIG(const DBusString *test_data_dir,
+                                 const char       *filename)
+{
+  DBusString full;
+  DBusString file;
+
+  if (!_dbus_string_init (&full))
+    return FALSE;
+
+  if (!_dbus_string_copy (test_data_dir, 0, &full, 0))
+    {
+      _dbus_string_free (&full);
+      return FALSE;
+    }      
+
+  _dbus_string_init_const (&file, filename);
+  
+  if (!_dbus_concat_dir_and_file (&full, &file))
+    {
+      _dbus_string_free (&full);
+      return FALSE;
+    }
+
+  _dbus_verbose ("Setting TEST_LAUNCH_HELPER_CONFIG to '%s'\n", 
+                 _dbus_string_get_const_data (&full));
+  
+  _dbus_setenv ("TEST_LAUNCH_HELPER_CONFIG", _dbus_string_get_const_data (&full));
+
+  _dbus_string_free (&full);
+
+  return TRUE;
+}
+
+static dbus_bool_t
 bus_dispatch_test_conf (const DBusString *test_data_dir,
 		        const char       *filename,
 		        dbus_bool_t       use_launcher)
@@ -4419,7 +4453,8 @@ bus_dispatch_test_conf (const DBusString *test_data_dir,
   DBusError error;
 
   /* save the config name for the activation helper */
-  _dbus_setenv ("TEST_LAUNCH_HELPER_CONFIG", filename);
+  if (!setenv_TEST_LAUNCH_HELPER_CONFIG (test_data_dir, filename))
+    _dbus_assert_not_reached ("no memory setting TEST_LAUNCH_HELPER_CONFIG");
 
   dbus_error_init (&error);
   
@@ -4524,9 +4559,8 @@ bus_dispatch_test_conf (const DBusString *test_data_dir,
 #endif
 
   /* only do the shell fail test if we are not using the launcher */
-  if (!use_launcher)
-    check2_try_iterations (context, foo, "shell_fail_service_auto_start",
-                           check_shell_fail_service_auto_start);
+  check2_try_iterations (context, foo, "shell_fail_service_auto_start",
+                         check_shell_fail_service_auto_start);
 
   /* specific to launcher */
   if (use_launcher)
@@ -4572,8 +4606,9 @@ bus_dispatch_test_conf_fail (const DBusString *test_data_dir,
   DBusError error;
 
   /* save the config name for the activation helper */
-  _dbus_setenv ("TEST_LAUNCH_HELPER_CONFIG", filename);
-
+  if (!setenv_TEST_LAUNCH_HELPER_CONFIG (test_data_dir, filename))
+    _dbus_assert_not_reached ("no memory setting TEST_LAUNCH_HELPER_CONFIG");
+  
   dbus_error_init (&error);
   
   context = bus_context_new_test (test_data_dir, filename);

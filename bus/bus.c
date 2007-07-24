@@ -254,8 +254,9 @@ setup_server (BusContext *context,
 }
 
 /* This code only gets executed the first time the
-   config files are parsed.  It is not executed
-   when config files are reloaded.*/
+ * config files are parsed.  It is not executed
+ * when config files are reloaded.
+ */
 static dbus_bool_t
 process_config_first_time_only (BusContext      *context,
 				BusConfigParser *parser,
@@ -263,7 +264,7 @@ process_config_first_time_only (BusContext      *context,
 {
   DBusList *link;
   DBusList **addresses;
-  const char *user, *pidfile, *servicehelper;
+  const char *user, *pidfile;
   char **auth_mechanisms;
   DBusList **auth_mechanisms_list;
   int len;
@@ -298,11 +299,6 @@ process_config_first_time_only (BusContext      *context,
   
   /* keep around the pid filename so we can delete it later */
   context->pidfile = _dbus_strdup (pidfile);
-
-  /* we need to configure this so we can test the service helper */
-  servicehelper = bus_config_parser_get_servicehelper (parser);
-  if (servicehelper != NULL)
-    context->servicehelper = _dbus_strdup (servicehelper);
 
   /* Build an array of auth mechanisms */
   
@@ -398,8 +394,11 @@ process_config_first_time_only (BusContext      *context,
 }
 
 /* This code gets executed every time the config files
-   are parsed: both during BusContext construction
-   and on reloads. */
+ * are parsed: both during BusContext construction
+ * and on reloads. This function is slightly screwy
+ * since it can do a "half reload" in out-of-memory
+ * situations. Realistically, unlikely to ever matter.
+ */
 static dbus_bool_t
 process_config_every_time (BusContext      *context,
 			   BusConfigParser *parser,
@@ -411,7 +410,9 @@ process_config_every_time (BusContext      *context,
   DBusList **dirs;
   BusActivation *new_activation;
   char *addr;
-
+  const char *servicehelper;
+  char *s;
+  
   dbus_bool_t retval;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -477,6 +478,21 @@ process_config_every_time (BusContext      *context,
   /* get the service directories */
   dirs = bus_config_parser_get_service_dirs (parser);
 
+  /* and the service helper */
+  servicehelper = bus_config_parser_get_servicehelper (parser);
+
+  s = _dbus_strdup(servicehelper);
+  if (s == NULL && servicehelper != NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  else
+    {
+      dbus_free(context->servicehelper);
+      context->servicehelper = s;
+    }
+  
   /* Create activation subsystem */
   new_activation = bus_activation_new (context, &full_address,
                                        dirs, error);

@@ -1,3 +1,30 @@
+2007-07-24  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: add AM_PROG_CC_C_O to allow per-target CPPFLAGS
+
+	* bus/dispatch.c (bus_dispatch_test_conf): Fix up setting
+	TEST_LAUNCH_HELPER_CONFIG to include the full path, and enable
+	test shell_fail_service_auto_start when use_launcher==TRUE
+
+	* bus/activation-helper-bin.c (convert_error_to_exit_code): pass
+	through the INVALID_ARGS error so the test suite works
+
+	* bus/activation.c (handle_activation_exit_error): return
+	DBUS_ERROR_NO_MEMORY if we get BUS_SPAWN_EXIT_CODE_NO_MEMORY
+
+	* dbus/dbus-spawn.c (_dbus_babysitter_get_child_exit_status):
+	return only the exit code of the child, not the entire thingy from 
+	waitpid(), and make the return value indicate whether the child 
+	exited normally (with a status code)
+
+	* bus/bus.c (process_config_first_time_only): _dbus_strdup works
+	on NULL so no need to check
+	(process_config_every_time): move servicehelper init here, so we
+	reload it on HUP or config file change
+
+	* bus/Makefile.am (install-data-hook): remove comment because
+	Emacs make mode seems to be grumpy about it
+
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
 	* bus/Makefile.am:

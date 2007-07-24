@@ -1122,13 +1122,14 @@ pending_activation_failed (BusPendingActivation *pending_activation,
  * Depending on the exit code of the helper, set the error accordingly
  */
 static void
-handle_activation_exit_error (int exit_code, DBusError *error)
+handle_activation_exit_error (int        exit_code,
+                              DBusError *error)
 {
   switch (exit_code)
     {
     case BUS_SPAWN_EXIT_CODE_NO_MEMORY:
-      dbus_set_error (error, DBUS_ERROR_SPAWN_SETUP_FAILED,
-                      "Launcher could not run as out of memory");
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                      "Launcher could not run (out of memory)");
       break;
     case BUS_SPAWN_EXIT_CODE_SETUP_FAILED:
       dbus_set_error (error, DBUS_ERROR_SPAWN_SETUP_FAILED,
@@ -1153,6 +1154,10 @@ handle_activation_exit_error (int exit_code, DBusError *error)
     case BUS_SPAWN_EXIT_CODE_EXEC_FAILED:
       dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
                       "Cannot launch daemon, file not found or permissions invalid");
+      break;
+    case BUS_SPAWN_EXIT_CODE_INVALID_ARGS:
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                      "Invalid arguments to command line");
       break;
     default:
       dbus_set_error (error, DBUS_ERROR_SPAWN_CHILD_EXITED,

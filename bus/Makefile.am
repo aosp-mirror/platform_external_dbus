@@ -188,7 +188,6 @@ install-data-hook:
 	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/system-services
 	$(mkinstalldirs) $(DESTDIR)$(libexecdir)/dbus-1
 	$(INSTALL_PROGRAM) dbus-daemon-launch-helper $(DESTDIR)$(libexecdir)
-	## This is SETUID! <insert suitable warning here...>
 	if test `id -u` -eq 0; then \
 		chown root:$(DBUS_USER) $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper; \
 		chmod 4750 $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper; \

@@ -2073,15 +2073,8 @@ servicehelper_path (BusConfigParser   *parser,
 {
   const char *filename_str;
   char *servicehelper;
-  filename_str = _dbus_string_get_const_data (filename);
 
-  /* check if helper exists... */
-  if (!_dbus_file_exists (filename_str))
-    {
-      dbus_set_error (error, DBUS_ERROR_FILE_NOT_FOUND,
-                      "setuid helper '%s'not found", filename_str);
-      return FALSE;
-    }
+  filename_str = _dbus_string_get_const_data (filename);
 
   /* copy to avoid overwriting with NULL on OOM */
   servicehelper = _dbus_strdup (filename_str);
@@ -2097,6 +2090,13 @@ servicehelper_path (BusConfigParser   *parser,
   dbus_free (parser->servicehelper);
   parser->servicehelper = servicehelper;
 
+  /* We don't check whether the helper exists; instead we
+   * would just fail to ever activate anything if it doesn't.
+   * This allows an admin to fix the problem if it doesn't exist.
+   * It also allows the parser test suite to successfully parse
+   * test cases without installing the helper. ;-)
+   */
+  
   return TRUE;
 }
 

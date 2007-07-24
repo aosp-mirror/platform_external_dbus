@@ -417,7 +417,7 @@ read_data (DBusBabysitter *sitter,
                   {
                     sitter->have_child_status = TRUE;
                     sitter->status = arg;
-                    sitter->errnum = WEXITSTATUS (sitter->status);
+                    sitter->errnum = 0;
                     _dbus_verbose ("recorded child status exited = %d signaled = %d exitstatus = %d termsig = %d\n",
                                    WIFEXITED (sitter->status), WIFSIGNALED (sitter->status),
                                    WEXITSTATUS (sitter->status), WTERMSIG (sitter->status));
@@ -624,26 +624,29 @@ _dbus_babysitter_get_child_exited (DBusBabysitter *sitter)
 }
 
 /**
- * Gets the exit status of the child. We do this so implimentation specific
- * detail is not cluttering up dbus, for example the system laucher code.
+ * Gets the exit status of the child. We do this so implementation specific
+ * detail is not cluttering up dbus, for example the system launcher code.
+ * This can only be called if the child has exited, i.e. call
+ * _dbus_babysitter_get_child_exited(). It returns FALSE if the child
+ * did not return a status code, e.g. because the child was signaled
+ * or we failed to ever launch the child in the first place.
  *
  * @param sitter the babysitter
  * @param status the returned status code
  * @returns #FALSE on failure
  */
 dbus_bool_t
-_dbus_babysitter_get_child_exit_status (DBusBabysitter *sitter, int *status)
+_dbus_babysitter_get_child_exit_status (DBusBabysitter *sitter,
+                                        int            *status)
 {
   if (!_dbus_babysitter_get_child_exited (sitter))
     _dbus_assert_not_reached ("Child has not exited");
+  
+  if (!sitter->have_child_status ||
+      !(WIFEXITED (sitter->status)))
+    return FALSE;
 
-  if (sitter->errnum != WEXITSTATUS (sitter->status))
-    _dbus_assert_not_reached ("Status is not exit!");
-
-  if (!sitter->have_child_status)
-    _dbus_assert_not_reached ("Not a child!");
-
-  *status = sitter->status;
+  *status = WEXITSTATUS (sitter->status);
   return TRUE;
 }
 

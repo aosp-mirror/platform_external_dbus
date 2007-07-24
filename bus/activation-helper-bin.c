@@ -56,7 +56,12 @@ convert_error_to_exit_code (DBusError *error)
   if (dbus_error_has_name (error, DBUS_ERROR_SPAWN_EXEC_FAILED))
     return BUS_SPAWN_EXIT_CODE_EXEC_FAILED;
 
+  if (dbus_error_has_name (error, DBUS_ERROR_INVALID_ARGS))
+    return BUS_SPAWN_EXIT_CODE_INVALID_ARGS;
+  
   /* should we assert? */
+  fprintf(stderr, "%s: %s\n", error->name, error->message);
+  
   return BUS_SPAWN_EXIT_CODE_SETUP_FAILED;
 }
 
