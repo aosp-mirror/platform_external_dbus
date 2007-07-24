@@ -1,5 +1,11 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* configure.in:
+	Check for -Wl,--gc-sections so we can really reduce the size of the
+	setuid binary.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/activation.c: (handle_activation_exit_error),
 	(babysitter_watch_callback):
 	Map the child exit status integer to a proper dbus error.
