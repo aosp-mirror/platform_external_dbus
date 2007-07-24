@@ -1,5 +1,23 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/config-parser-trivial.c: (service_dirs_find_dir),
+	(service_dirs_append_link_unique_or_free), (bus_config_parser_new),
+	(bus_config_parser_unref), (bus_config_parser_start_element),
+	(bus_config_parser_end_element), (bus_config_parser_content),
+	(bus_config_parser_finished), (bus_config_parser_get_user),
+	(bus_config_parser_get_type), (bus_config_parser_get_service_dirs),
+	(check_return_values), (do_load), (check_loader_oom_func),
+	(process_test_valid_subdir), (make_full_path), (check_file_valid),
+	(bus_config_parser_trivial_test):
+	* bus/config-parser-trivial.h:
+	Add a security sensitive stripped down config parser for the setuid
+	launcher. This file only reads what it needs, and doesn't try to do
+	anything remotely clever like including external files.
+	It is not intended to validate the config file; it is expected that
+	config-parser will do that before the setuid program tries to read it.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/config-parser-common.c:
 	(bus_config_parser_element_name_to_type),
 	(bus_config_parser_element_type_to_name):
