@@ -288,6 +288,33 @@ per-user-session bus daemon defined in
 configuration file would probably be nonsense.
 
 .TP
+.I "<standard_system_servicedirs/>"
+
+.PP
+<standard_system_servicedirs/> specifies the standard system-wide
+activation directories that should be searched for service files.
+This option defaults to @EXPANDED_DATADIR@/dbus-1/system-services.
+
+.PP
+The <standard_system_servicedirs/> option is only relevant to the
+per-system bus daemon defined in
+@EXPANDED_SYSCONFDIR@/dbus-1/system.conf. Putting it in any other
+configuration file would probably be nonsense.
+
+.TP
+.I "<servicehelper/>"
+
+.PP
+<servicehelper/> specifies the setuid helper that is used to launch
+system daemons with an alternate user. Typically this should be
+the dbus-daemon-launch-helper executable in located in libexec.
+
+.PP
+The <servicehelper/> option is only relevant to the per-system bus daemon
+defined in @EXPANDED_SYSCONFDIR@/dbus-1/system.conf. Putting it in any other
+configuration file would probably be nonsense.
+
+.TP
 .I "<limit>"
 
 .PP

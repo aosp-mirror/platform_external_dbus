@@ -1,5 +1,11 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/dbus-daemon.1.in:
+	Add standard_system_servicedirs and servicehelper into the man file
+	and explain what each does.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* doc/busconfig.dtd:
 	Add servicehelper into the dtd, it will soon be a valid part of the
 	config file.
