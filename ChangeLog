@@ -1,5 +1,11 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* dbus/dbus-sysdeps.c: (_dbus_clearenv):
+	* dbus/dbus-sysdeps.h:
+	Add a wrapper for clearenv.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* doc/system-activation.txt:
 	Add design document for the system activation parts. I'll shortly be
 	committing many patches that add system activation using a setuid

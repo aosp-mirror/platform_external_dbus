@@ -91,6 +91,7 @@ void _dbus_abort (void) _DBUS_GNUC_NORETURN;
 const char* _dbus_getenv (const char *varname);
 dbus_bool_t _dbus_setenv (const char *varname,
 			  const char *value);
+dbus_bool_t _dbus_clearenv (void);
 
 /** A process ID */
 typedef unsigned long dbus_pid_t;
@@ -260,6 +261,7 @@ dbus_bool_t _dbus_string_get_dirname  (const DBusString *filename,
 dbus_bool_t _dbus_path_is_absolute    (const DBusString *filename);
 
 dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
+dbus_bool_t _dbus_get_standard_system_servicedirs (DBusList **dirs);
 
 dbus_bool_t _dbus_append_system_config_file  (DBusString *str);
 dbus_bool_t _dbus_append_session_config_file (DBusString *str);
