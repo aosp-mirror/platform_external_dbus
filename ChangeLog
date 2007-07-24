@@ -1,5 +1,13 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/activation-exit-codes.h:
+	Add defines which specify the output codes of the launch helper.
+	We have to use exit codes as this is the only way we can return failure
+	type without going grotty things like redirecting possibly-nonsecure
+	stderr into the error.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* dbus/dbus-protocol.h:
 	Add new error names needed for the launch helper.
 
