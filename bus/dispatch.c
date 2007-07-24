@@ -2708,6 +2708,14 @@ check_segfault_service_no_auto_start (BusContext     *context,
           ; /* good, this is a valid response */
         }
       else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_FAILED))
+        {
+          const char *servicehelper;
+          servicehelper = bus_context_get_servicehelper (context);
+          /* make sure this only happens with the launch helper */
+          _dbus_assert (servicehelper != NULL);
+        }
+      else if (dbus_message_is_error (message,
                                       DBUS_ERROR_SPAWN_CHILD_SIGNALED))
         {
           ; /* good, this is expected also */
@@ -3234,6 +3242,405 @@ check_existent_service_auto_start (BusContext     *context,
   if (base_service_message)
     dbus_message_unref (base_service_message);
 
+  return retval;
+}
+
+#define SERVICE_FILE_MISSING_NAME "org.freedesktop.DBus.TestSuiteEchoServiceDotServiceFileDoesNotExist"
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_launch_service_file_missing (BusContext     *context,
+                                   DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+
+  message = dbus_message_new_method_call (SERVICE_FILE_MISSING_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+  
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+  block_connection_until_message_from_bus (context, connection, "reply to service file missing should fail to auto-start");
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "Echo message (auto activation)", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+          goto out;
+        }
+      
+      if (dbus_message_is_error (message,
+                                 DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_SERVICE_UNKNOWN))
+        {
+          _dbus_verbose("got service unknown\n");
+          ; /* good, this is expected (only valid when using launch helper) */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      _dbus_warn ("Did not expect to successfully auto-start missing service\n");
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
+#define SERVICE_USER_MISSING_NAME "org.freedesktop.DBus.TestSuiteNoUser"
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_launch_service_user_missing (BusContext     *context,
+                                   DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+
+  message = dbus_message_new_method_call (SERVICE_USER_MISSING_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+  block_connection_until_message_from_bus (context, connection,
+  					   "reply to service which should fail to auto-start (missing User)");
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_warn ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "Echo message (auto activation)", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+          goto out;
+        }
+      
+      if (dbus_message_is_error (message,
+                                 DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_SPAWN_FILE_INVALID))
+        {
+          _dbus_verbose("got service file invalid\n");
+          ; /* good, this is expected (only valid when using launch helper) */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      _dbus_warn ("Did not expect to successfully auto-start missing service\n");
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
+#define SERVICE_EXEC_MISSING_NAME "org.freedesktop.DBus.TestSuiteNoExec"
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_launch_service_exec_missing (BusContext     *context,
+                                   DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+
+  message = dbus_message_new_method_call (SERVICE_EXEC_MISSING_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+  block_connection_until_message_from_bus (context, connection,
+  					   "reply to service which should fail to auto-start (missing Exec)");
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_warn ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "Echo message (auto activation)", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+          goto out;
+        }
+      
+      if (dbus_message_is_error (message,
+                                 DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_SERVICE_UNKNOWN))
+        {
+          _dbus_verbose("could not activate as invalid service file was not added\n");
+          ; /* good, this is expected as we shouldn't have been added to
+             * the activation list with a missing Exec key */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_SPAWN_FILE_INVALID))
+        {
+          _dbus_verbose("got service file invalid\n");
+          ; /* good, this is allowed, and is the message passed back from the
+             * launch helper */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      _dbus_warn ("Did not expect to successfully auto-start missing service\n");
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
+  return retval;
+}
+
+#define SERVICE_SERVICE_MISSING_NAME "org.freedesktop.DBus.TestSuiteNoService"
+
+/* returns TRUE if the correct thing happens,
+ * but the correct thing may include OOM errors.
+ */
+static dbus_bool_t
+check_launch_service_service_missing (BusContext     *context,
+                                      DBusConnection *connection)
+{
+  DBusMessage *message;
+  dbus_uint32_t serial;
+  dbus_bool_t retval;
+
+  message = dbus_message_new_method_call (SERVICE_SERVICE_MISSING_NAME,
+                                          "/org/freedesktop/TestSuite",
+                                          "org.freedesktop.TestSuite",
+                                          "Echo");
+
+  if (message == NULL)
+    return TRUE;
+
+  if (!dbus_connection_send (connection, message, &serial))
+    {
+      dbus_message_unref (message);
+      return TRUE;
+    }
+
+  dbus_message_unref (message);
+  message = NULL;
+
+  bus_test_run_everything (context);
+  block_connection_until_message_from_bus (context, connection,
+  					   "reply to service which should fail to auto-start (missing Service)");
+  bus_test_run_everything (context);
+
+  if (!dbus_connection_get_is_connected (connection))
+    {
+      _dbus_warn ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      return TRUE;
+    }
+  
+  retval = FALSE;
+  
+  message = pop_message_waiting_for_memory (connection);
+  if (message == NULL)
+    {
+      _dbus_warn ("Did not receive a reply to %s %d on %p\n",
+                  "Echo message (auto activation)", serial, connection);
+      goto out;
+    }
+
+  verbose_message_received (connection, message);
+
+  if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR)
+    {
+      if (!dbus_message_has_sender (message, DBUS_SERVICE_DBUS))
+        {
+          _dbus_warn ("Message has wrong sender %s\n",
+                      dbus_message_get_sender (message) ?
+                      dbus_message_get_sender (message) : "(none)");
+          goto out;
+        }
+      
+      if (dbus_message_is_error (message,
+                                 DBUS_ERROR_NO_MEMORY))
+        {
+          ; /* good, this is a valid response */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_SERVICE_UNKNOWN))
+        {
+          _dbus_verbose("could not activate as invalid service file was not added\n");
+          ; /* good, this is expected as we shouldn't have been added to
+             * the activation list with a missing Exec key */
+        }
+      else if (dbus_message_is_error (message,
+                                      DBUS_ERROR_SPAWN_FILE_INVALID))
+        {
+          _dbus_verbose("got service file invalid\n");
+          ; /* good, this is allowed, and is the message passed back from the
+             * launch helper */
+        }
+      else
+        {
+          warn_unexpected (connection, message, "not this error");
+
+          goto out;
+        }
+    }
+  else
+    {
+      _dbus_warn ("Did not expect to successfully auto-start missing service\n");
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  if (message)
+    dbus_message_unref (message);
+  
   return retval;
 }
 
@@ -4000,8 +4407,10 @@ check2_try_iterations (BusContext     *context,
     }
 }
 
-dbus_bool_t
-bus_dispatch_test (const DBusString *test_data_dir)
+static dbus_bool_t
+bus_dispatch_test_conf (const DBusString *test_data_dir,
+		        const char       *filename,
+		        dbus_bool_t       use_launcher)
 {
   BusContext *context;
   DBusConnection *foo;
@@ -4009,10 +4418,12 @@ bus_dispatch_test (const DBusString *test_data_dir)
   DBusConnection *baz;
   DBusError error;
 
+  /* save the config name for the activation helper */
+  _dbus_setenv ("TEST_LAUNCH_HELPER_CONFIG", filename);
+
   dbus_error_init (&error);
   
-  context = bus_context_new_test (test_data_dir,
-                                  "valid-config-files/debug-allow-all.conf");
+  context = bus_context_new_test (test_data_dir, filename);
   if (context == NULL)
     return FALSE;
   
@@ -4070,8 +4481,10 @@ bus_dispatch_test (const DBusString *test_data_dir)
   if (!check_get_connection_unix_process_id (context, baz))
     _dbus_assert_not_reached ("GetConnectionUnixProcessID message failed");
 
-  if (!check_list_services (context, baz))
-    _dbus_assert_not_reached ("ListActivatableNames message failed");
+  /* Do not do the ListServices test - FIXME: the launcher does not work in this instance */
+  if (!use_launcher)
+    if (!check_list_services (context, baz))
+      _dbus_assert_not_reached ("ListActivatableNames message failed");
   
   if (!check_no_leftovers (context))
     {
@@ -4088,8 +4501,10 @@ bus_dispatch_test (const DBusString *test_data_dir)
 #ifdef DBUS_WIN_FIXME
   _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
 #else
-  check2_try_iterations (context, foo, "segfault_service_no_auto_start",
-                         check_segfault_service_no_auto_start);
+  /* only do the segfault test if we are not using the launcher */
+  if (!use_launcher)
+    check2_try_iterations (context, foo, "segfault_service_no_auto_start",
+                           check_segfault_service_no_auto_start);
 #endif
   
   check2_try_iterations (context, foo, "existent_service_no_auto_start",
@@ -4102,12 +4517,21 @@ bus_dispatch_test (const DBusString *test_data_dir)
 #ifdef DBUS_WIN_FIXME    
   _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
 #else
-  check2_try_iterations (context, foo, "segfault_service_auto_start",
-                         check_segfault_service_auto_start);
+  /* only do the segfault test if we are not using the launcher */
+  if (!use_launcher)
+    check2_try_iterations (context, foo, "segfault_service_auto_start",
+                           check_segfault_service_auto_start);
 #endif
 
-  check2_try_iterations (context, foo, "shell_fail_service_auto_start",
-                         check_shell_fail_service_auto_start);
+  /* only do the shell fail test if we are not using the launcher */
+  if (!use_launcher)
+    check2_try_iterations (context, foo, "shell_fail_service_auto_start",
+                           check_shell_fail_service_auto_start);
+
+  /* specific to launcher */
+  if (use_launcher)
+    if (!check_launch_service_file_missing (context, foo))
+      _dbus_assert_not_reached ("did not get service file not found error");
 
 #if 0
   /* Note: need to resolve some issues with the testing code in order to run
@@ -4118,11 +4542,15 @@ bus_dispatch_test (const DBusString *test_data_dir)
                          check_existent_service_auto_start);
 #endif
   
-  if (!check_existent_service_auto_start (context, foo))
-    _dbus_assert_not_reached ("existent service auto start failed");
+  /* only valid for non-launcher */
+  if (!use_launcher)
+    if (!check_existent_service_auto_start (context, foo))
+      _dbus_assert_not_reached ("existent service auto start failed");
 
-  if (!check_shell_service_success_auto_start (context, foo))
-    _dbus_assert_not_reached ("shell success service auto start failed");
+  /* only valid for non-launcher */
+  if (!use_launcher)
+    if (!check_shell_service_success_auto_start (context, foo))
+      _dbus_assert_not_reached ("shell success service auto start failed");
 
   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
 
@@ -4132,6 +4560,85 @@ bus_dispatch_test (const DBusString *test_data_dir)
 
   bus_context_unref (context);
   
+  return TRUE;
+}
+
+static dbus_bool_t
+bus_dispatch_test_conf_fail (const DBusString *test_data_dir,
+		             const char       *filename)
+{
+  BusContext *context;
+  DBusConnection *foo;
+  DBusError error;
+
+  /* save the config name for the activation helper */
+  _dbus_setenv ("TEST_LAUNCH_HELPER_CONFIG", filename);
+
+  dbus_error_init (&error);
+  
+  context = bus_context_new_test (test_data_dir, filename);
+  if (context == NULL)
+    return FALSE;
+  
+  foo = dbus_connection_open_private ("debug-pipe:name=test-server", &error);
+  if (foo == NULL)
+    _dbus_assert_not_reached ("could not alloc connection");
+
+  if (!bus_setup_debug_client (foo))
+    _dbus_assert_not_reached ("could not set up connection");
+
+  spin_connection_until_authenticated (context, foo);
+
+  if (!check_hello_message (context, foo))
+    _dbus_assert_not_reached ("hello message failed");
+
+  if (!check_double_hello_message (context, foo))
+    _dbus_assert_not_reached ("double hello message failed");
+
+  if (!check_add_match_all (context, foo))
+    _dbus_assert_not_reached ("AddMatch message failed");
+
+  /* this only tests the activation.c user check */
+  if (!check_launch_service_user_missing (context, foo))
+    _dbus_assert_not_reached ("user missing did not trigger error");
+
+  /* this only tests the desktop.c exec check */
+  if (!check_launch_service_exec_missing (context, foo))
+    _dbus_assert_not_reached ("exec missing did not trigger error");
+
+  /* this only tests the desktop.c service check */
+  if (!check_launch_service_service_missing (context, foo))
+    _dbus_assert_not_reached ("service missing did not trigger error");
+
+  _dbus_verbose ("Disconnecting foo\n");
+
+  kill_client_connection_unchecked (foo);
+
+  bus_context_unref (context);
+  
+  return TRUE;
+}
+
+dbus_bool_t
+bus_dispatch_test (const DBusString *test_data_dir)
+{
+  /* run normal activation tests */
+  _dbus_verbose ("Normal activation tests\n");
+  if (!bus_dispatch_test_conf (test_data_dir,
+  			       "valid-config-files/debug-allow-all.conf", FALSE))
+    return FALSE;
+
+  /* run launch-helper activation tests */
+  _dbus_verbose ("Launch helper activation tests\n");
+  if (!bus_dispatch_test_conf (test_data_dir,
+  			       "valid-config-files-system/debug-allow-all-pass.conf", TRUE))
+    return FALSE;
+
+  /* run select launch-helper activation tests on broken service files */
+  if (!bus_dispatch_test_conf_fail (test_data_dir,
+  			            "valid-config-files-system/debug-allow-all-fail.conf"))
+    return FALSE;
+
   return TRUE;
 }
 

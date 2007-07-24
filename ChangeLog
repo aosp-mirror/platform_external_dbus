@@ -1,5 +1,16 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/dispatch.c: (check_segfault_service_no_auto_start),
+	(check_launch_service_file_missing),
+	(check_launch_service_user_missing),
+	(check_launch_service_exec_missing),
+	(check_launch_service_service_missing), (bus_dispatch_test_conf),
+	(bus_dispatch_test_conf_fail), (bus_dispatch_test):
+	Add unit tests for system activation. Most are copied from the
+	session activation tests, but some didn't apply when using a laucher.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/activation.c: (bus_activation_activate_service):
 	If the bus uses a service-laucher, then use the setuid laucher.
 
