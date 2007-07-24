@@ -1,5 +1,12 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/activation.c: (bus_activation_entry_unref),
+	(update_desktop_file_entry):
+	Add the concept of, and read the value of user from the desktop file.
+	The user string is not required unless we are using system activation.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/activation.c:
 	* bus/desktop-file.h:
 	Move the defines into the header file, as we use these in the lauch

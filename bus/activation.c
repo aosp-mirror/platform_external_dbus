@@ -65,6 +65,7 @@ typedef struct
   int refcount;
   char *name;
   char *exec;
+  char *user;
   unsigned long mtime;
   BusServiceDirectory *s_dir;
   char *filename;
@@ -237,6 +238,7 @@ bus_activation_entry_unref (BusActivationEntry *entry)
   
   dbus_free (entry->name);
   dbus_free (entry->exec);
+  dbus_free (entry->user);
   dbus_free (entry->filename);
 
   dbus_free (entry);
@@ -249,17 +251,21 @@ update_desktop_file_entry (BusActivation       *activation,
                            BusDesktopFile      *desktop_file,
                            DBusError           *error)
 {
-  char *name, *exec;
+  char *name, *exec, *user;
   BusActivationEntry *entry;
   DBusStat stat_buf;
   DBusString file_path;
+  DBusError tmp_error;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   name = NULL;
   exec = NULL;
+  user = NULL;
   entry = NULL;
   
+  dbus_error_init (&tmp_error);
+
   if (!_dbus_string_init (&file_path))
     {
       BUS_SET_OOM (error);
@@ -294,6 +300,29 @@ update_desktop_file_entry (BusActivation       *activation,
                                     error))
     goto failed;
 
+  /* user is not _required_ unless we are using system activation */
+  if (!bus_desktop_file_get_string (desktop_file,
+                                    DBUS_SERVICE_SECTION,
+                                    DBUS_SERVICE_USER,
+                                    &user, &tmp_error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+      /* if we got OOM, then exit */
+      if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
+        {
+          dbus_move_error (&tmp_error, error);
+          goto failed;
+        }
+      else
+        {
+          /* if we have error because we didn't find anything then continue */
+          dbus_error_free (&tmp_error);
+          dbus_free (user);
+          user = NULL;
+        }
+    }
+  _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+
   entry = _dbus_hash_table_lookup_string (s_dir->entries, 
                                           _dbus_string_get_const_data (filename));
   if (entry == NULL) /* New file */
@@ -317,6 +346,7 @@ update_desktop_file_entry (BusActivation       *activation,
      
       entry->name = name;
       entry->exec = exec;
+      entry->user = user;
       entry->refcount = 1;
     
       entry->s_dir = s_dir;
@@ -357,8 +387,10 @@ update_desktop_file_entry (BusActivation       *activation,
  
       dbus_free (entry->name);
       dbus_free (entry->exec);
+      dbus_free (entry->user);
       entry->name = name;
       entry->exec = exec;
+      entry->user = user;
       if (!_dbus_hash_table_insert_string (activation->entries,
                                            entry->name, bus_activation_entry_ref(entry)))
         {
@@ -382,6 +414,7 @@ update_desktop_file_entry (BusActivation       *activation,
 failed:
   dbus_free (name);
   dbus_free (exec);
+  dbus_free (user);
   _dbus_string_free (&file_path);
 
   if (entry)
