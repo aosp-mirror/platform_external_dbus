@@ -1,12 +1,13 @@
-<!-- Bus that listens on a debug pipe and requires SHA1 auth, used to test SHA1 -->
+<!-- Bus that listens on a debug pipe and doesn't create any restrictions -->
 
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
   <listen>debug-pipe:name=test-server</listen>
   <listen>unix:tmpdir=@TEST_SOCKET_DIR@</listen>
-  <servicedir>@TEST_VALID_SERVICE_DIR@</servicedir>
-  <auth>DBUS_COOKIE_SHA1</auth>
+  <type>system</type>
+  <servicehelper>@TEST_LAUNCH_HELPER_BINARY@</servicehelper>
+  <servicedir>@TEST_INVALID_SERVICE_SYSTEM_DIR@</servicedir>
   <policy context="default">
     <allow send_interface="*"/>
     <allow receive_interface="*"/>

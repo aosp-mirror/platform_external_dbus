@@ -1190,7 +1190,10 @@ AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1",
 AC_SUBST(TEST_$1)
 ])
 
-TEST_PATH(SERVICE_DIR, data/valid-service-files)
+TEST_PATH(VALID_SERVICE_DIR, data/valid-service-files)
+TEST_PATH(INVALID_SERVICE_DIR, data/invalid-service-files)
+TEST_PATH(VALID_SERVICE_SYSTEM_DIR, data/valid-service-files-system)
+TEST_PATH(INVALID_SERVICE_SYSTEM_DIR, data/invalid-service-files-system)
 TEST_PATH(SERVICE_BINARY, test-service)
 TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
 TEST_PATH(EXIT_BINARY, test-exit)
@@ -1254,10 +1257,19 @@ doc/Makefile
 dbus-1.pc
 test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-config-files/debug-allow-all-sha1.conf
-test/data/valid-service-files/debug-echo.service
-test/data/valid-service-files/debug-segfault.service
-test/data/valid-service-files/debug-shell-echo-success.service
-test/data/valid-service-files/debug-shell-echo-fail.service
+test/data/valid-config-files-system/debug-allow-all-pass.conf
+test/data/valid-config-files-system/debug-allow-all-fail.conf
+test/data/valid-service-files/org.freedesktop.DBus.TestSuiteEchoService.service
+test/data/valid-service-files/org.freedesktop.DBus.TestSuiteSegfaultService.service
+test/data/valid-service-files/org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess.service
+test/data/valid-service-files/org.freedesktop.DBus.TestSuiteShellEchoServiceFail.service
+test/data/valid-service-files-system/org.freedesktop.DBus.TestSuiteEchoService.service
+test/data/valid-service-files-system/org.freedesktop.DBus.TestSuiteSegfaultService.service
+test/data/valid-service-files-system/org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess.service
+test/data/valid-service-files-system/org.freedesktop.DBus.TestSuiteShellEchoServiceFail.service
+test/data/invalid-service-files-system/org.freedesktop.DBus.TestSuiteNoExec.service
+test/data/invalid-service-files-system/org.freedesktop.DBus.TestSuiteNoUser.service
+test/data/invalid-service-files-system/org.freedesktop.DBus.TestSuiteNoService.service
 ])
 
 dnl ==========================================================================
@@ -1268,6 +1280,7 @@ echo "
 	prefix:                   ${prefix}
 	exec_prefix:              ${exec_prefix}
         libdir:                   ${EXPANDED_LIBDIR}
+        libexecdir:               ${EXPANDED_LIBEXECDIR}
         bindir:                   ${EXPANDED_BINDIR}
         sysconfdir:               ${EXPANDED_SYSCONFDIR}
         localstatedir:            ${EXPANDED_LOCALSTATEDIR}

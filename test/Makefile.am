@@ -91,11 +91,15 @@ TESTDIRS=					\
 	data/auth				\
 	data/sha-1				\
 	data/valid-config-files			\
+	data/valid-config-files-system		\
 	data/valid-config-files/basic.d		\
 	data/valid-config-files/session.d	\
 	data/valid-config-files/system.d	\
 	data/valid-service-files		\
+	data/valid-service-files-system		\
+	data/invalid-service-files-system	\
 	data/invalid-config-files		\
+	data/invalid-config-files-system	\
 	data/equiv-config-files			\
 	data/equiv-config-files/basic		\
 	data/equiv-config-files/basic/basic.d	\

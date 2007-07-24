@@ -1,5 +1,41 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* configure.in:
+	* test/Makefile.am:
+	* test/data/invalid-service-files-system/org.freedesktop.DBus.TestS
+	uiteNoExec.service.in:
+	* test/data/invalid-service-files-system/org.freedesktop.DBus.TestS
+	uiteNoService.service.in:
+	* test/data/invalid-service-files-system/org.freedesktop.DBus.TestS
+	uiteNoUser.service.in:
+	* test/data/valid-config-files-system/debug-allow-all-fail.conf.in:
+	* test/data/valid-config-files-system/debug-allow-all-pass.conf.in:
+	* test/data/valid-config-files/debug-allow-all-sha1.conf.in:
+	* test/data/valid-config-files/debug-allow-all.conf.in:
+	* test/data/valid-service-files-system/org.freedesktop.DBus.TestSui
+	teEchoService.service.in:
+	* test/data/valid-service-files-system/org.freedesktop.DBus.TestSui
+	teSegfaultService.service.in:
+	* test/data/valid-service-files-system/org.freedesktop.DBus.TestSui
+	teShellEchoServiceFail.service.in:
+	* test/data/valid-service-files-system/org.freedesktop.DBus.TestSui
+	teShellEchoServiceSuccess.service.in:
+	* test/data/valid-service-files/debug-echo.service.in:
+	* test/data/valid-service-files/debug-segfault.service.in:
+	* test/data/valid-service-files/debug-shell-echo-fail.service.in:
+	* test/data/valid-service-files/debug-shell-echo-success.service.in:
+	* test/data/valid-service-files/org.freedesktop.DBus.TestSuiteEchoS
+	ervice.service.in:
+	* test/data/valid-service-files/org.freedesktop.DBus.TestSuiteSegfa
+	ultService.service.in:
+	* test/data/valid-service-files/org.freedesktop.DBus.TestSuiteShell
+	EchoServiceFail.service.in:
+	* test/data/valid-service-files/org.freedesktop.DBus.TestSuiteShell
+	EchoServiceSuccess.service.in:
+	Add the data files needed by the system activation unit checks.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/dispatch.c: (check_segfault_service_no_auto_start),
 	(check_launch_service_file_missing),
 	(check_launch_service_user_missing),
