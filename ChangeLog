@@ -1,5 +1,11 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/activation.c: (handle_activation_exit_error),
+	(babysitter_watch_callback):
+	Map the child exit status integer to a proper dbus error.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/bus.c: (process_config_first_time_only),
 	(process_config_every_time), (bus_context_unref),
 	(bus_context_get_servicehelper):

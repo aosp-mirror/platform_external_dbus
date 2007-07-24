@@ -1118,6 +1118,49 @@ pending_activation_failed (BusPendingActivation *pending_activation,
                                   pending_activation->service_name);
 }
 
+/**
+ * Depending on the exit code of the helper, set the error accordingly
+ */
+static void
+handle_activation_exit_error (int exit_code, DBusError *error)
+{
+  switch (exit_code)
+    {
+    case BUS_SPAWN_EXIT_CODE_NO_MEMORY:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_SETUP_FAILED,
+                      "Launcher could not run as out of memory");
+      break;
+    case BUS_SPAWN_EXIT_CODE_SETUP_FAILED:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_SETUP_FAILED,
+                      "Failed to setup environment correctly");
+      break;
+    case BUS_SPAWN_EXIT_CODE_NAME_INVALID:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_SERVICE_INVALID,
+                      "Bus name is not valid or missing");
+      break;
+    case BUS_SPAWN_EXIT_CODE_SERVICE_NOT_FOUND:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_SERVICE_NOT_FOUND,
+                      "Bus name not found in system service directory");
+      break;
+    case BUS_SPAWN_EXIT_CODE_PERMISSIONS_INVALID:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_PERMISSIONS_INVALID,
+                      "The permission of the setuid helper is not correct");
+      break;
+    case BUS_SPAWN_EXIT_CODE_FILE_INVALID:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_PERMISSIONS_INVALID,
+                      "The service file is incorrect or does not have all required attributes");
+      break;
+    case BUS_SPAWN_EXIT_CODE_EXEC_FAILED:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
+                      "Cannot launch daemon, file not found or permissions invalid");
+      break;
+    default:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_CHILD_EXITED,
+                      "Launch helper exited with unknown return code %i", exit_code);
+      break;
+    }
+}
+
 static dbus_bool_t
 babysitter_watch_callback (DBusWatch     *watch,
                            unsigned int   condition,
@@ -1150,6 +1193,17 @@ babysitter_watch_callback (DBusWatch     *watch,
       
       dbus_error_init (&error);
       _dbus_babysitter_set_child_exit_error (babysitter, &error);
+
+      /* refine the error code if we got an exit code */
+      if (dbus_error_has_name (&error, DBUS_ERROR_SPAWN_CHILD_EXITED))
+      	{
+          int exit_code = 0;
+          if (_dbus_babysitter_get_child_exit_status (babysitter, &exit_code))
+            {
+              dbus_error_free (&error);
+              handle_activation_exit_error (exit_code, &error);
+            }
+      	}
 
       /* Destroy all pending activations with the same exec */
       _dbus_hash_iter_init (pending_activation->activation->pending_activations,
