@@ -1,5 +1,10 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/activation.c: (bus_activation_activate_service):
+	If the bus uses a service-laucher, then use the setuid laucher.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* configure.in:
 	Add the needed library exports for the new laucher.
 

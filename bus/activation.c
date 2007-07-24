@@ -1394,12 +1394,14 @@ bus_activation_activate_service (BusActivation  *activation,
   BusPendingActivationEntry *pending_activation_entry;
   DBusMessage *message;
   DBusString service_str;
+  const char *servicehelper;
   char **argv;
   char **envp = NULL;
   int argc;
   dbus_bool_t retval;
   DBusHashIter iter;
   dbus_bool_t activated;
+  DBusString command;
   
   activated = TRUE;
 
@@ -1613,8 +1615,58 @@ bus_activation_activate_service (BusActivation  *activation,
   if (activated)
     return TRUE;
 
-  /* Now try to spawn the process */
-  if (!_dbus_shell_parse_argv (entry->exec, &argc, &argv, error))
+  /* use command as system and session different */
+  if (!_dbus_string_init (&command))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  /* does the bus use a helper? */
+  servicehelper = bus_context_get_servicehelper (activation->context);
+  if (servicehelper != NULL)
+    {
+      if (entry->user == NULL)
+        {
+          _dbus_string_free (&command);
+          dbus_set_error (error, DBUS_ERROR_SPAWN_FILE_INVALID,
+                          "Cannot do system-bus activation with no user\n");
+          return FALSE;
+        }
+
+      /* join the helper path and the service name */
+      if (!_dbus_string_append (&command, servicehelper))
+        {
+          _dbus_string_free (&command);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+      if (!_dbus_string_append (&command, " "))
+        {
+          _dbus_string_free (&command);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+      if (!_dbus_string_append (&command, service_name))
+        {
+          _dbus_string_free (&command);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+    }
+  else
+    {
+      /* the bus does not use a helper, so we can append arguments with the exec line */
+      if (!_dbus_string_append (&command, entry->exec))
+        {
+          _dbus_string_free (&command);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+    }
+
+  /* convert command into arguments */
+  if (!_dbus_shell_parse_argv (_dbus_string_get_const_data (&command), &argc, &argv, error))
     {
       _dbus_verbose ("Failed to parse command line: %s\n", entry->exec);
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -1622,8 +1674,10 @@ bus_activation_activate_service (BusActivation  *activation,
       _dbus_hash_table_remove_string (activation->pending_activations,
                                       pending_activation->service_name);
 
+      _dbus_string_free (&command);
       return FALSE;
     }
+  _dbus_string_free (&command);
 
   _dbus_verbose ("Spawning %s ...\n", argv[0]);
   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
