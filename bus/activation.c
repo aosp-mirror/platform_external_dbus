@@ -23,6 +23,7 @@
  *
  */
 #include "activation.h"
+#include "activation-exit-codes.h"
 #include "desktop-file.h"
 #include "services.h"
 #include "test.h"
@@ -37,10 +38,6 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
-
-#define DBUS_SERVICE_SECTION "D-BUS Service"
-#define DBUS_SERVICE_NAME "Name"
-#define DBUS_SERVICE_EXEC "Exec"
 
 struct BusActivation
 {

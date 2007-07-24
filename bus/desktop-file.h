@@ -30,6 +30,12 @@
 #define BUS_DESKTOP_PARSE_ERROR_INVALID_ESCAPES "org.freedesktop.DBus.DesktopParseError.InvalidEscapes"
 #define BUS_DESKTOP_PARSE_ERROR_INVALID_CHARS   "org.freedesktop.DBus.DesktopParseError.InvalidChars"
 
+#define DBUS_SERVICE_SECTION  "D-BUS Service"
+#define DBUS_SERVICE_NAME     "Name"
+#define DBUS_SERVICE_EXEC     "Exec"
+#define DBUS_SERVICE_USER     "User"
+#define DBUS_SERVICE_GROUP    "Group"
+
 typedef struct BusDesktopFile BusDesktopFile;
 
 BusDesktopFile *bus_desktop_file_load (DBusString     *filename,
