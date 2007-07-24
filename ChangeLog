@@ -1,5 +1,10 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/system.conf.in:
+	Add new servicehelper fields to the default system.conf file.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/config-parser-trivial.c: (service_dirs_find_dir),
 	(service_dirs_append_link_unique_or_free), (bus_config_parser_new),
 	(bus_config_parser_unref), (bus_config_parser_start_element),

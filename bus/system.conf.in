@@ -20,6 +20,12 @@
   <!-- Fork into daemon mode -->
   <fork/>
 
+  <!-- We use system service launching using a helper -->
+  <standard_system_servicedirs/>
+
+  <!-- This is a setuid helper that is used to launch system services -->
+  <servicehelper>@DBUS_LIBEXECDIR@/dbus-daemon-launch-helper</servicehelper>
+
   <!-- Write a pid file -->
   <pidfile>@DBUS_SYSTEM_PID_FILE@</pidfile>
 
