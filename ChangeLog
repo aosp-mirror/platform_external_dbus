@@ -1,5 +1,11 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/test-launch-helper.c: (die), (check_memleaks),
+	(test_post_hook), (bus_activation_helper_oom_test), (main):
+	Add a test wrapper to allow OOM checks on the launch helper.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/activation-helper-bin.c: (convert_error_to_exit_code),
 	(main):
 	* bus/activation-helper.c: (desktop_file_for_name),
