@@ -1,5 +1,13 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/Makefile.am:
+	* bus/test-system.c: (die), (check_memleaks), (test_pre_hook),
+	(test_post_hook), (main):
+	Add back the test-system.c file - not sure now this got ignored in the
+	diff. I blame git.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* configure.in:
 	Use ustar to generate the tarball; this fixes the make distcheck
 	problem when the data files do not fit in the archive:

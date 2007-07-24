@@ -138,7 +138,7 @@ bus_test_launch_helper_CPPFLAGS=	\
 ## TESTS
 if DBUS_BUILD_TESTS
 TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus DBUS_FATAL_WARNINGS=1 DBUS_BLOCK_ON_ABORT=1
-TESTS=bus-test bus-test-launch-helper
+TESTS=bus-test bus-test-system bus-test-launch-helper
 else
 TESTS=
 endif
