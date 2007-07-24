@@ -1,5 +1,16 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/config-parser-common.c:
+	(bus_config_parser_element_name_to_type),
+	(bus_config_parser_element_type_to_name):
+	* bus/config-parser-common.h:
+	We don't want to run the whole config parser with all it's deps in the
+	setuid program. We need to implement a stripped down config parser just
+	for the launcher, and to do so I need some common functions and
+	defines; add them here.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* dbus/dbus-sysdeps-unix.c:
 	(_dbus_get_standard_system_servicedirs):
 	* dbus/dbus-sysdeps-win.c:
