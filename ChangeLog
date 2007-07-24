@@ -1,5 +1,19 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/activation-helper-bin.c: (convert_error_to_exit_code),
+	(main):
+	* bus/activation-helper.c: (desktop_file_for_name),
+	(clear_environment), (check_permissions), (check_service_name),
+	(get_parameters_for_service), (switch_user),
+	(exec_for_correct_user), (check_bus_name), (get_correct_parser),
+	(launch_bus_name), (check_dbus_user), (run_launch_helper):
+	* bus/activation-helper.h:
+	Add the initial launch-helper. This is split into a main section and a
+	binary loader that allows us to lauch the main section in another test
+	harness to do stuff like OOM testing. No build glue yet.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/Makefile.am:
 	* bus/config-parser.c: (bus_config_parser_unref),
 	(start_busconfig_child), (bus_config_parser_end_element),
