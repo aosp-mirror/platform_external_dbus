@@ -5,6 +5,8 @@ Makefile.in
 *.lo
 *.la
 dbus-daemon
+dbus-daemon-activation-helper
+dbus-daemon-activation-helper-test
 *.bb
 *.bbg
 *.da
