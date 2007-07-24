@@ -1,5 +1,10 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* dbus/dbus-protocol.h:
+	Add new error names needed for the launch helper.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* dbus/dbus-sysdeps.c: (_dbus_clearenv):
 	* dbus/dbus-sysdeps.h:
 	Add a wrapper for clearenv.

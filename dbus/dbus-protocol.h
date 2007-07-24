@@ -389,6 +389,20 @@ extern "C" {
 #define DBUS_ERROR_SPAWN_CHILD_SIGNALED       "org.freedesktop.DBus.Error.Spawn.ChildSignaled"
 /** While starting a new process, something went wrong. */
 #define DBUS_ERROR_SPAWN_FAILED               "org.freedesktop.DBus.Error.Spawn.Failed"
+/** We failed to setup the environment correctly. */
+#define DBUS_ERROR_SPAWN_SETUP_FAILED         "org.freedesktop.DBus.Error.Spawn.FailedToSetup"
+/** We failed to setup the config parser correctly. */
+#define DBUS_ERROR_SPAWN_CONFIG_INVALID       "org.freedesktop.DBus.Error.Spawn.ConfigInvalid"
+/** Bus name was not valid. */
+#define DBUS_ERROR_SPAWN_SERVICE_INVALID      "org.freedesktop.DBus.Error.Spawn.ServiceNotValid"
+/** Service file not found in system-services directory. */
+#define DBUS_ERROR_SPAWN_SERVICE_NOT_FOUND    "org.freedesktop.DBus.Error.Spawn.ServiceNotFound"
+/** Permissions are incorrect on the setuid helper. */
+#define DBUS_ERROR_SPAWN_PERMISSIONS_INVALID  "org.freedesktop.DBus.Error.Spawn.PermissionsInvalid"
+/** Service file invalid (Name, User or Exec missing). */
+#define DBUS_ERROR_SPAWN_FILE_INVALID         "org.freedesktop.DBus.Error.Spawn.FileInvalid"
+/** Tried to get a UNIX process ID and it wasn't available. */
+#define DBUS_ERROR_SPAWN_NO_MEMORY            "org.freedesktop.DBus.Error.Spawn.NoMemory"
 /** Tried to get a UNIX process ID and it wasn't available. */
 #define DBUS_ERROR_UNIX_PROCESS_ID_UNKNOWN    "org.freedesktop.DBus.Error.UnixProcessIdUnknown"
 /** A type signature is not valid. */
