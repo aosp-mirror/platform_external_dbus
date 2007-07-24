@@ -1,12 +1,11 @@
 dnl -*- mode: m4 -*-
 AC_PREREQ(2.52)
 
-AC_INIT(dbus/dbus.h)
+AC_INIT(dbus, 1.1.2)
 
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE(dbus, 1.1.2)
-
+AM_INIT_AUTOMAKE([1.9 tar-ustar])
 AM_CONFIG_HEADER(config.h)
 
 # Honor aclocal flags

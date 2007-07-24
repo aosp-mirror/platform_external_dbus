@@ -1,6 +1,18 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
 	* configure.in:
+	Use ustar to generate the tarball; this fixes the make distcheck
+	problem when the data files do not fit in the archive:
+	tar: dbus-1.1.2/test/data/valid-service-files/org.freedesktop.DBus.
+	TestSuiteShellEchoServiceFail.service.in: file name is too
+	long (max 99); not dumped
+
+	We have to have the 'long' names as the service helper matches by
+	filename rather than by the name in the service file.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
+	* configure.in:
 	* test/Makefile.am:
 	* test/data/invalid-service-files-system/org.freedesktop.DBus.TestS
 	uiteNoExec.service.in:
