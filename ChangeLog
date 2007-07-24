@@ -1,3 +1,10 @@
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
+	* doc/system-activation.txt:
+	Add design document for the system activation parts. I'll shortly be
+	committing many patches that add system activation using a setuid
+	launcher into CVS, so expect things to be broken for a few hours.
+
 2007-07-19  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* cmake/modules/FindKDEWIN.cmake: fixed comment
