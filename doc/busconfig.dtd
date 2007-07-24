@@ -5,6 +5,7 @@
                      pidfile |
                      includedir |
                      servicedir |
+                     servicehelper |
                      auth |
                      include |
                      policy |
@@ -15,6 +16,7 @@
 <!ELEMENT listen (#PCDATA)>
 <!ELEMENT includedir (#PCDATA)>
 <!ELEMENT servicedir (#PCDATA)>
+<!ELEMENT servicehelper (#PCDATA)>
 <!ELEMENT auth (#PCDATA)>
 <!ELEMENT type (#PCDATA)>
 <!ELEMENT pidfile (#PCDATA)>
