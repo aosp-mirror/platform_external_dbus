@@ -3054,7 +3054,7 @@ _dbus_make_file_world_readable(const DBusString *filename,
 
 
 #define DBUS_STANDARD_SESSION_SERVICEDIR "/dbus-1/services"
-
+#define DBUS_STANDARD_SYSTEM_SERVICEDIR "/dbus-1/system-services"
 
 /**
  * Returns the standard directories for a session bus to look for service 

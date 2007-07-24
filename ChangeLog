@@ -1,5 +1,16 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* dbus/dbus-sysdeps-unix.c:
+	(_dbus_get_standard_system_servicedirs):
+	* dbus/dbus-sysdeps-win.c:
+	Provide a way to get the standard system servicedirs, just like we do
+	for the session service dirs. These should be seporate, as there may
+	be a security issue starting up some session stuff as root.
+	The use-case for the same binary starting up per-system _and_
+	per-session is also not valid.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/dbus-daemon.1.in:
 	Add standard_system_servicedirs and servicehelper into the man file
 	and explain what each does.

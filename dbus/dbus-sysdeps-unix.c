@@ -2832,6 +2832,7 @@ _dbus_read_local_machine_uuid (DBusGUID   *machine_id,
 }
 
 #define DBUS_UNIX_STANDARD_SESSION_SERVICEDIR "/dbus-1/services"
+#define DBUS_UNIX_STANDARD_SYSTEM_SERVICEDIR "/dbus-1/system-services"
 
 
 /**
@@ -2910,6 +2911,72 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
 
   if (!_dbus_split_paths_and_append (&servicedir_path, 
                                      DBUS_UNIX_STANDARD_SESSION_SERVICEDIR, 
+                                     dirs))
+    goto oom;
+
+  _dbus_string_free (&servicedir_path);  
+  return TRUE;
+
+ oom:
+  _dbus_string_free (&servicedir_path);
+  return FALSE;
+}
+
+
+/**
+ * Returns the standard directories for a system bus to look for service 
+ * activation files 
+ *
+ * On UNIX this should be the standard xdg freedesktop.org data directories:
+ *
+ * XDG_DATA_DIRS=${XDG_DATA_DIRS-/usr/local/share:/usr/share}
+ *
+ * and
+ *
+ * DBUS_DATADIR
+ *
+ * On Windows there is no system bus and this function can return nothing.
+ *
+ * @param dirs the directory list we are returning
+ * @returns #FALSE on OOM 
+ */
+
+dbus_bool_t 
+_dbus_get_standard_system_servicedirs (DBusList **dirs)
+{
+  const char *xdg_data_dirs;
+  DBusString servicedir_path;
+
+  if (!_dbus_string_init (&servicedir_path))
+    return FALSE;
+
+  xdg_data_dirs = _dbus_getenv ("XDG_DATA_DIRS");
+
+  if (xdg_data_dirs != NULL)
+    {
+      if (!_dbus_string_append (&servicedir_path, xdg_data_dirs))
+        goto oom;
+
+      if (!_dbus_string_append (&servicedir_path, ":"))
+        goto oom;
+    }
+  else
+    {
+      if (!_dbus_string_append (&servicedir_path, "/usr/local/share:/usr/share:"))
+        goto oom;
+    }
+
+  /* 
+   * add configured datadir to defaults
+   * this may be the same as an xdg dir
+   * however the config parser should take 
+   * care of duplicates 
+   */
+  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR":"))
+        goto oom;
+
+  if (!_dbus_split_paths_and_append (&servicedir_path, 
+                                     DBUS_UNIX_STANDARD_SYSTEM_SERVICEDIR, 
                                      dirs))
     goto oom;
 
