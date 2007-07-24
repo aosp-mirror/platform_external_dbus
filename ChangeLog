@@ -1,5 +1,16 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* dbus/dbus-spawn.c: (read_data),
+	(_dbus_babysitter_get_child_exit_status):
+	* dbus/dbus-spawn.h:
+	Add a function so we can get access to the exit status of the launch
+	helper.
+	By providing the return code and not the error we can leave the
+	'what does this mean?' to the bus launch code and not include it in the
+	dbus directory.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/activation-exit-codes.h:
 	Add defines which specify the output codes of the launch helper.
 	We have to use exit codes as this is the only way we can return failure

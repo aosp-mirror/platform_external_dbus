@@ -417,6 +417,7 @@ read_data (DBusBabysitter *sitter,
                   {
                     sitter->have_child_status = TRUE;
                     sitter->status = arg;
+                    sitter->errnum = WEXITSTATUS (sitter->status);
                     _dbus_verbose ("recorded child status exited = %d signaled = %d exitstatus = %d termsig = %d\n",
                                    WIFEXITED (sitter->status), WIFSIGNALED (sitter->status),
                                    WEXITSTATUS (sitter->status), WTERMSIG (sitter->status));
@@ -620,6 +621,30 @@ _dbus_babysitter_get_child_exited (DBusBabysitter *sitter)
 
   /* We will have exited the babysitter when the child has exited */
   return sitter->socket_to_babysitter < 0;
+}
+
+/**
+ * Gets the exit status of the child. We do this so implimentation specific
+ * detail is not cluttering up dbus, for example the system laucher code.
+ *
+ * @param sitter the babysitter
+ * @param status the returned status code
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_babysitter_get_child_exit_status (DBusBabysitter *sitter, int *status)
+{
+  if (!_dbus_babysitter_get_child_exited (sitter))
+    _dbus_assert_not_reached ("Child has not exited");
+
+  if (sitter->errnum != WEXITSTATUS (sitter->status))
+    _dbus_assert_not_reached ("Status is not exit!");
+
+  if (!sitter->have_child_status)
+    _dbus_assert_not_reached ("Not a child!");
+
+  *status = sitter->status;
+  return TRUE;
 }
 
 /**

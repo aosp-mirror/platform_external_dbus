@@ -47,6 +47,8 @@ void        _dbus_babysitter_kill_child           (DBusBabysitter            *si
 dbus_bool_t _dbus_babysitter_get_child_exited     (DBusBabysitter            *sitter);
 void        _dbus_babysitter_set_child_exit_error (DBusBabysitter            *sitter,
                                                    DBusError                 *error);
+dbus_bool_t _dbus_babysitter_get_child_exit_status (DBusBabysitter           *sitter,
+                                                    int                      *status);
 dbus_bool_t _dbus_babysitter_set_watch_functions  (DBusBabysitter            *sitter,
                                                    DBusAddWatchFunction       add_function,
                                                    DBusRemoveWatchFunction    remove_function,
