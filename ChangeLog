@@ -1,5 +1,13 @@
 2007-07-24  Richard Hughes  <richard@hughsie.com>
 
+	* bus/bus.c: (process_config_first_time_only),
+	(process_config_every_time), (bus_context_unref),
+	(bus_context_get_servicehelper):
+	* bus/bus.h:
+	Add the concept of a service-helper and allow it's value to be read.
+
+2007-07-24  Richard Hughes  <richard@hughsie.com>
+
 	* bus/activation.c: (bus_activation_entry_unref),
 	(update_desktop_file_entry):
 	Add the concept of, and read the value of user from the desktop file.

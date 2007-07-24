@@ -41,6 +41,7 @@ struct BusContext
   DBusGUID uuid;
   char *config_file;
   char *type;
+  char *servicehelper;
   char *address;
   char *pidfile;
   char *user;
@@ -262,7 +263,7 @@ process_config_first_time_only (BusContext      *context,
 {
   DBusList *link;
   DBusList **addresses;
-  const char *user, *pidfile;
+  const char *user, *pidfile, *servicehelper;
   char **auth_mechanisms;
   DBusList **auth_mechanisms_list;
   int len;
@@ -297,6 +298,11 @@ process_config_first_time_only (BusContext      *context,
   
   /* keep around the pid filename so we can delete it later */
   context->pidfile = _dbus_strdup (pidfile);
+
+  /* we need to configure this so we can test the service helper */
+  servicehelper = bus_config_parser_get_servicehelper (parser);
+  if (servicehelper != NULL)
+    context->servicehelper = _dbus_strdup (servicehelper);
 
   /* Build an array of auth mechanisms */
   
@@ -402,6 +408,7 @@ process_config_every_time (BusContext      *context,
 {
   DBusString full_address;
   DBusList *link;
+  DBusList **dirs;
   BusActivation *new_activation;
   char *addr;
 
@@ -467,10 +474,12 @@ process_config_every_time (BusContext      *context,
       goto failed;
     }
 
+  /* get the service directories */
+  dirs = bus_config_parser_get_service_dirs (parser);
+
   /* Create activation subsystem */
   new_activation = bus_activation_new (context, &full_address,
-				       bus_config_parser_get_service_dirs (parser),
-				       error);
+                                       dirs, error);
   if (new_activation == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -941,6 +950,7 @@ bus_context_unref (BusContext *context)
       dbus_free (context->type);
       dbus_free (context->address);
       dbus_free (context->user);
+      dbus_free (context->servicehelper);
 
       if (context->pidfile)
 	{
@@ -971,6 +981,12 @@ const char*
 bus_context_get_address (BusContext *context)
 {
   return context->address;
+}
+
+const char*
+bus_context_get_servicehelper (BusContext *context)
+{
+  return context->servicehelper;
 }
 
 BusRegistry*
