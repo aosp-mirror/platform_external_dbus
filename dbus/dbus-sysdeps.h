@@ -144,11 +144,14 @@ int         _dbus_write_socket_two (int               fd,
                                     int               start2,
                                     int               len2);
 int _dbus_connect_tcp_socket  (const char     *host,
-                               dbus_uint32_t   port,
+                               const char     *port,
+                               const char     *family,
                                DBusError      *error);
 int _dbus_listen_tcp_socket   (const char     *host,
-                               dbus_uint32_t  *port,
-                               dbus_bool_t     inaddr_any,
+                               const char     *port,
+                               const char     *family,
+                               DBusString     *retport,
+                               int           **fds_p,
                                DBusError      *error);
 int _dbus_accept              (int             listen_fd);
 

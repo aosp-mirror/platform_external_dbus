@@ -1204,15 +1204,18 @@ _dbus_transport_new_for_socket (int               fd,
 
 /**
  * Creates a new transport for the given hostname and port.
+ * If host is NULL, it will default to localhost
  *
  * @param host the host to connect to
  * @param port the port to connect to
+ * @param family the address family to connect to
  * @param error location to store reason for failure.
  * @returns a new transport, or #NULL on failure.
  */
 DBusTransport*
 _dbus_transport_new_for_tcp_socket (const char     *host,
-                                    dbus_int32_t    port,
+                                    const char     *port,
+                                    const char     *family,
                                     DBusError      *error)
 {
   int fd;
@@ -1226,20 +1229,27 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
-  
+
+  if (host == NULL)
+    host = "localhost";
+
   if (!_dbus_string_append (&address, "tcp:"))
     goto error;
 
-  if (host != NULL && 
-       (!_dbus_string_append (&address, "host=") ||
-        !_dbus_string_append (&address, host)))
+  if (!_dbus_string_append (&address, "host=") ||
+      !_dbus_string_append (&address, host))
     goto error;
 
   if (!_dbus_string_append (&address, ",port=") ||
-      !_dbus_string_append_int (&address, port))
+      !_dbus_string_append (&address, port))
     goto error;
 
-  fd = _dbus_connect_tcp_socket (host, port, error);
+  if (family != NULL &&
+      (!_dbus_string_append (&address, "family=") ||
+       !_dbus_string_append (&address, family)))
+    goto error;
+
+  fd = _dbus_connect_tcp_socket (host, port, family, error);
   if (fd < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -1249,7 +1259,7 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
 
   _dbus_fd_set_close_on_exec (fd);
   
-  _dbus_verbose ("Successfully connected to tcp socket %s:%d\n",
+  _dbus_verbose ("Successfully connected to tcp socket %s:%s\n",
                  host, port);
   
   transport = _dbus_transport_new_for_socket (fd, NULL, &address);
@@ -1293,28 +1303,15 @@ _dbus_transport_open_socket(DBusAddressEntry  *entry,
     {
       const char *host = dbus_address_entry_get_value (entry, "host");
       const char *port = dbus_address_entry_get_value (entry, "port");
-      DBusString  str;
-      long lport;
-      dbus_bool_t sresult;
-          
+      const char *family = dbus_address_entry_get_value (entry, "family");
+
       if (port == NULL)
         {
           _dbus_set_bad_address (error, "tcp", "port", NULL);
           return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
         }
 
-      _dbus_string_init_const (&str, port);
-      sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-      _dbus_string_free (&str);
-          
-      if (sresult == FALSE || lport <= 0 || lport > 65535)
-        {
-          _dbus_set_bad_address (error, NULL, NULL,
-                                 "Port is not an integer between 0 and 65535");
-          return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
-        }
-          
-      *transport_p = _dbus_transport_new_for_tcp_socket (host, lport, error);
+      *transport_p = _dbus_transport_new_for_tcp_socket (host, port, family, error);
       if (*transport_p == NULL)
         {
           _DBUS_ASSERT_ERROR_IS_SET (error);

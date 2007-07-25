@@ -221,6 +221,15 @@ the last address given in <listen> first. That is,
 apps will try to connect to the last <listen> address first.
 
 .PP
+tcp sockets can accept IPv4 addresses, IPv6 addresses or hostnames.
+If a hostname resolves to multiple addresses, the server will bind
+to all of them. The family=ipv4 or family=ipv6 options can be used
+to force it to bind to a subset of addresses
+
+.PP
+Example: <listen>tcp:host=localhost,port=0,family=ipv4</listen>
+
+.PP
 A special case is using a port number of zero (or omitting the port),
 which means to choose an available port selected by the operating
 system. The port number chosen can be with the --print-address command
@@ -231,11 +240,15 @@ reports its own address, such as when DBUS_SESSION_BUS_ADDRESS is set.
 Example: <listen>tcp:host=localhost,port=0</listen>
 
 .PP
-tcp addresses also allow an all_interfaces=true option, which will
-cause the bus to listen on all local address (INADDR_ANY) and not only
-the specified host. However, the specified host will still be used as
-the reported address of the server. The specified host should be a
-valid name of the local machine or weird stuff will happen.
+tcp addresses also allow a bind=hostname option, which will override
+the host option specifying what address to bind to, without changing
+the address reported by the bus. The bind option can also take a
+special name '*' to cause the bus to listen on all local address
+(INADDR_ANY). The specified host should be a valid name of the local
+machine or weird stuff will happen.
+
+.PP
+Example: <listen>tcp:host=localhost,bind=*,port=0</listen>
 
 .TP
 .I "<auth>"

@@ -28,11 +28,13 @@
 
 DBUS_BEGIN_DECLS
 
-DBusServer* _dbus_server_new_for_socket           (int               fd,
+DBusServer* _dbus_server_new_for_socket           (int              *fds,
+                                                   int               n_fds,
                                                    const DBusString *address);
 DBusServer* _dbus_server_new_for_tcp_socket       (const char       *host,
-                                                   dbus_uint32_t     port,
-                                                   dbus_bool_t       inaddr_any,
+                                                   const char       *bind,
+                                                   const char       *port,
+                                                   const char       *family,
                                                    DBusError        *error);
 DBusServerListenResult _dbus_server_listen_socket (DBusAddressEntry  *entry,
                                                    DBusServer       **server_p,

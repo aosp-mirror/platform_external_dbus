@@ -1,3 +1,30 @@
+2007-07-24  Daniel P. Berrange <dan@berrange.com>
+
+	* bus/dbus-daemon.1: Add docs on new syntax options for the bus
+	address strings
+
+	* dbus/dbus-address.c: Allow * in addresses (for binding to all
+	addresses).
+
+	* dbus/dbus-sysdeps.h:
+	* dbus/dbus-sysdeps-unix.c: Re-write to use getaddrinfo instead
+	of gethostbyname to enable protocol independant name lookup,
+	making IPv6 work
+
+	* dbus/dbus-server-socket.h:
+	* dbus/dbus-server-socket.c: Add support for 'family' in the
+	address string to specify ipv4 vs ipv6. Use a port string to
+	allow for service resolution. Allow for binding to multiple
+	sockets at once in case of dual IPv4 & IPv6 stacks.
+
+	* dbus/dbus-server-unix.c: Pass in an array of file descriptors
+	instead of a single one.
+
+	* dbus/dbus-transport-socket.h:
+	* dbus/dbus-transport-socket.c: Add support for 'family' in the
+	address string to specify ipv4 vs ipv6. Use a port string to
+	allow for service resolution.
+
 2007-07-24  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: add AM_PROG_CC_C_O to allow per-target CPPFLAGS

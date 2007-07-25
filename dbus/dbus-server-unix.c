@@ -209,7 +209,7 @@ _dbus_server_new_for_domain_socket (const char     *path,
       goto failed_1;
     }
   
-  server = _dbus_server_new_for_socket (listen_fd, &address);
+  server = _dbus_server_new_for_socket (&listen_fd, 1, &address);
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);

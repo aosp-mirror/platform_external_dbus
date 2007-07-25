@@ -47,8 +47,9 @@ typedef struct DBusServerSocket DBusServerSocket;
 struct DBusServerSocket
 {
   DBusServer base;   /**< Parent class members. */
-  int fd;            /**< File descriptor or -1 if disconnected. */
-  DBusWatch *watch;  /**< File descriptor watch. */
+  int n_fds;         /**< Number of active file handles */
+  int *fds;          /**< File descriptor or -1 if disconnected. */
+  DBusWatch **watch; /**< File descriptor watch. */
   char *socket_name; /**< Name of domain socket, to unlink if appropriate */
 };
 
@@ -56,15 +57,19 @@ static void
 socket_finalize (DBusServer *server)
 {
   DBusServerSocket *socket_server = (DBusServerSocket*) server;
+  int i;
   
   _dbus_server_finalize_base (server);
 
-  if (socket_server->watch)
-    {
-      _dbus_watch_unref (socket_server->watch);
-      socket_server->watch = NULL;
-    }
+  for (i = 0 ; i < socket_server->n_fds ; i++)
+    if (socket_server->watch[i])
+      {
+        _dbus_watch_unref (socket_server->watch[i]);
+        socket_server->watch[i] = NULL;
+      }
   
+  dbus_free (socket_server->fds);
+  dbus_free (socket_server->watch);
   dbus_free (socket_server->socket_name);
   dbus_free (server);
 }
@@ -149,10 +154,21 @@ socket_handle_watch (DBusWatch    *watch,
 {
   DBusServer *server = data;
   DBusServerSocket *socket_server = data;
+#ifndef DBUS_DISABLE_ASSERT
+  int i;
+  dbus_bool_t found = FALSE;
+#endif
 
   SERVER_LOCK (server);
   
-  _dbus_assert (watch == socket_server->watch);
+#ifndef DBUS_DISABLE_ASSERT
+  for (i = 0 ; i < socket_server->n_fds ; i++)
+    {
+      if (socket_server->watch[i] == watch)
+        found = TRUE;
+    }
+  _dbus_assert (found);
+#endif
 
   _dbus_verbose ("Handling client connection, flags 0x%x\n", flags);
   
@@ -199,19 +215,23 @@ static void
 socket_disconnect (DBusServer *server)
 {
   DBusServerSocket *socket_server = (DBusServerSocket*) server;
+  int i;
 
   HAVE_LOCK_CHECK (server);
   
-  if (socket_server->watch)
+  for (i = 0 ; i < socket_server->n_fds ; i++)
     {
-      _dbus_server_remove_watch (server,
-                                 socket_server->watch);
-      _dbus_watch_unref (socket_server->watch);
-      socket_server->watch = NULL;
+      if (socket_server->watch[i])
+        {
+          _dbus_server_remove_watch (server,
+                                     socket_server->watch[i]);
+          _dbus_watch_unref (socket_server->watch[i]);
+          socket_server->watch[i] = NULL;
+        }
+
+      _dbus_close_socket (socket_server->fds[i], NULL);
+      socket_server->fds[i] = -1;
     }
-  
-  _dbus_close_socket (socket_server->fd, NULL);
-  socket_server->fd = -1;
 
   if (socket_server->socket_name != NULL)
     {
@@ -236,89 +256,128 @@ static const DBusServerVTable socket_vtable = {
  * been successfully invoked on it. The server will use accept() to
  * accept new client connections.
  *
- * @param fd the file descriptor.
+ * @param fds list of file descriptors.
+ * @param n_fds number of file descriptors
  * @param address the server's address
  * @returns the new server, or #NULL if no memory.
  * 
  */
 DBusServer*
-_dbus_server_new_for_socket (int               fd,
+_dbus_server_new_for_socket (int              *fds,
+                             int               n_fds,
                              const DBusString *address)
 {
   DBusServerSocket *socket_server;
   DBusServer *server;
-  DBusWatch *watch;
+  int i;
   
   socket_server = dbus_new0 (DBusServerSocket, 1);
   if (socket_server == NULL)
     return NULL;
-  
-  watch = _dbus_watch_new (fd,
-                           DBUS_WATCH_READABLE,
-                           TRUE,
-                           socket_handle_watch, socket_server,
-                           NULL);
-  if (watch == NULL)
+
+  socket_server->fds = dbus_new (int, n_fds);
+  if (!socket_server->fds)
+    goto failed_0;
+
+  socket_server->watch = dbus_new0 (DBusWatch *, n_fds);
+  if (!socket_server->watch)
+    goto failed_1;
+
+  for (i = 0 ; i < n_fds ; i++)
     {
-      dbus_free (socket_server);
-      return NULL;
-    }
-  
-  if (!_dbus_server_init_base (&socket_server->base,
-                               &socket_vtable, address))
-    {
-      _dbus_watch_unref (watch);
-      dbus_free (socket_server);
-      return NULL;
+      DBusWatch *watch;
+
+      watch = _dbus_watch_new (fds[i],
+                               DBUS_WATCH_READABLE,
+                               TRUE,
+                               socket_handle_watch, socket_server,
+                               NULL);
+      if (watch == NULL)
+        goto failed_2;
+
+      socket_server->n_fds++;
+      socket_server->fds[i] = fds[i];
+      socket_server->watch[i] = watch;
     }
 
-  server = (DBusServer*) socket_server;
+  if (!_dbus_server_init_base (&socket_server->base,
+                               &socket_vtable, address))
+    goto failed_2;
+
+  server = (DBusServer*)socket_server;
 
   SERVER_LOCK (server);
   
-  if (!_dbus_server_add_watch (&socket_server->base,
-                               watch))
+  for (i = 0 ; i < n_fds ; i++)
     {
-      SERVER_UNLOCK (server);
-      _dbus_server_finalize_base (&socket_server->base);
-      _dbus_watch_unref (watch);
-      dbus_free (socket_server);
-      return NULL;
+      if (!_dbus_server_add_watch (&socket_server->base,
+                                   socket_server->watch[i]))
+        {
+          int j;
+          for (j = 0 ; j < i ; j++)
+            _dbus_server_remove_watch (server,
+                                       socket_server->watch[j]);
+
+          SERVER_UNLOCK (server);
+          _dbus_server_finalize_base (&socket_server->base);
+          goto failed_2;
+        }
     }
-  
-  socket_server->fd = fd;
-  socket_server->watch = watch;
 
   SERVER_UNLOCK (server);
   
   return (DBusServer*) socket_server;
+
+ failed_2:
+  for (i = 0 ; i < n_fds ; i++)
+    {
+      if (socket_server->watch[i] != NULL)
+        {
+          _dbus_watch_unref (socket_server->watch[i]);
+          socket_server->watch[i] = NULL;
+        }
+    }
+  dbus_free (socket_server->watch);
+
+ failed_1:
+  dbus_free (socket_server->fds);
+
+ failed_0:
+  dbus_free (socket_server);
+  return NULL;
 }
 
 /**
  * Creates a new server listening on TCP.
- * If inaddr_any is TRUE, listens on all local interfaces.
- * Otherwise, it resolves the hostname and listens only on
- * the resolved address of the hostname. The hostname is used
- * even if inaddr_any is TRUE, as the hostname to report when
- * dbus_server_get_address() is called. If the hostname is #NULL,
- * localhost is used.
+ * If host is NULL, it will default to localhost.
+ * If bind is NULL, it will default to the value for the host
+ * parameter, and if that is NULL, then localhost
+ * If bind is a hostname, it will be resolved and will listen
+ * on all returned addresses.
+ * If family is NULL, hostname resolution will try all address
+ * families, otherwise it can be ipv4 or ipv6 to restrict the
+ * addresses considered.
  *
- * @param host the hostname to listen on.
+ * @param host the hostname to report for the listen address
+ * @param bind the hostname to listen on
  * @param port the port to listen on or 0 to let the OS choose
- * @param inaddr_any #TRUE to listen on all local interfaces
+ * @param family 
  * @param error location to store reason for failure.
  * @returns the new server, or #NULL on failure.
  */
 DBusServer*
 _dbus_server_new_for_tcp_socket (const char     *host,
-                                 dbus_uint32_t   port,
-                                 dbus_bool_t     inaddr_any,
+                                 const char     *bind,
+                                 const char     *port,
+                                 const char     *family,
                                  DBusError      *error)
 {
   DBusServer *server;
-  int listen_fd;
+  int *listen_fds = NULL;
+  int nlisten_fds = 0, i;
   DBusString address;
   DBusString host_str;
+  DBusString port_str;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -328,44 +387,77 @@ _dbus_server_new_for_tcp_socket (const char     *host,
       return NULL;
     }
 
+  if (!_dbus_string_init (&port_str))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto failed_0;
+    }
+
   if (host == NULL)
     host = "localhost";
-  
-  listen_fd = _dbus_listen_tcp_socket (host, &port, inaddr_any, error);
-  _dbus_fd_set_close_on_exec (listen_fd);
+
+  if (port == NULL)
+    port = "0";
+
+  if (bind == NULL)
+    bind = host;
+  else if (strcmp (bind, "*") == 0)
+    bind = NULL;
+
+  nlisten_fds =_dbus_listen_tcp_socket (bind, port, family,
+                                        &port_str,
+                                        &listen_fds, error);
+  if (nlisten_fds <= 0)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET(error);
+      goto failed_1;
+    }
+
+  for (i = 0 ; i < nlisten_fds ; i++)
+    _dbus_fd_set_close_on_exec (listen_fds[i]);
 
   _dbus_string_init_const (&host_str, host);
   if (!_dbus_string_append (&address, "tcp:host=") ||
       !_dbus_address_append_escaped (&address, &host_str) ||
       !_dbus_string_append (&address, ",port=") ||
-      !_dbus_string_append_int (&address, port))
+      !_dbus_string_append (&address, _dbus_string_get_const_data(&port_str)))
     {
-      _dbus_string_free (&address);
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return NULL;
+      goto failed_2;
     }
-
-  
-  if (listen_fd < 0)
+  if (family &&
+      (!_dbus_string_append (&address, ",family=") ||
+       !_dbus_string_append (&address, family)))
     {
-      _dbus_string_free (&address);
-      return NULL;
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto failed_2;
     }
   
-  server = _dbus_server_new_for_socket (listen_fd, &address);
+  server = _dbus_server_new_for_socket (listen_fds, nlisten_fds, &address);
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_close_socket (listen_fd, NULL);
-      _dbus_string_free (&address);
-      return NULL;
+      goto failed_2;
     }
 
+  _dbus_string_free (&port_str);
   _dbus_string_free (&address);
-  
+  dbus_free(listen_fds);
+
   return server;
 
+ failed_2:
+  for (i = 0 ; i < nlisten_fds ; i++)
+    _dbus_close_socket (listen_fds[i], NULL);
+  dbus_free(listen_fds);
 
+ failed_1:
+  _dbus_string_free (&port_str);
+
+ failed_0:
+  _dbus_string_free (&address);
+
+  return NULL;
 }
 
 /**
@@ -395,55 +487,16 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
     {
       const char *host;
       const char *port;
-      const char *all_interfaces;
-      dbus_bool_t inaddr_any;
-      long lport;
+      const char *bind;
+      const char *family;
 
       host = dbus_address_entry_get_value (entry, "host");
+      bind = dbus_address_entry_get_value (entry, "bind");
       port = dbus_address_entry_get_value (entry, "port");
-      all_interfaces = dbus_address_entry_get_value (entry, "all_interfaces");
+      family = dbus_address_entry_get_value (entry, "family");
 
-      inaddr_any = FALSE;
-      if (all_interfaces != NULL)
-        {
-          if (strcmp (all_interfaces, "true") == 0)
-            {
-              inaddr_any = TRUE;
-            }
-          else if (strcmp (all_interfaces, "false") == 0)
-            {
-              inaddr_any = FALSE;
-            }
-          else
-            {
-              _dbus_set_bad_address(error, NULL, NULL, 
-                                    "all_interfaces flag in tcp: address should be 'true' or 'false'");
-              return DBUS_SERVER_LISTEN_BAD_ADDRESS;
-            }
-        }
-      
-      if (port == NULL)
-        {
-          lport = 0;
-        }
-      else
-        {
-          dbus_bool_t sresult;
-          DBusString  str;
-          
-          _dbus_string_init_const (&str, port);
-          sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-          _dbus_string_free (&str);
-          
-          if (sresult == FALSE || lport < 0 || lport > 65535)
-            {
-              _dbus_set_bad_address(error, NULL, NULL, 
-                                    "Port is not an integer between 0 and 65535");
-              return DBUS_SERVER_LISTEN_BAD_ADDRESS;
-            }
-        }
-          
-      *server_p = _dbus_server_new_for_tcp_socket (host, lport, inaddr_any, error);
+      *server_p = _dbus_server_new_for_tcp_socket (host, bind, port,
+                                                   family, error);
 
       if (*server_p)
         {
