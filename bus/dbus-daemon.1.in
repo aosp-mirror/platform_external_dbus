@@ -232,9 +232,10 @@ Example: <listen>tcp:host=localhost,port=0,family=ipv4</listen>
 .PP
 A special case is using a port number of zero (or omitting the port),
 which means to choose an available port selected by the operating
-system. The port number chosen can be with the --print-address command
-line parameter and will be present in other cases where the server 
-reports its own address, such as when DBUS_SESSION_BUS_ADDRESS is set.
+system. The port number chosen can be obtained with the
+--print-address command line parameter and will be present in other
+cases where the server reports its own address, such as when
+DBUS_SESSION_BUS_ADDRESS is set.
 
 .PP
 Example: <listen>tcp:host=localhost,port=0</listen>

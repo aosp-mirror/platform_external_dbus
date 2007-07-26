@@ -4516,10 +4516,8 @@ bus_dispatch_test_conf (const DBusString *test_data_dir,
   if (!check_get_connection_unix_process_id (context, baz))
     _dbus_assert_not_reached ("GetConnectionUnixProcessID message failed");
 
-  /* Do not do the ListServices test - FIXME: the launcher does not work in this instance */
-  if (!use_launcher)
-    if (!check_list_services (context, baz))
-      _dbus_assert_not_reached ("ListActivatableNames message failed");
+  if (!check_list_services (context, baz))
+    _dbus_assert_not_reached ("ListActivatableNames message failed");
   
   if (!check_no_leftovers (context))
     {
@@ -4536,10 +4534,8 @@ bus_dispatch_test_conf (const DBusString *test_data_dir,
 #ifdef DBUS_WIN_FIXME
   _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
 #else
-  /* only do the segfault test if we are not using the launcher */
-  if (!use_launcher)
-    check2_try_iterations (context, foo, "segfault_service_no_auto_start",
-                           check_segfault_service_no_auto_start);
+  check2_try_iterations (context, foo, "segfault_service_no_auto_start",
+                         check_segfault_service_no_auto_start);
 #endif
   
   check2_try_iterations (context, foo, "existent_service_no_auto_start",
@@ -4553,9 +4549,8 @@ bus_dispatch_test_conf (const DBusString *test_data_dir,
   _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
 #else
   /* only do the segfault test if we are not using the launcher */
-  if (!use_launcher)
-    check2_try_iterations (context, foo, "segfault_service_auto_start",
-                           check_segfault_service_auto_start);
+  check2_try_iterations (context, foo, "segfault_service_auto_start",
+                         check_segfault_service_auto_start);
 #endif
 
   /* only do the shell fail test if we are not using the launcher */
@@ -4576,15 +4571,11 @@ bus_dispatch_test_conf (const DBusString *test_data_dir,
                          check_existent_service_auto_start);
 #endif
   
-  /* only valid for non-launcher */
-  if (!use_launcher)
-    if (!check_existent_service_auto_start (context, foo))
-      _dbus_assert_not_reached ("existent service auto start failed");
+  if (!check_existent_service_auto_start (context, foo))
+    _dbus_assert_not_reached ("existent service auto start failed");
 
-  /* only valid for non-launcher */
-  if (!use_launcher)
-    if (!check_shell_service_success_auto_start (context, foo))
-      _dbus_assert_not_reached ("shell success service auto start failed");
+  if (!check_shell_service_success_auto_start (context, foo))
+    _dbus_assert_not_reached ("shell success service auto start failed");
 
   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
 

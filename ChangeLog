@@ -1,3 +1,18 @@
+2007-07-26  Havoc Pennington  <hp@redhat.com>
+
+	* bus/config-parser-trivial.c (check_return_values): disable a
+	test that hardcoded the bus user's name
+
+	* bus/dispatch.c (bus_dispatch_test_conf): remove the "if
+	(!use_launcher)" around the tests, they were only failing because
+	we didn't pass through all the expected errors from the helper.
+
+	* bus/activation-exit-codes.h
+	(BUS_SPAWN_EXIT_CODE_CHILD_SIGNALED): add a code for child segfaulting
+	(BUS_SPAWN_EXIT_CODE_GENERIC_FAILURE): make "1" be a generic
+	failure code, so if a third party launch helper were written it
+	could just always return 1 on failure.
+	
 2007-07-24  Daniel P. Berrange <dan@berrange.com>
 
 	* bus/dbus-daemon.1: Add docs on new syntax options for the bus

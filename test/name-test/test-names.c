@@ -252,7 +252,10 @@ match_acquired_or_lost_signal (DBusConnection *conn, const char *member, const c
 }
 
 static dbus_bool_t
-match_name_owner_changed_signal (DBusConnection *conn, const char *bus_name, const char *lost_name, const char *acquired_name)
+match_name_owner_changed_signal (DBusConnection *conn,
+                                 const char     *bus_name,
+                                 const char     *lost_name,
+                                 const char     *acquired_name)
 {
   int tries;
   DBusMessage *msg;
@@ -322,7 +325,10 @@ match_name_owner_changed_signal (DBusConnection *conn, const char *bus_name, con
 
   if (tries == NUM_TRIES_TIL_FAIL)
     {
-      fprintf (stderr, "Did not recive the expected NameOwnerChanged signal!!!\n");
+      fprintf (stderr, "Did not receive the expected NameOwnerChanged signal, bus_name %s lost_name %s acquired_name %s\n",
+               bus_name ? bus_name : "(null)",
+               lost_name ? lost_name : "(null)",
+               acquired_name ? acquired_name : "(null)");
       return FALSE;
     }
 

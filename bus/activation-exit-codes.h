@@ -25,15 +25,21 @@
 #ifndef BUS_ACTIVATION_EXIT_CODES_H
 #define BUS_ACTIVATION_EXIT_CODES_H
 
-/** Return codes from the launch helper - not public API */
-#define BUS_SPAWN_EXIT_CODE_NO_MEMORY            1
-#define BUS_SPAWN_EXIT_CODE_CONFIG_INVALID       2
-#define BUS_SPAWN_EXIT_CODE_SETUP_FAILED         3
-#define BUS_SPAWN_EXIT_CODE_NAME_INVALID         4
-#define BUS_SPAWN_EXIT_CODE_SERVICE_NOT_FOUND    5
-#define BUS_SPAWN_EXIT_CODE_PERMISSIONS_INVALID  6
-#define BUS_SPAWN_EXIT_CODE_FILE_INVALID         7
-#define BUS_SPAWN_EXIT_CODE_EXEC_FAILED          8
-#define BUS_SPAWN_EXIT_CODE_INVALID_ARGS         9
+/** Return codes from the launch helper - not public API. However,
+ *  presumably if some third party did write their own launch helper,
+ *  they would have to rely on these, or at least always return
+ *  1 for GENERIC_FAILURE.
+ */
+#define BUS_SPAWN_EXIT_CODE_GENERIC_FAILURE      1
+#define BUS_SPAWN_EXIT_CODE_NO_MEMORY            2
+#define BUS_SPAWN_EXIT_CODE_CONFIG_INVALID       3
+#define BUS_SPAWN_EXIT_CODE_SETUP_FAILED         4
+#define BUS_SPAWN_EXIT_CODE_NAME_INVALID         5
+#define BUS_SPAWN_EXIT_CODE_SERVICE_NOT_FOUND    6
+#define BUS_SPAWN_EXIT_CODE_PERMISSIONS_INVALID  7
+#define BUS_SPAWN_EXIT_CODE_FILE_INVALID         8
+#define BUS_SPAWN_EXIT_CODE_EXEC_FAILED          9
+#define BUS_SPAWN_EXIT_CODE_INVALID_ARGS         10
+#define BUS_SPAWN_EXIT_CODE_CHILD_SIGNALED       11
 
 #endif /* BUS_ACTIVATION_EXIT_CODES_H */

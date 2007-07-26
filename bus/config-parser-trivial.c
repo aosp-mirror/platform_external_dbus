@@ -353,13 +353,16 @@ check_return_values (const DBusString *full_path)
       _dbus_warn ("User was NULL!\n");
       goto finish;
     }
+#if 0
+  /* the username can be configured in configure.in so this test doesn't work */
   if (strcmp (user, "dbus") != 0)
     {
       _dbus_warn ("User was invalid; '%s'!\n", user);
       goto finish;
     }
-  printf ("    <user>dbus</user> OKAY!\n");
-
+  printf ("    <user>dbus</user> OKAY!\n");  
+#endif
+  
   /* check type return value is okay */
   type = bus_config_parser_get_type (parser);
   if (type == NULL)

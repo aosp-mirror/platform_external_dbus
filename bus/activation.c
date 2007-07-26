@@ -1159,6 +1159,10 @@ handle_activation_exit_error (int        exit_code,
       dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
                       "Invalid arguments to command line");
       break;
+    case BUS_SPAWN_EXIT_CODE_CHILD_SIGNALED:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_CHILD_SIGNALED,
+                      "Launched child was signaled, it probably crashed");
+      break;
     default:
       dbus_set_error (error, DBUS_ERROR_SPAWN_CHILD_EXITED,
                       "Launch helper exited with unknown return code %i", exit_code);
