@@ -1,5 +1,9 @@
 2007-07-27  Havoc Pennington  <hp@redhat.com>
 
+	* configure.in: post-release version bump
+
+2007-07-27  Havoc Pennington  <hp@redhat.com>
+
 	* release 1.1.2
 
 2007-07-26  Havoc Pennington  <hp@redhat.com>
