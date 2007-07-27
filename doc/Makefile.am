@@ -18,7 +18,7 @@ HTML_FILES=					\
 if DBUS_XML_DOCS_ENABLED
 all-local: $(HTML_FILES)
 
-EXTRA_DIST += $(HTML_FILES)
+EXTRA_DIST += $(HTML_FILES) system-activation.txt
 
 dbus-specification.html: dbus-specification.xml
 	$(XMLTO) html-nochunks $<
