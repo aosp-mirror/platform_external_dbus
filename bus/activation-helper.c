@@ -381,14 +381,20 @@ exec_for_correct_user (char *exec, char *user, DBusError *error)
 }
 
 static dbus_bool_t
-check_bus_name (const char *bus_name, DBusError *error)
+check_bus_name (const char *bus_name,
+                DBusError  *error)
 {
-  if (!_dbus_check_is_valid_bus_name (bus_name))
+  DBusString str;
+
+  _dbus_string_init_const (&str, bus_name);
+  if (!_dbus_validate_bus_name (&str, 0, _dbus_string_get_length (&str)))
     {
       dbus_set_error (error, DBUS_ERROR_SPAWN_SERVICE_NOT_FOUND,
-                      "bus name '%s' not found\n", bus_name);
+                      "bus name '%s' is not a valid bus name\n",
+                      bus_name);
       return FALSE;
     }
+  
   return TRUE;
 }
 
@@ -517,7 +523,8 @@ check_dbus_user (BusConfigParser *parser, DBusError *error)
 }
 
 dbus_bool_t
-run_launch_helper (const char *bus_name, DBusError *error)
+run_launch_helper (const char *bus_name,
+                   DBusError  *error)
 {
   BusConfigParser *parser;
   dbus_bool_t retval;
