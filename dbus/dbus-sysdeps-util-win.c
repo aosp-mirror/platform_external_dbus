@@ -32,6 +32,7 @@
 #include "dbus-string.h"
 #include "dbus-sysdeps.h"
 #include "dbus-sysdeps-win.h"
+#include "dbus-sockets-win.h"
 #include "dbus-memory.h"
 
 #include <io.h>
@@ -42,6 +43,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <winsock2.h>   // WSA error codes
 
 #if defined __MINGW32__ || (defined _MSC_VER && _MSC_VER <= 1310)
 /* save string functions version
