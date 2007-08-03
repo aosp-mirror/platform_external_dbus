@@ -1,3 +1,15 @@
+2007-08-03  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: add major/minor/micro version number AC_SUBST
+
+	* dbus/dbus-arch-deps.h.in (DBUS_MAJOR_VERSION,
+	DBUS_MINOR_VERSION, DBUS_MICRO_VERSION, DBUS_VERSION_STRING,
+	DBUS_VERSION): collection of macros to get version of library we
+	are compiled against.
+
+	* dbus/dbus-misc.c (dbus_get_version): new function, to get
+	version of library we are linked against at runtime.
+
 2007-07-30  Havoc Pennington  <hp@redhat.com>
 
 	* bus/activation-helper.c (check_bus_name): don't use

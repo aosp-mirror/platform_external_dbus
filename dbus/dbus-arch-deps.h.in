@@ -51,6 +51,17 @@ typedef unsigned @DBUS_INT32_TYPE@ dbus_uint32_t;
 typedef @DBUS_INT16_TYPE@ dbus_int16_t;
 typedef unsigned @DBUS_INT16_TYPE@ dbus_uint16_t;
 
+/* This is not really arch-dependent, but it's not worth
+ * creating an additional generated header just for this
+ */
+#define DBUS_MAJOR_VERSION @DBUS_MAJOR_VERSION@
+#define DBUS_MINOR_VERSION @DBUS_MINOR_VERSION@
+#define DBUS_MICRO_VERSION @DBUS_MICRO_VERSION@
+
+#define DBUS_VERSION_STRING "@DBUS_VERSION@"
+
+#define DBUS_VERSION ((@DBUS_MAJOR_VERSION@ << 16) | (@DBUS_MINOR_VERSION@ << 8) | (@DBUS_MICRO_VERSION@)) 
+
 DBUS_END_DECLS
 
 #endif /* DBUS_ARCH_DEPS_H */
