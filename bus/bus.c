@@ -665,7 +665,7 @@ bus_context_new (const DBusString *config_file,
 
       if (!_dbus_pipe_is_stdout_or_stderr (print_addr_pipe))
         _dbus_pipe_close (print_addr_pipe, NULL);
-
+      
       _dbus_string_free (&addr);
     }
   
@@ -695,78 +695,48 @@ bus_context_new (const DBusString *config_file,
         }
     }
 
-  /* Now become a daemon if appropriate */
-  if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
-    {
-      DBusString u;
+  /* Now become a daemon if appropriate and write out pid file in any case */
+  {
+    DBusString u;
 
-      if (context->pidfile)
-        _dbus_string_init_const (&u, context->pidfile);
-      
-      if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
-				print_pid_pipe,
-				error))
-	{
-	  _DBUS_ASSERT_ERROR_IS_SET (error);
-	  goto failed;
-	}
-    }
-  else
-    {
-      /* Need to write PID file for ourselves, not for the child process */
-      if (context->pidfile != NULL)
-        {
-          DBusString u;
+    if (context->pidfile)
+      _dbus_string_init_const (&u, context->pidfile);
 
-          _dbus_string_init_const (&u, context->pidfile);
-          
-          if (!_dbus_write_pid_file (&u, _dbus_getpid (), error))
-	    {
-	      _DBUS_ASSERT_ERROR_IS_SET (error);
-	      goto failed;
-	    }
-        }
-    }
+    if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
+      {
+        _dbus_verbose ("Forking and becoming daemon\n");
+        
+        if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
+                                  print_pid_pipe,
+                                  error))
+          {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
+            goto failed;
+          }
+      }
+    else
+      {
+        _dbus_verbose ("Fork not requested\n");
+        
+        /* Need to write PID file and to PID pipe for ourselves,
+         * not for the child process. This is a no-op if the pidfile
+         * is NULL and print_pid_pipe is NULL.
+         */
+        if (!_dbus_write_pid_to_file_and_pipe (context->pidfile ? &u : NULL,
+                                               print_pid_pipe,
+                                               _dbus_getpid (),
+                                               error))
+          {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
+            goto failed;
+          }
+      }
+  }
 
-  /* Write PID if requested */
-  if (print_pid_pipe != NULL && _dbus_pipe_is_valid (print_pid_pipe))
-    {
-      DBusString pid;
-      int bytes;
-
-      if (!_dbus_string_init (&pid))
-        {
-          BUS_SET_OOM (error);
-          goto failed;
-        }
-      
-      if (!_dbus_string_append_int (&pid, _dbus_getpid ()) ||
-          !_dbus_string_append (&pid, "\n"))
-        {
-          _dbus_string_free (&pid);
-          BUS_SET_OOM (error);
-          goto failed;
-        }
-
-      bytes = _dbus_string_get_length (&pid);
-      if (_dbus_pipe_write (print_pid_pipe, &pid, 0, bytes, error) != bytes)
-        {
-          /* pipe_write sets error on failure but not short write */
-          if (error != NULL && !dbus_error_is_set (error))
-            {
-              dbus_set_error (error, DBUS_ERROR_FAILED,
-                              "Printing message bus PID: did not write enough bytes\n");
-            }
-          _dbus_string_free (&pid);
-          goto failed;
-        }
-
-      if (!_dbus_pipe_is_stdout_or_stderr (print_pid_pipe))
-        _dbus_pipe_close (print_pid_pipe, NULL);
-      
-      _dbus_string_free (&pid);
-    }
-
+  if (print_pid_pipe && _dbus_pipe_is_valid (print_pid_pipe) &&
+      !_dbus_pipe_is_stdout_or_stderr (print_pid_pipe))
+    _dbus_pipe_close (print_pid_pipe, NULL);
+  
   if (!process_config_postinit (context, parser, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);

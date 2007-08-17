@@ -363,12 +363,15 @@ void        _dbus_print_backtrace  (void);
 dbus_bool_t _dbus_become_daemon   (const DBusString *pidfile,
                                    DBusPipe         *print_pid_pipe,
                                    DBusError        *error);
-dbus_bool_t _dbus_write_pid_file  (const DBusString *filename,
-                                   unsigned long     pid,
-                                   DBusError        *error);
+
 dbus_bool_t _dbus_verify_daemon_user    (const char *user);
 dbus_bool_t _dbus_change_to_daemon_user (const char *user,
                                          DBusError  *error);
+
+dbus_bool_t _dbus_write_pid_to_file_and_pipe (const DBusString *pidfile,
+                                              DBusPipe         *print_pid_pipe,
+                                              dbus_pid_t        pid_to_write,
+                                              DBusError        *error);
 
 /** A UNIX signal handler */
 typedef void (* DBusSignalHandler) (int sig);

@@ -342,7 +342,7 @@ set_address_in_x11(char *address, pid_t pid)
 {
   char *current_address;
   Window wid;
-  int pid32;
+  unsigned long pid32; /* Xlib property functions want _long_ not 32-bit for format "32" */
   
   /* lock the X11 display to make sure we're doing this atomically */
   XGrabServer (xdisplay);
@@ -372,11 +372,6 @@ set_address_in_x11(char *address, pid_t pid)
   XChangeProperty (xdisplay, wid, address_atom, XA_STRING, 8, PropModeReplace,
                    (unsigned char *)address, strlen (address));
   pid32 = pid;
-  if (sizeof(pid32) != 4)
-    {
-      fprintf (stderr, "int is not 32 bits!\n");
-      exit (1);
-    }
   XChangeProperty (xdisplay, wid, pid_atom, XA_CARDINAL, 32, PropModeReplace,
                    (unsigned char *)&pid32, 1);
 

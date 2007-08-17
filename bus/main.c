@@ -452,6 +452,10 @@ main (int argc, char **argv)
       exit (1);
     }
 
+  /* bus_context_new() closes the print_addr_pipe and
+   * print_pid_pipe
+   */
+  
   setup_reload_pipe (bus_context_get_loop (context));
 
   _dbus_set_signal_handler (SIGHUP, signal_handler);

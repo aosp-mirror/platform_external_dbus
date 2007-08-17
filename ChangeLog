@@ -1,3 +1,18 @@
+2007-08-17  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-launch-x11.c (set_address_in_x11): fix from Michael
+	Lorenz to use long not int with XChangeProperty format 32
+
+	* dbus/dbus-sysdeps-util-unix.c
+	(_dbus_write_pid_to_file_and_pipe): factor this out, and use the
+	same code in _dbus_become_daemon (where the parent writes the pid
+	file and to the pid pipe) and in bus_context_new (where the daemon
+	writes its own pid file and to its own pid pipe)
+
+	* bus/bus.c (bus_context_new): close the pid pipe after we print
+	to it. Also, don't write the pid to the pipe twice when we fork,
+	someone reported this bug a long time ago.
+
 2007-08-03  Havoc Pennington  <hp@redhat.com>
 
 	* configure.in: add major/minor/micro version number AC_SUBST
