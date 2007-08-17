@@ -1,3 +1,7 @@
+2007-08-17  William Jon McCann  <mccann@jhu.edu>
+
+	* update-dbus-docs.sh: upload DTD to server
+
 2007-08-17  Havoc Pennington  <hp@redhat.com>
 
 	* tools/dbus-launch-x11.c (set_address_in_x11): fix from Michael

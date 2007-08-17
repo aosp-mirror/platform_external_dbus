@@ -52,3 +52,5 @@ echo "Uploading docs to server"
 scp dbus-docs.tar.gz "${user}"dbus.freedesktop.org:
 ssh "${user}"dbus.freedesktop.org '(cd /srv/dbus.freedesktop.org/www/ && /bin/cp -f ~/dbus-docs.tar.gz . && tar zxf dbus-docs.tar.gz && echo "Successfully unpacked tarball on server")'
 
+echo "Uploading DTD to server"
+scp -p doc/introspect.dtd "${user}"dbus.freedesktop.org:/srv/specifications.freedesktop.org/www/dbus/1.0/introspect.dtd
