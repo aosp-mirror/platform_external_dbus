@@ -1,5 +1,9 @@
 2007-09-13  Ryan Lortie  <desrt@desrt.ca>
 
+	* HACKING: add more explicit git branch/tag instructions
+
+2007-09-13  Ryan Lortie  <desrt@desrt.ca>
+
 	migrate from cvs to git (cvs2svn -> git-svnimport).
 
 	* HACKING: update release/branch/tag instructions

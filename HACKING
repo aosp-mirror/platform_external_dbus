@@ -97,7 +97,9 @@ To make a release of D-Bus, do the following:
    release! The idea is that git has a newer version number
    than anything released.
 
- - push your changes to the central repository
+ - push your changes to the central repository with "git-push"
+
+ - push your new tag, too: "git-push origin dbus-X.Y.Z"
 
  - scp your tarball to freedesktop.org server and copy it 
    to /srv/dbus.freedesktop.org/www/releases/dbus. This should 
@@ -135,13 +137,13 @@ allow committing that change.
 The branch name should be dbus-X.Y-branch which is a branch that has
 releases versioned X.Y.Z
 
-To branch, add a tag to the common ancestor:
- git tag dbus-X.Y-branchpoint
-then create the branch:
- git branch dbus-X.Y-branch
+To branch:
+  git branch dbus-X.Y-branch
+and upload the branch tag to the server:
+  git-push origin dbus-X.Y-branch
 
-Note that dbus-X.Y-branchpoint may not tag the same revision as the
-dbus-X.Y.0 release, since we may not branch immediately.
+To develop in this branch:
+  git-checkout dbus-X.Y-branch
 
 Environment variables
 ===
