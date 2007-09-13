@@ -76,27 +76,28 @@ To make a release of D-Bus, do the following:
  - add a ChangeLog entry containing the version number 
    you're releasing ("Released 0.3" or something)
    so people can see which changes were before and after
-   a given release.
+   a given release
 
- - The version number should have major.minor.micro even
+ - the version number should have major.minor.micro even
    if micro is 0, i.e. "1.0.0" and "1.2.0" not "1.0"/"1.2"
 
  - "make distcheck" (DO NOT just "make dist" - pass the check!)
 
  - if make distcheck fails, fix it.
 
- - once distcheck succeeds, "cvs commit"
+ - once distcheck succeeds, "git-commit -a".  This is the version
+   of the tree that corresponds exactly to the released tarball.
 
- - if someone else made changes and the commit fails, 
-   you have to "cvs up" and run "make distcheck" again
-
- - once the commit succeeds, "cvs tag DBUS_X_Y_Z" where 
-   X_Y_Z map to version X.Y.Z
+ - tag the tree with "git-tag -s -m 'Released X.Y.Z' dbus-X.Y.Z"
+   where X.Y.Z is the version of the release.  If you can't sign
+   then simply created an unannotated tag: "git-tag dbus-X.Y.Z".
 
  - bump the version number up in configure.in, and commit
    it.  Make sure you do this *after* tagging the previous
-   release! The idea is that CVS has a newer version number
+   release! The idea is that git has a newer version number
    than anything released.
+
+ - push your changes to the central repository
 
  - scp your tarball to freedesktop.org server and copy it 
    to /srv/dbus.freedesktop.org/www/releases/dbus. This should 
@@ -118,7 +119,7 @@ To make a release of D-Bus, do the following:
 After making a ".0" stable release
 ===
 
-After releasing, when you increment the version number in CVS, also
+After releasing, when you increment the version number in git, also
 move the ChangeLog to ChangeLog.pre-X-Y where X-Y is what you just
 released, e.g. ChangeLog.pre-1-0. Then create and cvs add a new empty
 ChangeLog. The last entry in ChangeLog.pre-1-0 should be the one about
@@ -131,16 +132,16 @@ not done immediately, instead it's possible to wait until someone has
 a not-suitable-for-stable change they want to make and then branch to
 allow committing that change.
 
-The branch name should be DBUS_X_Y_BRANCH which is a branch that has
+The branch name should be dbus-X.Y-branch which is a branch that has
 releases versioned X.Y.Z
 
-To branch, tag HEAD with DBUS_X_Y_BRANCHPOINT:
- cvs tag DBUS_X_Y_BRANCHPOINT
-then create the branch from that tag:
- cvs rtag -b -r DBUS_X_Y_BRANCHPOINT DBUS_X_Y_BRANCH dbus
+To branch, add a tag to the common ancestor:
+ git tag dbus-X.Y-branchpoint
+then create the branch:
+ git branch dbus-X.Y-branch
 
-Note that DBUS_X_Y_BRANCHPOINT may not tag the same revision as the
-DBUS_X_Y_0 release, since we may not branch immediately.
+Note that dbus-X.Y-branchpoint may not tag the same revision as the
+dbus-X.Y.0 release, since we may not branch immediately.
 
 Environment variables
 ===
