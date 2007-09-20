@@ -3136,6 +3136,20 @@
                   would be arg3='Foo'. Only argument indexes from 0 to 63 should be 
                   accepted.</entry>
                 </row>
+                <row>
+                  <entry><literal>arg[0, 1, 2, 3, ...]path</literal></entry>
+                  <entry>Any string</entry>
+                  <entry>Argument path matches provide a specialised form of wildcard
+                  matching for path-like namespaces. As with normal argument matches,
+                  if the argument is exactly equal to the string given in the match
+                  rule then the rule is satisfied. Additionally, there is also a
+                  match when either the string given in the match rule or the
+                  appropriate message argument ends with '/' and is a prefix of the
+                  other. An example argument path match is arg0path='/aa/bb/'. This
+                  would match messages with first arguments of '/', '/aa/',
+                  '/aa/bb/', '/aa/bb/cc/' and '/aa/bb/cc'. It would not match
+                  messages with first arguments of '/aa/b', '/aa' or even '/aa/bb'.</entry>
+                </row>
               </tbody>
             </tgroup>
           </informaltable>

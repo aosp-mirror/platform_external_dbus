@@ -40,9 +40,12 @@ struct BusMatchRule
   char *destination;
   char *path;
 
+  unsigned int *arg_lens;
   char **args;
   int args_len;
 };
+
+#define BUS_MATCH_ARG_IS_PATH  0x8000000u
 
 BusMatchRule*
 bus_match_rule_new (DBusConnection *matches_go_to)
@@ -86,6 +89,7 @@ bus_match_rule_unref (BusMatchRule *rule)
       dbus_free (rule->sender);
       dbus_free (rule->destination);
       dbus_free (rule->path);
+      dbus_free (rule->arg_lens);
 
       /* can't use dbus_free_string_array() since there
        * are embedded NULL
@@ -205,15 +209,19 @@ match_rule_to_string (BusMatchRule *rule)
         {
           if (rule->args[i] != NULL)
             {
+              dbus_bool_t is_path;
+
               if (_dbus_string_get_length (&str) > 0)
                 {
                   if (!_dbus_string_append (&str, ","))
                     goto nomem;
                 }
+
+              is_path = (rule->arg_lens[i] & BUS_MATCH_ARG_IS_PATH) != 0;
               
               if (!_dbus_string_append_printf (&str,
-                                               "arg%d='%s'",
-                                               i,
+                                               "arg%d%s='%s'",
+                                               i, is_path ? "path" : "",
                                                rule->args[i]))
                 goto nomem;
             }
@@ -346,23 +354,22 @@ bus_match_rule_set_path (BusMatchRule *rule,
 }
 
 dbus_bool_t
-bus_match_rule_set_arg (BusMatchRule *rule,
-                        int           arg,
-                        const char   *value)
+bus_match_rule_set_arg (BusMatchRule     *rule,
+                        int                arg,
+                        const DBusString *value,
+                        dbus_bool_t       is_path)
 {
+  int length;
   char *new;
 
   _dbus_assert (value != NULL);
-
-  new = _dbus_strdup (value);
-  if (new == NULL)
-    return FALSE;
 
   /* args_len is the number of args not including null termination
    * in the char**
    */
   if (arg >= rule->args_len)
     {
+      unsigned int *new_arg_lens;
       char **new_args;
       int new_args_len;
       int i;
@@ -371,12 +378,9 @@ bus_match_rule_set_arg (BusMatchRule *rule,
 
       /* add another + 1 here for null termination */
       new_args = dbus_realloc (rule->args,
-                               sizeof(rule->args[0]) * (new_args_len + 1));
+                               sizeof (char *) * (new_args_len + 1));
       if (new_args == NULL)
-        {
-          dbus_free (new);
-          return FALSE;
-        }
+        return FALSE;
 
       /* NULL the new slots */
       i = rule->args_len;
@@ -387,16 +391,42 @@ bus_match_rule_set_arg (BusMatchRule *rule,
         }
       
       rule->args = new_args;
+
+      /* and now add to the lengths */
+      new_arg_lens = dbus_realloc (rule->arg_lens,
+                                   sizeof (int) * (new_args_len + 1));
+
+      if (new_arg_lens == NULL)
+        return FALSE;
+
+      /* zero the new slots */
+      i = rule->args_len;
+      while (i <= new_args_len) /* <= for null termination */
+        {
+          new_arg_lens[i] = 0;
+          ++i;
+        }
+
+      rule->arg_lens = new_arg_lens;
       rule->args_len = new_args_len;
     }
+
+  length = _dbus_string_get_length (value);
+  if (!_dbus_string_copy_data (value, &new))
+    return FALSE;
 
   rule->flags |= BUS_MATCH_ARGS;
 
   dbus_free (rule->args[arg]);
+  rule->arg_lens[arg] = length;
   rule->args[arg] = new;
+
+  if (is_path)
+    rule->arg_lens[arg] |= BUS_MATCH_ARG_IS_PATH;
 
   /* NULL termination didn't get busted */
   _dbus_assert (rule->args[rule->args_len] == NULL);
+  _dbus_assert (rule->arg_lens[rule->args_len] == 0);
 
   return TRUE;
 }
@@ -688,8 +718,10 @@ bus_match_rule_parse_arg_match (BusMatchRule     *rule,
                                 const DBusString *value,
                                 DBusError        *error)
 {
+  dbus_bool_t is_path;
   DBusString key_str;
   unsigned long arg;
+  int length;
   int end;
 
   /* For now, arg0='foo' always implies that 'foo' is a
@@ -701,6 +733,7 @@ bus_match_rule_parse_arg_match (BusMatchRule     *rule,
   /* First we need to parse arg0 = 0, arg27 = 27 */
 
   _dbus_string_init_const (&key_str, key);
+  length = _dbus_string_get_length (&key_str);
 
   if (_dbus_string_get_length (&key_str) < 4)
     {
@@ -709,13 +742,23 @@ bus_match_rule_parse_arg_match (BusMatchRule     *rule,
       goto failed;
     }
 
-  if (!_dbus_string_parse_uint (&key_str, 3, &arg, &end) ||
-      end != _dbus_string_get_length (&key_str))
+  if (!_dbus_string_parse_uint (&key_str, 3, &arg, &end))
     {
       dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
                       "Key '%s' in match rule starts with 'arg' but could not parse arg number. Should be 'arg0' or 'arg7' for example.\n", key);
       goto failed;
     }
+
+  if (end != length &&
+      ((end + 4) != length ||
+       !_dbus_string_ends_with_c_str (&key_str, "path")))
+    {
+      dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
+                      "Key '%s' in match rule contains junk after argument number. Only 'path' is optionally valid ('arg0path' for example).\n", key);
+      goto failed;
+    }
+
+  is_path = end != length;
 
   /* If we didn't check this we could allocate a huge amount of RAM */
   if (arg > DBUS_MAXIMUM_MATCH_RULE_ARG_NUMBER)
@@ -730,12 +773,11 @@ bus_match_rule_parse_arg_match (BusMatchRule     *rule,
       rule->args[arg] != NULL)
     {
       dbus_set_error (error, DBUS_ERROR_MATCH_RULE_INVALID,
-                      "Key '%s' specified twice in match rule\n", key);
+                      "Argument %d matched more than once in match rule\n", key);
       goto failed;
     }
   
-  if (!bus_match_rule_set_arg (rule, arg,
-                               _dbus_string_get_const_data (value)))
+  if (!bus_match_rule_set_arg (rule, arg, value, is_path))
     {
       BUS_SET_OOM (error);
       goto failed;
@@ -1104,13 +1146,20 @@ match_rule_equal (BusMatchRule *a,
       i = 0;
       while (i < a->args_len)
         {
+          int length;
+
           if ((a->args[i] != NULL) != (b->args[i] != NULL))
             return FALSE;
+
+          if (a->arg_lens[i] != b->arg_lens[i])
+            return FALSE;
+
+          length = a->arg_lens[i] & ~BUS_MATCH_ARG_IS_PATH;
 
           if (a->args[i] != NULL)
             {
               _dbus_assert (b->args[i] != NULL);
-              if (strcmp (a->args[i], b->args[i]) != 0)
+              if (memcmp (a->args[i], b->args[i], length) != 0)
                 return FALSE;
             }
           
@@ -1399,14 +1448,19 @@ match_rule_matches (BusMatchRule    *rule,
         {
           int current_type;
           const char *expected_arg;
+          int expected_length;
+          dbus_bool_t is_path;
 
           expected_arg = rule->args[i];
+          expected_length = rule->arg_lens[i] & ~BUS_MATCH_ARG_IS_PATH;
+          is_path = (rule->arg_lens[i] & BUS_MATCH_ARG_IS_PATH) != 0;
           
           current_type = dbus_message_iter_get_arg_type (&iter);
 
           if (expected_arg != NULL)
             {
               const char *actual_arg;
+              int actual_length;
               
               if (current_type != DBUS_TYPE_STRING)
                 return FALSE;
@@ -1415,8 +1469,29 @@ match_rule_matches (BusMatchRule    *rule,
               dbus_message_iter_get_basic (&iter, &actual_arg);
               _dbus_assert (actual_arg != NULL);
 
-              if (strcmp (expected_arg, actual_arg) != 0)
-                return FALSE;
+              actual_length = strlen (actual_arg);
+
+              if (is_path)
+                {
+                  if (actual_length < expected_length &&
+                      actual_arg[actual_length - 1] != '/')
+                    return FALSE;
+
+                  if (expected_length < actual_length &&
+                      expected_arg[expected_length - 1] != '/')
+                    return FALSE;
+
+                  if (memcmp (actual_arg, expected_arg,
+                              MIN (actual_length, expected_length)) != 0)
+                    return FALSE;
+                }
+              else
+                {
+                  if (expected_length != actual_length ||
+                      memcmp (expected_arg, actual_arg, expected_length) != 0)
+                    return FALSE;
+                }
+
             }
           
           if (current_type != DBUS_TYPE_INVALID)

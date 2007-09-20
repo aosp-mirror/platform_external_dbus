@@ -1,3 +1,21 @@
+2007-09-20  Ryan Lortie  <desrt@desrt.ca>
+
+	Add argument path matching support.  Bug #11066.
+
+	* dbus/signals.c (struct DBusMatchRule, bus_match_rule_new,
+	bus_match_rule_set_arg, bus_match_rule_parse_arg_match,
+	match_rule_matches): Add support for parsing and matching on
+	arg0path='/some/path' type rules.
+
+	* dbus/signals.h (bus_match_rule_set_arg): change to take const
+	DBusString instead of const char * for the string to match against.
+
+	* dbus/dbus-bus.c: add a quick note to dbus_bus_add_match
+	documentation about the path matching.
+
+	* doc/dbus-specification.xml: add a more detailed description of the
+	changes here.
+
 2007-09-19  Ryan Lortie  <desrt@desrt.ca>
 
 	Add support for compacting DBusStrings to release wasted memory.

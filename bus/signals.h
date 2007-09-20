@@ -44,21 +44,22 @@ BusMatchRule* bus_match_rule_new   (DBusConnection *matches_go_to);
 BusMatchRule* bus_match_rule_ref   (BusMatchRule   *rule);
 void          bus_match_rule_unref (BusMatchRule   *rule);
 
-dbus_bool_t bus_match_rule_set_message_type (BusMatchRule *rule,
-                                             int           type);
-dbus_bool_t bus_match_rule_set_interface    (BusMatchRule *rule,
-                                             const char   *interface);
-dbus_bool_t bus_match_rule_set_member       (BusMatchRule *rule,
-                                             const char   *member);
-dbus_bool_t bus_match_rule_set_sender       (BusMatchRule *rule,
-                                             const char   *sender);
-dbus_bool_t bus_match_rule_set_destination  (BusMatchRule *rule,
-                                             const char   *destination);
-dbus_bool_t bus_match_rule_set_path         (BusMatchRule *rule,
-                                             const char   *path);
-dbus_bool_t bus_match_rule_set_arg          (BusMatchRule *rule,
-                                             int           arg,
-                                             const char   *value);
+dbus_bool_t bus_match_rule_set_message_type (BusMatchRule     *rule,
+                                             int               type);
+dbus_bool_t bus_match_rule_set_interface    (BusMatchRule     *rule,
+                                             const char       *interface);
+dbus_bool_t bus_match_rule_set_member       (BusMatchRule     *rule,
+                                             const char       *member);
+dbus_bool_t bus_match_rule_set_sender       (BusMatchRule     *rule,
+                                             const char       *sender);
+dbus_bool_t bus_match_rule_set_destination  (BusMatchRule     *rule,
+                                             const char       *destination);
+dbus_bool_t bus_match_rule_set_path         (BusMatchRule     *rule,
+                                             const char       *path);
+dbus_bool_t bus_match_rule_set_arg          (BusMatchRule     *rule,
+                                             int               arg,
+                                             const DBusString *value,
+                                             dbus_bool_t       is_path);
 
 BusMatchRule* bus_match_rule_parse (DBusConnection   *matches_go_to,
                                     const DBusString *rule_text,

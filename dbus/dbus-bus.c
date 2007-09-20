@@ -1424,6 +1424,13 @@ send_no_return_values (DBusConnection *connection,
  *
  * Currently there is no way to match against non-string arguments.
  *
+ * A specialised form of wildcard matching on arguments is
+ * supported for path-like namespaces.  If your argument match has
+ * a 'path' suffix (eg: "arg0path='/some/path/'") then it is
+ * considered a match if the argument exactly matches the given
+ * string or if one of them ends in a '/' and is a prefix of the
+ * other.
+ *
  * Matching on interface is tricky because method call
  * messages only optionally specify the interface.
  * If a message omits the interface, then it will NOT match
