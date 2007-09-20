@@ -271,6 +271,32 @@ _dbus_string_free (DBusString *str)
   real->invalid = TRUE;
 }
 
+static dbus_bool_t
+compact (DBusRealString *real,
+         int             max_waste)
+{
+  unsigned char *new_str;
+  int new_allocated;
+  int waste;
+
+  waste = real->allocated - (real->len + _DBUS_STRING_ALLOCATION_PADDING);
+
+  if (waste <= max_waste)
+    return TRUE;
+
+  new_allocated = real->len + _DBUS_STRING_ALLOCATION_PADDING;
+
+  new_str = dbus_realloc (real->str - real->align_offset, new_allocated);
+  if (_DBUS_UNLIKELY (new_str == NULL))
+    return FALSE;
+
+  real->str = new_str + real->align_offset;
+  real->allocated = new_allocated;
+  fixup_alignment (real);
+
+  return TRUE;
+}
+
 #ifdef DBUS_BUILD_TESTS
 /* Not using this feature at the moment,
  * so marked DBUS_BUILD_TESTS-only
@@ -295,22 +321,7 @@ _dbus_string_lock (DBusString *str)
    * we know we won't change the string further
    */
 #define MAX_WASTE 48
-  if (real->allocated - MAX_WASTE > real->len)
-    {
-      unsigned char *new_str;
-      int new_allocated;
-
-      new_allocated = real->len + _DBUS_STRING_ALLOCATION_PADDING;
-
-      new_str = dbus_realloc (real->str - real->align_offset,
-                              new_allocated);
-      if (new_str != NULL)
-        {
-          real->str = new_str + real->align_offset;
-          real->allocated = new_allocated;
-          fixup_alignment (real);
-        }
-    }
+  compact (real, MAX_WASTE);
 }
 #endif /* DBUS_BUILD_TESTS */
 
@@ -359,6 +370,26 @@ reallocate_for_length (DBusRealString *real,
   fixup_alignment (real);
 
   return TRUE;
+}
+
+/**
+ * Compacts the string to avoid wasted memory.  Wasted memory is
+ * memory that is allocated but not actually required to store the
+ * current length of the string.  The compact is only done if more
+ * than the given amount of memory is being wasted (otherwise the
+ * waste is ignored and the call does nothing).
+ *
+ * @param str the string
+ * @param max_waste the maximum amount of waste to ignore
+ * @returns #FALSE if the compact failed due to realloc failure
+ */
+dbus_bool_t
+_dbus_string_compact (DBusString *str,
+                      int         max_waste)
+{
+  DBUS_STRING_PREAMBLE (str);
+
+  return compact (real, max_waste);
 }
 
 static dbus_bool_t

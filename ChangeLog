@@ -1,3 +1,20 @@
+2007-09-19  Ryan Lortie  <desrt@desrt.ca>
+
+	Add support for compacting DBusStrings to release wasted memory.
+
+	* dbus/dbus-string.[ch] (compact, _dbus_string_compact,
+	_dbus_string_lock): new compact function to free up allocated memory
+	that is no longer used.
+
+	* dbus/dbus-message.c (load_message): call _dbus_string_compact on the
+	message loader buffer.
+
+	* dbus/dbus-transport-socket.c (do_reading, do_writing): call
+	_dbus_string_compact on the incoming/outgoing "encoded" buffers.
+
+	* dbus/dbus-string-util.c (_dbus_string_test): add a few tests for
+	string compacting.
+
 2007-09-13  Ryan Lortie  <desrt@desrt.ca>
 
 	* HACKING: add more explicit git branch/tag instructions
@@ -625,7 +642,7 @@
 2007-06-14  Havoc Pennington  <hp@redhat.com>
 
 	* bus/dispatch.c (check_get_connection_unix_process_id): mop up
-	getpid() (noticed by Peter KKümmel) and adapt the test to 
+	getpid() (noticed by Peter Kümmel) and adapt the test to 
 	expect a "pid unknown" error when running on Windows.
 
 2007-06-14  Havoc Pennington  <hp@redhat.com>
@@ -688,7 +705,7 @@
 2007-06-14  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* doc/dbus-specification.xml: say the protocol version is 1 instead of
-	0 (patch from Kristoffer Lund�n, fd.o#10033) and remove the FIXME
+	0 (patch from Kristoffer Lundén, fd.o#10033) and remove the FIXME
 	about removing protocol version from messages (as per Havoc's comment
 	on that bug)
 
@@ -1413,7 +1430,7 @@
 2006-12-12  John (J5) Palmieri  <johnp@redhat.com>
 
 	* bus/signal.c: Fix match_rule_equal errata
-	(CVE-2006-6107 - Patch from Kimmo HÃ¤mÃ¤lÃ¤inen 
+	(CVE-2006-6107 - Patch from Kimmo Hämäläinen 
 	<kimmo.hamalainen@nokia.com>)
 
 2006-11-19  Thiago Macieira  <thiago@kde.org>

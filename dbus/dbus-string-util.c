@@ -790,6 +790,62 @@ _dbus_string_test (void)
     _dbus_string_free (&str);
     _dbus_string_free (&line);
   }
+
+  {
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    for (i = 0; i < 10000; i++)
+      if (!_dbus_string_append (&str, "abcdefghijklmnopqrstuvwxyz"))
+        _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_set_length (&str, 10))
+      _dbus_assert_not_reached ("failed to set length");
+
+    /* actually compact */
+    if (!_dbus_string_compact (&str, 2048))
+      _dbus_assert_not_reached ("failed to compact after set_length");
+
+    /* peek inside to make sure it worked */
+    if (((DBusRealString *)&str)->allocated > 30)
+      _dbus_assert_not_reached ("compacting string didn't do anything");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij"))
+      _dbus_assert_not_reached ("unexpected content after compact");
+
+    /* compact nothing */
+    if (!_dbus_string_compact (&str, 2048))
+      _dbus_assert_not_reached ("failed to compact 2nd time");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij"))
+      _dbus_assert_not_reached ("unexpected content after 2nd compact");
+
+    /* and make sure it still works...*/
+    if (!_dbus_string_append (&str, "123456"))
+      _dbus_assert_not_reached ("failed to append after compact");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij123456"))
+      _dbus_assert_not_reached ("unexpected content after append");
+
+    /* after growing automatically, this should do nothing */
+    if (!_dbus_string_compact (&str, 20000))
+      _dbus_assert_not_reached ("failed to compact after grow");
+
+    /* but this one will do something */
+    if (!_dbus_string_compact (&str, 0))
+      _dbus_assert_not_reached ("failed to compact after grow");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij123456"))
+      _dbus_assert_not_reached ("unexpected content");
+
+    if (!_dbus_string_append (&str, "!@#$%"))
+      _dbus_assert_not_reached ("failed to append after compact");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij123456!@#$%"))
+      _dbus_assert_not_reached ("unexpected content");
+
+    _dbus_string_free (&str);
+  }
   
   return TRUE;
 }

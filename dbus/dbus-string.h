@@ -73,6 +73,8 @@ dbus_bool_t   _dbus_string_init_preallocated     (DBusString        *str,
                                                   int                allocate_size);
 void          _dbus_string_free                  (DBusString        *str);
 void          _dbus_string_lock                  (DBusString        *str);
+dbus_bool_t   _dbus_string_compact               (DBusString        *str,
+                                                  int                max_waste);
 #ifndef _dbus_string_get_data
 char*         _dbus_string_get_data              (DBusString        *str);
 #endif /* _dbus_string_get_data */

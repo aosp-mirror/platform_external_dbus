@@ -3545,6 +3545,9 @@ load_message (DBusMessageLoader *loader,
 
   _dbus_string_delete (&loader->data, 0, header_len + body_len);
 
+  /* don't waste more than 2k of memory */
+  _dbus_string_compact (&loader->data, 2048);
+
   _dbus_assert (_dbus_string_get_length (&message->header.data) == header_len);
   _dbus_assert (_dbus_string_get_length (&message->body) == body_len);
 
