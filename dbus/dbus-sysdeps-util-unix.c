@@ -338,7 +338,7 @@ _dbus_change_to_daemon_user  (const char    *user,
    * run as ... doesn't really help. But keeps people happy.
    */
     
-  if (!we_were_root)
+  if (we_were_root)
     {
       cap_value_t new_cap_list[] = { CAP_AUDIT_WRITE };
       cap_value_t tmp_cap_list[] = { CAP_AUDIT_WRITE, CAP_SETUID, CAP_SETGID };
@@ -414,7 +414,7 @@ _dbus_change_to_daemon_user  (const char    *user,
     }
   
 #ifdef HAVE_LIBAUDIT
-  if (!we_were_root)
+  if (we_were_root)
     {
       if (cap_set_proc (new_caps))
         {
@@ -433,6 +433,7 @@ _dbus_change_to_daemon_user  (const char    *user,
                           _dbus_strerror (errno));
           return FALSE;
         }
+      audit_init();
     }
 #endif
 
