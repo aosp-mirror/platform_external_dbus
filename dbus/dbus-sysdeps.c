@@ -185,7 +185,19 @@ _dbus_getenv (const char *varname)
 dbus_bool_t
 _dbus_clearenv (void)
 {
-  return (clearenv () == 0);
+  dbus_bool_t rc = TRUE;
+
+#ifdef HAVE_CLEARENV
+  if (clearenv () != 0)
+     rc = FALSE;
+#else
+  extern char **environ;
+
+  if (environ != NULL)
+    environ[0] = NULL;
+#endif
+
+  return rc;
 }
 
 /*

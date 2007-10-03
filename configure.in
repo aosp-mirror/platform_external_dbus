@@ -586,7 +586,7 @@ fi
 AC_CHECK_LIB(socket,socket)
 AC_CHECK_FUNC(gethostbyname,,[AC_CHECK_LIB(nsl,gethostbyname)])
 
-AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist fpathconf setrlimit)
+AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv clearenv unsetenv socketpair getgrouplist fpathconf setrlimit)
 
 AC_MSG_CHECKING(for dirfd)
 AC_TRY_LINK([
