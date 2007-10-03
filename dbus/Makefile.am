@@ -1,7 +1,7 @@
 
 configdir=$(sysconfdir)/dbus-1
 
-INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION	\
+INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) @PIC_CFLAGS@ -DDBUS_COMPILATION	\
 	-DDBUS_MACHINE_UUID_FILE=\""$(localstatedir)/lib/dbus/machine-id"\"		\
 	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"			\
 	-DDBUS_SESSION_CONFIG_FILE=\""$(configdir)/session.conf"\"
@@ -173,7 +173,7 @@ noinst_LTLIBRARIES=libdbus-convenience.la
 libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 ## don't export symbols that start with "_" (we use this 
 ## convention for internal symbols)
-libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@
+libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
 
 libdbus_convenience_la_LDFLAGS=@R_DYNAMIC_LDFLAG@
 

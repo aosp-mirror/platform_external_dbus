@@ -211,7 +211,17 @@ if test "x$GCC" = "xyes"; then
   case " $CFLAGS " in
   *[\ \	]-fPIC[\ \	]*) ;;
   *) if cc_supports_flag -fPIC; then
-        CFLAGS="$CFLAGS -fPIC"
+        PIC_CFLAGS="-fPIC"
+        PIC_LDFLAGS="-Wl,-z,relro"
+     fi
+     ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-fPIE[\ \	]*) ;;
+  *) if cc_supports_flag -fPIE; then
+        PIE_CFLAGS="-fPIE"
+        PIE_LDFLAGS="-pie -Wl,-z,relro"
      fi
      ;;
   esac
@@ -256,6 +266,11 @@ else
     AC_MSG_ERROR([--enable-gcov can only be used with gcc])
   fi
 fi
+
+AC_SUBST(PIC_CFLAGS)
+AC_SUBST(PIC_LDFLAGS)  
+AC_SUBST(PIE_CFLAGS)
+AC_SUBST(PIE_LDFLAGS)  
 
 # Check for -Wl,--gc-sections
 AC_MSG_CHECKING([for ld that supports "-Wl,--gc-sections"])
