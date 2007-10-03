@@ -97,7 +97,7 @@ dbus_bool_t _dbus_is_verbose_real (void);
 #  elif defined (HAVE_GNUC_VARARGS)
 #    define _dbus_verbose(format...)
 #  else
-#    error "This compiler does not support varargs macros and thus verbose mode can't be disabled meaningfully"
+static void _dbus_verbose(const char * x,...) {;}
 #  endif
 #  define _dbus_verbose_reset()
 #  define _dbus_is_verbose() FALSE 
