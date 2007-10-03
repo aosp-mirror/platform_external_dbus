@@ -283,8 +283,11 @@ if test "$ac_gcsections" = "yes"; then
   rm -f conftest.c
   touch conftest.c
   if $CC -c conftest.c; then
-    if $LD --gc-sections -o conftest conftest.o 2>&1 | \
-      grep "Warning: gc-sections option ignored" > /dev/null; then
+    ld_out=`$LD --gc-sections -o conftest conftest.o 2>&1`
+    ld_ret=$?
+    if test $ld_ret -ne 0 ; then
+      ac_gcsections=no
+    elif echo "$ld_out" | egrep 'option ignored|^usage:|illegal option' >/dev/null ; then
       ac_gcsections=no
     fi
   fi
