@@ -251,7 +251,12 @@
         but is useful in code that implements the protocol. This type code 
         is specified to allow such code to interoperate in non-protocol contexts.
       </para>
-      
+
+      <para>
+        Empty structures are not allowed; there must be at least one
+        type code between the parentheses.
+      </para>
+
       <para>
         <literal>ARRAY</literal> has ASCII character 'a' as type code. The array type code must be
         followed by a <firstterm>single complete type</firstterm>. The single
