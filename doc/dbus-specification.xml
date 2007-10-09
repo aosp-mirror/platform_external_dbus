@@ -2084,7 +2084,7 @@
             <listitem>
               <para>
                 The client sends the username it would like to authenticate 
-                as.
+                as, hex-encoded.
               </para>
             </listitem>
             <listitem>
@@ -2092,19 +2092,19 @@
                 The server sends the name of its "cookie context" (see below); a
                 space character; the integer ID of the secret cookie the client
                 must demonstrate knowledge of; a space character; then a
-                hex-encoded randomly-generated challenge string.
+                randomly-generated challenge string, all of this hex-encoded into
+                one, single string.
               </para>
             </listitem>
             <listitem>
               <para>
-                The client locates the cookie, and generates its own hex-encoded
-                randomly-generated challenge string.  The client then
-                concatenates the server's hex-encoded challenge, a ":"
-                character, its own hex-encoded challenge, another ":" character,
-                and the hex-encoded cookie.  It computes the SHA-1 hash of this
-                composite string.  It sends back to the server the client's
-                hex-encoded challenge string, a space character, and the SHA-1
-                hash.
+                The client locates the cookie and generates its own
+                randomly-generated challenge string. The client then concatenates
+                the server's decoded challenge, a ":" character, its own challenge,
+                another ":" character, and the cookie. It computes the SHA-1 hash
+                of this composite string as a hex digest. It concatenates the
+                client's challenge string, a space character, and the SHA-1 hex
+                digest, hex-encodes the result and sends it back to the server.
               </para>
             </listitem>
             <listitem>

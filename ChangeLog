@@ -1,6 +1,8 @@
 2007-10-09  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* doc/dbus-specification.xml: Specifically forbid empty structs (#7969)
+	* doc/dbus-specification.xml: Patch from Kristoffer Lundén to clarify
+	description of DBUS_COOKIE_SHA1 (#10184) [OK for MIT/X11 licensing]
 
 2007-09-20  Ryan Lortie  <desrt@desrt.ca>
 
