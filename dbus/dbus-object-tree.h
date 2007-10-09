@@ -37,7 +37,8 @@ dbus_bool_t       _dbus_object_tree_register               (DBusObjectTree      
                                                             dbus_bool_t                  fallback,
                                                             const char                 **path,
                                                             const DBusObjectPathVTable  *vtable,
-                                                            void                        *user_data);
+                                                            void                        *user_data,
+                                                            DBusError          *error);
 void              _dbus_object_tree_unregister_and_unlock  (DBusObjectTree              *tree,
                                                             const char                 **path);
 DBusHandlerResult _dbus_object_tree_dispatch_and_unlock    (DBusObjectTree              *tree,

@@ -371,6 +371,8 @@ ensure_subtree (DBusObjectTree *tree,
   return find_subtree_recurse (tree->root, path, TRUE, NULL, NULL);
 }
 
+static char *flatten_path (const char **path);
+
 /**
  * Registers a new subtree in the global object tree.
  *
@@ -379,14 +381,17 @@ ensure_subtree (DBusObjectTree *tree,
  * @param path NULL-terminated array of path elements giving path to subtree
  * @param vtable the vtable used to traverse this subtree
  * @param user_data user data to pass to methods in the vtable
- * @returns #FALSE if not enough memory
+ * @param error address where an error can be returned
+ * @returns #FALSE if an error (#DBUS_ERROR_NO_MEMORY or
+ *    #DBUS_ERROR_ADDRESS_IN_USE) is reported
  */
 dbus_bool_t
 _dbus_object_tree_register (DBusObjectTree              *tree,
                             dbus_bool_t                  fallback,
                             const char                 **path,
                             const DBusObjectPathVTable  *vtable,
-                            void                        *user_data)
+                            void                        *user_data,
+                            DBusError                   *error)
 {
   DBusObjectSubtree  *subtree;
 
@@ -396,24 +401,34 @@ _dbus_object_tree_register (DBusObjectTree              *tree,
 
   subtree = ensure_subtree (tree, path);
   if (subtree == NULL)
-    return FALSE;
-
-#ifndef DBUS_DISABLE_CHECKS
-  if (subtree->message_function != NULL)
     {
-      _dbus_warn ("A handler is already registered for the path starting with path[0] = \"%s\"\n",
-                  path[0] ? path[0] : "null");
+      if (error != NULL)
+        _DBUS_SET_OOM (error);
+
       return FALSE;
     }
-#else
-  _dbus_assert (subtree->message_function == NULL);
-#endif
+
+  if (subtree->message_function != NULL)
+    {
+      if (error != NULL)
+        {
+          char *complete_path = flatten_path (path);
+
+          dbus_set_error (error, DBUS_ERROR_ADDRESS_IN_USE, "A handler is already registered for %s",
+                          complete_path ? complete_path
+                                        : "(cannot represent path: out of memory!)");
+
+          dbus_free (complete_path);
+        }
+
+      return FALSE;
+    }
 
   subtree->message_function = vtable->message_function;
   subtree->unregister_function = vtable->unregister_function;
   subtree->user_data = user_data;
   subtree->invoke_as_fallback = fallback != FALSE;
-  
+
   return TRUE;
 }
 
@@ -1140,13 +1155,6 @@ _dbus_decompose_path (const char*     data,
 
 /** @} */
 
-#ifdef DBUS_BUILD_TESTS
-
-#ifndef DOXYGEN_SHOULD_SKIP_THIS
-
-#include "dbus-test.h"
-#include <stdio.h>
-
 static char*
 flatten_path (const char **path)
 {
@@ -1190,6 +1198,13 @@ flatten_path (const char **path)
   return NULL;
 }
 
+
+#ifdef DBUS_BUILD_TESTS
+
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
+#include "dbus-test.h"
+#include <stdio.h>
 
 typedef enum 
 {
@@ -1314,7 +1329,7 @@ do_register (DBusObjectTree *tree,
 {
   DBusObjectPathVTable vtable = { test_unregister_function,
                                   test_message_function, NULL };
-  
+
   tree_test_data[i].message_handled = FALSE;
   tree_test_data[i].handler_unregistered = FALSE;
   tree_test_data[i].handler_fallback = fallback;
@@ -1322,7 +1337,8 @@ do_register (DBusObjectTree *tree,
 
   if (!_dbus_object_tree_register (tree, fallback, path,
                                    &vtable,
-                                   &tree_test_data[i]))
+                                   &tree_test_data[i],
+                                   NULL))
     return FALSE;
 
   _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path) ==

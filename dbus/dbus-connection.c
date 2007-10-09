@@ -5265,18 +5265,20 @@ dbus_connection_remove_filter (DBusConnection            *connection,
  * Registers a handler for a given path in the object hierarchy.
  * The given vtable handles messages sent to exactly the given path.
  *
- *
  * @param connection the connection
  * @param path a '/' delimited string of path elements
  * @param vtable the virtual table
  * @param user_data data to pass to functions in the vtable
- * @returns #FALSE if not enough memory
+ * @param error address where an error can be returned
+ * @returns #FALSE if an error (#DBUS_ERROR_NO_MEMORY or
+ *    #DBUS_ERROR_ADDRESS_IN_USE) is reported
  */
 dbus_bool_t
-dbus_connection_register_object_path (DBusConnection              *connection,
-                                      const char                  *path,
-                                      const DBusObjectPathVTable  *vtable,
-                                      void                        *user_data)
+dbus_connection_try_register_object_path (DBusConnection              *connection,
+                                          const char                  *path,
+                                          const DBusObjectPathVTable  *vtable,
+                                          void                        *user_data,
+                                          DBusError                   *error)
 {
   char **decomposed_path;
   dbus_bool_t retval;
@@ -5294,7 +5296,108 @@ dbus_connection_register_object_path (DBusConnection              *connection,
   retval = _dbus_object_tree_register (connection->objects,
                                        FALSE,
                                        (const char **) decomposed_path, vtable,
-                                       user_data);
+                                       user_data, error);
+
+  CONNECTION_UNLOCK (connection);
+
+  dbus_free_string_array (decomposed_path);
+
+  return retval;
+}
+
+/**
+ * Registers a handler for a given path in the object hierarchy.
+ * The given vtable handles messages sent to exactly the given path.
+ *
+ * It is a bug to call this function for object paths which already
+ * have a handler. Use dbus_connection_try_register_object_path() if this
+ * might be the case.
+ *
+ * @param connection the connection
+ * @param path a '/' delimited string of path elements
+ * @param vtable the virtual table
+ * @param user_data data to pass to functions in the vtable
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_connection_register_object_path (DBusConnection              *connection,
+                                      const char                  *path,
+                                      const DBusObjectPathVTable  *vtable,
+                                      void                        *user_data)
+{
+  char **decomposed_path;
+  dbus_bool_t retval;
+  DBusError error;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] == '/', FALSE);
+  _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
+  dbus_error_init (&error);
+
+  if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
+    return FALSE;
+
+  CONNECTION_LOCK (connection);
+
+  retval = _dbus_object_tree_register (connection->objects,
+                                       FALSE,
+                                       (const char **) decomposed_path, vtable,
+                                       user_data, &error);
+
+  CONNECTION_UNLOCK (connection);
+
+  dbus_free_string_array (decomposed_path);
+
+  if (dbus_error_has_name (&error, DBUS_ERROR_ADDRESS_IN_USE))
+    {
+      _dbus_warn ("%s\n", error.message);
+      dbus_error_free (&error);
+      return FALSE;
+    }
+
+  return retval;
+}
+
+/**
+ * Registers a fallback handler for a given subsection of the object
+ * hierarchy.  The given vtable handles messages at or below the given
+ * path. You can use this to establish a default message handling
+ * policy for a whole "subdirectory."
+ *
+ * @param connection the connection
+ * @param path a '/' delimited string of path elements
+ * @param vtable the virtual table
+ * @param user_data data to pass to functions in the vtable
+ * @param error address where an error can be returned
+ * @returns #FALSE if an error (#DBUS_ERROR_NO_MEMORY or
+ *    #DBUS_ERROR_ADDRESS_IN_USE) is reported
+ */
+dbus_bool_t
+dbus_connection_try_register_fallback (DBusConnection              *connection,
+                                       const char                  *path,
+                                       const DBusObjectPathVTable  *vtable,
+                                       void                        *user_data,
+                                       DBusError                   *error)
+{
+  char **decomposed_path;
+  dbus_bool_t retval;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] == '/', FALSE);
+  _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
+  if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
+    return FALSE;
+
+  CONNECTION_LOCK (connection);
+
+  retval = _dbus_object_tree_register (connection->objects,
+                                       TRUE,
+                                       (const char **) decomposed_path, vtable,
+                                       user_data, error);
 
   CONNECTION_UNLOCK (connection);
 
@@ -5308,6 +5411,10 @@ dbus_connection_register_object_path (DBusConnection              *connection,
  * hierarchy.  The given vtable handles messages at or below the given
  * path. You can use this to establish a default message handling
  * policy for a whole "subdirectory."
+ *
+ * It is a bug to call this function for object paths which already
+ * have a handler. Use dbus_connection_try_register_fallback() if this
+ * might be the case.
  *
  * @param connection the connection
  * @param path a '/' delimited string of path elements
@@ -5323,11 +5430,14 @@ dbus_connection_register_fallback (DBusConnection              *connection,
 {
   char **decomposed_path;
   dbus_bool_t retval;
-  
+  DBusError error;
+
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (path != NULL, FALSE);
   _dbus_return_val_if_fail (path[0] == '/', FALSE);
   _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
+  dbus_error_init (&error);
 
   if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
     return FALSE;
@@ -5337,11 +5447,18 @@ dbus_connection_register_fallback (DBusConnection              *connection,
   retval = _dbus_object_tree_register (connection->objects,
                                        TRUE,
 				       (const char **) decomposed_path, vtable,
-                                       user_data);
+                                       user_data, &error);
 
   CONNECTION_UNLOCK (connection);
 
   dbus_free_string_array (decomposed_path);
+
+  if (dbus_error_has_name (&error, DBUS_ERROR_ADDRESS_IN_USE))
+    {
+      _dbus_warn ("%s\n", error.message);
+      dbus_error_free (&error);
+      return FALSE;
+    }
 
   return retval;
 }

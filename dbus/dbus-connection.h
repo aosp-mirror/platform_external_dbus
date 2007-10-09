@@ -321,10 +321,23 @@ struct DBusObjectPathVTable
   void (* dbus_internal_pad4) (void *); /**< Reserved for future expansion */
 };
 
+dbus_bool_t dbus_connection_try_register_object_path (DBusConnection              *connection,
+                                                      const char                  *path,
+                                                      const DBusObjectPathVTable  *vtable,
+                                                      void                        *user_data,
+                                                      DBusError                   *error);
+
 dbus_bool_t dbus_connection_register_object_path   (DBusConnection              *connection,
                                                     const char                  *path,
                                                     const DBusObjectPathVTable  *vtable,
                                                     void                        *user_data);
+
+dbus_bool_t dbus_connection_try_register_fallback (DBusConnection              *connection,
+                                                   const char                  *path,
+                                                   const DBusObjectPathVTable  *vtable,
+                                                   void                        *user_data,
+                                                   DBusError                   *error);
+
 dbus_bool_t dbus_connection_register_fallback      (DBusConnection              *connection,
                                                     const char                  *path,
                                                     const DBusObjectPathVTable  *vtable,
