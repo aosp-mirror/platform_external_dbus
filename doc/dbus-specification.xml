@@ -566,7 +566,7 @@
                   given in the signature.
                   Unlike a message signature, the variant signature 
                   can contain only a single complete type.
-                  So "i" is OK, "ii" is not.
+                  So "i", "ai" or "(ii)" is OK, but "ii" is not.
                 </entry>
                 <entry>
                   1 (alignment of the signature)
