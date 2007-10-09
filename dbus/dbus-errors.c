@@ -34,7 +34,29 @@
  * @brief Error reporting internals
  * @{
  */
- 
+
+/**
+ * @def DBUS_ERROR_INITIALIZER
+ *
+ * Expands to a suitable initializer for a DBusError on the stack.
+ * Declaring a DBusError with:
+ *
+ * @code
+ * DBusError error = DBUS_ERROR_INITIALIZER;
+ *
+ * do_things_with (&error);
+ * @endcode
+ *
+ * is a more concise form of:
+ *
+ * @code
+ * DBusError error;
+ *
+ * dbus_error_init (&error);
+ * do_things_with (&error);
+ * @endcode
+ */
+
 /**
  * Internals of DBusError
  */
