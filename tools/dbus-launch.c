@@ -324,17 +324,16 @@ print_variables (const char *bus_address, pid_t bus_pid, long bus_wid,
       printf ("setenv DBUS_SESSION_BUS_ADDRESS '%s';\n", bus_address);	
       printf ("set DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
       if (bus_wid)
-	printf ("set DBUS_SESSION_BUS_WINDOWID=%ld;\n", (long) bus_wid);
+        printf ("set DBUS_SESSION_BUS_WINDOWID=%ld;\n", (long) bus_wid);
       fflush (stdout);
     }
   else if (bourne_shell_syntax)
     {
       printf ("DBUS_SESSION_BUS_ADDRESS='%s';\n", bus_address);
-      if (bourne_shell_syntax)
-	printf ("export DBUS_SESSION_BUS_ADDRESS;\n");
+      printf ("export DBUS_SESSION_BUS_ADDRESS;\n");
       printf ("DBUS_SESSION_BUS_PID=%ld;\n", (long) bus_pid);
       if (bus_wid)
-	printf ("DBUS_SESSION_BUS_WINDOWID=%ld;\n", (long) bus_wid);
+        printf ("DBUS_SESSION_BUS_WINDOWID=%ld;\n", (long) bus_wid);
       fflush (stdout);
     }
   else

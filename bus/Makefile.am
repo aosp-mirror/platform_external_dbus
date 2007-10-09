@@ -1,7 +1,7 @@
 
 configdir=$(sysconfdir)/dbus-1
 
-INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS)				\
+INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS) @PIE_CFLAGS@		\
 	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"	\
 	-DDAEMON_NAME=\"dbus-daemon\"  -DDBUS_COMPILATION
 
@@ -77,7 +77,7 @@ dbus_daemon_LDADD=					\
 	$(DBUS_BUS_LIBS)				\
 	$(top_builddir)/dbus/libdbus-convenience.la
 
-dbus_daemon_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
+dbus_daemon_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@ @PIE_LDFLAGS@
 
 LAUNCH_HELPER_SOURCES=				\
 	$(XML_SOURCES)				\

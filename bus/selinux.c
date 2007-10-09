@@ -113,7 +113,7 @@ static const struct avc_lock_callback lock_cb =
 static int audit_fd = -1;
 #endif
 
-static void
+void
 audit_init(void)
 {
 #ifdef HAVE_LIBAUDIT  
@@ -350,12 +350,8 @@ bus_selinux_full_init (void)
 
   freecon (bus_context);
   
-  audit_init ();
-
-  return TRUE;
-#else
-  return TRUE;
 #endif /* HAVE_SELINUX */
+  return TRUE;
 }
 
 /**
