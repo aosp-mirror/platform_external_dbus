@@ -1,3 +1,16 @@
+2007-10-10  Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
+	* dbus/dbus-errors.c, dbus/dbus-protocol.h: Add new error
+	org.freedesktop.DBus.Error.ObjectPathInUse
+	* dbus/dbus-object-tree.h, dbus/dbus-object-tree.c,
+	dbus/dbus-connection.c, dbus/dbus-connection.h: add new functions
+	dbus_connection_try_register_object_path and
+	dbus_connection_try_register_fallback, which raise ObjectPathInUse
+	rather than asserting, to make object path registration less painful
+	for bindings
+	* .gitignore: add various things that weren't in .cvsignore because
+	CVS implicitly ignored them; generally bring up to date
+
 2007-10-09  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* doc/dbus-specification.xml: Specifically forbid empty structs (#7969)
