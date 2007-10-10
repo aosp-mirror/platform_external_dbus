@@ -36,13 +36,13 @@
  */
 
 /**
- * @def DBUS_ERROR_INITIALIZER
+ * @def DBUS_ERROR_INIT
  *
  * Expands to a suitable initializer for a DBusError on the stack.
  * Declaring a DBusError with:
  *
  * @code
- * DBusError error = DBUS_ERROR_INITIALIZER;
+ * DBusError error = DBUS_ERROR_INIT;
  *
  * do_things_with (&error);
  * @endcode

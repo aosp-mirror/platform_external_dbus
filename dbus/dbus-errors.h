@@ -58,7 +58,7 @@ struct DBusError
   void *padding1; /**< placeholder */
 };
 
-#define DBUS_ERROR_INITIALIZER { NULL, NULL, 0, 0, 0, 0, 0, NULL }
+#define DBUS_ERROR_INIT { NULL, NULL, TRUE, 0, 0, 0, 0, NULL }
 
 void        dbus_error_init      (DBusError       *error);
 void        dbus_error_free      (DBusError       *error);
