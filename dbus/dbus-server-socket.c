@@ -153,8 +153,8 @@ socket_handle_watch (DBusWatch    *watch,
                    void         *data)
 {
   DBusServer *server = data;
-  DBusServerSocket *socket_server = data;
 #ifndef DBUS_DISABLE_ASSERT
+  DBusServerSocket *socket_server = data;
   int i;
   dbus_bool_t found = FALSE;
 #endif
