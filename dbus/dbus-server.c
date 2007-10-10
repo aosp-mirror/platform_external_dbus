@@ -543,7 +543,7 @@ dbus_server_listen (const char     *address,
   DBusServer *server;
   DBusAddressEntry **entries;
   int len, i;
-  DBusError first_connect_error;
+  DBusError first_connect_error = DBUS_ERROR_INIT;
   dbus_bool_t handled_once;
   
   _dbus_return_val_if_fail (address != NULL, NULL);
@@ -553,9 +553,8 @@ dbus_server_listen (const char     *address,
     return NULL;
 
   server = NULL;
-  dbus_error_init (&first_connect_error);
   handled_once = FALSE;
-  
+
   for (i = 0; i < len; i++)
     {
       int j;
@@ -563,9 +562,8 @@ dbus_server_listen (const char     *address,
       for (j = 0; j < (int) _DBUS_N_ELEMENTS (listen_funcs); ++j)
         {
           DBusServerListenResult result;
-          DBusError tmp_error;
-      
-          dbus_error_init (&tmp_error);
+          DBusError tmp_error = DBUS_ERROR_INIT;
+
           result = (* listen_funcs[j].func) (entries[i],
                                              &server,
                                              &tmp_error);
@@ -1167,11 +1165,10 @@ _dbus_server_test (void)
   
   for (i = 0; i < _DBUS_N_ELEMENTS (valid_addresses); i++)
     {
-      DBusError error;
+      DBusError error = DBUS_ERROR_INIT;
       char *address;
       char *id;
-      
-      dbus_error_init (&error);
+
       server = dbus_server_listen (valid_addresses[i], &error);
       if (server == NULL)
         {

@@ -917,9 +917,8 @@ void
 _dbus_win_warn_win_error (const char *message,
                           int         code)
 {
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
-  dbus_error_init (&error);
   _dbus_win_set_error_from_win_error (&error, code);
   _dbus_warn ("%s: %s\n", message, error.message);
   dbus_error_free (&error);

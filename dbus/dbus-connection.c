@@ -1709,8 +1709,8 @@ _dbus_connection_open_internal (const char     *address,
 {
   DBusConnection *connection;
   DBusAddressEntry **entries;
-  DBusError tmp_error;
-  DBusError first_error;
+  DBusError tmp_error = DBUS_ERROR_INIT;
+  DBusError first_error = DBUS_ERROR_INIT;
   int len, i;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -1725,8 +1725,6 @@ _dbus_connection_open_internal (const char     *address,
   
   connection = NULL;
 
-  dbus_error_init (&tmp_error);
-  dbus_error_init (&first_error);
   for (i = 0; i < len; i++)
     {
       if (shared)
@@ -5327,14 +5325,12 @@ dbus_connection_register_object_path (DBusConnection              *connection,
 {
   char **decomposed_path;
   dbus_bool_t retval;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (path != NULL, FALSE);
   _dbus_return_val_if_fail (path[0] == '/', FALSE);
   _dbus_return_val_if_fail (vtable != NULL, FALSE);
-
-  dbus_error_init (&error);
 
   if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
     return FALSE;
@@ -5430,14 +5426,12 @@ dbus_connection_register_fallback (DBusConnection              *connection,
 {
   char **decomposed_path;
   dbus_bool_t retval;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (path != NULL, FALSE);
   _dbus_return_val_if_fail (path[0] == '/', FALSE);
   _dbus_return_val_if_fail (vtable != NULL, FALSE);
-
-  dbus_error_init (&error);
 
   if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
     return FALSE;

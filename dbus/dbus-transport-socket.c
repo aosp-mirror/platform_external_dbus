@@ -338,12 +338,11 @@ exchange_credentials (DBusTransport *transport,
                       dbus_bool_t    do_writing)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
   _dbus_verbose ("exchange_credentials: do_reading = %d, do_writing = %d\n",
                   do_reading, do_writing);
 
-  dbus_error_init (&error);
   if (do_writing && transport->send_credentials_pending)
     {
       if (_dbus_send_credentials_socket (socket_transport->fd,

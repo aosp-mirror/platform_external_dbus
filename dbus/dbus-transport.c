@@ -354,8 +354,8 @@ _dbus_transport_open (DBusAddressEntry *entry,
   const char *expected_guid_orig;
   char *expected_guid;
   int i;
-  DBusError tmp_error;
-  
+  DBusError tmp_error = DBUS_ERROR_INIT;
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   transport = NULL;
@@ -368,7 +368,6 @@ _dbus_transport_open (DBusAddressEntry *entry,
       return NULL;
     }
 
-  dbus_error_init (&tmp_error);
   for (i = 0; i < (int) _DBUS_N_ELEMENTS (open_funcs); ++i)
     {
       DBusTransportOpenResult result;

@@ -244,7 +244,7 @@ dbus_bool_t
 _dbus_auth_script_run (const DBusString *filename)
 {
   DBusString file;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
   DBusString line;
   dbus_bool_t retval;
   int line_no;
@@ -276,7 +276,6 @@ _dbus_auth_script_run (const DBusString *filename)
       return FALSE;
     }
 
-  dbus_error_init (&error);
   if (!_dbus_file_get_contents (&file, filename, &error))    {
       _dbus_warn ("Getting contents of %s failed: %s\n",
                   _dbus_string_get_const_data (filename), error.message);

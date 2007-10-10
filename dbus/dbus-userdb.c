@@ -239,14 +239,12 @@ init_system_db (void)
     
   if (system_db == NULL)
     {
-      DBusError error;
+      DBusError error = DBUS_ERROR_INIT;
       const DBusUserInfo *info;
       
       system_db = _dbus_user_database_new ();
       if (system_db == NULL)
         return FALSE;
-
-      dbus_error_init (&error);
 
       if (!_dbus_user_database_get_uid (system_db,
                                         _dbus_getuid (),

@@ -44,7 +44,7 @@ process_test_subdir (const DBusString          *test_base_dir,
   DBusString filename;
   DBusDirIter *dir;
   dbus_bool_t retval;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
   retval = FALSE;
   dir = NULL;
@@ -65,7 +65,6 @@ process_test_subdir (const DBusString          *test_base_dir,
   if (!_dbus_string_init (&filename))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
 
-  dbus_error_init (&error);
   dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {

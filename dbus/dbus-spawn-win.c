@@ -621,12 +621,8 @@ static dbus_bool_t
 check_spawn_nonexistent (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter;
-  DBusError error;
-
-  sitter = NULL;
-
-  dbus_error_init (&error);
+  DBusBabysitter *sitter = NULL;
+  DBusError error = DBUS_ERROR_INIT;
 
   /*** Test launching nonexistent binary */
 
@@ -666,12 +662,8 @@ static dbus_bool_t
 check_spawn_segfault (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter;
-  DBusError error;
-
-  sitter = NULL;
-
-  dbus_error_init (&error);
+  DBusBabysitter *sitter = NULL;
+  DBusError error = DBUS_ERROR_INIT;
 
   /*** Test launching segfault binary */
 
@@ -711,12 +703,8 @@ static dbus_bool_t
 check_spawn_exit (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter;
-  DBusError error;
-
-  sitter = NULL;
-
-  dbus_error_init (&error);
+  DBusBabysitter *sitter = NULL;
+  DBusError error = DBUS_ERROR_INIT;
 
   /*** Test launching exit failure binary */
 
@@ -756,12 +744,8 @@ static dbus_bool_t
 check_spawn_and_kill (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter;
-  DBusError error;
-
-  sitter = NULL;
-
-  dbus_error_init (&error);
+  DBusBabysitter *sitter = NULL;
+  DBusError error = DBUS_ERROR_INIT;
 
   /*** Test launching sleeping binary then killing it */
 

@@ -276,12 +276,11 @@ dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
                                             DBusString          *data)
 {
   dbus_bool_t retval;
-  DBusError error;
-  
+  DBusError error = DBUS_ERROR_INIT;
+
   retval = FALSE;
 
   _dbus_verbose ("Loading raw %s\n", _dbus_string_get_const_data (filename));
-  dbus_error_init (&error);
   if (!_dbus_file_get_contents (data, filename, &error))
     {
       _dbus_warn ("Could not load message file %s: %s\n",
@@ -450,7 +449,7 @@ process_test_subdir (const DBusString          *test_base_dir,
   DBusString filename;
   DBusDirIter *dir;
   dbus_bool_t retval;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
   retval = FALSE;
   dir = NULL;
@@ -471,7 +470,6 @@ process_test_subdir (const DBusString          *test_base_dir,
   if (!_dbus_string_init (&filename))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
 
-  dbus_error_init (&error);
   dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {
@@ -701,7 +699,7 @@ static void
 verify_test_message (DBusMessage *message)
 {
   DBusMessageIter iter;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
   dbus_int16_t our_int16;
   dbus_uint16_t our_uint16;
   dbus_int32_t our_int;
@@ -734,7 +732,6 @@ verify_test_message (DBusMessage *message)
 
   dbus_message_iter_init (message, &iter);
 
-  dbus_error_init (&error);
   if (!dbus_message_iter_get_args (&iter, &error,
                                    DBUS_TYPE_INT16, &our_int16,
                                    DBUS_TYPE_UINT16, &our_uint16,
@@ -1226,11 +1223,9 @@ _dbus_message_test (const char *test_data_dir)
       /* Marshal and demarshal the message. */
 
       DBusMessage *message2;
-      DBusError error;
+      DBusError error = DBUS_ERROR_INIT;
       char *marshalled = NULL;
       int len = 0;
-
-      dbus_error_init (&error);
 
       if (!dbus_message_marshal (message, &marshalled, &len))
         _dbus_assert_not_reached ("failed to marshal message");
