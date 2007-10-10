@@ -383,7 +383,7 @@ static char *flatten_path (const char **path);
  * @param user_data user data to pass to methods in the vtable
  * @param error address where an error can be returned
  * @returns #FALSE if an error (#DBUS_ERROR_NO_MEMORY or
- *    #DBUS_ERROR_ADDRESS_IN_USE) is reported
+ *    #DBUS_ERROR_OBJECT_PATH_IN_USE) is reported
  */
 dbus_bool_t
 _dbus_object_tree_register (DBusObjectTree              *tree,
@@ -402,9 +402,7 @@ _dbus_object_tree_register (DBusObjectTree              *tree,
   subtree = ensure_subtree (tree, path);
   if (subtree == NULL)
     {
-      if (error != NULL)
-        _DBUS_SET_OOM (error);
-
+      _DBUS_SET_OOM (error);
       return FALSE;
     }
 
@@ -414,7 +412,8 @@ _dbus_object_tree_register (DBusObjectTree              *tree,
         {
           char *complete_path = flatten_path (path);
 
-          dbus_set_error (error, DBUS_ERROR_ADDRESS_IN_USE, "A handler is already registered for %s",
+          dbus_set_error (error, DBUS_ERROR_OBJECT_PATH_IN_USE,
+                          "A handler is already registered for %s",
                           complete_path ? complete_path
                                         : "(cannot represent path: out of memory!)");
 
