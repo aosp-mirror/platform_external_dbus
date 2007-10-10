@@ -33,19 +33,35 @@ which is the name of a connection on the bus to send the message to. If
 .PP
 The object path and the name of the message to send must always be
 specified. Following arguments, if any, are the message contents
-(message arguments).  These are given as a type name, a colon, and
-then the value of the argument. The possible type names are: string,
-int32, uint32, double, byte, boolean.  (D-Bus supports more types than
-these, but \fIdbus-send\fP currently does not.)
+(message arguments).  These are given as type-specified values and 
+may include containers (arrays, dicts, and variants) as described below.
+
+.nf
+<contents>   ::= <item> | <container> [ <item> | <container>...]
+<item>       ::= <type>:<value>
+<container>  ::= <array> | <dict> | <variant>
+<array>      ::= array:<type>:<value>[,<value>...] 
+<dict>       ::= dict:<type>:<type>:<key>,<value>[,<key>,<value>...]
+<variant>    ::= variant:<type>:<value>
+<type>       ::= string | int16 | uint 16 | int32 | uint32 | int64 | uint64 | double | byte | boolean | objpath
+.fi
+
+D-Bus supports more types than these, but \fIdbus-send\fP currently
+does not.  Also, \fIdbus-send\fP does not permit empty containers
+or nested containers (e.g. arrays of variants).
 
 .PP
 Here is an example invocation:
 .nf
 
-  dbus-send \-\-dest='org.freedesktop.ExampleName            \\
+  dbus-send \-\-dest=org.freedesktop.ExampleName               \\
             /org/freedesktop/sample/object/name              \\
             org.freedesktop.ExampleInterface.ExampleMethod   \\
-            int32:47 string:'hello world' double:65.32
+            int32:47 string:'hello world' double:65.32       \\
+            array:string:"1st item","next item","last item"  \\
+            dict:string:int32:"one",1,"two",2,"three",3      \\
+            variant:int32:-8                                 \\
+            objpath:/org/freedesktop/sample/object/name 
 
 .fi
 
