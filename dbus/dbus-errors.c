@@ -97,6 +97,8 @@ message_from_error (const char *error)
     return "Did not get a reply message.";
   else if (strcmp (error, DBUS_ERROR_FILE_NOT_FOUND) == 0)
     return "File doesn't exist.";
+  else if (strcmp (error, DBUS_ERROR_OBJECT_PATH_IN_USE) == 0)
+    return "Object path already in use";
   else
     return error;
 }
