@@ -614,8 +614,10 @@ do_close_stderr (void)
 
   close (2);
   if (dup2 (fd, 2) == -1)
-    // error; we can't report an error anymore...
-    exit (1);
+    {
+      /* error; we can't report an error anymore... */
+      exit (1);
+    }
   close (fd);
 }
 
