@@ -7,6 +7,8 @@ Makefile.in
 dbus-daemon
 dbus-daemon-activation-helper
 dbus-daemon-activation-helper-test
+dbus-daemon-launch-helper
+dbus-daemon-launch-helper-test
 *.bb
 *.bbg
 *.da
@@ -17,3 +19,5 @@ messagebus
 session.conf
 system.conf
 dbus-daemon.1
+bus-test-launch-helper
+bus-test-system

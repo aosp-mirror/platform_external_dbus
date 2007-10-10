@@ -5,3 +5,5 @@ Makefile.in
 test-names
 test-pending-call-dispatch
 test-threads-init
+test-ids
+run-with-tmp-session-bus.conf
