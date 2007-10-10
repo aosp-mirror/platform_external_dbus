@@ -1065,17 +1065,17 @@ _dbus_validate_signature (const DBusString  *str,
 }
 
 /** define _dbus_check_is_valid_path() */
-DEFINE_DBUS_NAME_CHECK(path);
+DEFINE_DBUS_NAME_CHECK(path)
 /** define _dbus_check_is_valid_interface() */
-DEFINE_DBUS_NAME_CHECK(interface);
+DEFINE_DBUS_NAME_CHECK(interface)
 /** define _dbus_check_is_valid_member() */
-DEFINE_DBUS_NAME_CHECK(member);
+DEFINE_DBUS_NAME_CHECK(member)
 /** define _dbus_check_is_valid_error_name() */
-DEFINE_DBUS_NAME_CHECK(error_name);
+DEFINE_DBUS_NAME_CHECK(error_name)
 /** define _dbus_check_is_valid_bus_name() */
-DEFINE_DBUS_NAME_CHECK(bus_name);
+DEFINE_DBUS_NAME_CHECK(bus_name)
 /** define _dbus_check_is_valid_signature() */
-DEFINE_DBUS_NAME_CHECK(signature);
+DEFINE_DBUS_NAME_CHECK(signature)
 
 /** @} */
 
