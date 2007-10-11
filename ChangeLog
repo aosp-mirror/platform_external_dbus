@@ -10,6 +10,9 @@
 	* tools/dbus-launch.c: convert C++-style comment to C-style, add {}
 	for clarity
 	* .gitignore: ignore vi swapfiles
+	* dbus/dbus-errors.h, dbus/dbus-errors.c: Add DBUS_ERROR_INIT macro
+	for the benefit of libdbus users whose coding style allows initialized
+	variables (although dbus core coding style doesn't)
 
 2007-10-10  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
