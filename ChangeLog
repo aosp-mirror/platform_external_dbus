@@ -1,3 +1,11 @@
+2007-10-11  Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
+	* configure.in, dbus/dbus-sysdeps.h, dbus/dbus-sysdeps-unix.c: Fix
+	detection of i486 atomic ops. Previously, the attempts to determine
+	support at compile-time on Darwin were causing the i486 atomic ops to
+	be used on *all* i386 or x86-64 GCC builds (AH_VERBATIM can't be
+	conditionalized like we were trying to).
+
 2007-10-10  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* dbus/dbus-errors.c, dbus/dbus-protocol.h: Add new error
