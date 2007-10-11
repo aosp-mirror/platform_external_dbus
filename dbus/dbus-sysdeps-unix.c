@@ -1741,7 +1741,7 @@ _dbus_parse_uid (const DBusString      *uid_str,
 
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
 
-#ifdef DBUS_USE_ATOMIC_INT_486
+#if DBUS_USE_ATOMIC_INT_486_COND
 /* Taken from CVS version 1.7 of glibc's sysdeps/i386/i486/atomicity.h */
 /* Since the asm stuff here is gcc-specific we go ahead and use "inline" also */
 static inline dbus_int32_t
@@ -1768,7 +1768,7 @@ atomic_exchange_and_add (DBusAtomic            *atomic,
 dbus_int32_t
 _dbus_atomic_inc (DBusAtomic *atomic)
 {
-#ifdef DBUS_USE_ATOMIC_INT_486
+#if DBUS_USE_ATOMIC_INT_486_COND
   return atomic_exchange_and_add (atomic, 1);
 #else
   dbus_int32_t res;
@@ -1791,7 +1791,7 @@ _dbus_atomic_inc (DBusAtomic *atomic)
 dbus_int32_t
 _dbus_atomic_dec (DBusAtomic *atomic)
 {
-#ifdef DBUS_USE_ATOMIC_INT_486
+#if DBUS_USE_ATOMIC_INT_486_COND
   return atomic_exchange_and_add (atomic, -1);
 #else
   dbus_int32_t res;

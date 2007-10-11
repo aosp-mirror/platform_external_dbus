@@ -199,6 +199,16 @@ struct DBusAtomic
 #endif
 };
 
+/* The value we get from autofoo is in the form of a cpp expression;
+ * convert that to a conventional defined/undef switch. (We can't get
+ * the conventional defined/undef because of multiarch builds only running
+ * ./configure once, on Darwin.) */
+#if DBUS_HAVE_ATOMIC_INT_COND
+#   define DBUS_HAVE_ATOMIC_INT 1
+#else
+#   undef DBUS_HAVE_ATOMIC_INT
+#endif
+
 dbus_int32_t _dbus_atomic_inc (DBusAtomic *atomic);
 dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
 

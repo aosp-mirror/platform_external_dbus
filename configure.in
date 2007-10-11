@@ -536,7 +536,7 @@ fi
 
 #### Atomic integers (checks by Sebastian Wilhelmi for GLib)
 AC_MSG_CHECKING([whether to use inline assembler routines for atomic integers])
-have_atomic_inc=no
+have_atomic_inc_cond=0
 if test x"$GCC" = xyes; then
   if test "x$enable_ansi" = "xyes"; then
     AC_MSG_RESULT([no])
@@ -551,18 +551,13 @@ if test x"$GCC" = xyes; then
             AC_MSG_RESULT([darwin])
             # check at compile-time, so that it is possible to build universal
             # (with multiple architectures at once on the compile line)
-            AH_VERBATIM([DBUS_USE_ATOMIC_INT_486_DARWIN], [
-              #if (defined(__i386__) || defined(__x86_64__))
-              # define DBUS_USE_ATOMIC_INT_486 1
-              #endif
-            ])
+            have_atomic_inc_cond="(defined(__i386__) || defined(__x86_64__))"
             ;;
           *)
             AC_MSG_RESULT([i486])
-            AC_DEFINE_UNQUOTED(DBUS_USE_ATOMIC_INT_486, 1, [Use atomic integer implementation for 486])
+            have_atomic_inc_cond=1
             ;;
         esac
-        have_atomic_inc=yes
         ;;
       *)
         AC_MSG_RESULT([no])
@@ -570,20 +565,10 @@ if test x"$GCC" = xyes; then
     esac
   fi
 fi
-if test x$have_atomic_inc = xyes ; then
-  case $host_os in
-    darwin*)
-      AH_VERBATIM([DBUS_HAVE_ATOMIC_INT_DARWIN], [
-        #if (defined(__i386__) || defined(__x86_64__))
-        # define DBUS_HAVE_ATOMIC_INT 1
-        #endif
-      ])
-      ;;
-    *)
-      AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT, 1, [Some atomic integer implementation present])
-      ;;
-  esac
-fi
+AC_DEFINE_UNQUOTED([DBUS_USE_ATOMIC_INT_486_COND], ["$have_atomic_inc_cond"],
+                   [Always defined; expands to 1 if we should use atomic integer implementation for 486, else 0])
+AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT_COND, ["$have_atomic_inc_cond"],
+                   [Always defined; expands to 1 if we have an atomic integer implementation, else 0])
 
 #### Various functions
 AC_CHECK_LIB(socket,socket)
