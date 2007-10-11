@@ -27,6 +27,16 @@
 	* .gitignore: add various things that weren't in .cvsignore because
 	CVS implicitly ignored them; generally bring up to date
 
+2007-10-09  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/run-with-tmp-session-bus.sh: Fix env exports for better
+	portability (#9280)
+	* tools/dbus-send.1: Document syntax for container types in dbus-send
+	man file (#9553) - patch from Jack Spaar <jspaar at
+	users.sourceforge.net>
+
+	[Both OK for MIT/X11 relicensing -smcv]
+
 2007-10-09  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* doc/dbus-specification.xml: Specifically forbid empty structs (#7969)
@@ -35,6 +45,33 @@
 	variant (#10185, amended as per Havoc's comments)
 
 	[All of the above are OK for MIT/X11 licensing]
+
+2007-10-03  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-internals.h: fd.o bug #11678 Don't error out if compiler
+	does not support vararg macros. _dbus_verbose is the only function
+	that does this so make it a noop if vararg macros are not supported
+	* bus/selinux.c, dbus/dbus-sysdeps-util-unix.c: fd.o bug #12429
+	Reverse check to setpcap and only init audit if we were root
+	(patch by Dan Walsh <dwalsh@redhat.com>,
+	https://bugs.freedesktop.org/show_bug.cgi?id=12429). Reverse
+	we_were_root check to setpcap if we were root.  Also only init audit
+	if we were root.  So error dbus message will not show up when policy
+	reload happens.  dbus -session will no longer try to send audit
+	message, only system will.
+	* configure.in: fd.o bug #11872 improve linker test for --gc-sections.
+	Patch by Tim Mooney <enchanter at users.sourceforge.net>
+	* configure.in, dbus/dbus-sysdeps.c: fd.o bug #11872 fix clearenv for
+	systems that do not have it. Patch from Brian Cameron <brian.cameron
+	at sun.com>
+	* tools/dbus-launch.c: fd.o bug #12547 remove superfluous if.
+	Also convert tabs to spaces
+	* configure.in, bus/Makefile.am, dbus/Makefile.am: Correctly implement
+	-fPIC and -fPIE. For security reasons we want possition independent
+	code for libraries and possition independent executable for
+	executables. Before we were just enabling -fPIC. Now we correctly
+	enable -fPIC and -PIE for libdbus and the bus respectively. Proper
+	LD_FLAGS are set for each also.
 
 2007-09-20  Ryan Lortie  <desrt@desrt.ca>
 
