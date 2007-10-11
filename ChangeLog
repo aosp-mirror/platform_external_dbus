@@ -12,9 +12,15 @@
 	* tools/dbus-launch.c: convert C++-style comment to C-style, add {}
 	for clarity
 	* .gitignore: ignore vi swapfiles
-	* dbus/dbus-errors.h, dbus/dbus-errors.c: Add DBUS_ERROR_INIT macro
-	for the benefit of libdbus users whose coding style allows initialized
-	variables (although dbus core coding style doesn't)
+	* dbus/dbus-errors.h, dbus/dbus-errors.c: Add DBUS_ERROR_INIT macro,
+	equivalent to calling dbus_error_init() on an uninitialized DBusError
+	* dbus/dbus-address.c, dbus/dbus-auth-script.c, dbus/dbus-auth-util.c,
+	dbus/dbus-connection.c, dbus/dbus-internals.c, dbus/dbus-keyring.c,
+	dbus/dbus-message-util.c, dbus/dbus-server.c, dbus/dbus-sha.c,
+	dbus/dbus-spawn-win.c, dbus/dbus-spawn.c,
+	dbus/dbus-sysdeps-util-win.c, dbus/dbus-transport-socket.c,
+	dbus/dbus-transport.c, dbus/dbus-userdb.c: use that macro instead of
+	calling dbus_error_init() where it's clearly equivalent
 	* configure.in, dbus/dbus-sysdeps.h, dbus/dbus-sysdeps-unix.c: Fix
 	detection of i486 atomic ops. Previously, the attempts to determine
 	support at compile-time on Darwin were causing the i486 atomic ops to
