@@ -1,3 +1,9 @@
+2007-10-11  Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
+	* dbus/dbus-macros.h, dbus/dbus-arch-deps.h.in: Use new macro
+	_DBUS_GNUC_EXTENSION (the same as G_GNUC_EXTENSION) to avoid -ansi
+	warnings about use of "long long".
+
 2007-10-10  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* dbus/dbus-errors.c, dbus/dbus-protocol.h: Add new error
