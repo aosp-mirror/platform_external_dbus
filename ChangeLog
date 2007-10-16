@@ -1,3 +1,9 @@
+2007-10-16  Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
+	* configure.in: *Actually* fix detection of i486 atomic ops -
+	my previous attempt at a fix would always enable them due to wrong
+	quoting. Patch from Colin Walters <walters@verbum.org>
+
 2007-10-11  Simon McVittie  <simon.mcvittie@collabora.co.uk>
 
 	* configure.in: enable Autoconf's AC_C_INLINE to avoid compilation

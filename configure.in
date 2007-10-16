@@ -566,9 +566,9 @@ if test x"$GCC" = xyes; then
     esac
   fi
 fi
-AC_DEFINE_UNQUOTED([DBUS_USE_ATOMIC_INT_486_COND], ["$have_atomic_inc_cond"],
+AC_DEFINE_UNQUOTED([DBUS_USE_ATOMIC_INT_486_COND], [$have_atomic_inc_cond],
                    [Always defined; expands to 1 if we should use atomic integer implementation for 486, else 0])
-AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT_COND, ["$have_atomic_inc_cond"],
+AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT_COND, [$have_atomic_inc_cond],
                    [Always defined; expands to 1 if we have an atomic integer implementation, else 0])
 
 #### Various functions
