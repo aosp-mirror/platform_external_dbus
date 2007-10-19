@@ -433,7 +433,6 @@ _dbus_change_to_daemon_user  (const char    *user,
                           _dbus_strerror (errno));
           return FALSE;
         }
-      audit_init();
     }
 #endif
 
