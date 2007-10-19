@@ -1,9 +1,13 @@
-2007-10-19  Havoc Pennington  <hp@redhat.com>
+2007-10-19  Havoc Pennington  <hp@redhat.com>	
+	
+	* bus/bus.c (bus_context_new): put audit_init() in HAVE_SELINUX
+	
+2007-10-19  Havoc Pennington  <hp@redhat.com>	
 
 	* bus/bus.c (bus_context_new): put the audit_init() in here
 	instead, which I believe ends up being the same as where it was
 	before, though I'm not sure I understand why it goes here.
-	
+
 	* dbus/dbus-sysdeps-util-unix.c (_dbus_change_to_daemon_user):
 	remove audit_init() from here, this file can't depend on code in
 	bus/ directory

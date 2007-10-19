@@ -759,8 +759,10 @@ bus_context_new (const DBusString *config_file,
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
 	  goto failed;
 	}
-      
+
+#ifdef HAVE_SELINUX
       audit_init ();
+#endif
     }
 
   if (!bus_selinux_full_init ())
