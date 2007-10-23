@@ -67,5 +67,6 @@ BusSELinuxID* bus_selinux_init_connection_id (DBusConnection *connection,
                                               DBusError      *error);
 
 
+void bus_selinux_audit_init(void);
 
 #endif /* BUS_SELINUX_H */

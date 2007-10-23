@@ -114,7 +114,7 @@ static int audit_fd = -1;
 #endif
 
 void
-audit_init(void)
+bus_selinux_audit_init(void)
 {
 #ifdef HAVE_LIBAUDIT  
   audit_fd = audit_open ();

@@ -761,7 +761,8 @@ bus_context_new (const DBusString *config_file,
 	}
 
 #ifdef HAVE_SELINUX
-      audit_init ();
+      /* FIXME - why not just put this in full_init() below? */
+      bus_selinux_audit_init ();
 #endif
     }
 

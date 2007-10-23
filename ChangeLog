@@ -1,3 +1,11 @@
+2007-10-23  Havoc Pennington  <hp@redhat.com>
+
+	* bus/bus.c (bus_context_new): use the new name here
+
+	* bus/selinux.c (bus_selinux_audit_init): rename from audit_init()
+	to avoid possible libc conflict, and declare it in .h file to
+	avoid a warning
+
 2007-10-19  Havoc Pennington  <hp@redhat.com>	
 	
 	* bus/bus.c (bus_context_new): put audit_init() in HAVE_SELINUX
