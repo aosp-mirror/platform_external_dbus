@@ -178,7 +178,20 @@ static void
 log_audit_callback (void *data, security_class_t class, char *buf, size_t bufleft)
 {
   DBusString *audmsg = data;
-  _dbus_string_copy_to_buffer (audmsg, buf, bufleft);
+
+  if (bufleft > (size_t) _dbus_string_get_length(audmsg))
+    {
+      _dbus_string_copy_to_buffer_with_nul (audmsg, buf, bufleft);
+    }
+  else
+    {
+      DBusString s;
+
+      _dbus_string_init_const(&s, "Buffer too small for audit message");
+
+      if (bufleft > (size_t) _dbus_string_get_length(&s))
+        _dbus_string_copy_to_buffer_with_nul (&s, buf, bufleft);
+    }
 }
 
 /**

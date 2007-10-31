@@ -741,8 +741,9 @@ _dbus_string_copy_data (const DBusString  *str,
 }
 
 /**
- * Copies the contents of a DBusString into a different
- * buffer. The resulting buffer will be nul-terminated.
+ * Copies the contents of a DBusString into a different buffer. It is
+ * a bug if avail_len is too short to hold the string contents. nul
+ * termination is not copied, just the supplied bytes.
  * 
  * @param str a string
  * @param buffer a C buffer to copy data to
@@ -753,15 +754,34 @@ _dbus_string_copy_to_buffer (const DBusString  *str,
 			     char              *buffer,
 			     int                avail_len)
 {
-  int copy_len;
   DBUS_CONST_STRING_PREAMBLE (str);
 
   _dbus_assert (avail_len >= 0);
+  _dbus_assert (avail_len >= real->len);
+  
+  memcpy (buffer, real->str, real->len);
+}
 
-  copy_len = MIN (avail_len, real->len+1);
-  memcpy (buffer, real->str, copy_len);
-  if (avail_len > 0 && avail_len == copy_len)
-    buffer[avail_len-1] = '\0';
+/**
+ * Copies the contents of a DBusString into a different buffer. It is
+ * a bug if avail_len is too short to hold the string contents plus a
+ * nul byte. 
+ * 
+ * @param str a string
+ * @param buffer a C buffer to copy data to
+ * @param avail_len maximum length of C buffer
+ */
+void
+_dbus_string_copy_to_buffer_with_nul (const DBusString  *str,
+                                      char              *buffer,
+                                      int                avail_len)
+{
+  DBUS_CONST_STRING_PREAMBLE (str);
+
+  _dbus_assert (avail_len >= 0);
+  _dbus_assert (avail_len > real->len);
+  
+  memcpy (buffer, real->str, real->len+1);
 }
 
 #ifdef DBUS_BUILD_TESTS

@@ -1,3 +1,17 @@
+2007-10-31  Havoc Pennington  <hp@redhat.com>
+
+	* bus/selinux.c (log_audit_callback): rewrite to use
+	_dbus_string_copy_to_buffer_with_nul()
+
+	* dbus/dbus-string.c (_dbus_string_copy_to_buffer): change to NOT
+	nul-terminate the buffer; fail an assertion if there is not enough
+	space in the target buffer. This fixes two bugs where
+	copy_to_buffer was used to copy the binary bytes in a UUID, where
+	nul termination did not make sense. Bug reported by David Castelow.
+	(_dbus_string_copy_to_buffer_with_nul): new function that always
+	nul-terminates the buffer, and fails an assertion if there is not 
+	enough space in the buffer.
+
 2007-10-23  Havoc Pennington  <hp@redhat.com>
 
 	* bus/bus.c (bus_context_new): use the new name here

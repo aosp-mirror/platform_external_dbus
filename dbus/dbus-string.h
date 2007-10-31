@@ -120,6 +120,9 @@ dbus_bool_t   _dbus_string_copy_data_len         (const DBusString  *str,
 void          _dbus_string_copy_to_buffer        (const DBusString  *str,
                                                   char              *buffer,
 						  int                len);
+void          _dbus_string_copy_to_buffer_with_nul (const DBusString  *str,
+                                                    char              *buffer,
+                                                    int                avail_len);
 #ifndef _dbus_string_get_length
 int           _dbus_string_get_length            (const DBusString  *str);
 #endif /* !_dbus_string_get_length */
