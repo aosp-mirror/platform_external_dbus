@@ -1,3 +1,13 @@
+2008-03-04  Havoc Pennington  <hp@redhat.com>
+
+	* bus/connection.c, bus/expirelist.c: Make the BusExpireList
+	struct opaque, adding accessors for manipulating the list. In this
+	commit there should be no change in functionality or behavior. The
+	purpose of this change is to improve encapsulation prior to fixing
+	some bugs Kimmo Hämäläinen found where the timeout is not properly
+	updated, since we need to e.g. take some action whenever adding
+	and removing stuff from the expire list.
+
 2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
 
 	* fix broken poll on Mac OSX - build patch by Benjamin Reed

@@ -27,6 +27,16 @@
 #include <dbus/dbus-mainloop.h>
 #include <dbus/dbus-timeout.h>
 
+struct BusExpireList
+{
+  DBusList      *items; /**< List of BusExpireItem */
+  DBusTimeout   *timeout;
+  DBusLoop      *loop;
+  BusExpireFunc  expire_func;
+  void          *data;
+  int            expire_after; /**< Expire after milliseconds (thousandths) */
+};
+
 static dbus_bool_t expire_timeout_handler (void *data);
 
 static void
@@ -92,8 +102,8 @@ bus_expire_list_free (BusExpireList *list)
 }
 
 void
-bus_expire_timeout_set_interval (DBusTimeout *timeout,
-                                 int          next_interval)
+bus_expire_timeout_set_interval (DBusTimeout   *timeout,
+                                 int            next_interval)
 {
   if (next_interval >= 0)
     {
@@ -101,17 +111,25 @@ bus_expire_timeout_set_interval (DBusTimeout *timeout,
                                   next_interval);
       _dbus_timeout_set_enabled (timeout, TRUE);
 
-      _dbus_verbose ("Enabled expire timeout with interval %d\n",
+      _dbus_verbose ("Enabled an expire timeout with interval %d\n",
                      next_interval);
     }
   else if (dbus_timeout_get_enabled (timeout))
     {
       _dbus_timeout_set_enabled (timeout, FALSE);
 
-      _dbus_verbose ("Disabled expire timeout\n");
+      _dbus_verbose ("Disabled an expire timeout\n");
     }
   else
-    _dbus_verbose ("No need to disable expire timeout\n");
+    _dbus_verbose ("No need to disable this expire timeout\n");
+}
+
+void
+bus_expire_list_recheck_immediately (BusExpireList *list)
+{
+  _dbus_verbose ("setting interval on expire list to 0 for immediate recheck\n");
+
+  bus_expire_timeout_set_interval (list->timeout, 0);
 }
 
 static int
@@ -201,6 +219,68 @@ expire_timeout_handler (void *data)
   return TRUE;
 }
 
+void
+bus_expire_list_remove_link (BusExpireList *list,
+                             DBusList      *link)
+{
+  _dbus_list_remove_link (&list->items,
+                          link);
+}
+
+dbus_bool_t
+bus_expire_list_remove (BusExpireList *list,
+                        BusExpireItem *item)
+{
+  return _dbus_list_remove (&list->items,
+                            item);
+}
+
+void
+bus_expire_list_unlink (BusExpireList *list,
+                        DBusList      *link)
+{
+  _dbus_list_unlink (&list->items, link);
+}
+
+dbus_bool_t
+bus_expire_list_add (BusExpireList *list,
+                     BusExpireItem *item)
+{
+  return _dbus_list_prepend (&list->items,
+                             item);
+}
+
+void
+bus_expire_list_add_link (BusExpireList *list,
+                          DBusList      *link)
+{
+  _dbus_assert (link->data != NULL);
+  
+  _dbus_list_prepend_link (&list->items,
+                           link);
+}
+
+DBusList*
+bus_expire_list_get_first_link (BusExpireList *list)
+{
+  return _dbus_list_get_first_link (&list->items);
+}
+
+DBusList*
+bus_expire_list_get_next_link (BusExpireList *list,
+                               DBusList      *link)
+{
+  return _dbus_list_get_next_link (&list->items,
+                                   link);
+}
+
+dbus_bool_t
+bus_expire_list_contains_item (BusExpireList *list,
+                               BusExpireItem *item)
+{
+  return _dbus_list_find_last (&list->items, item) != NULL;
+}
+
 #ifdef DBUS_BUILD_TESTS
 
 typedef struct
@@ -283,7 +363,7 @@ bus_expire_list_test (const DBusString *test_data_dir)
 
   item->item.added_tv_sec = tv_sec;
   item->item.added_tv_usec = tv_usec;
-  if (!_dbus_list_append (&list->items, item))
+  if (!bus_expire_list_add (list, &item->item))
     _dbus_assert_not_reached ("out of memory");
 
   next_interval =
@@ -307,7 +387,7 @@ bus_expire_list_test (const DBusString *test_data_dir)
   _dbus_verbose ("next_interval = %d\n", next_interval);
   _dbus_assert (next_interval == 1000 + EXPIRE_AFTER);
 
-  _dbus_list_clear (&list->items);
+  bus_expire_list_remove (list, &item->item);
   dbus_free (item);
   
   bus_expire_list_free (list);
