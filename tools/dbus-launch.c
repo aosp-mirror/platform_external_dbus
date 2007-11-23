@@ -23,6 +23,7 @@
  */
 #include "dbus-launch.h"
 #include <stdlib.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -60,6 +61,49 @@ save_machine_uuid (const char *uuid_arg)
 
   machine_uuid = xstrdup (uuid_arg);
 }
+
+#define UUID_MAXLEN 40
+/* Read the machine uuid from file if needed. Returns TRUE if machine_uuid is
+ * set after this function */
+static int
+read_machine_uuid_if_needed (void)
+{
+  FILE *f;
+  char uuid[UUID_MAXLEN];
+  size_t len;
+  int ret = FALSE;
+
+  if (machine_uuid != NULL)
+    return TRUE;
+
+  f = fopen (DBUS_MACHINE_UUID_FILE, "r");
+  if (f == NULL)
+    return FALSE;
+
+  if (fgets (uuid, UUID_MAXLEN, f) == NULL)
+    goto out;
+
+  len = strlen (uuid);
+  if (len < 32)
+    goto out;
+
+  /* rstrip the read uuid */
+  while (len > 31 && isspace(uuid[len - 1]))
+    len--;
+
+  if (len != 32)
+    goto out;
+
+  uuid[len] = '\0';
+  machine_uuid = xstrdup (uuid);
+  verbose ("UID: %s\n", machine_uuid);
+  ret = TRUE;
+
+out:
+  fclose(f);
+  return ret;
+}
+
 
 void
 verbose (const char *format,
@@ -290,19 +334,24 @@ do_waitpid (pid_t pid)
 
 static pid_t bus_pid_to_kill = -1;
 
+static void
+kill_bus()
+{
+  verbose ("Killing message bus and exiting babysitter\n");
+  kill (bus_pid_to_kill, SIGTERM);
+  sleep (3);
+  kill (bus_pid_to_kill, SIGKILL);
+}
+
 void
 kill_bus_and_exit (int exitcode)
 {
-  verbose ("Killing message bus and exiting babysitter\n");
-  
   /* in case these point to any NFS mounts, get rid of them immediately */
   close (0);
   close (1);
   close (2);
 
-  kill (bus_pid_to_kill, SIGTERM);
-  sleep (3);
-  kill (bus_pid_to_kill, SIGKILL);
+  kill_bus();
 
   exit (exitcode);
 }
@@ -621,6 +670,63 @@ do_close_stderr (void)
   close (fd);
 }
 
+static void
+pass_info (const char *runprog, const char *bus_address, pid_t bus_pid,
+           long bus_wid, int c_shell_syntax, int bourne_shell_syntax,
+           int binary_syntax,
+           int argc, char **argv, int remaining_args)
+{
+  if (runprog)
+    {
+      char *envvar;
+      char **args;
+      int i;
+
+      envvar = malloc (strlen ("DBUS_SESSION_BUS_ADDRESS=") +
+          strlen (bus_address) + 1);
+      args = malloc (sizeof (char *) * ((argc-remaining_args)+2));
+
+      if (envvar == NULL || args == NULL)
+        goto oom;
+
+     args[0] = xstrdup (runprog);
+      if (!args[0])
+        goto oom;
+     for (i = 1; i <= (argc-remaining_args); i++)
+      {
+        size_t len = strlen (argv[remaining_args+i-1])+1;
+        args[i] = malloc (len);
+        if (!args[i])
+          goto oom;
+        strncpy (args[i], argv[remaining_args+i-1], len);
+       }
+     args[i] = NULL;
+
+     strcpy (envvar, "DBUS_SESSION_BUS_ADDRESS=");
+     strcat (envvar, bus_address);
+     putenv (envvar);
+
+     execvp (runprog, args);
+     fprintf (stderr, "Couldn't exec %s: %s\n", runprog, strerror (errno));
+     exit (1);
+    }
+   else
+    {
+      print_variables (bus_address, bus_pid, bus_wid, c_shell_syntax,
+         bourne_shell_syntax, binary_syntax);
+    }
+  verbose ("dbus-launch exiting\n");
+
+  fflush (stdout);
+  fflush (stderr);
+  close (1);
+  close (2);
+  exit (0);
+oom:
+  fprintf (stderr, "Out of memory!");
+  exit (1);
+}
+
 #define READ_END  0
 #define WRITE_END 1
 
@@ -801,16 +907,6 @@ main (int argc, char **argv)
           exit (1);
         }
 
-      /* FIXME right now autolaunch always does print_variables(), but it should really
-       * exec the child program instead if a child program was specified. For now
-       * we just exit if this conflict arises.
-       */
-      if (runprog)
-        {
-          fprintf (stderr, "Currently --autolaunch does not support running a program\n");
-          exit (1);
-        }
-      
       verbose ("Autolaunch enabled (using X11).\n");
       if (!exit_with_session)
 	{
@@ -831,14 +927,19 @@ main (int argc, char **argv)
 	}
 
       if (address != NULL)
-	{          
+	{
 	  verbose ("dbus-daemon is already running. Returning existing parameters.\n");
-	  print_variables (address, pid, wid, c_shell_syntax,
-			   bourne_shell_syntax, binary_syntax);
+	  pass_info (runprog, address, pid, wid, c_shell_syntax,
+			   bourne_shell_syntax, binary_syntax, argc, argv, remaining_args);
 	  exit (0);
 	}
+    }
+   else if (read_machine_uuid_if_needed())
+    {
+      x11_init();
 #endif
     }
+
 
   if (pipe (bus_pid_to_launcher_pipe) < 0 ||
       pipe (bus_address_to_launcher_pipe) < 0 ||
@@ -1052,37 +1153,35 @@ main (int argc, char **argv)
       close (bus_pid_to_launcher_pipe[READ_END]);
 
 #ifdef DBUS_BUILD_X11
-      /* FIXME the runprog == NULL is broken - we need to launch the runprog with the existing bus,
-       * instead of just doing print_variables() if there's an existing bus.
-       */
-      if (xdisplay != NULL && runprog == NULL)
+      if (xdisplay != NULL)
         {
+          verbose("Saving x11 address\n");
           ret2 = x11_save_address (bus_address, bus_pid, &wid);
-          if (ret2 == 0)
+          /* Only get an existing dbus session when autolaunching */
+          if (autolaunch)
             {
-              /* another window got added. Return its address */
-              char *address;
-              pid_t pid;
-              long wid;
-              
-              if (x11_get_address (&address, &pid, &wid) && address != NULL)
+              if (ret2 == 0)
                 {
-                  verbose ("dbus-daemon is already running. Returning existing parameters.\n");
-                  print_variables (address, pid, wid, c_shell_syntax,
-                                   bourne_shell_syntax, binary_syntax);
-                  free (address);
-                  
+                  char *address = NULL;
+                  /* another window got added. Return its address */
                   bus_pid_to_kill = bus_pid;
-                  kill_bus_and_exit (0);
+                  if (x11_get_address (&address, &bus_pid, &wid)
+                       && address != NULL)
+                    {
+                      verbose ("dbus-daemon is already running. Returning existing parameters.\n");
+                      /* Kill the old bus */
+                      kill_bus();
+                      pass_info (runprog, address, bus_pid, wid,
+                         c_shell_syntax, bourne_shell_syntax, binary_syntax,
+                         argc, argv, remaining_args);
+                    }
+                  }
+              if (ret2 < 0)
+                {
+                  fprintf (stderr, "Error saving bus information.\n");
+                  bus_pid_to_kill = bus_pid;
+                  kill_bus_and_exit (1);
                 }
-              
-              /* if failed, fall through */
-            }
-          if (ret2 <= 0)
-            {
-              fprintf (stderr, "Error saving bus information.\n");
-              bus_pid_to_kill = bus_pid;
-              kill_bus_and_exit (1);
             }
         }
 #endif
@@ -1091,56 +1190,9 @@ main (int argc, char **argv)
       write_pid (bus_pid_to_babysitter_pipe[WRITE_END], bus_pid);
       close (bus_pid_to_babysitter_pipe[WRITE_END]);
 
-      if (runprog)
-	{
-	  char *envvar;
-	  char **args;
+       pass_info (runprog, bus_address, bus_pid, wid, c_shell_syntax,
+              bourne_shell_syntax, binary_syntax, argc, argv, remaining_args);
+    }
 
-	  envvar = malloc (strlen ("DBUS_SESSION_BUS_ADDRESS=") + strlen (bus_address) + 1);
-	  args = malloc (sizeof (char *) * ((argc-remaining_args)+2));
-
-	  if (envvar == NULL || args == NULL)
-	    goto oom;
-
-	  args[0] = xstrdup (runprog);
-	  if (!args[0])
-	    goto oom;
-	  for (i = 1; i <= (argc-remaining_args); i++)
-	    {
-	      size_t len = strlen (argv[remaining_args+i-1])+1;
-	      args[i] = malloc (len);
-	      if (!args[i])
-		goto oom;
-	      strncpy (args[i], argv[remaining_args+i-1], len);
-	    }
-	  args[i] = NULL;
-
-	  strcpy (envvar, "DBUS_SESSION_BUS_ADDRESS=");
-	  strcat (envvar, bus_address);
-	  putenv (envvar);
-
-	  execvp (runprog, args);
-	  fprintf (stderr, "Couldn't exec %s: %s\n", runprog, strerror (errno));
-	  exit (1);
-	}
-      else
-	{
-	  print_variables (bus_address, bus_pid, wid, c_shell_syntax,
-			   bourne_shell_syntax, binary_syntax);
-	}
-	  
-      verbose ("dbus-launch exiting\n");
-
-      fflush (stdout);
-      fflush (stderr);
-      close (1);
-      close (2);
-      
-      exit (0);
-    } 
-  
   return 0;
- oom:
-  fprintf (stderr, "Out of memory!");
-  exit (1);
 }

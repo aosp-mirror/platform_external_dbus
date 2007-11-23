@@ -1,3 +1,13 @@
+2007-11-23  Sjoerd Simons  <sjoerd@luon.net>
+
+	* tools/dbus-launch.c: let both a normal dbus-launch and an
+	autolaunched bus save their parameters in X11 if possible. This makes
+	the autolaunch and non-autolaunch behaviour more similar. With the
+	exception that on a normal launch there will always be a new session
+	bus and not being able to save parameters is not fatal. This also
+	enables to launch programs directly with autolaunch (not very usefull
+	though).
+
 2007-10-31  Havoc Pennington  <hp@redhat.com>
 
 	* bus/selinux.c (log_audit_callback): rewrite to use
