@@ -2288,10 +2288,11 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
       return;
     }
   
-  if (status == DBUS_DISPATCH_DATA_REMAINS) {
-    if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
-      return;
-  }
+  if (status == DBUS_DISPATCH_DATA_REMAINS)
+    {
+      if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
+        return;
+    }
   
   _dbus_get_current_time (&tv_sec, &tv_usec);
   

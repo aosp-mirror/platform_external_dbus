@@ -1,3 +1,8 @@
+2007-12-18  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection.c (_dbus_connection_block_pending_call):
+	fix location of curly braces
+
 2007-11-23  Sjoerd Simons  <sjoerd@luon.net>
 
 	* tools/dbus-launch.c: let both a normal dbus-launch and an
