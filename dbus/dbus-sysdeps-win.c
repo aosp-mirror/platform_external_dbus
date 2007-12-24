@@ -3033,7 +3033,7 @@ _dbus_get_autolaunch_address (DBusString *address,
 
 //  argv[i] = "--config-file=bus\\session.conf";
   printf("create process \"%s\" %s\n", dbus_exe_path, dbus_args);
-  if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+  if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
     {
       retval = TRUE;
 
