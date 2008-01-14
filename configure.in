@@ -1361,3 +1361,7 @@ fi
 if test x$enable_checks = xno; then
         echo "NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-Bus, but will slightly decrease D-Bus library size and _very_ slightly improve performance."
 fi
+if test x$dbus_use_libxml = xtrue; then
+        echo
+	echo "WARNING: You have chosen to use libxml as your xml parser however this code path is not maintained by the D-Bus developers and if it breaks you get to keep the pieces.  If you have selected this option in err please reconfigure with expat (e.g. --with-xml=expat)."
+fi

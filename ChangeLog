@@ -1,5 +1,11 @@
 2008-01-14  John (J5) Palmieri  <johnp@redhat.com>
 
+	* configure.in: add warning to output when libxml is selected since
+	we don't have a libxml maintainer and expat works perfectly fine
+	for what we need an xml parser for
+
+2008-01-14  John (J5) Palmieri  <johnp@redhat.com>
+
 	* Patch by Andrea Luzzardi  <scox at sig11 dot org>: creates a
 	_dbus_geteuid function to fix EXTERNAL authentication in setuid
 	applications
