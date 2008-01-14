@@ -724,6 +724,10 @@ do_reading (DBusTransport *transport)
                                        buffer))
             {
               _dbus_verbose ("Out of memory decoding incoming data\n");
+              _dbus_message_loader_return_buffer (transport->loader,
+                                              buffer,
+                                              _dbus_string_get_length (buffer) - orig_len);
+
               oom = TRUE;
               goto out;
             }
