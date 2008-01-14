@@ -332,7 +332,7 @@ _dbus_change_to_daemon_user  (const char    *user,
     }
   
 #ifdef HAVE_LIBAUDIT
-  we_were_root = _dbus_getuid () == 0;
+  we_were_root = _dbus_geteuid () == 0;
   new_caps = NULL;
   /* have a tmp set of caps that we use to transition to the usr/grp dbus should
    * run as ... doesn't really help. But keeps people happy.
@@ -990,7 +990,7 @@ _dbus_unix_user_is_at_console (dbus_uid_t         uid,
 dbus_bool_t
 _dbus_unix_user_is_process_owner (dbus_uid_t uid)
 {
-  return uid == _dbus_getuid ();
+  return uid == _dbus_geteuid ();
 }
 
 /**

@@ -834,7 +834,16 @@ out1:
  * @returns process UID
  */
 dbus_uid_t
-_dbus_getuid(void)
+_dbus_getuid (void)
+{
+	return DBUS_UID_UNSET;
+}
+
+/** Gets our effective UID
+ * @returns process effective UID
+ */
+dbus_uid_t
+_dbus_geteuid (void)
 {
 	return DBUS_UID_UNSET;
 }

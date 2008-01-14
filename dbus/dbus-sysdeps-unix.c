@@ -1643,7 +1643,7 @@ _dbus_credentials_add_from_current_process (DBusCredentials *credentials)
 
   if (!_dbus_credentials_add_unix_pid(credentials, _dbus_getpid()))
     return FALSE;
-  if (!_dbus_credentials_add_unix_uid(credentials, _dbus_getuid()))
+  if (!_dbus_credentials_add_unix_uid(credentials, _dbus_geteuid()))
     return FALSE;
 
   return TRUE;
@@ -1664,7 +1664,7 @@ dbus_bool_t
 _dbus_append_user_from_current_process (DBusString *str)
 {
   return _dbus_string_append_uint (str,
-                                   _dbus_getuid ());
+                                   _dbus_geteuid ());
 }
 
 /**
@@ -1684,6 +1684,15 @@ dbus_uid_t
 _dbus_getuid (void)
 {
   return getuid ();
+}
+
+/** Gets our effective UID
+ * @returns process effective UID
+ */
+dbus_uid_t
+_dbus_geteuid (void)
+{
+  return geteuid ();
 }
 
 /**

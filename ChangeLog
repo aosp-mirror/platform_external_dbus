@@ -1,3 +1,23 @@
+2008-01-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Patch by Andrea Luzzardi  <scox at sig11 dot org>: creates a
+	_dbus_geteuid function to fix EXTERNAL authentication in setuid
+	applications
+
+	*  dbus/dbus-sysdeps-unix.c (_dbus_geteuid): used to get the effective
+	uid of the running program
+	(_dbus_credentials_add_from_current_process): use geteuid instead of
+	getuid
+	(_dbus_append_user_from_current_process): use geteuid instead of
+	getuid
+
+	* dbus/dbus-sysdeps-util-unix.c (_dbus_change_to_daemon_user): use
+	geteuid instead of getuid
+	(_dbus_unix_user_is_at_console): use geteuid instead of getuid
+
+	* dbus/dbus-sysdeps-win.c (_dbus_geteuid): add a windows equivilant
+	that returns DBUS_UID_UNSET
+
 2007-12-18  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-connection.c (_dbus_connection_block_pending_call):
