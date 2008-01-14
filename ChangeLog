@@ -1,8 +1,15 @@
 2008-01-14  John (J5) Palmieri  <johnp@redhat.com>
 
+	* patch by Frederic Crozat <fcrozat at mandriva dot com>
+
+	* bus/dir-watch-dnotify.c (bus_watch_directory): watch for file
+	creates also
+
+2008-01-14  John (J5) Palmieri  <johnp@redhat.com>
+
 	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
 
-	* dbus-1.0.2/dbus/dbus-transport-socket.c(do_reading): return message 
+	* dbus/dbus-transport-socket.c(do_reading): return message 
 	loader buffer in case of OOM (FDO Bug#12666)
 
 2008-01-14  John (J5) Palmieri  <johnp@redhat.com>

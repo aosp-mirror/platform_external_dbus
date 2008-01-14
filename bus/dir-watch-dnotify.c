@@ -60,7 +60,7 @@ bus_watch_directory (const char *dir, BusContext *context)
       goto out;
     }
 
-  if (fcntl (fd, F_NOTIFY, DN_DELETE|DN_RENAME|DN_MODIFY) == -1)
+  if (fcntl (fd, F_NOTIFY, DN_CREATE|DN_DELETE|DN_RENAME|DN_MODIFY) == -1)
     {
       _dbus_warn ("Cannot setup D_NOTIFY for '%s' error '%s'\n", dir, _dbus_strerror (errno));
       close (fd);
