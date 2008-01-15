@@ -1,5 +1,9 @@
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* tests/name-test/run-test.sh: make more portable (FDO Bug #11667)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
 
 	* dbus/dbus-connection.c (_dbus_connection_get_next_client_serial):
