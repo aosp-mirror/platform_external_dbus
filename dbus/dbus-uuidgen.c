@@ -48,7 +48,13 @@ return_uuid (DBusGUID   *uuid,
   if (uuid_p)
     {
       DBusString encoded;
-      _dbus_string_init (&encoded);
+
+      if (!_dbus_string_init (&encoded))
+        {
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+
       if (!_dbus_uuid_encode (uuid, &encoded) ||
           !_dbus_string_steal_data (&encoded, uuid_p))
         {

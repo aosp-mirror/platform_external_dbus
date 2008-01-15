@@ -2777,7 +2777,11 @@ _dbus_get_autolaunch_address (DBusString *address,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = FALSE;
 
-  _dbus_string_init (&uuid);
+  if (!_dbus_string_init (&uuid))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
   
   if (!_dbus_get_local_machine_uuid_encoded (&uuid))
     {

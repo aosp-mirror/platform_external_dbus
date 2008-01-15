@@ -76,12 +76,15 @@ dbus_get_local_machine_id (void)
   char *s;
 
   s = NULL;
-  _dbus_string_init (&uuid);
+
+  if (!_dbus_string_init (&uuid))
+    return NULL;
+
   if (!_dbus_get_local_machine_uuid_encoded (&uuid) ||
       !_dbus_string_steal_data (&uuid, &s))
     {
       _dbus_string_free (&uuid);
-      return FALSE;
+      return NULL;
     }
   else
     {

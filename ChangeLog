@@ -1,5 +1,17 @@
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* patches by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
+
+	* dbus/dbus-sysdeps-unix (_dbus_get_autolaunch_address): handle OOM
+	(FDO Bug #12945)
+
+	* dbus/dbus-uuidgen.c (return_uuid): handle OOM (FDO Bug #12928)
+
+	* dbus/dbus-misc.c (dbus_get_local_machine_id): handle OOM, fix return
+	value to return NULL not FALSE (FDO Bug #12946)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* bus/bus.c (bus_context_check_security_policy): rewrite selinux error
 	handling to not abort due to a NULL read and to set the error only if
 	it is not already set (Based off of FDO Bug #12430)
