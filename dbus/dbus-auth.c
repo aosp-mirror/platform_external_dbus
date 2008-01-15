@@ -1039,6 +1039,7 @@ handle_server_data_external_mech (DBusAuth         *auth,
           _dbus_verbose ("%s: sending empty challenge asking client for auth identity\n",
                          DBUS_AUTH_NAME (auth));
           auth->already_asked_for_initial_response = TRUE;
+          goto_state (auth, &server_state_waiting_for_data);
           return TRUE;
         }
       else
