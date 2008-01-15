@@ -690,6 +690,7 @@ static const DBusTypeReaderClass variant_reader_class = {
   base_reader_next
 };
 
+#ifndef DBUS_DISABLE_ASSERT
 static const DBusTypeReaderClass * const
 all_reader_classes[] = {
   &body_reader_class,
@@ -702,6 +703,7 @@ all_reader_classes[] = {
   &array_types_only_reader_class,
   &variant_reader_class
 };
+#endif
 
 /**
  * Initializes a type reader.

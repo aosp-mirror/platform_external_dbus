@@ -1,5 +1,13 @@
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* patch by Sébastien Couret <10function at gmail dot com>
+
+	* dbus/dbus-marshal-recursive.c (all_reader_classes[]): wrap in 
+	#ifndef DBUS_DISABLE_ASSERT since it is only used in asserts which
+	are noop
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* patch by Magnus Henoch <henoch plus bfdo at dtek dot chalmers dot se>
 
 	* dbus/dbus-auth.c (handle_server_data_external_mech): handle SASL
