@@ -1378,13 +1378,13 @@ _dbus_connection_unref_unlocked (DBusConnection *connection)
 static dbus_uint32_t
 _dbus_connection_get_next_client_serial (DBusConnection *connection)
 {
-  int serial;
+  dbus_uint32_t serial;
 
   serial = connection->client_serial++;
 
-  if (connection->client_serial < 0)
+  if (connection->client_serial == 0)
     connection->client_serial = 1;
-  
+
   return serial;
 }
 

@@ -1,4 +1,11 @@
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
+	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
+
+	* dbus/dbus-connection.c (_dbus_connection_get_next_client_serial):
+	don't check for < 0 on an unsigned variable (FDO Bug #12924)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
 	
 	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
 
