@@ -2,6 +2,13 @@
 
 	* patch by Peter O'Gorman <pogma at thewrittenword dot com>
 
+	* dbus/dbus-spawn.c (babysit_signal_handler): check write return value
+	so we don't hang (FDO Bug #11665)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
+	* patch by Peter O'Gorman <pogma at thewrittenword dot com>
+
 	* dbus/dbus-sysdeps.h: support for AIX poll implementation (FDO Bug 
 	#11666)
 

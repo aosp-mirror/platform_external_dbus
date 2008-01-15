@@ -982,9 +982,9 @@ babysit_signal_handler (int signo)
 {
   char b = '\0';
  again:
-  write (babysit_sigchld_pipe, &b, 1);
-  if (errno == EINTR)
-    goto again;
+  if (write (babysit_sigchld_pipe, &b, 1) <= 0) 
+    if (errno == EINTR)
+      goto again;
 }
 
 static void
