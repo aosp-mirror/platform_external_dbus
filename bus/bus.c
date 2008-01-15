@@ -1180,27 +1180,23 @@ bus_context_check_security_policy (BusContext     *context,
 				    dbus_message_get_error_name (message),
 				    dest ? dest : DBUS_SERVICE_DBUS, error))
         {
+          if (error != NULL && !dbus_error_is_set (error))
+            {
+              dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                              "An SELinux policy prevents this sender "
+                              "from sending this message to this recipient "
+                              "(rejected message had interface \"%s\" "
+                              "member \"%s\" error name \"%s\" destination \"%s\")",
+                              dbus_message_get_interface (message) ?
+                              dbus_message_get_interface (message) : "(unset)",
+                              dbus_message_get_member (message) ?
+                              dbus_message_get_member (message) : "(unset)",
+                              dbus_message_get_error_name (message) ?
+                              dbus_message_get_error_name (message) : "(unset)",
+                              dest ? dest : DBUS_SERVICE_DBUS);
+              _dbus_verbose ("SELinux security check denying send to service\n");
+            }
 
-	  if (dbus_error_is_set (error) &&
-	      dbus_error_has_name (error, DBUS_ERROR_NO_MEMORY))
-	    {
-	      return FALSE;
-	    }
-	  
-
-          dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                          "An SELinux policy prevents this sender "
-                          "from sending this message to this recipient "
-                          "(rejected message had interface \"%s\" "
-                          "member \"%s\" error name \"%s\" destination \"%s\")",
-                          dbus_message_get_interface (message) ?
-                          dbus_message_get_interface (message) : "(unset)",
-                          dbus_message_get_member (message) ?
-                          dbus_message_get_member (message) : "(unset)",
-                          dbus_message_get_error_name (message) ?
-                          dbus_message_get_error_name (message) : "(unset)",
-                          dest ? dest : DBUS_SERVICE_DBUS);
-          _dbus_verbose ("SELinux security check denying send to service\n");
           return FALSE;
         }
        
