@@ -1,5 +1,9 @@
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* fix hacking to say git instead of cvs
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* patch by Sébastien Couret <10function at gmail dot com>
 
 	* dbus/dbus-marshal-recursive.c (all_reader_classes[]): wrap in 
