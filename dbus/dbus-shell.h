@@ -28,7 +28,6 @@
 
 DBUS_BEGIN_DECLS
 
-char*       _dbus_shell_quote      (const char *unquoted_string);
 char*       _dbus_shell_unquote    (const char *quoted_string);
 dbus_bool_t _dbus_shell_parse_argv (const char *command_line,
                                     int        *argcp,

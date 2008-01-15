@@ -582,9 +582,6 @@ locate_attributes (BusConfigParser  *parser,
 
   va_end (args);
 
-  if (!retval)
-    return retval;
-
   i = 0;
   while (attribute_names[i])
     {
