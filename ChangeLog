@@ -2,6 +2,13 @@
 
 	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
 
+	* dbus/dbus-spawn.c (babysit, babysitter_iteration): add error
+	handling when polling (FDO Bug #12954) 
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
+	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
+
 	* bus/config-parser.c (locate_attributes): remove dead code which
 	always evaluated to TRUE
 

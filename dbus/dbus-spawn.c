@@ -552,10 +552,21 @@ babysitter_iteration (DBusBabysitter *sitter,
     {
       int ret;
 
-      ret = _dbus_poll (fds, i, 0);
+      do
+        {
+          ret = _dbus_poll (fds, i, 0);
+        }
+      while (ret < 0 && errno == EINTR);
+
       if (ret == 0 && block)
-        ret = _dbus_poll (fds, i, -1);
-      
+        {
+          do
+            {
+              ret = _dbus_poll (fds, i, -1);
+            }
+          while (ret < 0 && errno == EINTR);
+        }
+
       if (ret > 0)
         {
           descriptors_ready = TRUE;
@@ -1018,7 +1029,11 @@ babysit (pid_t grandchild_pid,
       pfds[1].events = _DBUS_POLLIN;
       pfds[1].revents = 0;
       
-      _dbus_poll (pfds, _DBUS_N_ELEMENTS (pfds), -1);
+      if (_dbus_poll (pfds, _DBUS_N_ELEMENTS (pfds), -1) < 0 && errno != EINTR)
+        {
+          _dbus_warn ("_dbus_poll() error: %s\n", strerror (errno));
+          exit (1);
+        }
 
       if (pfds[0].revents != 0)
         {
