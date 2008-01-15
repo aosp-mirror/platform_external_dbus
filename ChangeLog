@@ -1,5 +1,9 @@
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* bus/messagebus.in: add lsb headers (FDO Bug #11491)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* patch by Peter O'Gorman <pogma at thewrittenword dot com>
 
 	* dbus/dbus-spawn.c (babysit_signal_handler): check write return value
