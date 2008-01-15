@@ -3140,8 +3140,6 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
     {
       CONNECTION_UNLOCK (connection);
 
-      *pending_return = NULL;
-
       return TRUE;
     }
 
