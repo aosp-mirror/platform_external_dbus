@@ -1,5 +1,21 @@
 2008-01-14  John (J5) Palmieri  <johnp@redhat.com>
 
+	* patch by Frederic Crozat <fcrozat at mandriva dot com> (FDO Bz#
+	13268)
+
+	* add inotify support
+
+	* bus/Makefile.am: add inotify module to the build
+
+	* bus/dir-watch-inotify.c: inotify module based off the dnotify and
+	kqueue modules
+
+	* configure.in: add checks and switch for inotify
+	also add a printout at the end of configure if inotify and kqueue
+	support is being built in (dnotify already had this)
+
+2008-01-14  John (J5) Palmieri  <johnp@redhat.com>
+
 	* patch by Frederic Crozat <fcrozat at mandriva dot com>
 
 	* bus/dir-watch-dnotify.c (bus_watch_directory): watch for file

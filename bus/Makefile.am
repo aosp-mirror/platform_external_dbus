@@ -25,10 +25,14 @@ endif
 if DBUS_BUS_ENABLE_KQUEUE
 DIR_WATCH_SOURCE=dir-watch-kqueue.c
 else
+if DBUS_BUS_ENABLE_INOTIFY
+DIR_WATCH_SOURCE=dir-watch-inotify.c
+else
 if DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX
 DIR_WATCH_SOURCE=dir-watch-dnotify.c
 else
 DIR_WATCH_SOURCE=dir-watch-default.c
+endif
 endif
 endif
 

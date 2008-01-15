@@ -73,6 +73,7 @@ AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use 
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
 AC_ARG_ENABLE(libaudit,          [  --enable-libaudit    build audit daemon support for SELinux],enable_libaudit=$enableval,enable_libaudit=auto)
 AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
+AC_ARG_ENABLE(inotify, AS_HELP_STRING([--enable-inotify],[build with inotify support (linux only)]),enable_inotify=$enableval,enable_inotify=auto)
 AC_ARG_ENABLE(kqueue, AS_HELP_STRING([--enable-kqueue],[build with kqueue support]),enable_kqueue=$enableval,enable_kqueue=auto)
 AC_ARG_ENABLE(console-owner-file, AS_HELP_STRING([--enable-console-owner-file],[enable console owner file]),enable_console_owner_file=$enableval,enable_console_owner_file=auto)
 AC_ARG_ENABLE(userdb-cache, AS_HELP_STRING([--enable-userdb-cache],[build with userdb-cache support]),enable_userdb_cache=$enableval,enable_userdb_cache=yes)
@@ -895,11 +896,26 @@ else
     SELINUX_LIBS=
 fi
 
+# inotify checks
+if test x$enable_inotify = xno ; then
+    have_inotify=no;
+else
+    AC_CHECK_HEADERS(sys/inotify.h, have_inotify=yes, have_inotify=no)
+fi
+
+dnl check if inotify backend is enabled
+if test x$have_inotify = xyes; then
+   AC_DEFINE(DBUS_BUS_ENABLE_INOTIFY,1,[Use inotify])
+
+fi
+
+AM_CONDITIONAL(DBUS_BUS_ENABLE_INOTIFY, test x$have_inotify = xyes)
+
 # dnotify checks
 if test x$enable_dnotify = xno ; then
     have_dnotify=no;
 else
-    if test x$target_os = xlinux-gnu -o x$target_os = xlinux; then
+    if test x$have_inotify = xno -a x$target_os = xlinux-gnu -o x$target_os = xlinux; then
         have_dnotify=yes;	
     else
         have_dnotify=no;
@@ -1322,7 +1338,9 @@ echo "
         Building assertions:      ${enable_asserts}
         Building checks:          ${enable_checks}
         Building SELinux support: ${have_selinux}
+        Building inotify support: ${have_inotify}
         Building dnotify support: ${have_dnotify}
+        Building kqueue support:  ${have_kqueue}
         Building X11 code:        ${enable_x11}
         Building Doxygen docs:    ${enable_doxygen_docs}
         Building XML docs:        ${enable_xml_docs}
