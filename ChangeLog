@@ -1,5 +1,12 @@
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* portions of patch submitted by Tim Mooney 
+	<enchanter at users dot sourceforge dot net>
+
+	* configure.in: never auto-select libxml (FDO Bug #12479)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* patches by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
 
 	* dbus/dbus-sysdeps-unix (_dbus_get_autolaunch_address): handle OOM
