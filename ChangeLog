@@ -1,5 +1,12 @@
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
 
+	* patch by Peter O'Gorman <pogma at thewrittenword dot com>
+
+	* dbus/dbus-sysdeps.h: support for AIX poll implementation (FDO Bug 
+	#11666)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+
 	* tests/name-test/run-test.sh: make more portable (FDO Bug #11667)
 
 2008-01-15  John (J5) Palmieri  <johnp@redhat.com>

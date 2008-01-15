@@ -35,6 +35,15 @@
 #include <string.h>
 #include <stdarg.h>
 
+ 
+/* AIX sys/poll.h does #define events reqevents, and other
+ * wonderousness, so must include sys/poll before declaring
+ * DBusPollFD
+ */ 
+#ifdef HAVE_POLL
+#include <sys/poll.h>
+#endif
+
 DBUS_BEGIN_DECLS
 
 #ifdef DBUS_WIN
@@ -212,6 +221,23 @@ struct DBusAtomic
 dbus_int32_t _dbus_atomic_inc (DBusAtomic *atomic);
 dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
 
+
+/* AIX uses different values for poll */
+
+#ifdef _AIX
+/** There is data to read */
+#define _DBUS_POLLIN      0x0001
+/** There is urgent data to read */
+#define _DBUS_POLLPRI     0x0004
+/** Writing now will not block */
+#define _DBUS_POLLOUT     0x0002
+/** Error condition */
+#define _DBUS_POLLERR     0x4000
+/** Hung up */
+#define _DBUS_POLLHUP     0x2000
+/** Invalid request: fd not open */
+#define _DBUS_POLLNVAL    0x8000
+#else
 /** There is data to read */
 #define _DBUS_POLLIN      0x0001
 /** There is urgent data to read */
@@ -224,6 +250,7 @@ dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
 #define _DBUS_POLLHUP     0x0010
 /** Invalid request: fd not open */
 #define _DBUS_POLLNVAL    0x0020
+#endif
 
 /**
  * A portable struct pollfd wrapper. 
