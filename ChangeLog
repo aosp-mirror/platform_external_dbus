@@ -2,6 +2,13 @@
 	
 	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
 
+	* dbus/dbus-spawn.c (read_ints, read_pid): use correct ssize_t type
+	instead of size_t (FDO Bug #12862)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+	
+	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
+
 	* dbus/dbus-errors.c (dbus_set_error): make sure to call va_end if we
 	hit an OOM error inside va_start (FDO Bug #12846)
 
