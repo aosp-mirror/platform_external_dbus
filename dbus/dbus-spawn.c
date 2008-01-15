@@ -1085,7 +1085,9 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  *sitter_p = NULL;
+  if (sitter_p != NULL)
+    *sitter_p = NULL;
+
   sitter = NULL;
 
   sitter = _dbus_babysitter_new ();
