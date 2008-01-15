@@ -2,6 +2,13 @@
 	
 	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
 
+	* dbus/dbus-errors.c (dbus_set_error): make sure to call va_end if we
+	hit an OOM error inside va_start (FDO Bug #12846)
+
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+	
+	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
+
 	* dbus/dbus-connection.c (dbus_connection_send_with_reply): 
 	fix possible crash if pending_return is NULL (FDO Bug #12673)
 

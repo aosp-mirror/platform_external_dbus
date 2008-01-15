@@ -384,6 +384,7 @@ dbus_set_error (DBusError  *error,
       if (!_dbus_string_append_printf_valist (&str, format, args))
         {
           _dbus_string_free (&str);
+          va_end (args);
           goto nomem;
         }
       va_end (args);
