@@ -2,6 +2,12 @@
 	
 	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
 
+	* bus/bus.c (setup_server): check failed allocation (FDO Bug #12920)
+	
+2008-01-15  John (J5) Palmieri  <johnp@redhat.com>
+	
+	* patch by Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
+
 	* dbus/dbus-spawn.c (_dbus_spawn_async_with_babysitter): the API 
 	contract says sitter_p can be NULL, so let's check it (FDO Bug #12919)
 

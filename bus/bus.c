@@ -208,9 +208,9 @@ setup_server (BusContext *context,
   BusServerData *bd;
 
   bd = dbus_new0 (BusServerData, 1);
-  if (!dbus_server_set_data (server,
-                             server_data_slot,
-                             bd, free_server_data))
+  if (bd == NULL || !dbus_server_set_data (server,
+                                           server_data_slot,
+                                           bd, free_server_data))
     {
       dbus_free (bd);
       BUS_SET_OOM (error);
