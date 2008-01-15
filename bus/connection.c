@@ -1306,6 +1306,8 @@ bus_connection_complete (DBusConnection   *connection,
           BUS_SET_OOM (error);
           dbus_free (d->name);
           d->name = NULL;
+          bus_client_policy_unref (d->policy);
+          d->policy = NULL;
           return FALSE;
         }
     }
