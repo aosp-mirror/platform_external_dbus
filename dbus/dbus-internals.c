@@ -543,8 +543,18 @@ _dbus_read_uuid_file_without_creating (const DBusString *filename,
   DBusString decoded;
   int end;
   
-  _dbus_string_init (&contents);
-  _dbus_string_init (&decoded);
+  if (!_dbus_string_init (&contents))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (!_dbus_string_init (&decoded))
+    {
+      _dbus_string_free (&contents);
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
   
   if (!_dbus_file_get_contents (&contents, filename, error))
     goto error;
@@ -608,7 +618,11 @@ _dbus_create_uuid_file_exclusively (const DBusString *filename,
 {
   DBusString encoded;
 
-  _dbus_string_init (&encoded);
+  if (!_dbus_string_init (&encoded))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
 
   _dbus_generate_uuid (uuid);
   
