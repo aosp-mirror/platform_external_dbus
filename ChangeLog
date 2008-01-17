@@ -1,3 +1,7 @@
+2008-01-17  John (J5) Palmieri  <johnp@redhat.com>
+	
+	* Released 1.1.4
+
 2008-01-17  Timo Hoenig  <thoenig@suse.de>
 	* fix inotify support
 	* bus/dir-watch-inotify.c (_handle_inotify_watch): fix reading of the
