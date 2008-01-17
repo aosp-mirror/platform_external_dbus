@@ -1,3 +1,13 @@
+2008-01-17  Timo Hoenig  <thoenig@suse.de>
+	* fix inotify support
+	* bus/dir-watch-inotify.c (_handle_inotify_watch): fix reading of the
+	inotify events. Also, use ssize_t not size_t for 'ret'.
+	* bus/dir-watch-inotify.c (bus_watch_directory): watch not only for
+	IN_MODIFY but also for IN_CREATE and IN_DELETE
+	* bus/dir-watch-inotify.c (bus_drop_all_directory_watches): drop the
+	inotify watches more elegantly by closing inotify:_fd, set inotify_fd to
+	-1 after dropping the watches
+
 2008-01-15 John (J5) Palmieri  <johnp@redhat.com>
 
 	* configure.in: post-release version bump

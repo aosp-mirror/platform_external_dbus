@@ -38,6 +38,8 @@
 #include "dir-watch.h"
 
 #define MAX_DIRS_TO_WATCH 128
+#define INOTIFY_EVENT_SIZE (sizeof(struct inotify_event))
+#define INOTIFY_BUF_LEN (1024 * (INOTIFY_EVENT_SIZE + 16))
 
 /* use a static array to avoid handling OOM */
 static int wds[MAX_DIRS_TO_WATCH];
@@ -55,33 +57,43 @@ _inotify_watch_callback (DBusWatch *watch, unsigned int condition, void *data)
 static dbus_bool_t
 _handle_inotify_watch (DBusWatch *watch, unsigned int flags, void *data)
 {
-  struct inotify_event ev;
-  size_t res;
+  char buffer[INOTIFY_BUF_LEN];
+  ssize_t ret = 0;
+  int i = 0;
   pid_t pid;
 
-  res = read (inotify_fd, &ev, sizeof(ev));
+  ret = read (inotify_fd, buffer, INOTIFY_BUF_LEN);
+  if (ret < 0)
+    _dbus_verbose ("Error reading inotify event: '%s'\n, _dbus_strerror(errno)");
+  else if (!ret)
+    _dbus_verbose ("Error reading inotify event: buffer too small\n");
 
-  if (res > 0)
+  while (i < ret)
     {
-      pid = getpid ();
+      struct inotify_event *ev;
+      pid = _dbus_getpid ();
+
+      ev = (struct inotify_event *) &buffer[i];
+      i += INOTIFY_EVENT_SIZE + ev->len;
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+      if (ev->len)
+        _dbus_verbose ("event name: '%s'\n", ev->name);
+      _dbus_verbose ("inotify event: wd=%d mask=%u cookie=%u len=%u\n", ev->wd, ev->mask, ev->cookie, ev->len);
+#endif
       _dbus_verbose ("Sending SIGHUP signal on reception of a inotify event\n");
       (void) kill (pid, SIGHUP);
     }
-  else if (res < 0 && errno == EBADF)
-    {
-      if (watch != NULL)
-	{
-	  _dbus_loop_remove_watch (loop, watch, _inotify_watch_callback, NULL);
-          _dbus_watch_unref (watch);
-	  watch = NULL;
-	}
-      pid = getpid ();
-      _dbus_verbose ("Sending SIGHUP signal since inotify fd has been closed\n");
-      (void) kill (pid, SIGHUP);
-    }
 
+  if (watch != NULL)
+    {
+      _dbus_loop_remove_watch (loop, watch, _inotify_watch_callback, NULL);
+      _dbus_watch_unref (watch);
+      watch = NULL;
+    }
+ 
   return TRUE;
 }
+
 void
 bus_watch_directory (const char *dir, BusContext *context)
 {
@@ -116,14 +128,13 @@ bus_watch_directory (const char *dir, BusContext *context)
 	  }
   }
 
-
   if (num_wds >= MAX_DIRS_TO_WATCH )
     {
       _dbus_warn ("Cannot watch config directory '%s'. Already watching %d directories\n", dir, MAX_DIRS_TO_WATCH);
       goto out;
     }
 
-  wd = inotify_add_watch (inotify_fd, dir, IN_MODIFY);
+  wd = inotify_add_watch (inotify_fd, dir, IN_MODIFY | IN_CREATE | IN_DELETE);
   if (wd < 0)
     {
       _dbus_warn ("Cannot setup inotify for '%s'; error '%s'\n", dir, _dbus_strerror (errno));
@@ -140,17 +151,13 @@ bus_watch_directory (const char *dir, BusContext *context)
 void 
 bus_drop_all_directory_watches (void)
 {
-  int i;
- 
+  int ret;
+
   _dbus_verbose ("Dropping all watches on config directories\n");
- 
-  for (i = 0; i < num_wds; i++)
-    {
-      if (inotify_rm_watch(inotify_fd, wds[i]) != 0)
-	{
-	  _dbus_verbose ("Error closing fd %d for config directory watch\n", wds[i]);
-	}
-    }
-  
+  ret = close (inotify_fd);
+  if (ret)
+    _dbus_verbose ("Error dropping watches: '%s'\n", perror(ret));
+
   num_wds = 0;
+  inotify_fd = -1;
 }
