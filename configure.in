@@ -214,7 +214,9 @@ if test "x$GCC" = "xyes"; then
   *[\ \	]-fPIC[\ \	]*) ;;
   *) if cc_supports_flag -fPIC; then
         PIC_CFLAGS="-fPIC"
-        PIC_LDFLAGS="-Wl,-z,relro"
+        if [ "x$with_gnu_ld" = "xyes" ]; then
+           PIC_LDFLAGS="-Wl,-z,relro"
+        fi
      fi
      ;;
   esac
@@ -223,7 +225,11 @@ if test "x$GCC" = "xyes"; then
   *[\ \	]-fPIE[\ \	]*) ;;
   *) if cc_supports_flag -fPIE; then
         PIE_CFLAGS="-fPIE"
-        PIE_LDFLAGS="-pie -Wl,-z,relro"
+        if [ "x$with_gnu_ld" = "xyes" ]; then
+           PIE_LDFLAGS="-pie -Wl,-z,relro"
+        else
+           PIE_LDFLAGS="-pie"
+        fi
      fi
      ;;
   esac
@@ -1272,6 +1278,18 @@ AC_DEFINE_UNQUOTED(DBUS_SESSION_SOCKET_DIR, "$DBUS_SESSION_SOCKET_DIR", [Where p
 AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 
 AC_DEFINE_UNQUOTED(DBUS_UNIX, "1", [Defined on UNIX and Linux systems and not on Windows])
+
+# darwin needs this to initialize the environment
+AC_CHECK_HEADERS(crt_externs.h)
+AC_CHECK_FUNC(_NSGetEnviron, [AC_DEFINE(HAVE_NSGETENVIRON, 1, [Define if your system needs _NSGetEnviron to set up the environment])])
+AH_VERBATIM(_DARWIN_ENVIRON,
+[
+#if defined(HAVE_NSGETENVIRON) && defined(HAVE_CRT_EXTERNS_H)
+# include <sys/time.h>
+# include <crt_externs.h>
+# define environ (*_NSGetEnviron())
+#endif
+])
 
 AC_OUTPUT([
 Doxyfile
