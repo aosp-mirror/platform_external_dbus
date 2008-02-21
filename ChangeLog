@@ -1,3 +1,10 @@
+2008-02-21  John (J5) Palmieri  <johnp@redhat.com>
+
+	* fixes dbus-launch so the bus goes away when X does
+	  (Red Hat Bug #430412)
+	* tools/dbus-launch.c (main): set xdisplay = NULL
+	* Patch by Matthias Clasen <mclasen at redhat.com>
+
 2008-01-17  John (J5) Palmieri  <johnp@redhat.com>
 	
 	* Released 1.1.4

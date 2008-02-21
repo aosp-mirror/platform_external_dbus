@@ -966,6 +966,8 @@ main (int argc, char **argv)
       char write_pid_fd_as_string[MAX_FD_LEN];
       char write_address_fd_as_string[MAX_FD_LEN];
 
+      xdisplay = NULL;
+
       if (close_stderr)
 	do_close_stderr ();
 
