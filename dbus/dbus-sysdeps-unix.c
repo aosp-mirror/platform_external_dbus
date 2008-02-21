@@ -22,6 +22,8 @@
  *
  */
 
+#define _GNU_SOURCE 
+
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-sysdeps-unix.h"

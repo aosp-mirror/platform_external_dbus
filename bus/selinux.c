@@ -34,6 +34,7 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
+#include <limits.h>
 #include <pthread.h>
 #include <syslog.h>
 #include <selinux/selinux.h>

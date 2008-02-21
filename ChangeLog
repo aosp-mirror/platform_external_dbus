@@ -1,4 +1,11 @@
 2008-02-21  John (J5) Palmieri  <johnp@redhat.com>
+	
+	* fix build against the latest gcc/glibc
+	* dbus/dbus-sysdeps-unix.c: define _GNU_SOURCE
+	* bus/selinux.c: include limits.h
+	* Patch by Matthias Clasen <mclasen at redhat.com>
+
+2008-02-21  John (J5) Palmieri  <johnp@redhat.com>
 
 	* fixes dbus-launch so the bus goes away when X does
 	  (Red Hat Bug #430412)
