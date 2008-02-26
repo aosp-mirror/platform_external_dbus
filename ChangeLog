@@ -1,5 +1,17 @@
 2008-02-26  John (J5) Palmieri  <johnp@redhat.com>
 
+	* CVE-2008-0595 - security policy of the type <allow send_interface=
+	  "some.interface.WithMethods"/> work as an implicit allow for
+	  messages sent without an interface bypassing the default deny rules
+	  and potentially allowing restricted methods exported on the bus to be
+	  executed by unauthorized users.  This patch fixes the issue.
+	* bus/policy.c (bus_client_policy_check_can_send,
+	  bus_client_policy_check_can_receive): skip messages without an 
+	  interface when evaluating an allow rule, and thus pass it to the
+	  default deny rules
+
+2008-02-26  John (J5) Palmieri  <johnp@redhat.com>
+
 	* correctly unref connections without guids during shutdown
 	* dbus/dbus-connection.c (close_connection_on_shutdown): new method
 	  split out from shared_connections_shutdown

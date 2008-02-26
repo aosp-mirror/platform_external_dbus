@@ -942,9 +942,19 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
       
       if (rule->d.send.interface != NULL)
         {
-          if (dbus_message_get_interface (message) != NULL &&
-              strcmp (dbus_message_get_interface (message),
-                      rule->d.send.interface) != 0)
+          /* The interface is optional in messages. For allow rules, if the message
+           * has no interface we want to skip the rule (and thus not allow);
+           * for deny rules, if the message has no interface we want to use the
+           * rule (and thus deny).
+           */
+          dbus_bool_t no_interface;
+
+          no_interface = dbus_message_get_interface (message) == NULL;
+          
+          if ((no_interface && rule->allow) ||
+              (!no_interface && 
+               strcmp (dbus_message_get_interface (message),
+                       rule->d.send.interface) != 0))
             {
               _dbus_verbose ("  (policy) skipping rule for different interface\n");
               continue;
@@ -1128,9 +1138,19 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
       
       if (rule->d.receive.interface != NULL)
         {
-          if (dbus_message_get_interface (message) != NULL &&
-              strcmp (dbus_message_get_interface (message),
-                      rule->d.receive.interface) != 0)
+          /* The interface is optional in messages. For allow rules, if the message
+           * has no interface we want to skip the rule (and thus not allow);
+           * for deny rules, if the message has no interface we want to use the
+           * rule (and thus deny).
+           */
+          dbus_bool_t no_interface;
+
+          no_interface = dbus_message_get_interface (message) == NULL;
+          
+          if ((no_interface && rule->allow) ||
+              (!no_interface &&
+               strcmp (dbus_message_get_interface (message),
+                       rule->d.receive.interface) != 0))
             {
               _dbus_verbose ("  (policy) skipping rule for different interface\n");
               continue;
