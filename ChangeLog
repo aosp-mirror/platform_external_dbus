@@ -1,5 +1,9 @@
 2008-02-26  John (J5) Palmieri  <johnp@redhat.com>
 
+	* Released 1.1.20
+
+2008-02-26  John (J5) Palmieri  <johnp@redhat.com>
+
 	* CVE-2008-0595 - security policy of the type <allow send_interface=
 	  "some.interface.WithMethods"/> work as an implicit allow for
 	  messages sent without an interface bypassing the default deny rules

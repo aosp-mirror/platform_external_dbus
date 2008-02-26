@@ -1,3 +1,33 @@
+D-Bus 1.1.20 - "Conisten Water" (27 Febuary)
+==
+
+- This is the next generation supported STABLE release of D-Bus. For all 
+  intents and purposes this is the 1.2.0 release WITHOUT the planned X11/MIT 
+  license change due to a couple of license holders who have yet to respond.
+  For the most part this license change is being persued to simplify licensing
+  issues and fix a couple of licensing courner cases.  When this happens D-Bus
+  will be released under the 1.2.0 version.
+
+- D-Bus 1.0.x effectively goes into security fix mode and will only be
+  updated for major issues.
+
+- Fixed CVE-2008-0595 - security policy of the type <allow send_interface=
+  "some.interface.WithMethods"/> work as an implicit allow for
+  messages sent without an interface bypassing the default deny rules and 
+  potentially allowing restricted methods exported on the bus to be executed
+  by unauthorized users. 
+
+- Fixes dbus-launch so the session bus goes away so does D-Bus
+
+- Builds against latest gcc/glibc changes
+
+- Correctly unref connections without guids during shutdown
+
+- About the name: Submitted by Greg K Nicholson, Conisten Water is a lake in 
+  Cumbria, England where several water speed records have been broken. Between 
+  1956 and 1959 Sir Malcolm's son Donald Campbell set four successive records on  the lake in Bluebird K7, a hydroplane.
+  (Wikipedia http://en.wikipedia.org/wiki/Coniston_Water#Waterspeed_record)
+
 D-Bus 1.1.4 - 1.2.0RC2 (17 January 2007)
 ==
 - Fixes inotify support
