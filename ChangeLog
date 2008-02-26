@@ -1,3 +1,14 @@
+2008-02-26  John (J5) Palmieri  <johnp@redhat.com>
+
+	* correctly unref connections without guids during shutdown
+	* dbus/dbus-connection.c (close_connection_on_shutdown): new method
+	  split out from shared_connections_shutdown
+	  (shared_connections_shutdown): shutdown all shared connections
+	  without guids
+	  (_dbus_connection_ref_unlocked): handle OOM when prepending no guid
+	  connections to the shared_connections_no_guid list
+	* Patch by  Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>
+
 2008-02-21  John (J5) Palmieri  <johnp@redhat.com>
 	
 	* fix build against the latest gcc/glibc

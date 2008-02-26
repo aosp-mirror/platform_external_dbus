@@ -1438,6 +1438,23 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
 
 _DBUS_DEFINE_GLOBAL_LOCK (shared_connections);
 static DBusHashTable *shared_connections = NULL;
+static DBusList *shared_connections_no_guid = NULL;
+
+static void
+close_connection_on_shutdown (DBusConnection *connection)
+{
+  DBusMessage *message;
+
+  dbus_connection_ref (connection);
+  _dbus_connection_close_possibly_shared (connection);
+
+  /* Churn through to the Disconnected message */
+  while ((message = dbus_connection_pop_message (connection)))
+    {
+      dbus_message_unref (message);
+    }
+  dbus_connection_unref (connection);
+}
 
 static void
 shared_connections_shutdown (void *data)
@@ -1450,7 +1467,6 @@ shared_connections_shutdown (void *data)
   while ((n_entries = _dbus_hash_table_get_n_entries (shared_connections)) > 0)
     {
       DBusConnection *connection;
-      DBusMessage *message;
       DBusHashIter iter;
       
       _dbus_hash_iter_init (shared_connections, &iter);
@@ -1459,17 +1475,7 @@ shared_connections_shutdown (void *data)
       connection = _dbus_hash_iter_get_value (&iter);
 
       _DBUS_UNLOCK (shared_connections);
-
-      dbus_connection_ref (connection);
-      _dbus_connection_close_possibly_shared (connection);
-
-      /* Churn through to the Disconnected message */
-      while ((message = dbus_connection_pop_message (connection)))
-        {
-          dbus_message_unref (message);
-        }
-      dbus_connection_unref (connection);
-      
+      close_connection_on_shutdown (connection);
       _DBUS_LOCK (shared_connections);
 
       /* The connection should now be dead and not in our hash ... */
@@ -1480,6 +1486,21 @@ shared_connections_shutdown (void *data)
   
   _dbus_hash_table_unref (shared_connections);
   shared_connections = NULL;
+
+  if (shared_connections_no_guid != NULL)
+    {
+      DBusConnection *connection;
+      connection = _dbus_list_pop_first (&shared_connections_no_guid);
+      while (connection != NULL)
+        {
+          _DBUS_UNLOCK (shared_connections);
+          close_connection_on_shutdown (connection);
+          _DBUS_LOCK (shared_connections);
+          connection = _dbus_list_pop_first (&shared_connections_no_guid);
+        }
+    }
+
+  shared_connections_no_guid = NULL;
   
   _DBUS_UNLOCK (shared_connections);
 }
@@ -1589,7 +1610,18 @@ connection_record_shared_unlocked (DBusConnection *connection,
   _dbus_connection_ref_unlocked (connection);
 
   if (guid == NULL)
-    return TRUE; /* don't store in the hash */
+    {
+      _DBUS_LOCK (shared_connections);
+
+      if (!_dbus_list_prepend (&shared_connections_no_guid, connection))
+        {
+          _DBUS_UNLOCK (shared_connections);
+          return FALSE;
+        }
+
+      _DBUS_UNLOCK (shared_connections);
+      return TRUE; /* don't store in the hash */
+    }
   
   /* A separate copy of the key is required in the hash table, because
    * we don't have a lock on the connection when we are doing a hash
