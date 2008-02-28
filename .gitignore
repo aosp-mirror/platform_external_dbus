@@ -30,3 +30,4 @@ config.h.in
 *.bbg
 *.da
 *.gcov
+tags
