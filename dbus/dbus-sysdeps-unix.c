@@ -75,6 +75,10 @@
 #define O_BINARY 0
 #endif
 
+#ifndef _AI_ADDRCONFIG
+#define _AI_ADDRCONFIG 0
+#endif
+
 #ifndef HAVE_SOCKLEN_T
 #define socklen_t int
 #endif
