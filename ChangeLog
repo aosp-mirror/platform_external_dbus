@@ -1,3 +1,8 @@
+2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/dbus-launch.c: wrap X'ism in #ifdef so we can compile 
+	  without X
+
 2008-02-28  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-sysdeps-unix.c: define _AI_ADDRCONFIG as 0 if not
