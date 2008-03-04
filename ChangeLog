@@ -1,5 +1,10 @@
 2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
 
+	* configure.in: add $THREAD_LIBS to DBUS_LAUNCHER_LIBS so we link 
+	  correctly
+
+2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
+
 	* tools/dbus-launch.c: wrap X'ism in #ifdef so we can compile 
 	  without X
 
