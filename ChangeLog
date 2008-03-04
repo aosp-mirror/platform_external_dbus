@@ -1,5 +1,17 @@
 2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
 
+	* add a changelog for Benjamin Reed's git patch RANT: Change Logs are
+	  handled by git and having an external changelog just screws up
+	  merging.  We should write down rules for doing git commit messages
+	  and leave it at that.
+	* configure.in: Platform build fixes for Mac OS X
+	  the Darwin linker does not understand the -z option; wrap it in 
+	  a check for $with_gnu_ld.
+	  environ is only available at runtime, so you need to make a
+	  reference to _NSGetEnviron instead for symbols to resolve properly.
+
+2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
+
 	* configure.in: add $THREAD_LIBS to DBUS_LAUNCHER_LIBS so we link 
 	  correctly
 
