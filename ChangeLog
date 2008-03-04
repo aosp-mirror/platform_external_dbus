@@ -1,5 +1,13 @@
 2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
 
+	* check if the linker supports a flag instead of just checking for GNU
+	  ld
+	* configure.in: move AM_PROG_LIBTOOL to the top
+	  (ld_supports_flag): new function for checking if the linker supports
+	  a given flag
+
+2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
+
 	* add a changelog for Benjamin Reed's git patch RANT: Change Logs are
 	  handled by git and having an external changelog just screws up
 	  merging.  We should write down rules for doing git commit messages
