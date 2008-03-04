@@ -1843,7 +1843,7 @@ _dbus_poll (DBusPollFD *fds,
             int         n_fds,
             int         timeout_milliseconds)
 {
-#ifdef HAVE_POLL
+#if defined(HAVE_POLL) && !defined(BROKEN_POLL)
   /* This big thing is a constant expression and should get optimized
    * out of existence. So it's more robust than a configure check at
    * no cost.
