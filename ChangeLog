@@ -1,3 +1,8 @@
+2008-03-27  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-send.c (append_dict): Do not provide a signature to
+	dbus_message_iter_open_container() when opening a dict entry.
+
 2008-03-26  Colin Walters  <walters@verbum.org>
 
 	Patch from Scott James Remnant <scott@netsplit.com>

@@ -150,14 +150,10 @@ append_dict (DBusMessageIter *iter, int keytype, int valtype, const char *value)
   while (val != NULL)
     {
       DBusMessageIter subiter;
-      char sig[3];
-      sig[0] = keytype;
-      sig[1] = valtype;
-      sig[2] = '\0';
       
       dbus_message_iter_open_container (iter,
 					DBUS_TYPE_DICT_ENTRY,
-					sig,
+					NULL,
 					&subiter);
 
       append_arg (&subiter, keytype, val);
