@@ -458,6 +458,17 @@ kill_bus_when_session_ends (void)
   
   while (TRUE)
     {
+#ifdef DBUS_BUILD_X11
+      /* Dump events on the floor, and let
+       * IO error handler run if we lose
+       * the X connection. It's important to
+       * run this before going into select() since
+       * we might have queued outgoing messages or
+       * events.
+       */
+      x11_handle_event ();
+#endif
+      
       FD_ZERO (&read_set);
       FD_ZERO (&err_set);
 
@@ -472,7 +483,7 @@ kill_bus_when_session_ends (void)
           FD_SET (x_fd, &read_set);
           FD_SET (x_fd, &err_set);
         }
-      
+
       select (MAX (tty_fd, x_fd) + 1,
               &read_set, NULL, &err_set, NULL);
 
@@ -483,15 +494,12 @@ kill_bus_when_session_ends (void)
         }
       
 #ifdef DBUS_BUILD_X11
-      /* Dump events on the floor, and let
-       * IO error handler run if we lose
-       * the X connection
+      /* Events will be processed before we select again
        */
       if (x_fd >= 0)
         verbose ("X fd condition reading = %d error = %d\n",
                  FD_ISSET (x_fd, &read_set),
                  FD_ISSET (x_fd, &err_set));
-      x11_handle_event ();
 #endif
 
       if (tty_fd >= 0)

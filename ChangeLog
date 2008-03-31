@@ -1,4 +1,11 @@
-2008-03-26  Colin Walters  <walters@verbum.org>
+2008-03-31  Colin Walters  <walters@verbum.org>
+
+	Patch from Owen Taylor <otaylor@redhat.com>
+
+	* tools/dbus-launch-x11.c: Check for X11 events before
+	selecting (FDO bug #15293)
+
+2008-03-31  Colin Walters  <walters@verbum.org>
 
 	Patch from Owen Taylor <otaylor@redhat.com>
 
