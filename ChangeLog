@@ -1,3 +1,10 @@
+2008-03-26  Colin Walters  <walters@verbum.org>
+
+	Patch from Owen Taylor <otaylor@redhat.com>
+
+	* tools/dbus-launch-x11.c: Make sure we call XFlush()
+	on all code paths (FDO bug #15293)
+
 2008-03-27  Havoc Pennington  <hp@redhat.com>
 
 	* tools/dbus-send.c (append_dict): Do not provide a signature to
