@@ -1,3 +1,15 @@
+2008-04-01  Timo Hoenig  <thoenig@suse.de>
+
+	Patch from Frederic Crozat <fcrozat@mandriva.com>
+
+	* bus/dir-watch-inotify.c (bus_watch_directory): Only monitor
+	  IN_CLOSE_WRITE, IN_DELETE, IN_MOVE_TO and IN_MOVE_FROM events. This
+	  way, only atomic changes to configuration file are monitored.
+	* bus/dir-watch-inotify.c (_handle_inotify_watch): Fix typo in
+	  _dbus_verbose function call
+	* bus/dir-watch-inotify.c (bus_drop_all_directory_watches): Use
+	  _dbus_strerror instead of perror
+
 2008-03-31  Colin Walters  <walters@verbum.org>
 
 	Patch from Owen Taylor <otaylor@redhat.com>
