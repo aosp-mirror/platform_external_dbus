@@ -1,5 +1,13 @@
 2008-04-03  John (J5) Palmieri <johnp@redhat.com>
 
+	* dbus/dbus-connection.c (dbus_connection_send): add documentation
+	  to describe when to call dbus_connection_flush and
+	  dbus_connection_unref after a call to dbus_connection_send is made
+	  Initial wording by Stanislav Brabec <sbrabec at suse.cz> 
+	  (fd.o bug#13558)
+
+2008-04-03  John (J5) Palmieri <johnp@redhat.com>
+
 	Patch from Jérémie Dimino <jeremie at dimino.org>
 
 	* tools/dbus-send.c (append_dict): Send in signature when opening up

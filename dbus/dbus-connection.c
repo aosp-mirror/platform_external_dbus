@@ -3055,18 +3055,24 @@ _dbus_connection_send_unlocked_no_update (DBusConnection *connection,
 /**
  * Adds a message to the outgoing message queue. Does not block to
  * write the message to the network; that happens asynchronously. To
- * force the message to be written, call dbus_connection_flush().
+ * force the message to be written, call dbus_connection_flush() however
+ * it is not necessary to call dbus_connection_flush() by hand; the 
+ * message will be sent the next time the main loop is run. 
+ * dbus_connection_flush() should only be used, for example, if
+ * the application was expected to exit before running the main loop.
+ *
  * Because this only queues the message, the only reason it can
  * fail is lack of memory. Even if the connection is disconnected,
- * no error will be returned.
- *
- * If the function fails due to lack of memory, it returns #FALSE.
- * The function will never fail for other reasons; even if the
- * connection is disconnected, you can queue an outgoing message,
+ * no error will be returned. If the function fails due to lack of memory, 
+ * it returns #FALSE. The function will never fail for other reasons; even 
+ * if the connection is disconnected, you can queue an outgoing message,
  * though obviously it won't be sent.
  *
  * The message serial is used by the remote application to send a
  * reply; see dbus_message_get_serial() or the D-Bus specification.
+ *
+ * dbus_message_unref() can be called as soon as this method returns
+ * as the message queue will hold its own ref until the message is sent.
  * 
  * @param connection the connection.
  * @param message the message to write.
