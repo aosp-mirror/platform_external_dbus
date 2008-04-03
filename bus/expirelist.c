@@ -138,9 +138,11 @@ do_expiration_with_current_time (BusExpireList *list,
                                  long           tv_usec)
 {
   DBusList *link;
-  int next_interval;
+  int next_interval, min_wait_time, items_to_expire;
 
   next_interval = -1;
+  min_wait_time = 3600 * 1000; /* this is reset anyway if used */
+  items_to_expire = 0;
   
   link = _dbus_list_get_first_link (&list->items);
   while (link != NULL)
@@ -173,16 +175,19 @@ do_expiration_with_current_time (BusExpireList *list,
         }
       else
         {
-          /* We can end the loop, since the connections are in oldest-first order */
-          next_interval = ((double)list->expire_after) - elapsed;
-          _dbus_verbose ("Item %p expires in %d milliseconds\n",
-                         item, next_interval);
+          double to_wait;
 
-          break;
+          items_to_expire = 1;
+          to_wait = (double) list->expire_after - elapsed;
+          if (min_wait_time > to_wait)
+            min_wait_time = to_wait;
         }
 
       link = next;
     }
+
+  if (next_interval < 0 && items_to_expire)
+    next_interval = min_wait_time;
 
   return next_interval;
 }
@@ -223,16 +228,14 @@ void
 bus_expire_list_remove_link (BusExpireList *list,
                              DBusList      *link)
 {
-  _dbus_list_remove_link (&list->items,
-                          link);
+  _dbus_list_remove_link (&list->items, link);
 }
 
 dbus_bool_t
 bus_expire_list_remove (BusExpireList *list,
                         BusExpireItem *item)
 {
-  return _dbus_list_remove (&list->items,
-                            item);
+  return _dbus_list_remove (&list->items, item);
 }
 
 void
@@ -246,8 +249,13 @@ dbus_bool_t
 bus_expire_list_add (BusExpireList *list,
                      BusExpireItem *item)
 {
-  return _dbus_list_prepend (&list->items,
-                             item);
+  dbus_bool_t ret;
+
+  ret = _dbus_list_prepend (&list->items, item);
+  if (ret && !dbus_timeout_get_enabled (list->timeout))
+    bus_expire_timeout_set_interval (list->timeout, 0);
+
+  return ret;
 }
 
 void
@@ -256,8 +264,10 @@ bus_expire_list_add_link (BusExpireList *list,
 {
   _dbus_assert (link->data != NULL);
   
-  _dbus_list_prepend_link (&list->items,
-                           link);
+  _dbus_list_prepend_link (&list->items, link);
+
+  if (!dbus_timeout_get_enabled (list->timeout))
+    bus_expire_timeout_set_interval (list->timeout, 0);
 }
 
 DBusList*
@@ -270,8 +280,7 @@ DBusList*
 bus_expire_list_get_next_link (BusExpireList *list,
                                DBusList      *link)
 {
-  return _dbus_list_get_next_link (&list->items,
-                                   link);
+  return _dbus_list_get_next_link (&list->items, link);
 }
 
 dbus_bool_t

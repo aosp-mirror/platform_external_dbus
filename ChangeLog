@@ -1,3 +1,15 @@
+2008-04-03  John (J5) Palmieri <johnp@redhat.com>
+
+	Patch from Kimmo Hämäläinen <kimmo.hamalainen at nokia.com>
+
+	* bus/expirelist.c
+	  (do_expiration_with_current_time): calculate correct min wait time
+	  and next interval
+	  (bus_expire_list_add, bus_expire_list_add_link): if the timeout is 
+	  disabled when we add an item to the expire list, enable the timeout
+	  (do_expiration_with_current_time): only set timeout if there are
+	  items to expire
+
 2008-04-01  Timo Hoenig  <thoenig@suse.de>
 
 	Patch from Frederic Crozat <fcrozat@mandriva.com>
