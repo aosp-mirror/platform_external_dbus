@@ -1,5 +1,15 @@
 2008-04-03  John (J5) Palmieri <johnp@redhat.com>
 
+	Patch from Jérémie Dimino <jeremie at dimino.org>
+
+	* tools/dbus-send.c (append_dict): Send in signature when opening up
+	  a dict entry container
+
+	* AUTHORS: Add Jérémie to AUTHORS file since it was a slightly above
+	  trivial fix
+
+2008-04-03  John (J5) Palmieri <johnp@redhat.com>
+
 	Patch from Kimmo Hämäläinen <kimmo.hamalainen at nokia.com>
 
 	* bus/expirelist.c
