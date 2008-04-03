@@ -1,3 +1,15 @@
+2008-04-01  Timo Hoenig  <thoenig@suse.de>
+
+	Patch from Frederic Crozat <fcrozat@mandriva.com>
+
+	* bus/dir-watch-inotify.c (bus_watch_directory): Only monitor
+	  IN_CLOSE_WRITE, IN_DELETE, IN_MOVE_TO and IN_MOVE_FROM events. This
+	  way, only atomic changes to configuration file are monitored.
+	* bus/dir-watch-inotify.c (_handle_inotify_watch): Fix typo in
+	  _dbus_verbose function call
+	* bus/dir-watch-inotify.c (bus_drop_all_directory_watches): Use
+	  _dbus_strerror instead of perror
+
 2008-03-04  Havoc Pennington  <hp@redhat.com>
 
 	* bus/connection.c, bus/expirelist.c: Make the BusExpireList
@@ -7,6 +19,35 @@
 	some bugs Kimmo Hämäläinen found where the timeout is not properly
 	updated, since we need to e.g. take some action whenever adding
 	and removing stuff from the expire list.
+
+2008-03-31  Colin Walters  <walters@verbum.org>
+
+	Patch from Owen Taylor <otaylor@redhat.com>
+
+	* tools/dbus-launch-x11.c: Check for X11 events before
+	selecting (FDO bug #15293)
+
+2008-03-31  Colin Walters  <walters@verbum.org>
+
+	Patch from Owen Taylor <otaylor@redhat.com>
+
+	* tools/dbus-launch-x11.c: Make sure we call XFlush()
+	on all code paths (FDO bug #15293)
+
+2008-03-27  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-send.c (append_dict): Do not provide a signature to
+	dbus_message_iter_open_container() when opening a dict entry.
+
+2008-03-26  Colin Walters  <walters@verbum.org>
+
+	Patch from Scott James Remnant <scott@netsplit.com>
+
+	* dbus/dbus-bus.c: Set default exit_on_disconnect after registration with
+	the bus, not before.  This ensures that programs which wish to set
+	exit_on_disconnect to FALSE will not be terminated if the bus exits
+	during registration.  (FDO Bug #15112)
+>>>>>>> 68f69d38182ed5974984b0434086e6a288b477cb:ChangeLog
 
 2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
 

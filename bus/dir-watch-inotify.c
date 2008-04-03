@@ -64,7 +64,7 @@ _handle_inotify_watch (DBusWatch *watch, unsigned int flags, void *data)
 
   ret = read (inotify_fd, buffer, INOTIFY_BUF_LEN);
   if (ret < 0)
-    _dbus_verbose ("Error reading inotify event: '%s'\n, _dbus_strerror(errno)");
+    _dbus_verbose ("Error reading inotify event: '%s'\n", _dbus_strerror(errno));
   else if (!ret)
     _dbus_verbose ("Error reading inotify event: buffer too small\n");
 
@@ -134,7 +134,7 @@ bus_watch_directory (const char *dir, BusContext *context)
       goto out;
     }
 
-  wd = inotify_add_watch (inotify_fd, dir, IN_MODIFY | IN_CREATE | IN_DELETE);
+  wd = inotify_add_watch (inotify_fd, dir, IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
   if (wd < 0)
     {
       _dbus_warn ("Cannot setup inotify for '%s'; error '%s'\n", dir, _dbus_strerror (errno));
@@ -156,7 +156,7 @@ bus_drop_all_directory_watches (void)
   _dbus_verbose ("Dropping all watches on config directories\n");
   ret = close (inotify_fd);
   if (ret)
-    _dbus_verbose ("Error dropping watches: '%s'\n", perror(ret));
+    _dbus_verbose ("Error dropping watches: '%s'\n",  _dbus_strerror(errno));
 
   num_wds = 0;
   inotify_fd = -1;

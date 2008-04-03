@@ -341,7 +341,7 @@ static Window
 set_address_in_x11(char *address, pid_t pid)
 {
   char *current_address;
-  Window wid;
+  Window wid = None;
   unsigned long pid32; /* Xlib property functions want _long_ not 32-bit for format "32" */
   
   /* lock the X11 display to make sure we're doing this atomically */
@@ -350,16 +350,14 @@ set_address_in_x11(char *address, pid_t pid)
   if (!x11_get_address (&current_address, NULL, NULL))
     {
       /* error! */
-      XUngrabServer (xdisplay);
-      return None;
+      goto out;
     }
 
   if (current_address != NULL)
     {
       /* someone saved the address in the meantime */
-      XUngrabServer (xdisplay);
       free (current_address);
-      return None;
+      goto out;
     }
 
   /* Create our window */
@@ -378,9 +376,11 @@ set_address_in_x11(char *address, pid_t pid)
   /* Now grab the selection */
   XSetSelectionOwner (xdisplay, selection_atom, wid, CurrentTime);
 
+ out:
   /* Ungrab the server to let other people use it too */
   XUngrabServer (xdisplay);
 
+  /* And make sure that the ungrab gets sent to X11 */
   XFlush (xdisplay);
 
   return wid;
