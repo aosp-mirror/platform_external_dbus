@@ -1,5 +1,11 @@
 2008-04-03  John (J5) Palmieri <johnp@redhat.com>
 
+	Patch from Sumit <sumitskj_20@yahoo.com>, comments added
+
+	* dbus/dbus-transport.c(_dbus_transport_open): fix mem leak
+
+2008-04-03  John (J5) Palmieri <johnp@redhat.com>
+
 	* dbus/dbus-connection.c (dbus_connection_send): add documentation
 	  to describe when to call dbus_connection_flush and
 	  dbus_connection_unref after a call to dbus_connection_send is made
