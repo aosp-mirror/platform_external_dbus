@@ -14,16 +14,6 @@
 
 2008-04-03  John (J5) Palmieri <johnp@redhat.com>
 
-	Patch from Jérémie Dimino <jeremie at dimino.org>
-
-	* tools/dbus-send.c (append_dict): Send in signature when opening up
-	  a dict entry container
-
-	* AUTHORS: Add Jérémie to AUTHORS file since it was a slightly above
-	  trivial fix
-
-2008-04-03  John (J5) Palmieri <johnp@redhat.com>
-
 	Patch from Kimmo Hämäläinen <kimmo.hamalainen at nokia.com>
 
 	* bus/expirelist.c
@@ -83,7 +73,6 @@
 	the bus, not before.  This ensures that programs which wish to set
 	exit_on_disconnect to FALSE will not be terminated if the bus exits
 	during registration.  (FDO Bug #15112)
->>>>>>> 68f69d38182ed5974984b0434086e6a288b477cb:ChangeLog
 
 2008-03-04  John (J5) Palmieri  <johnp@redhat.com>
 
