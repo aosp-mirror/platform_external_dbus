@@ -1,3 +1,24 @@
+D-Bus 1.2.1 (04 April)
+==
+- Due to issues putting the re-licensing effort on hold indefinitely, it has 
+  been decided to move to 1.2.x versioning scheme.  Being that 1.1.20 is 
+  considered to also be 1.2.0 and this being the second release in the 1.2.x 
+  stable series we have versioned this release 1.2.1. This release contains a 
+  number of bug fixes identified after 1.1.20.
+- compiles under some older versions of glibc
+- compiles without X support once again
+- fix stuck server grab if dbus-launch is run in an existing D-Bus X session
+- various Mac OSX build fixes added
+- don't use the broken poll call on Mac OSX
+- better checks for linker flag support should allow D-Bus to link under
+  various linkers
+- exit_on_disconnect is set after the connection registers with a bus so we 
+  don't exit if we get a disconnect during the handshake
+- dicts now work correctly with dbus-send
+- inotify backend is now less aggressive
+- pending calls expire correctly
+- memleak of uuid when the bus is autolaunched fixed
+
 D-Bus 1.1.20 - "Conisten Water" (27 Febuary)
 ==
 
