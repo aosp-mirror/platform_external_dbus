@@ -1726,7 +1726,7 @@ _dbus_message_iter_init_common (DBusMessage         *message,
  *
  * The easiest way to iterate is like this: 
  * @code
- * dbus_message_iter_init (&iter);
+ * dbus_message_iter_init (message, &iter);
  * while ((current_type = dbus_message_iter_get_arg_type (&iter)) != DBUS_TYPE_INVALID)
  *   dbus_message_iter_next (&iter);
  * @endcode
