@@ -965,6 +965,13 @@ _dbus_connection_detach_pending_call_and_unlock (DBusConnection  *connection,
   _dbus_pending_call_ref_unlocked (pending);
   _dbus_hash_table_remove_int (connection->pending_replies,
                                _dbus_pending_call_get_reply_serial_unlocked (pending));
+
+  if (_dbus_pending_call_is_timeout_added_unlocked (pending))
+      _dbus_connection_remove_timeout_unlocked (connection,
+              _dbus_pending_call_get_timeout_unlocked (pending));
+
+  _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
+
   _dbus_pending_call_unref_and_unlock (pending);
 }
 
