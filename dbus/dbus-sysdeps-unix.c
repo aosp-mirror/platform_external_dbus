@@ -2848,7 +2848,10 @@ _dbus_get_autolaunch_address (DBusString *address,
   if (pid == 0)
     {
       /* child process */
-      int fd = open ("/dev/null", O_RDWR);
+      int maxfds;
+      int fd;
+
+      fd = open ("/dev/null", O_RDWR);
       if (fd == -1)
         /* huh?! can't open /dev/null? */
         _exit (1);
@@ -2869,9 +2872,15 @@ _dbus_get_autolaunch_address (DBusString *address,
       if (dup2 (errors_pipe[WRITE_END], 2) == -1)
         _exit (1);
 
-      close (fd);
-      close (address_pipe[WRITE_END]);
-      close (errors_pipe[WRITE_END]);
+      maxfds = sysconf (_SC_OPEN_MAX);
+      /* Pick something reasonable if for some reason sysconf
+       * says unlimited.
+       */
+      if (maxfds < 0)
+        maxfds = 1024;
+      /* close all inherited fds */
+      for (i = 3; i < maxfds; i++)
+        close (i);
 
       execv (DBUS_BINDIR "/dbus-launch", argv);
 
