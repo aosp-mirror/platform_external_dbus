@@ -25,6 +25,11 @@ if test -z "$DBUS_TEST_NAME_IN_RUN_TEST"; then
   export DBUS_TEST_NAME_IN_RUN_TEST
   exec $DBUS_TOP_SRCDIR/tools/run-with-tmp-session-bus.sh $SCRIPTNAME $MODE
 fi 
+
+if test -n "$DBUS_TEST_MONITOR"; then
+  dbus-monitor --session &
+fi
+
 echo "running test-ids"
 ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-ids || die "test-ids failed"
 
@@ -36,6 +41,9 @@ ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-
 
 echo "running test-threads-init"
 ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-threads-init || die "test-threads-init failed"
+
+echo "running test-privserver-client"
+${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-privserver-client || die "test-privserver-client failed"
 
 echo "running test-shutdown"
 ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-shutdown || die "test-shutdown failed"

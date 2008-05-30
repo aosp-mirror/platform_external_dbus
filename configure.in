@@ -1275,6 +1275,7 @@ TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
 TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
 TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
+TEST_PATH(PRIVSERVER_BINARY, name-test/test-privserver)
 
 AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon",
                    [Full path to the daemon in the builddir])
@@ -1347,6 +1348,7 @@ test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-config-files/debug-allow-all-sha1.conf
 test/data/valid-config-files-system/debug-allow-all-pass.conf
 test/data/valid-config-files-system/debug-allow-all-fail.conf
+test/data/valid-service-files/org.freedesktop.DBus.TestSuite.PrivServer.service
 test/data/valid-service-files/org.freedesktop.DBus.TestSuiteEchoService.service
 test/data/valid-service-files/org.freedesktop.DBus.TestSuiteSegfaultService.service
 test/data/valid-service-files/org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess.service
