@@ -92,11 +92,9 @@ main (int argc, char *argv[])
 
   dbus_shutdown ();
 
-  /*
   open_shutdown_private_connection ();
 
   dbus_shutdown ();
-  */
 
   return 0;
 }

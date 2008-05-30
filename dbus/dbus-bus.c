@@ -124,6 +124,8 @@ addresses_shutdown_func (void *data)
     }
 
   activation_bus_type = DBUS_BUS_STARTER;
+
+  initialized = FALSE;
 }
 
 static dbus_bool_t
