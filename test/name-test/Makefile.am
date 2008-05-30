@@ -1,4 +1,4 @@
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) -DDBUS_COMPILATION
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_TEST_CFLAGS) -DDBUS_COMPILATION
 
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
@@ -16,7 +16,7 @@ if DBUS_BUILD_TESTS
 
 ## we use noinst_PROGRAMS not check_PROGRAMS for TESTS so that we
 ## build even when not doing "make check"
-noinst_PROGRAMS=test-names test-pending-call-dispatch test-threads-init test-ids
+noinst_PROGRAMS=test-names test-pending-call-dispatch test-threads-init test-ids test-shutdown
 
 test_names_SOURCES=				\
 	test-names.c
@@ -42,5 +42,11 @@ test_ids_SOURCES =            \
 test_ids_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_TEST_LIBS)
 test_ids_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
-endif
+test_shutdown_SOURCES =            \
+	test-shutdown.c
 
+test_shutdown_CFLAGS=
+test_shutdown_LDADD=$(top_builddir)/dbus/libdbus-convenience.la ../libdbus-testutils.la $(DBUS_TEST_LIBS)
+test_shutdown_LDFLAGS=@R_DYNAMIC_LDFLAG@
+
+endif

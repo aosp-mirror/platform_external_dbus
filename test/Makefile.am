@@ -1,10 +1,14 @@
 ## the "name-test" subdir in fact contains a bunch of tests now that need a temporary bus 
 ## to be running to do stuff with. The directory should be renamed.
-SUBDIRS=name-test 
+## We want to build the current directory first to pick up the testutils lib
+SUBDIRS= . name-test 
 DIST_SUBDIRS=name-test
 
 INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
 
+libdbus_testutils_la_SOURCES = test-utils.h test-utils.c
+
+noinst_LTLIBRARIES = libdbus-testutils.la
 
 if DBUS_BUILD_TESTS
 ## break-loader removed for now
@@ -28,22 +32,16 @@ endif
 noinst_PROGRAMS= $(TEST_BINARIES) $(GCOV_BINARIES)
 
 test_service_SOURCES=				\
-	test-service.c				\
-	test-utils.c				\
-	test-utils.h
+	test-service.c
 
 test_names_SOURCES=				\
-	test-names.c				\
-	test-utils.c				\
-	test-utils.h
+	test-names.c
 
 ##break_loader_SOURCES=				\
 ##	break-loader.c
 
 test_shell_service_SOURCES =			\
-	test-shell-service.c			\
-	test-utils.c				\
-	test-utils.h
+	test-shell-service.c
 
 shell_test_SOURCES=                             \
         shell-test.c
@@ -65,15 +63,15 @@ decode_gcov_SOURCES=				\
 
 TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
 
-test_service_LDADD=$(TEST_LIBS)
+test_service_LDADD=$(TEST_LIBS) libdbus-testutils.la
 test_service_LDFLAGS=@R_DYNAMIC_LDFLAG@
-test_names_LDADD=$(TEST_LIBS)
+test_names_LDADD=$(TEST_LIBS) libdbus-testutils.la
 test_names_LDFLAGS=@R_DYNAMIC_LDFLAG@
 ## break_loader_LDADD= $(TEST_LIBS)
 ## break_loader_LDFLAGS=@R_DYNAMIC_LDFLAG@
-test_shell_service_LDADD=$(TEST_LIBS)
+test_shell_service_LDADD=$(TEST_LIBS) libdbus-testutils.la
 test_shell_service_LDFLAGS=@R_DYNAMIC_LDFLAG@
-shell_test_LDADD=$(TEST_LIBS)
+shell_test_LDADD=$(TEST_LIBS) libdbus-testutils.la
 shell_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 spawn_test_LDADD=$(TEST_LIBS)
 spawn_test_LDFLAGS=@R_DYNAMIC_LDFLAG@

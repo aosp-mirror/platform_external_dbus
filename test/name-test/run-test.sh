@@ -36,3 +36,6 @@ ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-
 
 echo "running test-threads-init"
 ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-threads-init || die "test-threads-init failed"
+
+echo "running test-shutdown"
+${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-shutdown || die "test-shutdown failed"

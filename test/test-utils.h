@@ -1,7 +1,9 @@
 #ifndef TEST_UTILS_H
 #define TEST_UTILS_H
 #include <config.h>
+#ifndef DBUS_COMPILATION
 #define DBUS_COMPILATION /* Cheat and use private stuff */
+#endif
 #include <dbus/dbus.h>
 #include <stdio.h>
 #include <stdlib.h>
