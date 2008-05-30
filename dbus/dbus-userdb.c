@@ -143,7 +143,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
         uid = n;
     }
 
-#ifdef DBUS_ENABLE_USER_CACHE  
+#ifdef DBUS_ENABLE_USERDB_CACHE  
   if (uid != DBUS_UID_UNSET)
     info = _dbus_hash_table_lookup_ulong (db->users, uid);
   else

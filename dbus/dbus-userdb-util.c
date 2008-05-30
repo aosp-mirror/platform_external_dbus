@@ -223,7 +223,7 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
         gid = n;
     }
 
-#ifdef DBUS_ENABLE_USER_CACHE
+#ifdef DBUS_ENABLE_USERDB_CACHE
   if (gid != DBUS_GID_UNSET)
     info = _dbus_hash_table_lookup_ulong (db->groups, gid);
   else
