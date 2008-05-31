@@ -27,7 +27,7 @@ filter_private_message (DBusConnection     *connection,
 }
 
 static void
-open_shutdown_private_connection ()
+open_shutdown_private_connection (dbus_bool_t use_guid)
 {
   DBusError error;
   DBusLoop *loop;
@@ -35,7 +35,8 @@ open_shutdown_private_connection ()
   DBusMessage *msg;
   DBusMessage *reply;
   DBusConnection *privconn;
-  const char *addr;
+  char *addr;
+  char *comma;
 
   dbus_error_init (&error);
 
@@ -55,8 +56,15 @@ open_shutdown_private_connection ()
   if (!dbus_message_get_args (reply, &error, DBUS_TYPE_STRING, &addr, DBUS_TYPE_INVALID))
     die ("couldn't parse message replym\n");
   printf ("got private temp address %s\n", addr);
-
+  addr = strdup (addr);
+  if (!use_guid)
+    {
+      char *comma = strrchr (addr, ',');
+      if (comma)
+        *comma = '\0';
+    }
   privconn = dbus_connection_open (addr, &error);
+  free (addr);
   if (!privconn)
     die ("couldn't connect to server direct connection: %s\n", error.message);
   dbus_message_unref (reply);
@@ -88,11 +96,19 @@ open_shutdown_private_connection ()
 int
 main (int argc, char *argv[])
 {
-  open_shutdown_private_connection ();
+  open_shutdown_private_connection (TRUE);
 
   dbus_shutdown ();
 
-  open_shutdown_private_connection ();
+  open_shutdown_private_connection (TRUE);
+
+  dbus_shutdown ();
+
+  open_shutdown_private_connection (FALSE);
+
+  dbus_shutdown ();
+
+  open_shutdown_private_connection (FALSE);
 
   dbus_shutdown ();
 

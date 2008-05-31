@@ -1678,12 +1678,12 @@ connection_forget_shared_unlocked (DBusConnection *connection)
   if (!connection->shareable)
     return;
   
+  _DBUS_LOCK (shared_connections);
+      
   if (connection->server_guid != NULL)
     {
       _dbus_verbose ("dropping connection to %s out of the shared table\n",
                      connection->server_guid);
-      
-      _DBUS_LOCK (shared_connections);
       
       if (!_dbus_hash_table_remove_string (shared_connections,
                                            connection->server_guid))
@@ -1691,8 +1691,13 @@ connection_forget_shared_unlocked (DBusConnection *connection)
       
       dbus_free (connection->server_guid);
       connection->server_guid = NULL;
-      _DBUS_UNLOCK (shared_connections);
     }
+  else
+    {
+      _dbus_list_remove (&shared_connections_no_guid, connection);
+    }
+
+  _DBUS_UNLOCK (shared_connections);
   
   /* remove our reference held on all shareable connections */
   _dbus_connection_unref_unlocked (connection);
