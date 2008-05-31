@@ -193,6 +193,11 @@ test/break-loader
 A test that tries to break the message loader by passing it randomly
 created invalid messages.
 
+test/name-test/*
+This is a suite of programs which are run with a temporary session bus.
+If your test involves multiple processes communicating, your best bet
+is to add a test in here.
+
 "make check" runs all the deterministic test programs (i.e. not break-loader).
 
 "make check-coverage" is available if you configure with --enable-gcov and 
@@ -221,7 +226,7 @@ rules are:
  - regardless of reviews, to commit a patch:
     - make check must pass
     - the test suite must be extended to cover the new code
-      as much as reasonably feasible
+      as much as reasonably feasible (see Tests above)
     - the patch has to follow the portability, security, and 
       style guidelines
     - the patch should as much as reasonable do one thing, 
