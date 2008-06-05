@@ -1094,6 +1094,13 @@ handle_server_data_external_mech (DBusAuth         *auth,
                                              DBUS_CREDENTIAL_UNIX_PROCESS_ID,
                                              auth->credentials))
         return FALSE;
+
+      /* also copy audit data from the socket credentials
+       */
+      if (!_dbus_credentials_add_credential (auth->authorized_identity,
+                                             DBUS_CREDENTIAL_ADT_AUDIT_DATA_ID,
+                                             auth->credentials))
+        return FALSE;
       
       if (!send_ok (auth))
         return FALSE;

@@ -231,6 +231,9 @@ dbus_bool_t        dbus_connection_get_unix_user                (DBusConnection 
                                                                  unsigned long              *uid);
 dbus_bool_t        dbus_connection_get_unix_process_id          (DBusConnection             *connection,
                                                                  unsigned long              *pid);
+dbus_bool_t        dbus_connection_get_adt_audit_session_data   (DBusConnection             *connection,
+                                                                 void                      **data,
+                                                                 dbus_int32_t               *data_size);
 void               dbus_connection_set_unix_user_function       (DBusConnection             *connection,
                                                                  DBusAllowUnixUserFunction   function,
                                                                  void                       *data,

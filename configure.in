@@ -1028,6 +1028,24 @@ if test x$have_libaudit = xyes ; then
     AC_DEFINE(HAVE_LIBAUDIT,1,[audit daemon SELinux support])
 fi
 
+# Check for ADT API
+AC_MSG_CHECKING(for ADT API)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <bsm/adt.h>
+adt_user_context = ADT_USER;
+]], [[]])], [ check_adt_audit=yes ], [ check_adt_audit=no ])
+
+if test ${check_adt_audit} = yes
+then
+   AC_DEFINE([HAVE_ADT], [], [Adt audit API])
+   ADT_LIBS="-lbsm"
+   LIBS="-lbsm $LIBS"
+   AC_MSG_RESULT(yes)
+else
+   AC_MSG_RESULT(no)
+fi
+
+
 #### Set up final flags
 DBUS_CLIENT_CFLAGS=
 DBUS_CLIENT_LIBS="$THREAD_LIBS"
@@ -1035,7 +1053,7 @@ AC_SUBST(DBUS_CLIENT_CFLAGS)
 AC_SUBST(DBUS_CLIENT_LIBS)
 
 DBUS_BUS_CFLAGS="$XML_CFLAGS"
-DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS $INTLLIBS $THREAD_LIBS"
+DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS $INTLLIBS $THREAD_LIBS $ADT_LIBS"
 AC_SUBST(DBUS_BUS_CFLAGS)
 AC_SUBST(DBUS_BUS_LIBS)
 

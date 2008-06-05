@@ -411,6 +411,8 @@ extern "C" {
 #define DBUS_ERROR_INVALID_FILE_CONTENT       "org.freedesktop.DBus.Error.InvalidFileContent"
 /** Asked for SELinux security context and it wasn't available. */
 #define DBUS_ERROR_SELINUX_SECURITY_CONTEXT_UNKNOWN    "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"
+/** Asked for ADT audit data and it wasn't available. */
+#define DBUS_ERROR_ADT_AUDIT_DATA_UNKNOWN     "org.freedesktop.DBus.Error.AdtAuditDataUnknown"
 /** There's already an object with the requested object path. */
 #define DBUS_ERROR_OBJECT_PATH_IN_USE         "org.freedesktop.DBus.Error.ObjectPathInUse"
 

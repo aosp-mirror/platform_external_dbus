@@ -50,6 +50,8 @@ struct DBusCredentials {
   dbus_uid_t unix_uid;
   dbus_pid_t unix_pid;
   char *windows_sid;
+  void *adt_audit_data;
+  dbus_int32_t adt_audit_data_size;
 };
 
 /** @} */
@@ -77,6 +79,8 @@ _dbus_credentials_new (void)
   creds->unix_uid = DBUS_UID_UNSET;
   creds->unix_pid = DBUS_PID_UNSET;
   creds->windows_sid = NULL;
+  creds->adt_audit_data = NULL;
+  creds->adt_audit_data_size = 0;
 
   return creds;
 }
@@ -129,6 +133,7 @@ _dbus_credentials_unref (DBusCredentials    *credentials)
   if (credentials->refcount == 0)
     {
       dbus_free (credentials->windows_sid);
+      dbus_free (credentials->adt_audit_data);
       dbus_free (credentials);
     }
 }
@@ -188,6 +193,31 @@ _dbus_credentials_add_windows_sid (DBusCredentials    *credentials,
 }
 
 /**
+ * Add ADT audit data to the credentials.
+ *
+ * @param credentials the object
+ * @param audit_data the audit data
+ * @param size the length of audit data
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_credentials_add_adt_audit_data (DBusCredentials    *credentials,
+                                      void               *audit_data,
+                                      dbus_int32_t        size)
+{
+  void *copy;
+  copy = _dbus_memdup (audit_data, size);
+  if (copy == NULL)
+    return FALSE;
+
+  dbus_free (credentials->adt_audit_data);
+  credentials->adt_audit_data = copy;
+  credentials->adt_audit_data_size = size;
+
+  return TRUE;
+}
+
+/**
  * Checks whether the given credential is present.
  *
  * @param credentials the object
@@ -206,6 +236,8 @@ _dbus_credentials_include (DBusCredentials    *credentials,
       return credentials->unix_uid != DBUS_UID_UNSET;
     case DBUS_CREDENTIAL_WINDOWS_SID:
       return credentials->windows_sid != NULL;
+    case DBUS_CREDENTIAL_ADT_AUDIT_DATA_ID:
+      return credentials->adt_audit_data != NULL;
     }
 
   _dbus_assert_not_reached ("Unknown credential enum value");
@@ -252,6 +284,32 @@ _dbus_credentials_get_windows_sid (DBusCredentials    *credentials)
 }
 
 /**
+ * Gets the ADT audit data in the credentials, or #NULL if
+ * the credentials object doesn't contain ADT audit data.
+ *
+ * @param credentials the object
+ * @returns Solaris ADT audit data 
+ */
+void *
+_dbus_credentials_get_adt_audit_data (DBusCredentials    *credentials)
+{
+  return credentials->adt_audit_data;
+}
+
+/**
+ * Gets the ADT audit data size in the credentials, or 0 if
+ * the credentials object doesn't contain ADT audit data.
+ *
+ * @param credentials the object
+ * @returns Solaris ADT audit data size
+ */
+dbus_int32_t 
+_dbus_credentials_get_adt_audit_data_size (DBusCredentials    *credentials)
+{
+  return credentials->adt_audit_data_size;
+}
+
+/**
  * Checks whether the first credentials object contains
  * all the credentials found in the second credentials object.
  *
@@ -270,7 +328,11 @@ _dbus_credentials_are_superset (DBusCredentials    *credentials,
      possible_subset->unix_uid == credentials->unix_uid) &&
     (possible_subset->windows_sid == NULL ||
      (credentials->windows_sid && strcmp (possible_subset->windows_sid,
-                                          credentials->windows_sid) == 0));
+                                          credentials->windows_sid) == 0)) &&
+    (possible_subset->adt_audit_data == NULL ||
+     (credentials->adt_audit_data && memcmp (possible_subset->adt_audit_data,
+                                             credentials->adt_audit_data,
+                                             credentials->adt_audit_data_size) == 0));
 }
 
 /**
@@ -285,7 +347,8 @@ _dbus_credentials_are_empty (DBusCredentials    *credentials)
   return
     credentials->unix_pid == DBUS_PID_UNSET &&
     credentials->unix_uid == DBUS_UID_UNSET &&
-    credentials->windows_sid == NULL;
+    credentials->windows_sid == NULL &&
+    credentials->adt_audit_data == NULL;
 }
 
 /**
@@ -320,6 +383,9 @@ _dbus_credentials_add_credentials (DBusCredentials    *credentials,
                                       other_credentials) &&
     _dbus_credentials_add_credential (credentials,
                                       DBUS_CREDENTIAL_UNIX_USER_ID,
+                                      other_credentials) &&
+    _dbus_credentials_add_credential (credentials,
+                                      DBUS_CREDENTIAL_ADT_AUDIT_DATA_ID,
                                       other_credentials) &&
     _dbus_credentials_add_credential (credentials,
                                       DBUS_CREDENTIAL_WINDOWS_SID,
@@ -360,6 +426,12 @@ _dbus_credentials_add_credential (DBusCredentials    *credentials,
     {
       if (!_dbus_credentials_add_windows_sid (credentials, other_credentials->windows_sid))
         return FALSE;
+    } 
+  else if (which == DBUS_CREDENTIAL_ADT_AUDIT_DATA_ID &&
+           other_credentials->adt_audit_data != NULL) 
+    {
+      if (!_dbus_credentials_add_adt_audit_data (credentials, other_credentials->adt_audit_data, other_credentials->adt_audit_data_size))
+        return FALSE;
     }
 
   return TRUE;
@@ -377,6 +449,9 @@ _dbus_credentials_clear (DBusCredentials    *credentials)
   credentials->unix_uid = DBUS_UID_UNSET;
   dbus_free (credentials->windows_sid);
   credentials->windows_sid = NULL;
+  dbus_free (credentials->adt_audit_data);
+  credentials->adt_audit_data = NULL;
+  credentials->adt_audit_data_size = 0;
 }
 
 /**

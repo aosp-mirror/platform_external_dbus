@@ -1262,6 +1262,40 @@ _dbus_transport_get_unix_process_id (DBusTransport *transport,
 }
 
 /**
+ * See dbus_connection_get_adt_audit_session_data().
+ *
+ * @param transport the transport
+ * @param data return location for the ADT audit data 
+ * @param data_size return length of audit data
+ * @returns #TRUE if audit data is filled in with a valid ucred
+ */
+dbus_bool_t
+_dbus_transport_get_adt_audit_session_data (DBusTransport      *transport,
+                                            void              **data,
+                                            int                *data_size)
+{
+  DBusCredentials *auth_identity;
+
+  *data = NULL;
+  *data_size = 0;
+  
+  if (!transport->authenticated)
+    return FALSE;
+  
+  auth_identity = _dbus_auth_get_identity (transport->auth);
+
+  if (_dbus_credentials_include (auth_identity,
+                                 DBUS_CREDENTIAL_ADT_AUDIT_DATA_ID))
+    {
+      *data = (void *) _dbus_credentials_get_adt_audit_data (auth_identity);
+      *data_size = _dbus_credentials_get_adt_audit_data_size (auth_identity);
+      return TRUE;
+    }
+  else
+    return FALSE;
+}
+
+/**
  * See dbus_connection_set_unix_user_function().
  *
  * @param transport the transport

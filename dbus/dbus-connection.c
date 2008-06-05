@@ -4986,6 +4986,40 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
 }
 
 /**
+ * Gets the ADT audit data of the connection if any.
+ * Returns #TRUE if the structure pointer is returned.
+ * Always returns #FALSE prior to authenticating the
+ * connection.
+ *
+ * @param connection the connection
+ * @param data return location for audit data 
+ * @returns #TRUE if audit data is filled in with a valid ucred pointer
+ */
+dbus_bool_t
+dbus_connection_get_adt_audit_session_data (DBusConnection *connection,
+					    void          **data,
+					    dbus_int32_t   *data_size)
+{
+  dbus_bool_t result;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (data != NULL, FALSE);
+  _dbus_return_val_if_fail (data_size != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+
+  if (!_dbus_transport_get_is_authenticated (connection->transport))
+    result = FALSE;
+  else
+    result = _dbus_transport_get_adt_audit_session_data (connection->transport,
+					    	         data,
+			  			         data_size);
+  CONNECTION_UNLOCK (connection);
+
+  return result;
+}
+
+/**
  * Sets a predicate function used to determine whether a given user ID
  * is allowed to connect. When an incoming connection has
  * authenticated with a particular user ID, this function is called;

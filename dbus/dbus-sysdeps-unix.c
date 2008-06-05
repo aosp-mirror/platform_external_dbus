@@ -71,6 +71,10 @@
 #include <ucred.h>
 #endif
 
+#ifdef HAVE_ADT
+#include <bsm/adt.h>
+#endif
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -1260,6 +1264,37 @@ _dbus_read_credentials_socket  (int              client_fd,
       {
         pid_read = ucred_getpid (ucred);
         uid_read = ucred_geteuid (ucred);
+#ifdef HAVE_ADT
+        /* generate audit session data based on socket ucred */
+        adt_session_data_t *adth = NULL;
+        adt_export_data_t *data = NULL;
+        size_t size = 0;
+        if (adt_start_session (&adth, NULL, 0) || (adth == NULL))
+          {
+            _dbus_verbose ("Failed to adt_start_session(): %s\n", _dbus_strerror (errno));
+          }
+        else 
+          {
+            if (adt_set_from_ucred (adth, ucred, ADT_NEW)) 
+              {
+                _dbus_verbose ("Failed to adt_set_from_ucred(): %s\n", _dbus_strerror (errno));
+              }
+            else
+              {
+                size = adt_export_session_data (adth, &data);
+                if (size <= 0)
+                  {
+                    _dbus_verbose ("Failed to adt_export_session_data(): %s\n", _dbus_strerror (errno));
+                  }
+                else
+                  {
+                    _dbus_credentials_add_adt_audit_data (credentials, data, size);
+                    free (data);
+                  }
+              }
+            (void) adt_end_session (adth);
+          }
+#endif /* HAVE_ADT */
       }
     else
       {
