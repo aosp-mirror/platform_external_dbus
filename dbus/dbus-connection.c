@@ -3412,6 +3412,7 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
 {
   DBusDispatchStatus dstatus;
   dbus_bool_t no_progress_possible;
+  dbus_bool_t progress_possible;
   
   dstatus = dbus_connection_get_dispatch_status (connection);
 
@@ -3447,12 +3448,13 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
    * as long as the transport is open.
    */
   if (dispatch)
-    no_progress_possible = connection->n_incoming == 0 &&
-      connection->disconnect_message_link == NULL;
+    progress_possible = connection->n_incoming != 0 ||
+      connection->disconnect_message_link != NULL;
   else
-    no_progress_possible = _dbus_connection_get_is_connected_unlocked (connection);
+    progress_possible = _dbus_connection_get_is_connected_unlocked (connection);
+
   CONNECTION_UNLOCK (connection);
-  return !no_progress_possible; /* TRUE if we can make more progress */
+  return progress_possible; /* TRUE if we can make more progress */
 }
 
 
