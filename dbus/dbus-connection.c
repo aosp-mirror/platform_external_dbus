@@ -3416,14 +3416,13 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
                                      dbus_bool_t     dispatch)
 {
   DBusDispatchStatus dstatus;
-  dbus_bool_t no_progress_possible;
+  dbus_bool_t progress_possible;
 
   /* Need to grab a ref here in case we're a private connection and
    * the user drops the last ref in a handler we call; see bug 
    * https://bugs.freedesktop.org/show_bug.cgi?id=15635
    */
   dbus_connection_ref (connection);
-  
   dstatus = dbus_connection_get_dispatch_status (connection);
 
   if (dispatch && dstatus == DBUS_DISPATCH_DATA_REMAINS)
@@ -3458,16 +3457,16 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
    * as long as the transport is open.
    */
   if (dispatch)
-    no_progress_possible = connection->n_incoming == 0 &&
-      connection->disconnect_message_link == NULL;
+    progress_possible = connection->n_incoming != 0 ||
+      connection->disconnect_message_link != NULL;
   else
-    no_progress_possible = _dbus_connection_get_is_connected_unlocked (connection);
+    progress_possible = _dbus_connection_get_is_connected_unlocked (connection);
 
   CONNECTION_UNLOCK (connection);
 
   dbus_connection_unref (connection);
 
-  return !no_progress_possible; /* TRUE if we can make more progress */
+  return progress_possible; /* TRUE if we can make more progress */
 }
 
 
