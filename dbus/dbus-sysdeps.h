@@ -101,6 +101,7 @@ const char* _dbus_getenv (const char *varname);
 dbus_bool_t _dbus_setenv (const char *varname,
 			  const char *value);
 dbus_bool_t _dbus_clearenv (void);
+char **     _dbus_get_environment (void);
 
 /** A process ID */
 typedef unsigned long dbus_pid_t;

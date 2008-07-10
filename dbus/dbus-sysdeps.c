@@ -200,6 +200,48 @@ _dbus_clearenv (void)
   return rc;
 }
 
+/**
+ * Gets a #NULL-terminated list of key=value pairs from the
+ * environment. Use dbus_free_string_array to free it.
+ *
+ * @returns the environment or #NULL on OOM
+ */
+char **
+_dbus_get_environment (void)
+{
+  int i, length;
+  extern char **environ;
+  char **environment;
+
+  _dbus_assert (environ != NULL);
+
+  for (length = 0; environ[length] != NULL; length++);
+
+  /* Add one for NULL */
+  length++;
+
+  environment = dbus_new0 (char *, length);
+
+  if (environment == NULL)
+    return NULL;
+
+  for (i = 0; environ[i] != NULL; i++)
+    {
+      environment[i] = _dbus_strdup (environ[i]);
+
+      if (environment[i] == NULL)
+        break;
+    }
+
+  if (environ[i] != NULL)
+    {
+      dbus_free_string_array (environment);
+      environment = NULL;
+    }
+
+  return environment;
+}
+
 /*
  * init a pipe instance.
  *
