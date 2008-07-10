@@ -811,6 +811,133 @@ send_ack_reply (DBusConnection *connection,
 }
 
 static dbus_bool_t
+bus_driver_handle_update_activation_environment (DBusConnection *connection,
+                                                 BusTransaction *transaction,
+                                                 DBusMessage    *message,
+                                                 DBusError      *error)
+{
+  dbus_bool_t retval;
+  BusActivation *activation;
+  DBusMessageIter iter;
+  DBusMessageIter dict_iter;
+  DBusMessageIter dict_entry_iter;
+  int msg_type;
+  int array_type;
+  int key_type;
+  DBusList *keys, *key_link;
+  DBusList *values, *value_link;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  activation = bus_connection_get_activation (connection);
+
+  dbus_message_iter_init (message, &iter);
+
+  /* The message signature has already been checked for us,
+   * so let's just assert it's right.
+   */
+  msg_type = dbus_message_iter_get_arg_type (&iter);
+
+  _dbus_assert (msg_type == DBUS_TYPE_ARRAY);
+
+  dbus_message_iter_recurse (&iter, &dict_iter);
+
+  retval = FALSE;
+
+  /* Then loop through the sent dictionary, add the location of
+   * the environment keys and values to lists. The result will
+   * be in reverse order, so we don't have to constantly search
+   * for the end of the list in a loop.
+   */
+  keys = NULL;
+  values = NULL;
+  while ((array_type = dbus_message_iter_get_arg_type (&dict_iter)) == DBUS_TYPE_DICT_ENTRY)
+    {
+      dbus_message_iter_recurse (&dict_iter, &dict_entry_iter);
+
+      while ((key_type = dbus_message_iter_get_arg_type (&dict_entry_iter)) == DBUS_TYPE_STRING)
+        {
+          char *key;
+          char *value;
+          int value_type;
+
+          dbus_message_iter_get_basic (&dict_entry_iter, &key);
+          dbus_message_iter_next (&dict_entry_iter);
+
+          value_type = dbus_message_iter_get_arg_type (&dict_entry_iter);
+
+          if (value_type != DBUS_TYPE_STRING)
+            break;
+
+          dbus_message_iter_get_basic (&dict_entry_iter, &value);
+
+          if (!_dbus_list_append (&keys, key))
+            {
+              BUS_SET_OOM (error);
+              break;
+            }
+
+          if (!_dbus_list_append (&values, value))
+            {
+              BUS_SET_OOM (error);
+              break;
+            }
+
+          dbus_message_iter_next (&dict_entry_iter);
+        }
+
+      if (key_type != DBUS_TYPE_INVALID)
+        break;
+
+      dbus_message_iter_next (&dict_iter);
+    }
+
+  if (array_type != DBUS_TYPE_INVALID)
+    goto out;
+
+  _dbus_assert (_dbus_list_get_length (&keys) == _dbus_list_get_length (&values));
+
+  key_link = keys;
+  value_link = values;
+  while (key_link != NULL)
+  {
+      const char *key;
+      const char *value;
+
+      key = key_link->data;
+      value = value_link->data;
+
+      if (!bus_activation_set_environment_variable (activation,
+                                                    key, value, error))
+      {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          _dbus_verbose ("bus_activation_set_environment_variable() failed\n");
+          break;
+      }
+      key_link = _dbus_list_get_next_link (&keys, key_link);
+      value_link = _dbus_list_get_next_link (&values, value_link);
+  }
+
+  /* FIXME: We can fail early having set only some of the environment variables,
+   * (because of OOM failure).  It's sort of hard to fix and it doesn't really
+   * matter, so we're punting for now.
+   */
+  if (key_link != NULL)
+    goto out;
+
+  if (!send_ack_reply (connection, transaction,
+                       message, error))
+    goto out;
+
+  retval = TRUE;
+
+ out:
+  _dbus_list_clear (&keys);
+  _dbus_list_clear (&values);
+  return retval;
+}
+
+static dbus_bool_t
 bus_driver_handle_add_match (DBusConnection *connection,
                              BusTransaction *transaction,
                              DBusMessage    *message,
@@ -1542,6 +1669,10 @@ struct
     DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
     DBUS_TYPE_UINT32_AS_STRING,
     bus_driver_handle_activate_service },
+  { "UpdateActivationEnvironment",
+    DBUS_TYPE_ARRAY_AS_STRING DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_STRING_AS_STRING DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+    "",
+    bus_driver_handle_update_activation_environment },
   { "NameHasOwner",
     DBUS_TYPE_STRING_AS_STRING,
     DBUS_TYPE_BOOLEAN_AS_STRING,

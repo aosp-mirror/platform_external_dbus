@@ -53,6 +53,10 @@
     <!-- valid replies are always allowed -->
     <allow send_requested_reply="true"/>
     <allow receive_requested_reply="true"/>
+    <!-- disallow changing the activation environment of system services -->
+    <deny send_destination="org.freedesktop.DBus"
+          send_interface="org.freedesktop.DBus"
+          send_member="UpdateActivationEnvironment"/>
   </policy>
 
   <!-- Config files are placed here that among other things, punch 
