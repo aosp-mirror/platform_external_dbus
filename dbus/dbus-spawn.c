@@ -880,6 +880,7 @@ write_status_and_exit (int fd, int status)
 static void
 do_exec (int                       child_err_report_fd,
 	 char                    **argv,
+	 char                    **envp,
 	 DBusSpawnChildSetupFunc   child_setup,
 	 void                     *user_data)
 {
@@ -910,8 +911,17 @@ do_exec (int                       child_err_report_fd,
 	_dbus_warn ("Fd %d did not have the close-on-exec flag set!\n", i);
     }
 #endif
+
+  if (envp == NULL)
+    {
+      extern char **environ;
+
+      _dbus_assert (environ != NULL);
+
+      envp = environ;
+    }
   
-  execv (argv[0], argv);
+  execve (argv[0], argv, envp);
   
   /* Exec failed */
   write_err_and_exit (child_err_report_fd,
@@ -1190,6 +1200,7 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
 	{
 	  do_exec (child_err_report_pipe[WRITE_END],
 		   argv,
+		   env,
 		   child_setup, user_data);
           _dbus_assert_not_reached ("Got to code after exec() - should have exited on error");
 	}
@@ -1217,6 +1228,8 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
         *sitter_p = sitter;
       else
         _dbus_babysitter_unref (sitter);
+
+      dbus_free_string_array (env);
 
       _DBUS_ASSERT_ERROR_IS_CLEAR (error);
       
