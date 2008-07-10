@@ -51,6 +51,7 @@ struct BusActivation
                               * activations per se
                               */
   DBusHashTable *directories;
+  DBusHashTable *environment;
 };
 
 typedef struct
@@ -671,6 +672,69 @@ update_directory (BusActivation       *activation,
   return retval;
 }
 
+static dbus_bool_t
+populate_environment (BusActivation *activation)
+{
+  DBusString   key;
+  DBusString   value;
+  int          i;
+  char       **environment;
+  dbus_bool_t  retval;
+
+  environment = _dbus_get_environment ();
+
+  if (environment == NULL)
+    return FALSE;
+
+  if (!_dbus_string_init (&key))
+    {
+        dbus_free_string_array (environment);
+        return FALSE;
+    }
+
+  if (!_dbus_string_init (&value))
+    {
+      _dbus_string_free (&key);
+      dbus_free_string_array (environment);
+      return FALSE;
+    }
+
+  for (i = 0; environment[i] != NULL; i++)
+    {
+      if (!_dbus_string_append (&key, environment[i]))
+        break;
+
+      if (_dbus_string_split_on_byte (&key, '=', &value))
+        {
+          char *hash_key, *hash_value;
+
+          if (!_dbus_string_steal_data (&key, &hash_key))
+            break;
+
+          if (!_dbus_string_steal_data (&value, &hash_value))
+            break;
+
+          if (!_dbus_hash_table_insert_string (activation->environment,
+                                               hash_key, hash_value))
+            break;
+        }
+      _dbus_string_set_length (&key, 0);
+      _dbus_string_set_length (&value, 0);
+    }
+
+  if (environment[i] != NULL)
+    goto out;
+
+  retval = TRUE;
+out:
+
+  _dbus_string_free (&key);
+  _dbus_string_free (&value);
+  dbus_free_string_array (environment);
+
+  return retval;
+}
+
 BusActivation*
 bus_activation_new (BusContext        *context,
                     const DBusString  *address,
@@ -779,6 +843,22 @@ bus_activation_new (BusContext        *context,
       link = _dbus_list_get_next_link (directories, link);
     }
 
+  activation->environment = _dbus_hash_table_new (DBUS_HASH_STRING,
+                                                  (DBusFreeFunction) dbus_free,
+                                                  (DBusFreeFunction) dbus_free);
+  
+  if (activation->environment == NULL) 
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
+  if (!populate_environment (activation))
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+
   return activation;
   
  failed:
@@ -813,41 +893,51 @@ bus_activation_unref (BusActivation *activation)
     _dbus_hash_table_unref (activation->pending_activations);
   if (activation->directories)  
     _dbus_hash_table_unref (activation->directories);
-  
+  if (activation->environment)
+    _dbus_hash_table_unref (activation->environment);
+
   dbus_free (activation);
 }
 
-static void
-child_setup (void *data)
+static dbus_bool_t
+add_bus_environment (BusActivation *activation,
+                     DBusError     *error)
 {
-  BusActivation *activation = data;
   const char *type;
   
-  /* If no memory, we simply have the child exit, so it won't try
-   * to connect to the wrong thing.
-   */
-  if (!_dbus_setenv ("DBUS_STARTER_ADDRESS", activation->server_address))
-    _dbus_exit (1);
+  if (!bus_activation_set_environment_variable (activation,
+                                                "DBUS_STARTER_ADDRESS",
+                                                activation->server_address,
+                                                error))
+    return FALSE;
   
   type = bus_context_get_type (activation->context);
   if (type != NULL)
     {
-      if (!_dbus_setenv ("DBUS_STARTER_BUS_TYPE", type))
-        _dbus_exit (1);
+      if (!bus_activation_set_environment_variable (activation,
+                                                    "DBUS_STARTER_BUS_TYPE", type,
+                                                    error))
+        return FALSE;
 
       if (strcmp (type, "session") == 0)
         {
-          if (!_dbus_setenv ("DBUS_SESSION_BUS_ADDRESS",
-                             activation->server_address))
-            _dbus_exit (1);
+          if (!bus_activation_set_environment_variable (activation,
+                                                        "DBUS_SESSION_BUS_ADDRESS",
+                                                        activation->server_address,
+                                                        error))
+            return FALSE;
         }
       else if (strcmp (type, "system") == 0)
         {
-          if (!_dbus_setenv ("DBUS_SYSTEM_BUS_ADDRESS",
-                             activation->server_address))
-            _dbus_exit (1);
+          if (!bus_activation_set_environment_variable (activation,
+                                                        "DBUS_SYSTEM_BUS_ADDRESS",
+                                                        activation->server_address,
+                                                        error))
+            return FALSE;
         }
     }
+
+  return TRUE;
 }
 
 typedef struct
@@ -1389,6 +1479,92 @@ activation_find_entry (BusActivation *activation,
   return entry;
 }
 
+static char **
+bus_activation_get_environment (BusActivation *activation)
+{
+  char **environment;
+  int i, length;
+  DBusString entry;
+  DBusHashIter iter;
+
+  length = _dbus_hash_table_get_n_entries (activation->environment);
+
+  environment = dbus_new0 (char *, length + 1);
+
+  if (environment == NULL)
+    return NULL;
+
+  i = 0;
+  _dbus_hash_iter_init (activation->environment, &iter);
+
+  if (!_dbus_string_init (&entry))
+    return NULL;
+
+  while (_dbus_hash_iter_next (&iter))
+    {
+      const char *key, *value;
+
+      key = (const char *) _dbus_hash_iter_get_string_key (&iter);
+      value = (const char *) _dbus_hash_iter_get_value (&iter);
+
+      if (!_dbus_string_append_printf (&entry, "%s=%s", key, value))
+        break;
+
+      if (!_dbus_string_steal_data (&entry, environment + i))
+        break;
+      i++;
+    }
+
+  _dbus_string_free (&entry);
+
+  if (i != length)
+    {
+      dbus_free (environment);
+      environment = NULL;
+    }
+
+  return environment;
+}
+
+dbus_bool_t
+bus_activation_set_environment_variable (BusActivation     *activation,
+                                         const char        *key,
+                                         const char        *value,
+                                         DBusError         *error)
+{
+  char        *hash_key;
+  char        *hash_value;
+  dbus_bool_t  retval;
+
+  retval = FALSE;
+  hash_key = NULL;
+  hash_value = NULL;
+  hash_key = _dbus_strdup (key);
+
+  if (hash_key == NULL)
+    goto out;
+
+  hash_value = _dbus_strdup (value);
+
+  if (hash_value == NULL)
+    goto out;
+
+  if (!_dbus_hash_table_insert_string (activation->environment,
+                                       hash_key, hash_value))
+    goto out;
+
+  retval = TRUE;
+out:
+  if (retval == FALSE)
+    {
+      dbus_free (hash_key);
+      dbus_free (hash_value);
+      BUS_SET_OOM (error);
+    }
+
+  return retval;
+}
+
 dbus_bool_t
 bus_activation_activate_service (BusActivation  *activation,
                                  DBusConnection *connection,
@@ -1688,20 +1864,38 @@ bus_activation_activate_service (BusActivation  *activation,
     }
   _dbus_string_free (&command);
 
+  if (!add_bus_environment (activation, error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_free_string_array (argv);
+      return FALSE;
+    }
+
+  envp = bus_activation_get_environment (activation);
+
+  if (envp == NULL)
+    {
+      BUS_SET_OOM (error);
+      dbus_free_string_array (argv);
+      return FALSE;
+    }
+
   _dbus_verbose ("Spawning %s ...\n", argv[0]);
   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
                                           envp,
-                                          child_setup, activation, 
+                                          NULL, activation, 
                                           error))
     {
       _dbus_verbose ("Failed to spawn child\n");
       _DBUS_ASSERT_ERROR_IS_SET (error);
       dbus_free_string_array (argv);
+      dbus_free_string_array (envp);
 
       return FALSE;
     }
 
   dbus_free_string_array (argv);
+  envp = NULL;
 
   _dbus_assert (pending_activation->babysitter != NULL);
   

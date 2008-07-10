@@ -34,6 +34,11 @@ BusActivation* bus_activation_new              (BusContext        *context,
 						DBusError         *error);
 BusActivation* bus_activation_ref              (BusActivation     *activation);
 void           bus_activation_unref            (BusActivation     *activation);
+
+dbus_bool_t   bus_activation_set_environment_variable (BusActivation     *activation,
+						const char        *key,
+						const char        *value,
+						DBusError         *error);
 dbus_bool_t    bus_activation_activate_service (BusActivation     *activation,
 						DBusConnection    *connection,
 						BusTransaction    *transaction,
