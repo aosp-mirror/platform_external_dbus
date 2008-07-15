@@ -1498,7 +1498,10 @@ bus_activation_get_environment (BusActivation *activation)
   _dbus_hash_iter_init (activation->environment, &iter);
 
   if (!_dbus_string_init (&entry))
-    return NULL;
+    {
+      dbus_free_string_array (environment);
+      return NULL;
+    }
 
   while (_dbus_hash_iter_next (&iter))
     {
@@ -1519,7 +1522,7 @@ bus_activation_get_environment (BusActivation *activation)
 
   if (i != length)
     {
-      dbus_free (environment);
+      dbus_free_string_array (environment);
       environment = NULL;
     }
 
