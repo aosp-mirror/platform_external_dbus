@@ -37,7 +37,7 @@ filter_session_message (DBusConnection     *connection,
   TestServiceData *testdata = user_data;
 
   if (dbus_message_is_method_call (message,
-                                   "org.freedesktop.DBus.TestSuite.TestServer",
+                                   "org.freedesktop.DBus.TestSuite.PrivServer",
                                    "GetPrivateAddress"))
     {
        DBusMessage *reply;
@@ -49,7 +49,7 @@ filter_session_message (DBusConnection     *connection,
        return DBUS_HANDLER_RESULT_HANDLED;
     }
   else if (dbus_message_is_method_call (message,
-                                   "org.freedesktop.DBus.TestSuite.TestServer",
+                                   "org.freedesktop.DBus.TestSuite.PrivServer",
                                    "Quit"))
     {
       fprintf (stderr, "server exiting loop\n");
@@ -81,7 +81,7 @@ main (int argc, char *argv[])
 
   test_connection_setup (loop, session);
 
-  dbus_bus_request_name (session, "org.freedesktop.DBus.TestSuite.TestServer", 0, &error);
+  dbus_bus_request_name (session, "org.freedesktop.DBus.TestSuite.PrivServer", 0, &error);
   if (dbus_error_is_set (&error))
     die ("couldn't request name: %s", error.message);
 

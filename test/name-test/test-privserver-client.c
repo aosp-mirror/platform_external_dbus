@@ -46,9 +46,9 @@ open_shutdown_private_connection (dbus_bool_t use_guid)
   if (!session)
     die ("couldn't access session bus\n");
   dbus_connection_set_exit_on_disconnect (session, FALSE);
-  msg = dbus_message_new_method_call ("org.freedesktop.DBus.TestSuite.TestServer",
+  msg = dbus_message_new_method_call ("org.freedesktop.DBus.TestSuite.PrivServer",
                                       "/",
-                                      "org.freedesktop.DBus.TestSuite.TestServer",
+                                      "org.freedesktop.DBus.TestSuite.PrivServer",
                                       "GetPrivateAddress");
   if (!(reply = dbus_connection_send_with_reply_and_block (session, msg, -1, &error)))
     die ("couldn't send message: %s\n", error.message);
@@ -73,9 +73,9 @@ open_shutdown_private_connection (dbus_bool_t use_guid)
   dbus_connection_add_filter (privconn, filter_private_message, loop, NULL);
   test_connection_setup (loop, privconn);
 
-  msg = dbus_message_new_method_call ("org.freedesktop.DBus.TestSuite.TestServer",
+  msg = dbus_message_new_method_call ("org.freedesktop.DBus.TestSuite.PrivServer",
                                       "/",
-                                      "org.freedesktop.DBus.TestSuite.TestServer",
+                                      "org.freedesktop.DBus.TestSuite.PrivServer",
                                       "Quit");
   if (!dbus_connection_send (session, msg, NULL))
     die ("couldn't send Quit message\n");
