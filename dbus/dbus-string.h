@@ -201,6 +201,9 @@ dbus_bool_t   _dbus_string_replace_len           (const DBusString  *source,
                                                   DBusString        *dest,
                                                   int                replace_at,
                                                   int                replace_len);
+dbus_bool_t   _dbus_string_split_on_byte         (DBusString        *source,
+                                                  unsigned char      byte,
+                                                  DBusString        *tail);
 void          _dbus_string_get_unichar           (const DBusString  *str,
                                                   int                start,
                                                   dbus_unichar_t    *ch_return,

@@ -846,6 +846,31 @@ _dbus_string_test (void)
 
     _dbus_string_free (&str);
   }
+
+  {
+    const char two_strings[] = "one\ttwo";
+
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_init (&other))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, two_strings))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_split_on_byte (&str, '\t', &other))
+      _dbus_assert_not_reached ("no memory or delimiter not found");
+
+    if (strcmp (_dbus_string_get_data (&str), "one") != 0)
+      _dbus_assert_not_reached ("left side after split on tab is wrong");
+
+    if (strcmp (_dbus_string_get_data (&other), "two") != 0)
+      _dbus_assert_not_reached ("right side after split on tab is wrong");
+
+    _dbus_string_free (&str);
+    _dbus_string_free (&other);
+  }
   
   return TRUE;
 }

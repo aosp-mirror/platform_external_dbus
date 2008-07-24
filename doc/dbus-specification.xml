@@ -3678,6 +3678,40 @@
 
       </sect3>
 
+      <sect3 id="bus-messages-update-activation-environment">
+        <title><literal>org.freedesktop.DBus.UpdateActivationEnvironment</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            UpdateActivationEnvironment (in ARRAY of DICT&lt;STRING,STRING&gt; environment)
+          </programlisting>
+          Message arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>ARRAY of DICT&lt;STRING,STRING&gt;</entry>
+                  <entry>Environment to add or update</entry>
+                </row>
+              </tbody>
+            </tgroup>
+            </informaltable>
+            Normally, session bus activated services inherit the environment of the bus daemon.  This method adds to or modifies that environment when activating services.
+        </para>
+        <para>
+          Some bus instances, such as the standard system bus, may disable access to this method for some or all callers.
+        </para>
+
+      </sect3>
+
       <sect3 id="bus-messages-get-name-owner">
         <title><literal>org.freedesktop.DBus.GetNameOwner</literal></title>
         <para>

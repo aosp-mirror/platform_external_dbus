@@ -138,7 +138,21 @@ Root element.
 The well-known type of the message bus. Currently known values are
 "system" and "session"; if other values are set, they should be
 either added to the D-Bus specification, or namespaced.  The last
-<type> element "wins" (previous values are ignored).
+<type> element "wins" (previous values are ignored). This element
+only controls which message bus specific environment variables are
+set in activated clients.  Most of the policy that distinguishes a
+session bus from the system bus is controlled from the other elements
+in the configuration file.
+
+.PP
+If the well-known type of the message bus is "session", then the
+DBUS_STARTER_BUS_TYPE environment variable will be set to "session"
+and the DBUS_SESSION_BUS_ADDRESS environment variable will be set
+to the address of the session bus.  Likewise, if the type of the
+message bus is "system", then the DBUS_STARTER_BUS_TYPE environment
+variable will be set to "system" and the DBUS_SESSION_BUS_ADDRESS
+environment variable will be set to the address of the system bus
+(which is normally well known anyway).
 
 .PP
 Example: <type>session</type>

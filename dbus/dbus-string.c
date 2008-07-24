@@ -1677,6 +1677,48 @@ _dbus_string_replace_len (const DBusString *source,
   return TRUE;
 }
 
+/**
+ * Looks for the first occurance of a byte, deletes that byte,
+ * and moves everything after the byte to the beginning of a
+ * separate string.  Both strings must be initialized, valid
+ * strings.
+ *
+ * @param source the source string
+ * @param byte the byte to remove and split the string at
+ * @param tail the split off string
+ * @returns #FALSE if not enough memory or if byte could not be found
+ *
+ */
+dbus_bool_t
+_dbus_string_split_on_byte (DBusString        *source,
+                            unsigned char      byte,
+                            DBusString        *tail)
+{
+  int byte_position;
+  char byte_string[2] = "";
+  int head_length;
+  int tail_length;
+
+  byte_string[0] = (char) byte;
+
+  if (!_dbus_string_find (source, 0, byte_string, &byte_position))
+    return FALSE;
+
+  head_length = byte_position;
+  tail_length = _dbus_string_get_length (source) - head_length - 1;
+
+  if (!_dbus_string_move_len (source, byte_position + 1, tail_length,
+                              tail, 0))
+    return FALSE;
+
+  /* remove the trailing delimiter byte from the head now.
+   */
+  if (!_dbus_string_set_length (source, head_length))
+    return FALSE;
+
+  return TRUE;
+}
+
 /* Unicode macros and utf8_validate() from GLib Owen Taylor, Havoc
  * Pennington, and Tom Tromey are the authors and authorized relicense.
  */
