@@ -55,12 +55,13 @@ _inotify_watch_callback (DBusWatch *watch, unsigned int condition, void *data)
 }
 
 static dbus_bool_t
-_handle_inotify_watch (DBusWatch *watch, unsigned int flags, void *data)
+_handle_inotify_watch (DBusWatch *passed_watch, unsigned int flags, void *data)
 {
   char buffer[INOTIFY_BUF_LEN];
   ssize_t ret = 0;
   int i = 0;
   pid_t pid;
+  dbus_bool_t have_change = FALSE;
 
   ret = read (inotify_fd, buffer, INOTIFY_BUF_LEN);
   if (ret < 0)
@@ -81,16 +82,11 @@ _handle_inotify_watch (DBusWatch *watch, unsigned int flags, void *data)
       _dbus_verbose ("inotify event: wd=%d mask=%u cookie=%u len=%u\n", ev->wd, ev->mask, ev->cookie, ev->len);
 #endif
       _dbus_verbose ("Sending SIGHUP signal on reception of a inotify event\n");
-      (void) kill (pid, SIGHUP);
+      have_change = TRUE;
     }
+  if (have_change)
+    (void) kill (pid, SIGHUP);
 
-  if (watch != NULL)
-    {
-      _dbus_loop_remove_watch (loop, watch, _inotify_watch_callback, NULL);
-      _dbus_watch_unref (watch);
-      watch = NULL;
-    }
- 
   return TRUE;
 }
 
@@ -152,6 +148,13 @@ void
 bus_drop_all_directory_watches (void)
 {
   int ret;
+
+  if (watch != NULL)
+    {
+      _dbus_loop_remove_watch (loop, watch, _inotify_watch_callback, NULL);
+      _dbus_watch_unref (watch);
+      watch = NULL;
+    }
 
   _dbus_verbose ("Dropping all watches on config directories\n");
   ret = close (inotify_fd);
