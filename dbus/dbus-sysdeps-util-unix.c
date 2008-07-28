@@ -828,31 +828,65 @@ fill_group_info (DBusGroupInfo    *info,
   {
     struct group *g;
     int result;
-    char buf[1024];
+    size_t buflen;
+    char *buf;
     struct group g_str;
+    dbus_bool_t b;
 
-    g = NULL;
+    /* retrieve maximum needed size for buf */
+    buflen = sysconf (_SC_GETGR_R_SIZE_MAX);
+
+    if (buflen <= 0)
+      buflen = 1024;
+
+    result = -1;
+    while (1)
+      {
+        buf = dbus_malloc (buflen);
+        if (buf == NULL)
+          {
+            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+            return FALSE;
+          }
+
+        g = NULL;
 #ifdef HAVE_POSIX_GETPWNAM_R
-
-    if (group_c_str)
-      result = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf),
-                           &g);
-    else
-      result = getgrgid_r (gid, &g_str, buf, sizeof (buf),
-                           &g);
+        if (group_c_str)
+          result = getgrnam_r (group_c_str, &g_str, buf, buflen,
+                               &g);
+        else
+          result = getgrgid_r (gid, &g_str, buf, buflen,
+                               &g);
 #else
-    g = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
-    result = 0;
+        g = getgrnam_r (group_c_str, &g_str, buf, buflen);
+        result = 0;
 #endif /* !HAVE_POSIX_GETPWNAM_R */
+        /* Try a bigger buffer if ERANGE was returned:
+           https://bugs.freedesktop.org/show_bug.cgi?id=16727
+        */
+        if (result == ERANGE && buflen < 512 * 1024)
+          {
+            dbus_free (buf);
+            buflen *= 2;
+          }
+        else
+          {
+            break;
+          }
+      }
+
     if (result == 0 && g == &g_str)
       {
-        return fill_user_info_from_group (g, info, error);
+        b = fill_user_info_from_group (g, info, error);
+        dbus_free (buf);
+        return b;
       }
     else
       {
         dbus_set_error (error, _dbus_error_from_errno (errno),
                         "Group %s unknown or failed to look it up\n",
                         group_c_str ? group_c_str : "???");
+        dbus_free (buf);
         return FALSE;
       }
   }
