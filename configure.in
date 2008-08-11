@@ -851,30 +851,27 @@ AC_CHECK_LIB(expat, XML_ParserCreate_MM,
 dbus_use_libxml=false
 dbus_use_expat=false
 if test x$with_xml = xexpat; then
-        dbus_use_expat=true
         if ! $have_expat ; then
            AC_MSG_ERROR([Explicitly requested expat but expat not found])
         fi
+        dbus_use_expat=true
 elif test x$with_xml = xlibxml; then
-        dbus_use_libxml=true
         PKG_CHECK_MODULES(LIBXML, libxml-2.0 >= 2.6.0, have_libxml=true, have_libxml=false)
-
         if ! $have_libxml ; then
            AC_MSG_ERROR([Explicitly requested libxml but libxml not found])
         fi
+        dbus_use_libxml=true
 else
         ### expat is the default because libxml can't currently survive 
         ### our brutal OOM-handling unit test setup.
         ### http://bugzilla.gnome.org/show_bug.cgi?id=109368
-        if $have_expat ; then
-                with_xml=expat
-                dbus_use_expat=true
-        elif $have_libxml ; then
-                with_xml=libxml
-                dbus_use_libxml=true
-        else
-                AC_MSG_ERROR([No XML library found, check config.log for failed attempts])
+        if test x$have_expat = xfalse; then
+                AC_MSG_ERROR([Could not find expat.h, check config.log for failed attempts])
         fi
+	### By default, only use Expat since it's tested and known to work.  If you're a
+	### general-purpose OS vendor, please don't enable libxml.  For embedded use
+	### if your OS is built around libxml, that's another case.
+	dbus_use_expat=true
 fi
 
 AM_CONDITIONAL(DBUS_USE_EXPAT, $dbus_use_expat)
