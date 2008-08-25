@@ -1654,7 +1654,7 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
                                      _dbus_type_to_string (expected),
                                      _dbus_string_get_const_data (writer->type_str), writer->type_pos);
           else
-            _dbus_warn_check_failed ("Writing an element of type %s, but no value is expected here\n",
+            _dbus_warn_check_failed ("Writing an element of type %s, but no value is expected here\n"
                                      "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
                                      _dbus_type_to_string (sub->container_type),
                                      _dbus_string_get_const_data (writer->type_str), writer->type_pos);
