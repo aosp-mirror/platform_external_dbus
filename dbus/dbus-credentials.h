@@ -47,6 +47,9 @@ dbus_bool_t      _dbus_credentials_add_unix_uid             (DBusCredentials    
                                                              dbus_uid_t          uid);
 dbus_bool_t      _dbus_credentials_add_windows_sid          (DBusCredentials    *credentials,
                                                              const char         *windows_sid);
+dbus_bool_t      _dbus_credentials_add_adt_audit_data       (DBusCredentials    *credentials,
+                                                             void               *audit_data,
+                                                             dbus_int32_t        size);
 dbus_bool_t      _dbus_credentials_include                  (DBusCredentials    *credentials,
                                                              DBusCredentialType  type);
 dbus_pid_t       _dbus_credentials_get_unix_pid             (DBusCredentials    *credentials);
