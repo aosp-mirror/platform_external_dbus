@@ -263,7 +263,8 @@ print_message (DBusMessage *message, dbus_bool_t literal)
 	{
 	case DBUS_MESSAGE_TYPE_METHOD_CALL:
 	case DBUS_MESSAGE_TYPE_SIGNAL:
-	  printf (" path=%s; interface=%s; member=%s\n",
+	  printf (" serial=%u path=%s; interface=%s; member=%s\n",
+                  dbus_message_get_serial (message),
 		  dbus_message_get_path (message),
 		  dbus_message_get_interface (message),
 		  dbus_message_get_member (message));
