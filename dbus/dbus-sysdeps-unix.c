@@ -2224,6 +2224,15 @@ _dbus_string_save_to_file (const DBusString *str,
       total += bytes_written;
     }
 
+  if (fsync(fd))
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not synchronize file %s: %s",
+                      tmp_filename_c, _dbus_strerror (errno));
+
+      goto out;
+  }
+
   if (!_dbus_close (fd, NULL))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
