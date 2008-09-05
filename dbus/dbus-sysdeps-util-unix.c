@@ -836,7 +836,11 @@ fill_group_info (DBusGroupInfo    *info,
     /* retrieve maximum needed size for buf */
     buflen = sysconf (_SC_GETGR_R_SIZE_MAX);
 
-    if (buflen <= 0)
+    /* sysconf actually returns a long, but everything else expects size_t,
+     * so just recast here.
+     * https://bugs.freedesktop.org/show_bug.cgi?id=17061
+     */
+    if ((long) buflen <= 0)
       buflen = 1024;
 
     result = -1;
