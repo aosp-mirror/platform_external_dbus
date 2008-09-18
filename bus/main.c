@@ -44,7 +44,6 @@ static void close_reload_pipe (void);
 static void
 signal_handler (int sig)
 {
-  DBusString str;
 
   switch (sig)
     {
@@ -52,16 +51,20 @@ signal_handler (int sig)
     case SIGIO: 
       /* explicit fall-through */
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX  */
+#ifdef SIGHUP
     case SIGHUP:
-      _dbus_string_init_const (&str, "foo");
-      if ((reload_pipe[RELOAD_WRITE_END] > 0) && 
-          !_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
-        {
-          _dbus_warn ("Unable to write to reload pipe.\n");
-          close_reload_pipe ();
-        }
+      {
+        DBusString str;
+        _dbus_string_init_const (&str, "foo");
+        if ((reload_pipe[RELOAD_WRITE_END] > 0) && 
+            !_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
+          {
+            _dbus_warn ("Unable to write to reload pipe.\n");
+            close_reload_pipe ();
+          }
+      }
       break;
-
+#endif
     case SIGTERM:
       _dbus_loop_quit (bus_context_get_loop (context));
       break;
@@ -458,7 +461,9 @@ main (int argc, char **argv)
   
   setup_reload_pipe (bus_context_get_loop (context));
 
+#ifdef SIGHUP
   _dbus_set_signal_handler (SIGHUP, signal_handler);
+#endif
   _dbus_set_signal_handler (SIGTERM, signal_handler);
 #ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
   _dbus_set_signal_handler (SIGIO, signal_handler);
