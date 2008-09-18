@@ -758,6 +758,7 @@ _dbus_connect_tcp_socket (const char     *host,
                           const char     *family,
                           DBusError      *error)
 {
+  int saved_errno;
   int fd = -1, res;
   struct addrinfo hints;
   struct addrinfo *ai, *tmp;
@@ -783,7 +784,7 @@ _dbus_connect_tcp_socket (const char     *host,
   else
     {
       dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
+                      DBUS_ERROR_BAD_ADDRESS,
                       "Unknown address family %s", family);
       return -1;
     }
@@ -814,6 +815,7 @@ _dbus_connect_tcp_socket (const char     *host,
 
       if (connect (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) < 0)
         {
+          saved_errno = errno;
           _dbus_close(fd, NULL);
           fd = -1;
           tmp = tmp->ai_next;
@@ -827,9 +829,9 @@ _dbus_connect_tcp_socket (const char     *host,
   if (fd == -1)
     {
       dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
+                      _dbus_error_from_errno (saved_errno),
                       "Failed to connect to socket \"%s:%s\" %s",
-                      host, port, _dbus_strerror(errno));
+                      host, port, _dbus_strerror(saved_errno));
       return -1;
     }
 
@@ -867,6 +869,7 @@ _dbus_listen_tcp_socket (const char     *host,
                          int           **fds_p,
                          DBusError      *error)
 {
+  int saved_errno;
   int nlisten_fd = 0, *listen_fd = NULL, res, i;
   struct addrinfo hints;
   struct addrinfo *ai, *tmp;
@@ -885,7 +888,7 @@ _dbus_listen_tcp_socket (const char     *host,
   else
     {
       dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
+                      DBUS_ERROR_BAD_ADDRESS,
                       "Unknown address family %s", family);
       return -1;
     }
@@ -917,8 +920,9 @@ _dbus_listen_tcp_socket (const char     *host,
 
       if (bind (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) < 0)
         {
+          saved_errno = errno;
           _dbus_close(fd, NULL);
-          if (errno == EADDRINUSE)
+          if (saved_errno == EADDRINUSE)
             {
               /* Depending on kernel policy, it may or may not
                  be neccessary to bind to both IPv4 & 6 addresses
@@ -926,28 +930,30 @@ _dbus_listen_tcp_socket (const char     *host,
               tmp = tmp->ai_next;
               continue;
             }
-          dbus_set_error (error, _dbus_error_from_errno (errno),
+          dbus_set_error (error, _dbus_error_from_errno (saved_errno),
                           "Failed to bind socket \"%s:%s\": %s",
-                          host ? host : "*", port, _dbus_strerror (errno));
+                          host ? host : "*", port, _dbus_strerror (saved_errno));
           goto failed;
         }
 
       if (listen (fd, 30 /* backlog */) < 0)
         {
+          saved_errno = errno;
           _dbus_close (fd, NULL);
-          dbus_set_error (error, _dbus_error_from_errno (errno),
+          dbus_set_error (error, _dbus_error_from_errno (saved_errno),
                           "Failed to listen on socket \"%s:%s\": %s",
-                          host ? host : "*", port, _dbus_strerror (errno));
+                          host ? host : "*", port, _dbus_strerror (saved_errno));
           goto failed;
         }
 
       newlisten_fd = dbus_realloc(listen_fd, sizeof(int)*(nlisten_fd+1));
       if (!newlisten_fd)
         {
+          saved_errno = errno;
           _dbus_close (fd, NULL);
-          dbus_set_error (error, _dbus_error_from_errno (errno),
+          dbus_set_error (error, _dbus_error_from_errno (saved_errno),
                           "Failed to allocate file handle array: %s",
-                          _dbus_strerror (errno));
+                          _dbus_strerror (saved_errno));
           goto failed;
         }
       listen_fd = newlisten_fd;
