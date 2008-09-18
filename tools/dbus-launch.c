@@ -402,7 +402,9 @@ signal_handler (int sig)
 {
   switch (sig)
     {
+#ifdef SIGHUP
     case SIGHUP:
+#endif
     case SIGTERM:
       got_sighup = TRUE;
       break;
