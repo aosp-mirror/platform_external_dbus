@@ -247,6 +247,7 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
         }
 
       if (last == DBUS_DICT_ENTRY_BEGIN_CHAR &&
+          _dbus_type_is_valid (*p) &&
           !dbus_type_is_basic (*p))
         {
           result = DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE;
