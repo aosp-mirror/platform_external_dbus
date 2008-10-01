@@ -228,6 +228,7 @@ _dbus_marshal_validate_test (void)
     "123",
     ".",
     "("
+    "a{(ii)i}" /* https://bugs.freedesktop.org/show_bug.cgi?id=17803 */
   };
 
   /* Signature with reason */
