@@ -741,6 +741,11 @@ bus_context_new (const DBusString *config_file,
   if (print_pid_pipe && _dbus_pipe_is_valid (print_pid_pipe) &&
       !_dbus_pipe_is_stdout_or_stderr (print_pid_pipe))
     _dbus_pipe_close (print_pid_pipe, NULL);
+
+  if (!bus_selinux_full_init ())
+    {
+      _dbus_warn ("SELinux initialization failed\n");
+    }
   
   if (!process_config_postinit (context, parser, error))
     {
@@ -771,11 +776,6 @@ bus_context_new (const DBusString *config_file,
 #endif
     }
 
-  if (!bus_selinux_full_init ())
-    {
-      _dbus_warn ("SELinux initialization failed\n");
-    }
-  
   dbus_server_free_data_slot (&server_data_slot);
   
   return context;
