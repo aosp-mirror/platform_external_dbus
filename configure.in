@@ -811,6 +811,7 @@ AC_CHECK_FUNCS(getpeerucred getpeereid)
 
 #### Abstract sockets
 
+if ! test x$enable_abstract_sockets = xno; then
 AC_LANG_PUSH(C)
 AC_CACHE_CHECK([abstract socket namespace],
 		ac_cv_have_abstract_sockets,
@@ -854,6 +855,7 @@ AC_CACHE_CHECK([abstract socket namespace],
               [ac_cv_have_abstract_sockets=no]
 )])
 AC_LANG_POP(C)
+fi
 
 if test x$enable_abstract_sockets = xyes; then
     if test x$ac_cv_have_abstract_sockets = xno; then
