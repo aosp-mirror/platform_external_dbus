@@ -33,7 +33,7 @@ static const char *appname;
 static void
 usage (int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=NAME] [--type=TYPE] [--print-reply=(literal)] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session | --address=ADDRESS] [--dest=NAME] [--type=TYPE] [--print-reply=(literal)] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
   exit (ecode);
 }
 
@@ -222,6 +222,8 @@ main (int argc, char *argv[])
   const char *path = NULL;
   int message_type = DBUS_MESSAGE_TYPE_SIGNAL;
   const char *type_str = NULL;
+  const char *address = NULL;
+  int session_or_system = FALSE;
 
   appname = argv[0];
   
@@ -237,9 +239,29 @@ main (int argc, char *argv[])
       char *arg = argv[i];
 
       if (strcmp (arg, "--system") == 0)
-	type = DBUS_BUS_SYSTEM;
+        {
+	  type = DBUS_BUS_SYSTEM;
+          session_or_system = TRUE;
+        }
       else if (strcmp (arg, "--session") == 0)
-	type = DBUS_BUS_SESSION;
+        {
+	  type = DBUS_BUS_SESSION;
+          session_or_system = TRUE;
+        }
+      else if (strstr (arg, "--address") == arg)
+        {
+          address = strchr (arg, '=');
+
+          if (address == NULL) 
+            {
+              fprintf (stderr, "\"--address=\" requires an ADDRESS\n");
+              usage (1);
+            }
+          else
+            {
+              address = address + 1;
+            }
+        }
       else if (strncmp (arg, "--print-reply", 13) == 0)
 	{
 	  print_reply = TRUE;
@@ -271,6 +293,13 @@ main (int argc, char *argv[])
   if (name == NULL)
     usage (1);
 
+  if (session_or_system &&
+      (address != NULL))
+    {
+      fprintf (stderr, "\"--address\" may not be used with \"--system\" or \"--session\"\n");
+      usage (1);
+    }
+
   if (type_str != NULL)
     {
       message_type = dbus_message_type_from_string (type_str);
@@ -284,11 +313,21 @@ main (int argc, char *argv[])
     }
   
   dbus_error_init (&error);
-  connection = dbus_bus_get (type, &error);
+
+  if (address != NULL)
+    {
+      connection = dbus_connection_open (address, &error);
+    }
+  else
+    {
+      connection = dbus_bus_get (type, &error);
+    }
+
   if (connection == NULL)
     {
-      fprintf (stderr, "Failed to open connection to %s message bus: %s\n",
-	       (type == DBUS_BUS_SYSTEM) ? "system" : "session",
+      fprintf (stderr, "Failed to open connection to \"%s\" message bus: %s\n",
+               (address != NULL) ? address :
+                 ((type == DBUS_BUS_SYSTEM) ? "system" : "session"),
                error.message);
       dbus_error_free (&error);
       exit (1);
