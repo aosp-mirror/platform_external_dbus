@@ -789,7 +789,11 @@ _dbus_string_copy_data_len (const DBusString  *str,
 int
 _dbus_string_get_length (const DBusString  *str)
 {
-  DBUS_CONST_STRING_PREAMBLE (str);
+  /* The assertion should not fail for empty strings. */
+  DBusRealString *real = (DBusRealString *)str;
+  if (((DBusRealString *)str)->len || ((DBusRealString *)str)->allocated) {
+      DBUS_CONST_STRING_PREAMBLE (str);
+  }
   
   return real->len;
 }

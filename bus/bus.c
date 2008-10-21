@@ -41,7 +41,9 @@ struct BusContext
   char *config_file;
   char *type;
   char *address;
+#ifdef WANT_PIDFILE
   char *pidfile;
+#endif
   char *user;
   DBusLoop *loop;
   DBusList *servers;
@@ -273,6 +275,7 @@ process_config_first_time_only (BusContext      *context,
   retval = FALSE;
   auth_mechanisms = NULL;
 
+#ifdef WANT_PIDFILE
   /* Check for an existing pid file. Of course this is a race;
    * we'd have to use fcntl() locks on the pid file to
    * avoid that. But we want to check for the pid file
@@ -297,6 +300,7 @@ process_config_first_time_only (BusContext      *context,
   
   /* keep around the pid filename so we can delete it later */
   context->pidfile = _dbus_strdup (pidfile);
+#endif
 
   /* Build an array of auth mechanisms */
   
@@ -681,18 +685,24 @@ bus_context_new (const DBusString *config_file,
   if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
     {
       DBusString u;
-
+#ifdef WANT_PIDFILE
       if (context->pidfile)
         _dbus_string_init_const (&u, context->pidfile);
       
       if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
 				print_pid_fd,
 				error))
+# else
+      if (!_dbus_become_daemon (NULL, 
+				0,
+				error))
+#endif
 	{
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
 	  goto failed;
 	}
     }
+#ifdef WANT_PIDFILE
   else
     {
       /* Need to write PID file for ourselves, not for the child process */
@@ -709,6 +719,7 @@ bus_context_new (const DBusString *config_file,
 	    }
         }
     }
+#endif
 
   /* Write PID if requested */
   if (print_pid_fd >= 0)
@@ -939,6 +950,7 @@ bus_context_unref (BusContext *context)
       dbus_free (context->address);
       dbus_free (context->user);
 
+#ifdef WANT_PIDFILE
       if (context->pidfile)
 	{
           DBusString u;
@@ -951,6 +963,7 @@ bus_context_unref (BusContext *context)
 
           dbus_free (context->pidfile); 
 	}
+#endif
 
       if (context->user_database != NULL)
 	_dbus_user_database_unref (context->user_database);

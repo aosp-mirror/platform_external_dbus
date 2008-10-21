@@ -50,6 +50,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <grp.h>
+#include <cutils/sockets.h>
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
@@ -564,7 +565,30 @@ _dbus_listen_unix_socket (const char     *path,
 
   _dbus_verbose ("listening on unix socket %s abstract=%d\n",
                  path, abstract);
-  
+#ifdef ANDROID_MANAGED_SOCKET
+  if (strncmp (path, ANDROID_SOCKET_DIR"/", strlen(ANDROID_SOCKET_DIR"/")) == 0)
+    {
+      const char* suffix;
+      /* init has created a socket for us, pick it up from environ */
+      suffix = &path[strlen (ANDROID_SOCKET_DIR"/")];
+      listen_fd = android_get_control_socket (suffix);
+      if (listen_fd == -1)
+        {
+          dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                "Could not obtain fd for android socket %s\n", suffix);
+          return -1;
+        }
+
+      _dbus_verbose ("Obtained fd for android socket %s\n", suffix);
+    }
+  else
+    {
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+            "Not an android socket: %s\n", path);
+      return -1;
+    }
+#else
+
   if (!_dbus_open_unix_socket (&listen_fd, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET(error);
@@ -642,6 +666,8 @@ _dbus_listen_unix_socket (const char     *path,
       return -1;
     }
 
+#endif  /* android init managed sockets */
+
   if (listen (listen_fd, 30 /* backlog */) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -666,13 +692,15 @@ _dbus_listen_unix_socket (const char     *path,
       _dbus_close (listen_fd, NULL);
       return -1;
     }
-  
+
+#ifndef ANDROID_MANAGED_SOCKET
   /* Try opening up the permissions, but if we can't, just go ahead
    * and continue, maybe it will be good enough.
    */
   if (!abstract && chmod (path, 0777) < 0)
     _dbus_warn ("Could not set mode 0777 on socket %s\n",
                 path);
+#endif
   
   return listen_fd;
 }
