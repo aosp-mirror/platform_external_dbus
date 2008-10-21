@@ -48,7 +48,9 @@ struct BusContext
   char *type;
   char *servicehelper;
   char *address;
+#ifdef WANT_PIDFILE
   char *pidfile;
+#endif
   char *user;
   char *log_prefix;
   DBusLoop *loop;
@@ -299,6 +301,7 @@ process_config_first_time_only (BusContext       *context,
 
   context->systemd_activation = systemd_activation;
 
+#ifdef WANT_PIDFILE
   /* Check for an existing pid file. Of course this is a race;
    * we'd have to use fcntl() locks on the pid file to
    * avoid that. But we want to check for the pid file
@@ -342,6 +345,7 @@ process_config_first_time_only (BusContext       *context,
 
   /* keep around the pid filename so we can delete it later */
   context->pidfile = _dbus_strdup (pidfile);
+#endif
 
   /* note that type may be NULL */
   context->type = _dbus_strdup (bus_config_parser_get_type (parser));
@@ -823,6 +827,7 @@ bus_context_new (const DBusString *config_file,
 
   /* Now become a daemon if appropriate and write out pid file in any case */
   {
+#ifdef WANT_PIDFILE
     DBusString u;
 
     if (context->pidfile)
@@ -836,6 +841,7 @@ bus_context_new (const DBusString *config_file,
                                   print_pid_pipe,
                                   error,
                                   context->keep_umask))
+
           {
             _DBUS_ASSERT_ERROR_IS_SET (error);
             goto failed;
@@ -858,6 +864,18 @@ bus_context_new (const DBusString *config_file,
             goto failed;
           }
       }
+#else
+    if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
+      {
+        if (!_dbus_become_daemon (NULL,
+                                  0,
+                                  error))
+          {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
+            goto failed;
+          }
+      }
+#endif
   }
 
   if (print_pid_pipe && _dbus_pipe_is_valid (print_pid_pipe) &&
@@ -1074,6 +1092,7 @@ bus_context_unref (BusContext *context)
       dbus_free (context->user);
       dbus_free (context->servicehelper);
 
+#ifdef WANT_PIDFILE
       if (context->pidfile)
 	{
           DBusString u;
@@ -1086,6 +1105,8 @@ bus_context_unref (BusContext *context)
 
           dbus_free (context->pidfile);
 	}
+#endif
+
       dbus_free (context);
 
       dbus_server_free_data_slot (&server_data_slot);

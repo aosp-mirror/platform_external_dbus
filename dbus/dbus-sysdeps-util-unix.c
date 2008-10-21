@@ -607,46 +607,18 @@ _dbus_directory_open (const DBusString *filename,
   return iter;
 }
 
-/* Calculate the required buffer size (in bytes) for directory
- * entries read from the given directory handle.  Return -1 if this
- * this cannot be done. 
- *
- * If you use autoconf, include fpathconf and dirfd in your
- * AC_CHECK_FUNCS list.  Otherwise use some other method to detect
- * and use them where available.
+/* it is never safe to retrun a size smaller than sizeof(struct dirent)
+ * because the libc *could* try to access the  whole structure
+ * (for instance it could try to memset it).
+ * it is also incorrect to return a size bigger than that, because
+ * the libc would never use it.
+ * The only correct and safe value this function can ever return is
+ * sizeof(struct dirent).
  */
 static dbus_bool_t
 dirent_buf_size(DIR * dirp, size_t *size)
 {
- long name_max;
-#   if defined(HAVE_FPATHCONF) && defined(_PC_NAME_MAX)
-#      if defined(HAVE_DIRFD)
-          name_max = fpathconf(dirfd(dirp), _PC_NAME_MAX);
-#      elif defined(HAVE_DDFD)
-          name_max = fpathconf(dirp->dd_fd, _PC_NAME_MAX);
-#      else
-          name_max = fpathconf(dirp->__dd_fd, _PC_NAME_MAX);
-#      endif /* HAVE_DIRFD */
-     if (name_max == -1)
-#           if defined(NAME_MAX)
-	     name_max = NAME_MAX;
-#           else
-	     return FALSE;
-#           endif
-#   elif defined(MAXNAMELEN)
-     name_max = MAXNAMELEN;
-#   else
-#       if defined(NAME_MAX)
-	 name_max = NAME_MAX;
-#       else
-#           error "buffer size for readdir_r cannot be determined"
-#       endif
-#   endif
-  if (size)
-    *size = (size_t)offsetof(struct dirent, d_name) + name_max + 1;
-  else
-    return FALSE;
-
+  *size = sizeof(struct dirent);
   return TRUE;
 }
 
