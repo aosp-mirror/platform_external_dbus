@@ -70,12 +70,14 @@
  * @param pidfile #NULL, or pidfile to create
  * @param print_pid_pipe pipe to print daemon's pid to, or -1 for none
  * @param error return location for errors
+ * @param keep_umask #TRUE to keep the original umask
  * @returns #FALSE on failure
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
                      DBusPipe         *print_pid_pipe,
-                     DBusError        *error)
+                     DBusError        *error,
+                     dbus_bool_t       keep_umask)
 {
   const char *s;
   pid_t child_pid;
@@ -122,9 +124,12 @@ _dbus_become_daemon (const DBusString *pidfile,
             _dbus_verbose ("keeping stderr open due to DBUS_DEBUG_OUTPUT\n");
         }
 
-      /* Get a predictable umask */
-      _dbus_verbose ("setting umask\n");
-      umask (022);
+      if (!keep_umask)
+        {
+          /* Get a predictable umask */
+          _dbus_verbose ("setting umask\n");
+          umask (022);
+        }
 
       _dbus_verbose ("calling setsid()\n");
       if (setsid () == -1)

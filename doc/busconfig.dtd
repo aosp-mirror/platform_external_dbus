@@ -1,6 +1,7 @@
 <!ELEMENT busconfig (user |
                      type |
                      fork |
+                     keep_umask |
                      listen | 
                      pidfile |
                      includedir |
@@ -21,6 +22,7 @@
 <!ELEMENT type (#PCDATA)>
 <!ELEMENT pidfile (#PCDATA)>
 <!ELEMENT fork EMPTY>
+<!ELEMENT keep_umask EMPTY>
 
 <!ELEMENT include (#PCDATA)>
 <!ATTLIST include 

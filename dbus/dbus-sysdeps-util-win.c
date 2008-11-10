@@ -70,12 +70,14 @@ errno_t strcpy_s(char *dest, size_t size, char *src)
  * @param pidfile #NULL, or pidfile to create
  * @param print_pid_fd file descriptor to print daemon's pid to, or -1 for none
  * @param error return location for errors
+ * @param keep_umask #TRUE to keep the original umask
  * @returns #FALSE on failure
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
                      DBusPipe         *print_pid_pipe,
-                     DBusError        *error)
+                     DBusError        *error,
+                     dbus_bool_t       keep_umask)
 {
   return TRUE;
 }

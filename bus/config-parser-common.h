@@ -48,7 +48,8 @@ typedef enum
   ELEMENT_ASSOCIATE,
   ELEMENT_STANDARD_SESSION_SERVICEDIRS,
   ELEMENT_STANDARD_SYSTEM_SERVICEDIRS,
-  ELEMENT_SYSLOG
+  ELEMENT_SYSLOG,
+  ELEMENT_KEEP_UMASK
 } ElementType;
 
 ElementType bus_config_parser_element_name_to_type (const char *element_name);

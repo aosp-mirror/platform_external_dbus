@@ -55,6 +55,7 @@ struct BusContext
   BusLimits limits;
   unsigned int fork : 1;
   unsigned int syslog : 1;
+  unsigned int keep_umask : 1;
 };
 
 static dbus_int32_t server_data_slot = -1;
@@ -386,6 +387,7 @@ process_config_first_time_only (BusContext      *context,
 
   context->fork = bus_config_parser_get_fork (parser);
   context->syslog = bus_config_parser_get_syslog (parser);
+  context->keep_umask = bus_config_parser_get_keep_umask (parser);
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
@@ -710,7 +712,8 @@ bus_context_new (const DBusString *config_file,
         
         if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
                                   print_pid_pipe,
-                                  error))
+                                  error,
+                                  context->keep_umask))
           {
             _DBUS_ASSERT_ERROR_IS_SET (error);
             goto failed;

@@ -112,6 +112,7 @@ struct BusConfigParser
   unsigned int fork : 1; /**< TRUE to fork into daemon mode */
 
   unsigned int syslog : 1; /**< TRUE to enable syslog */
+  unsigned int keep_umask : 1; /**< TRUE to keep original umask when forking */
 
   unsigned int is_toplevel : 1; /**< FALSE if we are a sub-config-file inside another one */
 };
@@ -307,6 +308,9 @@ merge_included (BusConfigParser *parser,
   
   if (included->fork)
     parser->fork = TRUE;
+
+  if (included->keep_umask)
+    parser->keep_umask = TRUE;
 
   if (included->pidfile != NULL)
     {
@@ -710,8 +714,23 @@ start_busconfig_child (BusConfigParser   *parser,
           BUS_SET_OOM (error);
           return FALSE;
         }
-
+      
       parser->syslog = TRUE;
+      
+      return TRUE;
+    }
+  else if (element_type == ELEMENT_KEEP_UMASK)
+    {
+      if (!check_no_attributes (parser, "keep_umask", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_KEEP_UMASK) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      parser->keep_umask = TRUE;
       
       return TRUE;
     }
@@ -1970,6 +1989,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_DENY:
     case ELEMENT_FORK:
     case ELEMENT_SYSLOG:
+    case ELEMENT_KEEP_UMASK:
     case ELEMENT_SELINUX:
     case ELEMENT_ASSOCIATE:
     case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
@@ -2256,6 +2276,7 @@ bus_config_parser_content (BusConfigParser   *parser,
     case ELEMENT_DENY:
     case ELEMENT_FORK:
     case ELEMENT_SYSLOG:
+    case ELEMENT_KEEP_UMASK:
     case ELEMENT_STANDARD_SESSION_SERVICEDIRS:    
     case ELEMENT_STANDARD_SYSTEM_SERVICEDIRS:    
     case ELEMENT_SELINUX:
@@ -2582,6 +2603,12 @@ dbus_bool_t
 bus_config_parser_get_syslog (BusConfigParser   *parser)
 {
   return parser->syslog;
+}
+
+dbus_bool_t
+bus_config_parser_get_keep_umask (BusConfigParser   *parser)
+{
+  return parser->keep_umask;
 }
 
 const char *
@@ -2975,6 +3002,9 @@ config_parsers_equal (const BusConfigParser *a,
     return FALSE;
 
   if (! bools_equal (a->fork, b->fork))
+    return FALSE;
+
+  if (! bools_equal (a->keep_umask, b->keep_umask))
     return FALSE;
 
   if (! bools_equal (a->is_toplevel, b->is_toplevel))
