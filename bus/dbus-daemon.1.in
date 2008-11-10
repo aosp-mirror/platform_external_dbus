@@ -214,6 +214,13 @@ into the background, etc.). This is generally used
 rather than the \-\-fork command line option.
 
 .TP
+.I "<keep_umask>"
+    
+.PP
+If present, the bus daemon keeps its original umask when forking.
+This may be useful to avoid affecting the behavior of child processes.
+
+.TP
 .I "<listen>"
 
 .PP

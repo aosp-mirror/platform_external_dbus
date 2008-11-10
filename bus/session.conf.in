@@ -8,6 +8,10 @@
   <!-- Our well-known bus type, don't change this -->
   <type>session</type>
 
+  <!-- If we fork, keep the user's original umask to avoid affecting
+       the behavior of child processes. -->
+  <keep_umask/>
+
   <listen>unix:tmpdir=@DBUS_SESSION_SOCKET_DIR@</listen>
 
   <standard_session_servicedirs />
