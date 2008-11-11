@@ -370,12 +370,30 @@ validate_body_helper (DBusTypeReader       *reader,
 
             /* p may now be == end */
             _dbus_assert (p <= end);
-            
+
             if (current_type == DBUS_TYPE_ARRAY)
               {
                 int array_elem_type = _dbus_type_reader_get_element_type (reader);
+
+                if (!_dbus_type_is_valid (array_elem_type))
+                  {
+                    return DBUS_INVALID_UNKNOWN_TYPECODE;
+                  }
+
                 alignment = _dbus_type_get_alignment (array_elem_type);
-                p = _DBUS_ALIGN_ADDRESS (p, alignment);
+
+                a = _DBUS_ALIGN_ADDRESS (p, alignment);
+
+                /* a may now be == end */
+                if (a > end)
+                  return DBUS_INVALID_NOT_ENOUGH_DATA;
+
+                while (p != a)
+                  {
+                    if (*p != '\0')
+                      return DBUS_INVALID_ALIGNMENT_PADDING_NOT_NUL;
+                    ++p;
+                  }
               }
 
             if (claimed_len > (unsigned long) (end - p))
@@ -406,6 +424,7 @@ validate_body_helper (DBusTypeReader       *reader,
                 DBusTypeReader sub;
                 DBusValidity validity;
                 const unsigned char *array_end;
+                int array_elem_type;
 
                 if (claimed_len > DBUS_MAXIMUM_ARRAY_LENGTH)
                   return DBUS_INVALID_ARRAY_LENGTH_EXCEEDS_MAXIMUM;
@@ -418,16 +437,46 @@ validate_body_helper (DBusTypeReader       *reader,
 
                 array_end = p + claimed_len;
 
-                while (p < array_end)
+                array_elem_type = _dbus_type_reader_get_element_type (reader);
+
+                /* avoid recursive call to validate_body_helper if this is an array
+                 * of fixed-size elements
+                 */ 
+                if (dbus_type_is_fixed (array_elem_type))
                   {
-                    /* FIXME we are calling a function per array element! very bad
-                     * need if (dbus_type_is_fixed(elem_type)) here to just skip
-                     * big blocks of ints/bytes/etc.
-                     */                     
-                    
-                    validity = validate_body_helper (&sub, byte_order, FALSE, p, end, &p);
-                    if (validity != DBUS_VALID)
-                      return validity;
+                    /* bools need to be handled differently, because they can
+                     * have an invalid value
+                     */
+                    if (array_elem_type == DBUS_TYPE_BOOLEAN)
+                      {
+                        dbus_uint32_t v;
+                        alignment = _dbus_type_get_alignment (array_elem_type);
+
+                        while (p < array_end)
+                          {
+                            v = _dbus_unpack_uint32 (byte_order, p);
+
+                            if (!(v == 0 || v == 1))
+                              return DBUS_INVALID_BOOLEAN_NOT_ZERO_OR_ONE;
+
+                            p += alignment;
+                          }
+                      }
+
+                    else
+                      {
+                        p = array_end;
+                      }
+                  }
+
+                else
+                  {
+                    while (p < array_end)
+                      {
+                        validity = validate_body_helper (&sub, byte_order, FALSE, p, end, &p);
+                        if (validity != DBUS_VALID)
+                          return validity;
+                      }
                   }
 
                 if (p != array_end)
