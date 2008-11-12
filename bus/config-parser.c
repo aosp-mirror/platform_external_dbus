@@ -114,6 +114,8 @@ struct BusConfigParser
   unsigned int keep_umask : 1; /**< TRUE to keep original umask when forking */
 
   unsigned int is_toplevel : 1; /**< FALSE if we are a sub-config-file inside another one */
+
+  unsigned int allow_anonymous : 1; /**< TRUE to allow anonymous connections */
 };
 
 static Element*
@@ -833,6 +835,20 @@ start_busconfig_child (BusConfigParser   *parser,
         while ((link = _dbus_list_pop_first_link (&dirs)))
           service_dirs_append_link_unique_or_free (&parser->service_dirs, link);
 
+      return TRUE;
+    }
+  else if (element_type == ELEMENT_ALLOW_ANONYMOUS)
+    {
+      if (!check_no_attributes (parser, "allow_anonymous", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_ALLOW_ANONYMOUS) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      parser->allow_anonymous = TRUE;
       return TRUE;
     }
   else if (element_type == ELEMENT_SERVICEDIR)
@@ -1972,6 +1988,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_ASSOCIATE:
     case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
     case ELEMENT_STANDARD_SYSTEM_SERVICEDIRS:
+    case ELEMENT_ALLOW_ANONYMOUS:
       break;
     }
 
@@ -2256,6 +2273,7 @@ bus_config_parser_content (BusConfigParser   *parser,
     case ELEMENT_KEEP_UMASK:
     case ELEMENT_STANDARD_SESSION_SERVICEDIRS:    
     case ELEMENT_STANDARD_SYSTEM_SERVICEDIRS:    
+    case ELEMENT_ALLOW_ANONYMOUS:
     case ELEMENT_SELINUX:
     case ELEMENT_ASSOCIATE:
       if (all_whitespace (content))
@@ -2580,6 +2598,12 @@ dbus_bool_t
 bus_config_parser_get_keep_umask (BusConfigParser   *parser)
 {
   return parser->keep_umask;
+}
+
+dbus_bool_t
+bus_config_parser_get_allow_anonymous (BusConfigParser   *parser)
+{
+  return parser->allow_anonymous;
 }
 
 const char *

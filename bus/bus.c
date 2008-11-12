@@ -55,6 +55,7 @@ struct BusContext
   BusLimits limits;
   unsigned int fork : 1;
   unsigned int keep_umask : 1;
+  unsigned int allow_anonymous : 1;
 };
 
 static dbus_int32_t server_data_slot = -1;
@@ -189,6 +190,9 @@ new_connection_callback (DBusServer     *server,
   dbus_connection_set_max_message_size (new_connection,
                                         context->limits.max_message_size);
   
+  dbus_connection_set_allow_anonymous (new_connection,
+                                       context->allow_anonymous);
+
   /* on OOM, we won't have ref'd the connection so it will die. */
 }
 
@@ -386,6 +390,7 @@ process_config_first_time_only (BusContext      *context,
 
   context->fork = bus_config_parser_get_fork (parser);
   context->keep_umask = bus_config_parser_get_keep_umask (parser);
+  context->allow_anonymous = bus_config_parser_get_allow_anonymous (parser);
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
