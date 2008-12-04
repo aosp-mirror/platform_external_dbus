@@ -50,9 +50,19 @@
          even if they aren't in here -->
     <allow send_destination="org.freedesktop.DBus"/>
     <allow receive_sender="org.freedesktop.DBus"/>
-    <!-- valid replies are always allowed -->
-    <allow send_requested_reply="true"/>
+    <!-- allow sending valid replies -->
+    <allow send_requested_reply="true" send_type="method_return"/>
+    <allow send_requested_reply="true" send_type="error"/>
+    <!-- allow receiving valid replies -->
     <allow receive_requested_reply="true"/>
+    <!-- Note: the rule above also allows receiving of all non-reply messages
+         that are not denied later.  See:
+         https://bugs.freedesktop.org/show_bug.cgi?id=18229
+         Potentially this will be replaced in the future by the
+         following two rules:
+    <allow receive_requested_reply="true" receive_type="method_return"/>
+    <allow receive_requested_reply="true" receive_type="error"/>
+    -->
     <!-- disallow changing the activation environment of system services -->
     <deny send_destination="org.freedesktop.DBus"
           send_interface="org.freedesktop.DBus"
