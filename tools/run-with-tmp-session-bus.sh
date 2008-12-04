@@ -26,8 +26,11 @@ SERVICE_DIR="$DBUS_TOP_BUILDDIR/test/data/valid-service-files"
 ESCAPED_SERVICE_DIR=`echo $SERVICE_DIR | sed -e 's/\//\\\\\\//g'`
 echo "escaped service dir is: $ESCAPED_SERVICE_DIR" >&2
 
+if test -z "$SOURCE_CONFIG_FILE"; then
+    SOURCE_CONFIG_FILE="$DBUS_TOP_BUILDDIR/bus/session.conf";
+fi
 ## create a configuration file based on the standard session.conf
-cat $DBUS_TOP_BUILDDIR/bus/session.conf |  \
+cat $SOURCE_CONFIG_FILE |  \
     sed -e 's/<standard_session_servicedirs.*$/<servicedir>'$ESCAPED_SERVICE_DIR'<\/servicedir>/g' |  \
     sed -e 's/<include.*$//g'                \
   > $CONFIG_FILE
