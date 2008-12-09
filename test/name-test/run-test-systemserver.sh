@@ -39,3 +39,12 @@ if ! grep -q 'DBus.Error' echo-error-output.tmp; then
   echo "====="
   exit 1
 fi
+
+echo "running test echo signal"
+if ! python ./test-wait-for-echo.py; then
+  echo "Failed test-wait-for-echo"
+  exit 1
+fi
+
+
+exit 0

@@ -50,6 +50,8 @@
          even if they aren't in here -->
     <allow send_destination="org.freedesktop.DBus"/>
     <allow receive_sender="org.freedesktop.DBus"/>
+    <!-- Allow all signals to be sent by default -->
+    <allow send_type="signal"/>
     <!-- allow sending valid replies -->
     <allow send_requested_reply="true" send_type="method_return"/>
     <allow send_requested_reply="true" send_type="error"/>
