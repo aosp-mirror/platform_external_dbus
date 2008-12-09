@@ -10,7 +10,7 @@ else
 TESTS=
 endif
 
-EXTRA_DIST=run-test.sh 
+EXTRA_DIST=run-test.sh run-test-systemserver.sh test-wait-for-echo.py
 
 if DBUS_BUILD_TESTS
 
