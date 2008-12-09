@@ -429,15 +429,15 @@ name, and a "send_destination" rule to allow traffic from some or all uids to
 your service.
 
 .PP
-The <policy> element has one of three attributes:
+The <policy> element has one of four attributes:
 .nf
   context="(default|mandatory)"
+  at_console="(true|false)"
   user="username or userid"
   group="group name or gid"
 .fi
 
 .PP
- 
 Policies are applied to a connection as follows:
 .nf
    - all context="default" policies are applied
@@ -445,6 +445,8 @@ Policies are applied to a connection as follows:
      in undefined order
    - all user="connection's auth user" policies are applied
      in undefined order
+   - all at_console="true" policies are applied
+   - all at_console="false" policies are applied
    - all context="mandatory" policies are applied
 .fi
 
