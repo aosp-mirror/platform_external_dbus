@@ -410,15 +410,28 @@ they are analogous to a firewall in that they allow expected traffic
 and prevent unexpected traffic.
 
 .PP
-The <policy> element has one of three attributes:
+Currently, the system bus has a default-deny policy for sending method calls 
+and owning bus names.  Everything else, in particular reply messages, receive
+checks, and signals has a default allow policy.
+
+.PP
+In general, it is best to keep system services as small, targeted programs which
+run in their own process and provide a single bus name.  Then, all that is needed
+is an <allow> rule for the "own" permission to let the process claim the bus
+name, and a "send_destination" rule to allow traffic from some or all uids to
+your service.
+
+.PP
+The <policy> element has one of four attributes:
+daemon.1.in
 .nf
   context="(default|mandatory)"
+  at_console="(true|false)"
   user="username or userid"
   group="group name or gid"
 .fi
 
 .PP
- 
 Policies are applied to a connection as follows:
 .nf
    - all context="default" policies are applied
@@ -426,6 +439,8 @@ Policies are applied to a connection as follows:
      in undefined order
    - all user="connection's auth user" policies are applied
      in undefined order
+   - all at_console="true" policies are applied
+   - all at_console="false" policies are applied
    - all context="mandatory" policies are applied
 .fi
 
