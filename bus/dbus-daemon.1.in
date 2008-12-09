@@ -1,6 +1,6 @@
 .\" 
 .\" dbus-daemon manual page.
-.\" Copyright (C) 2003 Red Hat, Inc.
+.\" Copyright (C) 2003,2008 Red Hat, Inc.
 .\"
 .TH dbus-daemon 1
 .SH NAME
@@ -585,7 +585,11 @@ received" are evaluated separately.
 
 .PP
 Be careful with send_interface/receive_interface, because the 
-interface field in messages is optional.
+interface field in messages is optional.  In particular, do NOT
+specify <deny send_interface="org.foo.Bar"/>!  This will cause
+no-interface messages to be blocked for all services, which is
+almost certainly not what you intended.  Always use rules of
+the form: <deny send_interface="org.foo.Bar" send_destination="org.foo.Service"/>
 
 .TP
 .I "<selinux>"
