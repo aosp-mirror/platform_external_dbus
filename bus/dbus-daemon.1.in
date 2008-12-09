@@ -417,6 +417,18 @@ they are analogous to a firewall in that they allow expected traffic
 and prevent unexpected traffic.
 
 .PP
+Currently, the system bus has a default-deny policy for sending method calls 
+and owning bus names.  Everything else, in particular reply messages, receive
+checks, and signals has a default allow policy.
+
+.PP
+In general, it is best to keep system services as small, targeted programs which
+run in their own process and provide a single bus name.  Then, all that is needed
+is an <allow> rule for the "own" permission to let the process claim the bus
+name, and a "send_destination" rule to allow traffic from some or all uids to
+your service.
+
+.PP
 The <policy> element has one of three attributes:
 .nf
   context="(default|mandatory)"
@@ -481,9 +493,7 @@ The possible attributes of these elements are:
 .PP
 Examples:
 .nf
-   <deny send_interface="org.freedesktop.System" send_member="Reboot"/> 
-   <deny receive_interface="org.freedesktop.System" receive_member="Reboot"/>
-   <deny own="org.freedesktop.System"/>
+   <deny send_destination="org.freedesktop.Service" send_interface="org.freedesktop.System" send_member="Reboot"/> 
    <deny send_destination="org.freedesktop.System"/>
    <deny receive_sender="org.freedesktop.System"/>
    <deny user="john"/>
