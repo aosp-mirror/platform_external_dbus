@@ -113,6 +113,8 @@ struct BusConfigParser
 
   unsigned int keep_umask : 1; /**< TRUE to keep original umask when forking */
 
+  unsigned int syslog : 1; /**< TRUE to enable syslog */
+
   unsigned int is_toplevel : 1; /**< FALSE if we are a sub-config-file inside another one */
 
   unsigned int allow_anonymous : 1; /**< TRUE to allow anonymous connections */
@@ -717,6 +719,21 @@ start_busconfig_child (BusConfigParser   *parser,
         }
 
       parser->keep_umask = TRUE;
+      
+      return TRUE;
+    }
+  else if (element_type == ELEMENT_SYSLOG)
+    {
+      if (!check_no_attributes (parser, "syslog", attribute_names, attribute_values, error))
+        return FALSE;
+
+      if (push_element (parser, ELEMENT_SYSLOG) == NULL)
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      parser->syslog = TRUE;
       
       return TRUE;
     }
@@ -1984,6 +2001,7 @@ bus_config_parser_end_element (BusConfigParser   *parser,
     case ELEMENT_DENY:
     case ELEMENT_FORK:
     case ELEMENT_KEEP_UMASK:
+    case ELEMENT_SYSLOG:
     case ELEMENT_SELINUX:
     case ELEMENT_ASSOCIATE:
     case ELEMENT_STANDARD_SESSION_SERVICEDIRS:
@@ -2271,6 +2289,7 @@ bus_config_parser_content (BusConfigParser   *parser,
     case ELEMENT_DENY:
     case ELEMENT_FORK:
     case ELEMENT_KEEP_UMASK:
+    case ELEMENT_SYSLOG:
     case ELEMENT_STANDARD_SESSION_SERVICEDIRS:    
     case ELEMENT_STANDARD_SYSTEM_SERVICEDIRS:    
     case ELEMENT_ALLOW_ANONYMOUS:
@@ -2598,6 +2617,12 @@ dbus_bool_t
 bus_config_parser_get_keep_umask (BusConfigParser   *parser)
 {
   return parser->keep_umask;
+}
+
+dbus_bool_t
+bus_config_parser_get_syslog (BusConfigParser   *parser)
+{
+  return parser->syslog;
 }
 
 dbus_bool_t
