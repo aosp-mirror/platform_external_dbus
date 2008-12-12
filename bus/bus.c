@@ -1356,11 +1356,12 @@ bus_context_check_security_policy (BusContext     *context,
     {
       const char *dest;
       const char *msg = "Rejected send message, %d matched rules; "
-                        "sender=\"%s\" interface=\"%s\" member=\"%s\" error name=\"%s\" destination=\"%s\")";
+                        "type=\"%s\", sender=\"%s\" interface=\"%s\" member=\"%s\" error name=\"%s\" destination=\"%s\")";
 
       dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED, msg,
                       toggles,
+                      dbus_message_type_to_string (dbus_message_get_type (message)),
                       sender_name ? sender_name : "(unset)",
                       dbus_message_get_interface (message) ?
                       dbus_message_get_interface (message) : "(unset)",
@@ -1372,6 +1373,7 @@ bus_context_check_security_policy (BusContext     *context,
       /* Needs to be duplicated to avoid calling malloc and having to handle OOM */
       bus_context_log_security (context, msg,
                                 toggles,
+                                dbus_message_type_to_string (dbus_message_get_type (message)),
                                 sender_name ? sender_name : "(unset)",
                                 dbus_message_get_interface (message) ?
                                 dbus_message_get_interface (message) : "(unset)",
@@ -1393,12 +1395,13 @@ bus_context_check_security_policy (BusContext     *context,
                                             message, &toggles))
     {
       const char *msg = "Rejected receive message, %d matched rules; "
-                        "sender=\"%s\" interface=\"%s\" member=\"%s\" error name=\"%s\" destination=\"%s\" reply serial=%u requested_reply=%d)";
+                        "type=\"%s\" sender=\"%s\" interface=\"%s\" member=\"%s\" error name=\"%s\" destination=\"%s\" reply serial=%u requested_reply=%d)";
       const char *dest;
 
       dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED, msg,
                       toggles,
+                      dbus_message_type_to_string (dbus_message_get_type (message)),
                       sender_name ? sender_name : "(unset)",
                       dbus_message_get_interface (message) ?
                       dbus_message_get_interface (message) : "(unset)",
@@ -1412,6 +1415,7 @@ bus_context_check_security_policy (BusContext     *context,
       /* Needs to be duplicated to avoid calling malloc and having to handle OOM */
       bus_context_log_security (context, msg,
                                 toggles,
+                                dbus_message_type_to_string (dbus_message_get_type (message)),
                                 sender_name ? sender_name : "(unset)",
                                 dbus_message_get_interface (message) ?
                                 dbus_message_get_interface (message) : "(unset)",
