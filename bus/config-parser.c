@@ -1090,6 +1090,7 @@ append_rule_from_element (BusConfigParser   *parser,
                           dbus_bool_t        allow,
                           DBusError         *error)
 {
+  const char *log;
   const char *send_interface;
   const char *send_member;
   const char *send_error;
@@ -1133,6 +1134,7 @@ append_rule_from_element (BusConfigParser   *parser,
                           "own", &own,
                           "user", &user,
                           "group", &group,
+                          "log", &log,
                           NULL))
     return FALSE;
 
@@ -1336,6 +1338,9 @@ append_rule_from_element (BusConfigParser   *parser,
       
       if (eavesdrop)
         rule->d.send.eavesdrop = (strcmp (eavesdrop, "true") == 0);
+
+      if (log)
+        rule->d.send.log = (strcmp (log, "true") == 0);
 
       if (send_requested_reply)
         rule->d.send.requested_reply = (strcmp (send_requested_reply, "true") == 0);
