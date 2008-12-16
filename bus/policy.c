@@ -867,7 +867,8 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
                                   dbus_bool_t      requested_reply,
                                   DBusConnection  *receiver,
                                   DBusMessage     *message,
-                                  dbus_int32_t    *toggles)
+                                  dbus_int32_t    *toggles,
+                                  dbus_bool_t     *log)
 {
   DBusList *link;
   dbus_bool_t allowed;
@@ -1028,6 +1029,7 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
 
       /* Use this rule */
       allowed = rule->allow;
+      *log = rule->d.send.log;
       (*toggles)++;
 
       _dbus_verbose ("  (policy) used rule, allow now = %d\n",

@@ -1168,22 +1168,25 @@ bus_context_check_security_policy (BusContext     *context,
                                    DBusMessage    *message,
                                    DBusError      *error)
 {
+  const char *dest;
   BusClientPolicy *sender_policy;
   BusClientPolicy *recipient_policy;
   dbus_int32_t toggles;
+  dbus_bool_t log;
   int type;
   dbus_bool_t requested_reply;
   const char *sender_name;
   
   type = dbus_message_get_type (message);
+  dest = dbus_message_get_destination (message);
   
   /* dispatch.c was supposed to ensure these invariants */
-  _dbus_assert (dbus_message_get_destination (message) != NULL ||
+  _dbus_assert (dest != NULL ||
                 type == DBUS_MESSAGE_TYPE_SIGNAL ||
                 (sender == NULL && !bus_connection_is_active (proposed_recipient)));
   _dbus_assert (type == DBUS_MESSAGE_TYPE_SIGNAL ||
                 addressed_recipient != NULL ||
-                strcmp (dbus_message_get_destination (message), DBUS_SERVICE_DBUS) == 0);
+                strcmp (dest, DBUS_SERVICE_DBUS) == 0);
 
   /* Used in logging below */
   if (sender != NULL)
@@ -1213,10 +1216,6 @@ bus_context_check_security_policy (BusContext     *context,
   
   if (sender != NULL)
     {
-      const char *dest;
-
-      dest = dbus_message_get_destination (message);
-	
       /* First verify the SELinux access controls.  If allowed then
        * go on with the standard checks.
        */
@@ -1347,18 +1346,18 @@ bus_context_check_security_policy (BusContext     *context,
                 (proposed_recipient != NULL && sender == NULL && recipient_policy == NULL) ||
                 (proposed_recipient == NULL && recipient_policy == NULL));
   
+  log = FALSE;
   if (sender_policy &&
       !bus_client_policy_check_can_send (sender_policy,
                                          context->registry,
                                          requested_reply,
                                          proposed_recipient,
-                                         message, &toggles))
+                                         message, &toggles, &log))
     {
-      const char *dest;
       const char *msg = "Rejected send message, %d matched rules; "
                         "type=\"%s\", sender=\"%s\" interface=\"%s\" member=\"%s\" error name=\"%s\" destination=\"%s\")";
 
-      dest = dbus_message_get_destination (message);
+
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED, msg,
                       toggles,
                       dbus_message_type_to_string (dbus_message_get_type (message)),
@@ -1386,6 +1385,21 @@ bus_context_check_security_policy (BusContext     *context,
       return FALSE;
     }
 
+  if (log)
+    bus_context_log_security (context, 
+                              "Would reject message, %d matched rules; "
+                              "type=\"%s\", sender=\"%s\" interface=\"%s\" member=\"%s\" error name=\"%s\" destination=\"%s\")",
+                              toggles,
+                              dbus_message_type_to_string (dbus_message_get_type (message)),
+                              sender_name ? sender_name : "(unset)",
+                              dbus_message_get_interface (message) ?
+                              dbus_message_get_interface (message) : "(unset)",
+                              dbus_message_get_member (message) ?
+                              dbus_message_get_member (message) : "(unset)",
+                              dbus_message_get_error_name (message) ?
+                              dbus_message_get_error_name (message) : "(unset)",
+                              dest ? dest : DBUS_SERVICE_DBUS);
+
   if (recipient_policy &&
       !bus_client_policy_check_can_receive (recipient_policy,
                                             context->registry,
@@ -1396,9 +1410,7 @@ bus_context_check_security_policy (BusContext     *context,
     {
       const char *msg = "Rejected receive message, %d matched rules; "
                         "type=\"%s\" sender=\"%s\" interface=\"%s\" member=\"%s\" error name=\"%s\" destination=\"%s\" reply serial=%u requested_reply=%d)";
-      const char *dest;
 
-      dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED, msg,
                       toggles,
                       dbus_message_type_to_string (dbus_message_get_type (message)),
@@ -1435,9 +1447,6 @@ bus_context_check_security_policy (BusContext     *context,
       dbus_connection_get_outgoing_size (proposed_recipient) >
       context->limits.max_outgoing_bytes)
     {
-      const char *dest;
-
-      dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
                       "The destination service \"%s\" has a full message queue",
                       dest ? dest : (proposed_recipient ?
