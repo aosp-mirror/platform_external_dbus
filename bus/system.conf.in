@@ -42,33 +42,29 @@
   <listen>@DBUS_SYSTEM_BUS_DEFAULT_ADDRESS@</listen>
 
   <policy context="default">
-    <!-- Deny everything then punch holes -->
-    <deny send_interface="*"/>
-    <deny receive_interface="*"/>
-    <deny own="*"/>
-    <!-- But allow all users to connect -->
+    <!-- All users can connect to system bus -->
     <allow user="*"/>
-    <!-- Allow anyone to talk to the message bus -->
-    <!-- FIXME I think currently these allow rules are always implicit 
-         even if they aren't in here -->
-    <allow send_destination="org.freedesktop.DBus"/>
-    <allow receive_sender="org.freedesktop.DBus"/>
-    <!-- Allow all signals to be sent by default -->
+
+    <!-- Holes must be punched in service configuration files for
+         name ownership and sending method calls -->
+    <deny own="*"/>
+    <deny send_type="method_call"/>
+
+    <!-- Signals and reply messages (method returns, errors) are allowed
+         by default -->
     <allow send_type="signal"/>
-    <!-- allow sending valid replies -->
     <allow send_requested_reply="true" send_type="method_return"/>
     <allow send_requested_reply="true" send_type="error"/>
-    <!-- allow receiving valid replies -->
-    <allow receive_requested_reply="true"/>
-    <!-- Note: the rule above also allows receiving of all non-reply messages
-         that are not denied later.  See:
-         https://bugs.freedesktop.org/show_bug.cgi?id=18229
-         Potentially this will be replaced in the future by the
-         following two rules:
-    <allow receive_requested_reply="true" receive_type="method_return"/>
-    <allow receive_requested_reply="true" receive_type="error"/>
-    -->
-    <!-- disallow changing the activation environment of system services -->
+
+    <!-- All messages may be received by default -->
+    <allow receive_type="method_call"/>
+    <allow receive_type="method_return"/>
+    <allow receive_type="error"/>
+    <allow receive_type="signal"/>
+
+    <!-- Allow anyone to talk to the message bus -->
+    <allow send_destination="org.freedesktop.DBus"/>
+    <!-- But disallow some specific bus services -->
     <deny send_destination="org.freedesktop.DBus"
           send_interface="org.freedesktop.DBus"
           send_member="UpdateActivationEnvironment"/>
