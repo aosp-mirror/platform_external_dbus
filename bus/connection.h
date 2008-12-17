@@ -50,6 +50,7 @@ BusConnections* bus_connection_get_connections    (DBusConnection               
 BusRegistry*    bus_connection_get_registry       (DBusConnection               *connection);
 BusActivation*  bus_connection_get_activation     (DBusConnection               *connection);
 BusMatchmaker*  bus_connection_get_matchmaker     (DBusConnection               *connection);
+const char *    bus_connection_get_loginfo        (DBusConnection        *connection);
 BusSELinuxID*   bus_connection_get_selinux_id     (DBusConnection               *connection);
 dbus_bool_t     bus_connections_check_limits      (BusConnections               *connections,
                                                    DBusConnection               *requesting_completion,
