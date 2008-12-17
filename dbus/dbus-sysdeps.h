@@ -411,6 +411,11 @@ dbus_bool_t _dbus_write_pid_to_file_and_pipe (const DBusString *pidfile,
                                               dbus_pid_t        pid_to_write,
                                               DBusError        *error);
 
+dbus_bool_t _dbus_command_for_pid (unsigned long  pid,
+                                   DBusString    *str,
+                                   int            max_len,
+                                   DBusError     *error);
+
 /** A UNIX signal handler */
 typedef void (* DBusSignalHandler) (int sig);
 

@@ -32,6 +32,9 @@
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-timeout.h>
 
+/* Trim executed commands to this length; we want to keep logs readable */
+#define MAX_LOG_COMMAND_LEN 50
+
 static void bus_connection_remove_transactions (DBusConnection *connection);
 
 typedef struct
@@ -76,6 +79,7 @@ typedef struct
   DBusPreallocatedSend *oom_preallocated;
   BusClientPolicy *policy;
 
+  char *cached_loginfo_string;
   BusSELinuxID *selinux_id;
 
   long connection_tv_sec;  /**< Time when we connected (seconds component) */
@@ -406,6 +410,8 @@ free_connection_data (void *data)
   if (d->selinux_id)
     bus_selinux_id_unref (d->selinux_id);
   
+  dbus_free (d->cached_loginfo_string);
+  
   dbus_free (d->name);
   
   dbus_free (d);
@@ -537,13 +543,73 @@ bus_connections_unref (BusConnections *connections)
     }
 }
 
+/* Used for logging */
+static dbus_bool_t
+cache_peer_loginfo_string (BusConnectionData *d, 
+                           DBusConnection    *connection)
+{
+  DBusString loginfo_buf;
+  unsigned long uid;
+  unsigned long pid;
+  char *windows_sid;
+  dbus_bool_t prev_added;
+
+  if (!_dbus_string_init (&loginfo_buf))
+    return FALSE;
+  
+  prev_added = FALSE;
+  if (dbus_connection_get_unix_user (connection, &uid))
+    {
+      if (!_dbus_string_append_printf (&loginfo_buf, "uid=%ld", uid))
+        goto oom;
+      else
+        prev_added = TRUE;
+    }
+
+  if (dbus_connection_get_unix_process_id (connection, &pid))
+    {
+      if (prev_added)
+        {
+          if (!_dbus_string_append_byte (&loginfo_buf, ' '))
+            goto oom;
+        }
+      if (!_dbus_string_append_printf (&loginfo_buf, "pid=%ld comm=\"", pid))
+        goto oom;
+      /* Ignore errors here */
+      if (_dbus_command_for_pid (pid, &loginfo_buf, MAX_LOG_COMMAND_LEN, NULL))
+        {
+          if (!_dbus_string_append_byte (&loginfo_buf, '"'))
+            goto oom;
+        }
+    }
+
+  if (dbus_connection_get_windows_user (connection, &windows_sid))
+    {
+      if (!_dbus_string_append_printf (&loginfo_buf, "sid=\"%s\" ", windows_sid))
+        goto oom;
+      dbus_free (windows_sid);
+    }
+
+  if (!_dbus_string_steal_data (&loginfo_buf, &(d->cached_loginfo_string)))
+    goto oom;
+
+  _dbus_string_free (&loginfo_buf); 
+
+  return TRUE;
+oom:
+   _dbus_string_free (&loginfo_buf);
+   return FALSE;
+}
+
 dbus_bool_t
 bus_connections_setup_connection (BusConnections *connections,
                                   DBusConnection *connection)
 {
+
   BusConnectionData *d;
   dbus_bool_t retval;
   DBusError error;
+
   
   d = dbus_new0 (BusConnectionData, 1);
   
@@ -583,7 +649,7 @@ bus_connections_setup_connection (BusConnections *connections,
       dbus_error_free (&error);
       goto out;
     }
-  
+
   if (!dbus_connection_set_watch_functions (connection,
                                             add_connection_watch,
                                             remove_connection_watch,
@@ -840,6 +906,18 @@ bus_connection_is_in_unix_group (DBusConnection *connection,
 
   dbus_free (group_ids);
   return FALSE;
+}
+
+const char *
+bus_connection_get_loginfo (DBusConnection        *connection)
+{
+  BusConnectionData *d;
+    
+  d = BUS_CONNECTION_DATA (connection);
+
+  if (!bus_connection_is_active (connection))
+    return "inactive";
+  return d->cached_loginfo_string;  
 }
 
 BusClientPolicy*
@@ -1302,16 +1380,15 @@ bus_connection_complete (DBusConnection   *connection,
     {
       if (!adjust_connections_for_uid (d->connections,
                                        uid, 1))
-        {
-          BUS_SET_OOM (error);
-          dbus_free (d->name);
-          d->name = NULL;
-          bus_client_policy_unref (d->policy);
-          d->policy = NULL;
-          return FALSE;
-        }
+        goto fail;
     }
-  
+
+  /* Create and cache a string which holds information about the 
+   * peer process; used for logging purposes.
+   */
+  if (!cache_peer_loginfo_string (d, connection))
+    goto fail;
+
   /* Now the connection is active, move it between lists */
   _dbus_list_unlink (&d->connections->incomplete,
                      d->link_in_connection_list);
@@ -1329,6 +1406,14 @@ bus_connection_complete (DBusConnection   *connection,
   _dbus_assert (bus_connection_is_active (connection));
   
   return TRUE;
+fail:
+  BUS_SET_OOM (error);
+  dbus_free (d->name);
+  d->name = NULL;
+  if (d->policy)
+    bus_client_policy_unref (d->policy);
+  d->policy = NULL;
+  return FALSE;
 }
 
 const char *
