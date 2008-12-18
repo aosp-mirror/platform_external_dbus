@@ -201,6 +201,9 @@ DBUS_EXPORT
 dbus_bool_t        dbus_connection_read_write_dispatch          (DBusConnection             *connection,
                                                                  int                         timeout_milliseconds);
 DBUS_EXPORT
+dbus_bool_t        dbus_connection_read_write_dispatch_greedy   (DBusConnection             *connection,
+                                                                 int                         timeout_milliseconds);
+DBUS_EXPORT
 dbus_bool_t        dbus_connection_read_write                   (DBusConnection             *connection,
                                                                  int                         timeout_milliseconds);
 DBUS_EXPORT

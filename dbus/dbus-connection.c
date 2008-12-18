@@ -3758,6 +3758,46 @@ dbus_connection_read_write_dispatch (DBusConnection *connection,
    return _dbus_connection_read_write_dispatch(connection, timeout_milliseconds, TRUE);
 }
 
+
+/**
+ * This function is intended for use with applications that want to 
+ * dispatch all the events in the incoming/outgoing queue before returning. 
+ * The function just calls dbus_connection_read_write_dispatch till
+ * the incoming queue is empty.
+ * 
+ * @param connection the connection
+ * @param timeout_milliseconds max time to block or -1 for infinite
+ * @returns #TRUE if the disconnect message has not been processed
+ */
+dbus_bool_t
+dbus_connection_read_write_dispatch_greedy (DBusConnection *connection,
+                                            int   timeout_milliseconds)
+{
+  dbus_bool_t ret, progress_possible;
+  int pre_incoming, pre_outgoing;
+  do
+    {
+      pre_incoming = connection->n_incoming;
+      pre_outgoing = connection->n_outgoing;
+      ret = dbus_connection_read_write_dispatch(connection, timeout_milliseconds);
+      /* No need to take a lock here. If another 'reader' thread has read the packet,
+       * dbus_connection_read_write_dispatch will just return. If a writer
+       * writes a packet between the call and the check, it will get processed 
+       * in the next call to the function.
+       */
+      if ((pre_incoming != connection->n_incoming ||
+           pre_outgoing != connection->n_outgoing) &&
+          (connection->n_incoming > 0 ||
+           connection->n_outgoing > 0)) {
+        progress_possible = TRUE;
+      } else {
+        progress_possible = FALSE;
+      }
+    } while (ret == TRUE && progress_possible);
+  return ret;
+}
+
+
 /** 
  * This function is intended for use with applications that don't want to
  * write a main loop and deal with #DBusWatch and #DBusTimeout. See also
