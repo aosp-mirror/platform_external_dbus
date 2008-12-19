@@ -758,7 +758,7 @@ _dbus_connect_tcp_socket (const char     *host,
                           const char     *family,
                           DBusError      *error)
 {
-  int saved_errno;
+  int saved_errno = 0;
   int fd = -1, res;
   struct addrinfo hints;
   struct addrinfo *ai, *tmp;

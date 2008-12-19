@@ -51,6 +51,8 @@ _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 _DBUS_DEFINE_GLOBAL_LOCK (system_users);
 
+extern char **environ;
+
 /**
  * @defgroup DBusSysdeps Internal system-dependent API
  * @ingroup DBusInternals
@@ -191,7 +193,6 @@ _dbus_clearenv (void)
   if (clearenv () != 0)
      rc = FALSE;
 #else
-  extern char **environ;
 
   if (environ != NULL)
     environ[0] = NULL;
@@ -210,7 +211,6 @@ char **
 _dbus_get_environment (void)
 {
   int i, length;
-  extern char **environ;
   char **environment;
 
   _dbus_assert (environ != NULL);
