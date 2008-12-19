@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <dirent.h>
 #include <sys/un.h>
+#include <syslog.h>
 #ifdef HAVE_LIBAUDIT
 #include <sys/prctl.h>
 #include <sys/capability.h>

@@ -36,6 +36,8 @@
 #include <errno.h>
 #endif
 
+extern char **environ;
+
 /**
  * @addtogroup DBusInternalsUtils
  * @{
@@ -914,8 +916,6 @@ do_exec (int                       child_err_report_fd,
 
   if (envp == NULL)
     {
-      extern char **environ;
-
       _dbus_assert (environ != NULL);
 
       envp = environ;

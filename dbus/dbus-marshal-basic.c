@@ -1333,7 +1333,7 @@ _dbus_verbose_bytes (const unsigned char *data,
 
   if (aligned != data)
     {
-      _dbus_verbose ("%4d\t%p: ", - (data - aligned), aligned);
+      _dbus_verbose ("%4ld\t%p: ", - (long)(data - aligned), aligned);
       while (aligned != data)
         {
           _dbus_verbose ("    ");

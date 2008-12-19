@@ -65,6 +65,7 @@ const char* bus_config_parser_get_type         (BusConfigParser *parser);
 DBusList**  bus_config_parser_get_addresses    (BusConfigParser *parser);
 DBusList**  bus_config_parser_get_mechanisms   (BusConfigParser *parser);
 dbus_bool_t bus_config_parser_get_fork         (BusConfigParser *parser);
+dbus_bool_t bus_config_parser_get_allow_anonymous (BusConfigParser *parser);
 dbus_bool_t bus_config_parser_get_syslog       (BusConfigParser *parser);
 const char* bus_config_parser_get_pidfile      (BusConfigParser *parser);
 const char* bus_config_parser_get_servicehelper (BusConfigParser *parser);
