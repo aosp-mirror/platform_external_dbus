@@ -175,6 +175,12 @@ ld_supports_flag() {
   fi
 }
 
+if test x$USE_MAINTAINER_MODE = xyes; then
+  if cc_supports_flag "-Werror"; then
+    CFLAGS="$CFLAGS -Werror"
+  fi
+fi
+
 if test "x$GCC" = "xyes"; then
   changequote(,)dnl
   case " $CFLAGS " in
@@ -221,11 +227,6 @@ if test "x$GCC" = "xyes"; then
   esac
 
   case " $CFLAGS " in
-  *[\ \	]-Wsign-compare[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wsign-compare" ;;
-  esac
-
-  case " $CFLAGS " in
   *[\ \	]-Wdeclaration-after-statement[\ \	]*) ;;
   *) if cc_supports_flag -Wdeclaration-after-statement; then
         CFLAGS="$CFLAGS -Wdeclaration-after-statement"
@@ -264,6 +265,41 @@ if test "x$GCC" = "xyes"; then
      fi
      ;;
   esac
+  
+  ### Disabled warnings, and compiler flag overrides
+  
+  # Let's just ignore unused for now
+  case " $CFLAGS " in
+  *[\ \	]-Wno-unused[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wno-unused" ;;
+  esac  
+  
+  # This group is for warnings we currently don't pass.
+  # We would like to, however.  Please fix.
+  
+  # http://bugs.freedesktop.org/show_bug.cgi?id=17433
+  case " $CFLAGS " in
+  *[\ \	]-Wno-sign-compare[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wno-sign-compare" ;;
+  esac
+  case " $CFLAGS " in
+  *[\ \	]-Wno-pointer-sign[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wno-pointer-sign" ;;
+  esac  
+  
+  # http://bugs.freedesktop.org/show_bug.cgi?id=19195
+  case " $CFLAGS " in
+  *[\ \	]-Wno-format[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wno-format" ;;
+  esac
+  
+  # This one is special - it's not a warning override.
+  # http://bugs.freedesktop.org/show_bug.cgi?id=10599
+  case " $CFLAGS " in
+  *[\ \	]-fno-strict-aliasing[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -fno-strict-aliasing" ;;
+  esac
+  ### End disabled warnings
 
   if test "x$enable_ansi" = "xyes"; then
     case " $CFLAGS " in
@@ -284,7 +320,7 @@ if test "x$GCC" = "xyes"; then
     case " $CFLAGS " in
     *[\ \	]-pedantic[\ \	]*) ;;
     *) CFLAGS="$CFLAGS -pedantic" ;;
-    esac
+    esac    
   fi
   if test x$enable_gcov = xyes; then
     case " $CFLAGS " in
