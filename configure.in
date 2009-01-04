@@ -8,7 +8,7 @@ m4_define([dbus_version],
           [dbus_major_version.dbus_minor_version.dbus_micro_version])
 AC_INIT(dbus, [dbus_version])
 
-AC_CANONICAL_TARGET
+AC_CANONICAL_HOST
 
 AM_INIT_AUTOMAKE([1.9 tar-ustar])
 AM_CONFIG_HEADER(config.h)
@@ -357,7 +357,7 @@ AC_MSG_RESULT($ac_gcsections)
 
 # Add -D_POSIX_PTHREAD_SEMANTICS if on Solaris
 #
-case $target_os in
+case $host_os in
     solaris*)
        CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS" ;;
 esac
@@ -993,7 +993,7 @@ AM_CONDITIONAL(DBUS_BUS_ENABLE_INOTIFY, test x$have_inotify = xyes)
 if test x$enable_dnotify = xno ; then
     have_dnotify=no;
 else
-    if test x$have_inotify = xno -a x$target_os = xlinux-gnu -o x$target_os = xlinux; then
+    if test x$have_inotify = xno -a x$host_os = xlinux-gnu -o x$host_os = xlinux; then
         have_dnotify=yes;	
     else
         have_dnotify=no;
@@ -1031,7 +1031,7 @@ dnl console owner file
 if test x$enable_console_owner_file = xno ; then
     have_console_owner_file=no;
 else
-    case $target_os in
+    case $host_os in
     solaris*)
         have_console_owner_file=yes;
         AC_DEFINE(HAVE_CONSOLE_OWNER_FILE,1,[Have console owner file])
