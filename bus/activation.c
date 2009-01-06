@@ -679,7 +679,7 @@ populate_environment (BusActivation *activation)
   DBusString   value;
   int          i;
   char       **environment;
-  dbus_bool_t  retval;
+  dbus_bool_t  retval = FALSE;
 
   environment = _dbus_get_environment ();
 
