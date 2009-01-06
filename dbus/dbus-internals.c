@@ -28,6 +28,9 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
+#ifdef DBUS_USE_OUTPUT_DEBUG_STRING
+#include <windows.h>
+#endif
 
 /**
  * @defgroup DBusInternals D-Bus secret internal implementation details
@@ -298,15 +301,28 @@ static dbus_bool_t verbose = TRUE;
 #ifdef DBUS_WIN
 #define inline
 #endif
+#ifdef DBUS_USE_OUTPUT_DEBUG_STRING
+static char module_name[1024];
+#endif
 
 static inline void
 _dbus_verbose_init (void)
 {
   if (!verbose_initted)
     {
-      const char *p = _dbus_getenv ("DBUS_VERBOSE"); 
+      char *p = _dbus_getenv ("DBUS_VERBOSE"); 
       verbose = p != NULL && *p == '1';
       verbose_initted = TRUE;
+#ifdef DBUS_USE_OUTPUT_DEBUG_STRING
+      GetModuleFileName(0,module_name,sizeof(module_name)-1);
+      p = strrchr(module_name,'.');
+      if (p)
+        *p ='\0';
+      p = strrchr(module_name,'\\');
+      if (p)
+        strcpy(module_name,p+1);
+      strcat(module_name,": ");
+#endif
     }
 }
 
@@ -345,6 +361,7 @@ _dbus_verbose_real (const char *format,
   if (!_dbus_is_verbose_real())
     return;
 
+#ifndef DBUS_USE_OUTPUT_DEBUG_STRING
   /* Print out pid before the line */
   if (need_pid)
     {
@@ -354,7 +371,7 @@ _dbus_verbose_real (const char *format,
       fprintf (stderr, "%lu: ", _dbus_pid_for_log ());
 #endif
     }
-      
+#endif
 
   /* Only print pid again if the next line is a new line */
   len = strlen (format);
@@ -364,10 +381,20 @@ _dbus_verbose_real (const char *format,
     need_pid = FALSE;
   
   va_start (args, format);
+#ifdef DBUS_USE_OUTPUT_DEBUG_STRING
+  {
+  char buf[1024];
+  strcpy(buf,module_name);
+  vsprintf (buf+strlen(buf),format, args);
+  va_end (args);
+  OutputDebugString(buf);
+  }
+#else
   vfprintf (stderr, format, args);
   va_end (args);
 
   fflush (stderr);
+#endif
 }
 
 /**
