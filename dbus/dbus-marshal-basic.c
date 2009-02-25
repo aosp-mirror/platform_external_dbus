@@ -508,59 +508,74 @@ _dbus_marshal_read_basic (const DBusString      *str,
                           int                   *new_pos)
 {
   const char *str_data;
-  DBusBasicValue *vp;
 
   _dbus_assert (dbus_type_is_basic (type));
 
   str_data = _dbus_string_get_const_data (str);
-  vp = value;
 
+  /* Below we volatile types to avoid aliasing issues;
+   * see http://bugs.freedesktop.org/show_bug.cgi?id=20137
+   */
+  
   switch (type)
     {
     case DBUS_TYPE_BYTE:
-      vp->byt = _dbus_string_get_byte (str, pos);
+      {
+      volatile unsigned char *vp = value;
+      *vp = (unsigned char) _dbus_string_get_byte (str, pos);
       (pos)++;
+      }
       break;
     case DBUS_TYPE_INT16:
     case DBUS_TYPE_UINT16:
+      {
+      volatile dbus_uint16_t *vp = value;
       pos = _DBUS_ALIGN_VALUE (pos, 2);
-      vp->u16 = *(dbus_uint16_t *)(str_data + pos);
+      *vp = *(dbus_uint16_t *)(str_data + pos);
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-	vp->u16 = DBUS_UINT16_SWAP_LE_BE (vp->u16);
+	*vp = DBUS_UINT16_SWAP_LE_BE (*vp);
       pos += 2;
+      }
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_BOOLEAN:
+      {
+      volatile dbus_uint32_t *vp = value;
       pos = _DBUS_ALIGN_VALUE (pos, 4);
-      vp->u32 = *(dbus_uint32_t *)(str_data + pos);
+      *vp = *(dbus_uint32_t *)(str_data + pos);
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-	vp->u32 = DBUS_UINT32_SWAP_LE_BE (vp->u32);
+	*vp = DBUS_UINT32_SWAP_LE_BE (*vp);
       pos += 4;
+      }
       break;
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
+      {
+      volatile dbus_uint64_t *vp = value;
       pos = _DBUS_ALIGN_VALUE (pos, 8);
 #ifdef DBUS_HAVE_INT64
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-        vp->u64 = DBUS_UINT64_SWAP_LE_BE (*(dbus_uint64_t*)(str_data + pos));
+        *vp = DBUS_UINT64_SWAP_LE_BE (*(dbus_uint64_t*)(str_data + pos));
       else
-        vp->u64 = *(dbus_uint64_t*)(str_data + pos);
+        *vp = *(dbus_uint64_t*)(str_data + pos);
 #else
-      vp->u64 = *(DBus8ByteStruct*) (str_data + pos);
+      *vp = *(DBus8ByteStruct*) (str_data + pos);
       swap_8_octets (vp, byte_order);
 #endif
       pos += 8;
+      }
       break;
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
       {
         int len;
+        volatile char **vp = value;
 
         len = _dbus_marshal_read_uint32 (str, pos, byte_order, &pos);
 
-        vp->str = (char*) str_data + pos;
+        *vp = (char*) str_data + pos;
 
         pos += len + 1; /* length plus nul */
       }
@@ -568,11 +583,12 @@ _dbus_marshal_read_basic (const DBusString      *str,
     case DBUS_TYPE_SIGNATURE:
       {
         int len;
+        volatile char **vp = value;
 
         len = _dbus_string_get_byte (str, pos);
         pos += 1;
 
-        vp->str = (char*) str_data + pos;
+        *vp = (char*) str_data + pos;
 
         pos += len + 1; /* length plus nul */
       }
