@@ -1,0 +1,8 @@
+## this tests that auth of type EXTERNAL without credentials will fail
+
+SERVER
+NO_CREDENTIALS
+SEND 'AUTH EXTERNAL USERID_HEX'
+EXPECT_COMMAND REJECTED
+EXPECT_STATE WAITING_FOR_INPUT
+

@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.freedesktop.DBus.TestSuiteSegfaultService
+Exec=/home/quinticent/devel/dbus-branch/dbus_1_0/test/test-segfault
+
