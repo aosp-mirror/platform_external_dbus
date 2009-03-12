@@ -575,12 +575,11 @@ cache_peer_loginfo_string (BusConnectionData *d,
         }
       if (!_dbus_string_append_printf (&loginfo_buf, "pid=%ld comm=\"", pid))
         goto oom;
-      /* Ignore errors here */
-      if (_dbus_command_for_pid (pid, &loginfo_buf, MAX_LOG_COMMAND_LEN, NULL))
-        {
-          if (!_dbus_string_append_byte (&loginfo_buf, '"'))
-            goto oom;
-        }
+      /* Ignore errors here; we may not have permissions to read the
+       * proc file. */
+      _dbus_command_for_pid (pid, &loginfo_buf, MAX_LOG_COMMAND_LEN, NULL);
+      if (!_dbus_string_append_byte (&loginfo_buf, '"'))
+        goto oom;
     }
 
   if (dbus_connection_get_windows_user (connection, &windows_sid))
