@@ -448,7 +448,7 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
                                               DBusList        *link)
 {
   DBusPendingCall *pending;
-  dbus_int32_t reply_serial;
+  dbus_uint32_t reply_serial;
   DBusMessage *message;
   
   _dbus_assert (_dbus_transport_get_is_authenticated (connection->transport));
@@ -459,7 +459,7 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
 
   /* If this is a reply we're waiting on, remove timeout for it */
   reply_serial = dbus_message_get_reply_serial (message);
-  if (reply_serial != -1)
+  if (reply_serial != 0)
     {
       pending = _dbus_hash_table_lookup_int (connection->pending_replies,
                                              reply_serial);
