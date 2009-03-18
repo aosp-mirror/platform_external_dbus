@@ -131,6 +131,8 @@ DBusValidity _dbus_validate_body_with_reason      (const DBusString *expected_si
                                                    int               value_pos,
                                                    int               len);
 
+const char *_dbus_validity_to_error_message (DBusValidity validity);
+
 dbus_bool_t _dbus_validate_path       (const DBusString *str,
                                        int               start,
                                        int               len);
