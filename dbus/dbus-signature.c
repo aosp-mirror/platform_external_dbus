@@ -233,12 +233,18 @@ dbus_signature_validate (const char       *signature,
 			 
 {
   DBusString str;
+  DBusValidity reason;
 
   _dbus_string_init_const (&str, signature);
-  if (_dbus_validate_signature (&str, 0, _dbus_string_get_length (&str)))
+  reason = _dbus_validate_signature_with_reason (&str, 0, _dbus_string_get_length (&str));
+
+  if (reason == DBUS_VALID)
     return TRUE;
-  dbus_set_error (error, DBUS_ERROR_INVALID_SIGNATURE, "Corrupt type signature");
-  return FALSE;
+  else
+    {
+      dbus_set_error (error, DBUS_ERROR_INVALID_SIGNATURE, _dbus_validity_to_error_message (reason));
+      return FALSE;
+    }
 }
 
 /**
