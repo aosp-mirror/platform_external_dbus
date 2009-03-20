@@ -361,9 +361,9 @@ set_address_in_x11(char *address, pid_t pid)
     }
 
   /* Create our window */
-  wid = XCreateSimpleWindow (xdisplay, RootWindow (xdisplay, 0), -20, -20, 10, 10,
-                             0, WhitePixel (xdisplay, 0),
-                             BlackPixel (xdisplay, 0));
+  wid = XCreateWindow (xdisplay, RootWindow (xdisplay, 0), -20, -20, 10, 10,
+                       0, CopyFromParent, InputOnly, CopyFromParent,
+                       0, NULL);
   verbose ("Created window %d\n", wid);
 
   /* Save the property in the window */
