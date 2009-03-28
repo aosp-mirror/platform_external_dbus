@@ -53,6 +53,7 @@
 #include <fcntl.h>
 
 #include <process.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
