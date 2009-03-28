@@ -825,7 +825,7 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
               _dbus_type_reader_recurse (&real->u.reader, &array);
 
               _dbus_type_reader_read_fixed_multi (&array,
-                                                  ptr, n_elements_p);
+                                                  (void *) ptr, n_elements_p);
             }
           else if (spec_element_type == DBUS_TYPE_STRING ||
                    spec_element_type == DBUS_TYPE_SIGNATURE ||
@@ -866,7 +866,7 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
                 {
                   const char *s;
                   _dbus_type_reader_read_basic (&array,
-                                                &s);
+                                                (void *) &s);
                   
                   str_array[i] = _dbus_strdup (s);
                   if (str_array[i] == NULL)
@@ -2907,7 +2907,7 @@ dbus_message_get_path (DBusMessage   *message)
   _dbus_header_get_field_basic (&message->header,
                                 DBUS_HEADER_FIELD_PATH,
                                 DBUS_TYPE_OBJECT_PATH,
-                                &v);
+                                (void *) &v);
   return v;
 }
 
@@ -3038,7 +3038,7 @@ dbus_message_get_interface (DBusMessage *message)
   _dbus_header_get_field_basic (&message->header,
                                 DBUS_HEADER_FIELD_INTERFACE,
                                 DBUS_TYPE_STRING,
-                                &v);
+                                (void *) &v);
   return v;
 }
 
@@ -3124,7 +3124,7 @@ dbus_message_get_member (DBusMessage *message)
   _dbus_header_get_field_basic (&message->header,
                                 DBUS_HEADER_FIELD_MEMBER,
                                 DBUS_TYPE_STRING,
-                                &v);
+                                (void *) &v);
   return v;
 }
 
@@ -3208,7 +3208,7 @@ dbus_message_get_error_name (DBusMessage *message)
   _dbus_header_get_field_basic (&message->header,
                                 DBUS_HEADER_FIELD_ERROR_NAME,
                                 DBUS_TYPE_STRING,
-                                &v);
+                                (void *) &v);
   return v;
 }
 
@@ -3261,7 +3261,7 @@ dbus_message_get_destination (DBusMessage *message)
   _dbus_header_get_field_basic (&message->header,
                                 DBUS_HEADER_FIELD_DESTINATION,
                                 DBUS_TYPE_STRING,
-                                &v);
+                                (void *) &v);
   return v;
 }
 
@@ -3321,7 +3321,7 @@ dbus_message_get_sender (DBusMessage *message)
   _dbus_header_get_field_basic (&message->header,
                                 DBUS_HEADER_FIELD_SENDER,
                                 DBUS_TYPE_STRING,
-                                &v);
+                                (void *) &v);
   return v;
 }
 
