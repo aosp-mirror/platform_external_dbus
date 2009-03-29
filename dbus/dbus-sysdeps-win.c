@@ -1433,17 +1433,6 @@ Original CVS version of dbus-sysdeps.c
 
 
 /**
- * @addtogroup DBusInternalsUtils
- * @{
- */
-
-int _dbus_mkdir (const char *path,
-                 mode_t mode)
-{
-  return _mkdir(path);
-}
-
-/**
  * Exit the process, returning the given value.
  *
  * @param code the exit code
@@ -2417,9 +2406,9 @@ _dbus_create_directory (const DBusString *filename,
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  if (_dbus_mkdir (filename_c, 0700) < 0)
+  if (!CreateDirectory (filename_c, NULL))
     {
-      if (errno == EEXIST)
+      if (GetLastError () == ERROR_ALREADY_EXISTS)
         return TRUE;
 
       dbus_set_error (error, DBUS_ERROR_FAILED,
