@@ -39,10 +39,6 @@
 #include <string.h>
 #include <stdio.h>
 
-/* This is UNIX-specific (on windows it's just in stdlib.h I believe)
- * but OK since the same stuff does exist on Windows in stdlib.h
- * and covered by a configure check.
- */
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
