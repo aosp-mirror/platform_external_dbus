@@ -658,23 +658,24 @@ int _dbus_printf_string_upper_bound (const char *format,
                                      va_list args)
 {
   /* MSVCRT's vsnprintf semantics are a bit different */
-  /* The C library source in the Platform SDK indicates that this
-   * would work, but alas, it doesn't. At least not on Windows
-   * 2000. Presumably those sources correspond to the C library on
-   * some newer or even future Windows version.
-   *
-    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
-   */
-  char p[1024];
+  char buf[1024];
+  int bufsize;
   int len;
-  len = _vsnprintf (p, sizeof(p)-1, format, args);
-  if (len == -1) // try again
+
+  bufsize = sizeof (buf);
+  len = _vsnprintf (buf, bufsize - 1, format, args);
+
+  while (len == -1) /* try again */
     {
       char *p;
-      p = malloc (strlen(format)*3);
-      len = _vsnprintf (p, sizeof(p)-1, format, args);
-      free(p);
+
+      bufsize *= 2;
+
+      p = malloc (bufsize);
+      len = _vsnprintf (p, bufsize - 1, format, args);
+      free (p);
     }
+
   return len;
 }
 
