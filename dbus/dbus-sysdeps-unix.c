@@ -84,7 +84,7 @@ _dbus_open_socket (int              *fd,
                    DBusError        *error)
 {
   *fd = socket (domain, type, protocol);
-  if (fd >= 0)
+  if (*fd >= 0)
     {
       return TRUE;
     }
