@@ -944,6 +944,9 @@ AC_SUBST(DBUS_TEST_CFLAGS)
 AC_SUBST(DBUS_TEST_LIBS)
 
 ### X11 detection
+if test x$dbus_win = xyes ; then
+   enable_x11=no
+else
 AC_PATH_XTRA
 
 ## for now enable_x11 just tracks have_x11, 
@@ -967,6 +970,7 @@ fi
 
 AC_SUBST(DBUS_X_CFLAGS)
 AC_SUBST(DBUS_X_LIBS)
+fi
 
 
 #### gcc warning flags
