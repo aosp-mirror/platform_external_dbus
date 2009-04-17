@@ -284,7 +284,10 @@ if test "x$GCC" = "xyes"; then
   esac
   case " $CFLAGS " in
   *[\ \	]-Wno-pointer-sign[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wno-pointer-sign" ;;
+  *) if cc_supports_flag -Wno-pointer-sign; then
+        CFLAGS="$CFLAGS -Wno-pointer-sign"
+     fi
+     ;;
   esac  
   
   # http://bugs.freedesktop.org/show_bug.cgi?id=19195
