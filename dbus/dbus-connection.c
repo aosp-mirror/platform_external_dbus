@@ -5125,10 +5125,7 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
   else
     result = _dbus_transport_get_unix_process_id (connection->transport,
 						  pid);
-#ifdef DBUS_WIN
-  _dbus_assert (!result);
-#endif
-  
+
   CONNECTION_UNLOCK (connection);
 
   return result;
