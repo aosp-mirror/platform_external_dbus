@@ -11,6 +11,84 @@ dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
 
 lib_LTLIBRARIES=libdbus-1.la
 
+#
+# Deal with W32 .def and version-info.rc stuff
+#
+if DBUS_WIN
+LTRCCOMPILE = $(LIBTOOL) --mode=compile $(RC) \
+     `echo $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) | \
+     sed -e 's/-I/--include-dir /g;s/-D/--define /g'`
+
+SUFFIXES = rc
+
+.rc.o:
+	$(LTRCCOMPILE) -i $< -o $@
+
+dbus_res = versioninfo.o
+dbus_res_ldflag = -Wl,$(dbus_res)
+no_undefined = -no-undefined
+export_symbols = -export-symbols $(srcdir)/dbus-1.def
+
+install-def-file:
+	$(INSTALL) dbus-1.def $(DESTDIR)$(libdir)/dbus-1.def
+
+uninstall-def-file:
+	-rm $(DESTDIR)$(libdir)/dbus-1.def
+
+libdbus_1_la_DEPENDENCIES = $(dbus_res) dbus-1.def
+intllibs =
+
+else
+dbus_res =
+dbus_res_ldflag =
+no_undefined =
+export_symbols =
+install-def-file:
+uninstall-def-file:
+
+intllibs = @LTLIBINTL@
+
+endif
+
+
+#
+# Platform-dependent sources:
+#
+if DBUS_WIN
+DBUS_LIB_arch_sources = 			\
+	dbus-server-win.c 			\
+	dbus-server-win.h
+
+DBUS_SHARED_arch_sources = 			\
+	dbus-sysdeps-win.c 			\
+	dbus-sysdeps-win.h			\
+	dbus-sysdeps-thread-win.c		\
+	dbus-transport-win.c			\
+	dbus-transport-win.h
+
+DBUS_UTIL_arch_sources =			\
+	dbus-sysdeps-util-win.c			\
+	dbus-spawn-win.c
+else
+DBUS_LIB_arch_sources = 			\
+	dbus-server-unix.c 			\
+	dbus-server-unix.h
+
+DBUS_SHARED_arch_sources = 			\
+	dbus-sysdeps-unix.c 			\
+	dbus-sysdeps-unix.h			\
+	dbus-sysdeps-pthread.c			\
+	dbus-transport-unix.c			\
+	dbus-transport-unix.h			\
+	dbus-userdb.c				\
+	dbus-userdb.h
+
+DBUS_UTIL_arch_sources = 			\
+	dbus-sysdeps-util-unix.c		\
+	dbus-userdb-util.c			\
+	dbus-spawn.c
+endif
+
 dbusinclude_HEADERS=				\
 	dbus.h					\
 	dbus-address.h				\
@@ -26,6 +104,7 @@ dbusinclude_HEADERS=				\
 	dbus-server.h				\
 	dbus-shared.h				\
 	dbus-signature.h			\
+	dbus-spawn.h				\
 	dbus-threads.h				\
 	dbus-types.h
 
@@ -73,8 +152,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-server-protected.h			\
 	dbus-server-socket.c			\
 	dbus-server-socket.h			\
-	dbus-server-unix.c			\
-	dbus-server-unix.h			\
+	$(DBUS_LIB_arch_sources)		\
 	dbus-sha.c				\
 	dbus-sha.h				\
 	dbus-signature.c			\
@@ -87,8 +165,6 @@ DBUS_LIB_SOURCES=				\
 	dbus-transport-protected.h		\
 	dbus-transport-socket.c			\
 	dbus-transport-socket.h			\
-	dbus-transport-unix.c			\
-	dbus-transport-unix.h			\
 	dbus-uuidgen.c				\
 	dbus-uuidgen.h				\
 	dbus-watch.c				\
@@ -118,13 +194,9 @@ DBUS_SHARED_SOURCES=				\
 	dbus-string.c				\
 	dbus-string.h				\
 	dbus-string-private.h			\
+	$(DBUS_SHARED_arch_sources)		\
 	dbus-sysdeps.c				\
-	dbus-sysdeps.h				\
-	dbus-sysdeps-pthread.c			\
-	dbus-sysdeps-unix.c			\
-	dbus-sysdeps-unix.h			\
-	dbus-userdb.c				\
-	dbus-userdb.h
+	dbus-sysdeps.h
 
 ### source code that is generic utility functionality used
 ### by the bus daemon or test apps, but is NOT included
@@ -144,14 +216,12 @@ DBUS_UTIL_SOURCES=				\
 	dbus-message-util.c			\
 	dbus-shell.c				\
 	dbus-shell.h				\
-	dbus-spawn.c				\
+	$(DBUS_UTIL_arch_sources)		\
 	dbus-spawn.h				\
 	dbus-string-util.c			\
 	dbus-sysdeps-util.c			\
-	dbus-sysdeps-util-unix.c		\
 	dbus-test.c				\
-	dbus-test.h				\
-	dbus-userdb-util.c
+	dbus-test.h
 
 libdbus_1_la_SOURCES=				\
 	$(DBUS_LIB_SOURCES)			\
