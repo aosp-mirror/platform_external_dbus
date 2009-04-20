@@ -31,7 +31,7 @@
 #define STRSAFE_NO_DEPRECATE
 
 #ifndef DBUS_WINCE
-#define _WIN32_WINNT 0x0500
+#define _WIN32_WINNT 0x0501
 #endif
 
 #include "dbus-internals.h"
