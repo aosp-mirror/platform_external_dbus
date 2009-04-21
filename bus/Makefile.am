@@ -137,19 +137,26 @@ bus_test_launch_helper_CPPFLAGS=	\
 	-DACTIVATION_LAUNCHER_TEST	\
 	-DACTIVATION_LAUNCHER_DO_OOM
 
+extra_tests=
+extra_noinst_programs=
+if DBUS_UNIX
+extra_tests+=bus-test-launch-helper
+extra_noinst_programs+=dbus-daemon-launch-helper dbus-daemon-launch-helper-test
+endif
+
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS
 if DBUS_BUILD_TESTS
 TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus DBUS_FATAL_WARNINGS=1 DBUS_BLOCK_ON_ABORT=1
-TESTS=bus-test bus-test-system bus-test-launch-helper
+TESTS=bus-test bus-test-system $(extra_tests)
 else
 TESTS=
 endif
 
 ## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
 ## even when not doing "make check"
-noinst_PROGRAMS=$(TESTS) dbus-daemon dbus-daemon-launch-helper-test dbus-daemon-launch-helper
+noinst_PROGRAMS=$(TESTS) dbus-daemon $(extra_noinst_programs)
 
 bus_test_system_SOURCES=			\
 	$(XML_SOURCES)				\
@@ -176,28 +183,30 @@ clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov || true
 
 uninstall-hook:
-	rm -f $(DESTDIR)$(DBUS_DAEMONDIR)/dbus-daemon
-	rm -f $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper
+	rm -f $(DESTDIR)$(DBUS_DAEMONDIR)/dbus-daemon$(EXEEXT)
+	rm -f $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper$(EXEEXT)
 
 install-data-hook:
 	if test '!' -d $(DESTDIR)$(DBUS_DAEMONDIR); then \
 		$(mkinstalldirs) $(DESTDIR)$(DBUS_DAEMONDIR); \
 		chmod 755 $(DESTDIR)$(DBUS_DAEMONDIR); \
 	fi
-	$(INSTALL_PROGRAM) dbus-daemon $(DESTDIR)$(DBUS_DAEMONDIR)
+	$(INSTALL_PROGRAM) dbus-daemon$(EXEEXT) $(DESTDIR)$(DBUS_DAEMONDIR)
 	$(mkinstalldirs) $(DESTDIR)$(localstatedir)/run/dbus
 	$(mkinstalldirs) $(DESTDIR)$(configdir)/system.d
 	$(mkinstalldirs) $(DESTDIR)$(configdir)/session.d
 	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/services
 	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/system-services
 	$(mkinstalldirs) $(DESTDIR)$(libexecdir)/dbus-1
-	$(INSTALL_PROGRAM) dbus-daemon-launch-helper $(DESTDIR)$(libexecdir)
+	if test -f dbus-daemin-launch-helper$(EXEEXT) ; then \
+	$(INSTALL_PROGRAM) dbus-daemon-launch-helper$(EXEEXT) $(DESTDIR)$(libexecdir); \
 	if test `id -u` -eq 0; then \
 		chown root:$(DBUS_USER) $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper; \
 		chmod 4750 $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper; \
 	else \
 		echo "Not installing $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper binary setuid!"; \
 		echo "You'll need to manually set permissions to root:$(DBUS_USER) and permissions 4750"; \
+	fi \
 	fi
 
 #### Init scripts fun
