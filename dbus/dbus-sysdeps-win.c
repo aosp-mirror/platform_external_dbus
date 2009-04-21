@@ -2961,13 +2961,14 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
   char szDBusDaemonMutex[128];
   char szDBusDaemonAddressInfo[128];
   char szAddress[128];
+  DWORD ret;
 
   _dbus_assert(host);
   _dbus_assert(port);
 
   _snprintf(szAddress, sizeof(szAddress) - 1, "tcp:host=%s,port=%d", host, port);
-
-  _dbus_assert( GetUserName(szUserName, &dwUserNameSize) != 0);
+  ret = GetUserName(szUserName, &dwUserNameSize);
+  _dbus_assert(ret != 0);
   _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
             cDBusDaemonMutex, szUserName);
   _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
@@ -2975,8 +2976,8 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
 
   // before _dbus_global_lock to keep correct lock/release order
   hDBusDaemonMutex = CreateMutex( NULL, FALSE, szDBusDaemonMutex );
-
-  _dbus_assert(WaitForSingleObject( hDBusDaemonMutex, 1000 ) == WAIT_OBJECT_0);
+  ret = WaitForSingleObject( hDBusDaemonMutex, 1000 );
+  _dbus_assert(ret == WAIT_OBJECT_0);
 
   // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
