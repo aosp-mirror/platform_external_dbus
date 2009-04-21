@@ -222,8 +222,8 @@ generate_from_message (DBusString            *data,
                        DBusValidity          *expected_validity,
                        DBusMessage           *message)
 {
-  _dbus_message_set_serial (message, 1);
-  _dbus_message_lock (message);
+  dbus_message_set_serial (message, 1);
+  dbus_message_lock (message);
 
   *expected_validity = DBUS_VALID;
   

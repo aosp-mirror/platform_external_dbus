@@ -537,7 +537,7 @@ do_writing (DBusTransport *transport)
       
       message = _dbus_connection_get_message_to_send (transport->connection);
       _dbus_assert (message != NULL);
-      _dbus_message_lock (message);
+      dbus_message_lock (message);
 
 #if 0
       _dbus_verbose ("writing message %p\n", message);

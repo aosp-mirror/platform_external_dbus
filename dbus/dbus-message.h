@@ -131,6 +131,8 @@ dbus_bool_t   dbus_message_has_sender       (DBusMessage   *message,
 dbus_bool_t   dbus_message_has_signature    (DBusMessage   *message,
                                              const char    *signature);
 dbus_uint32_t dbus_message_get_serial       (DBusMessage   *message);
+void          dbus_message_set_serial       (DBusMessage   *message, 
+                                             dbus_uint32_t  serial);
 dbus_bool_t   dbus_message_set_reply_serial (DBusMessage   *message,
                                              dbus_uint32_t  reply_serial);
 dbus_uint32_t dbus_message_get_reply_serial (DBusMessage   *message);
@@ -196,6 +198,7 @@ dbus_bool_t dbus_message_iter_open_container     (DBusMessageIter *iter,
 dbus_bool_t dbus_message_iter_close_container    (DBusMessageIter *iter,
                                                   DBusMessageIter *sub);
 
+void dbus_message_lock    (DBusMessage  *message);
 
 dbus_bool_t  dbus_set_error_from_message  (DBusError    *error,
                                            DBusMessage  *message);
@@ -219,6 +222,9 @@ dbus_bool_t  dbus_message_marshal   (DBusMessage  *msg,
 DBusMessage* dbus_message_demarshal (const char *str,
                                      int         len,
                                      DBusError  *error);
+
+int          dbus_message_demarshal_bytes_needed (const char *str, 
+                                                  int len);
 
 /** @} */
 

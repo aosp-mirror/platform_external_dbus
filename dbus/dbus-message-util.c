@@ -949,7 +949,7 @@ _dbus_message_test (const char *test_data_dir)
                                              "TestMethod"));
   _dbus_assert (strcmp (dbus_message_get_path (message),
                         "/org/freedesktop/TestPath") == 0);
-  _dbus_message_set_serial (message, 1234);
+  dbus_message_set_serial (message, 1234);
 
   /* string length including nul byte not a multiple of 4 */
   if (!dbus_message_set_sender (message, "org.foo.bar1"))
@@ -1041,7 +1041,7 @@ _dbus_message_test (const char *test_data_dir)
                                           "/org/freedesktop/TestPath",
                                           "Foo.TestInterface",
                                           "TestMethod");
-  _dbus_message_set_serial (message, 1);
+  dbus_message_set_serial (message, 1);
   dbus_message_set_reply_serial (message, 5678);
 
   v_INT16 = -0x123;
@@ -1172,7 +1172,7 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (copy);
 
   /* Message loader test */
-  _dbus_message_lock (message);
+  dbus_message_lock (message);
   loader = _dbus_message_loader_new ();
   
   /* check ref/unref */
@@ -1226,6 +1226,7 @@ _dbus_message_test (const char *test_data_dir)
       DBusError error = DBUS_ERROR_INIT;
       char *marshalled = NULL;
       int len = 0;
+      char garbage_header[DBUS_MINIMUM_HEADER_SIZE] = "xxx";
 
       if (!dbus_message_marshal (message, &marshalled, &len))
         _dbus_assert_not_reached ("failed to marshal message");
@@ -1233,6 +1234,7 @@ _dbus_message_test (const char *test_data_dir)
       _dbus_assert (len != 0);
       _dbus_assert (marshalled != NULL);
 
+      _dbus_assert (dbus_message_demarshal_bytes_needed (marshalled, len) == len);
       message2 = dbus_message_demarshal (marshalled, len, &error);
 
       _dbus_assert (message2 != NULL);
@@ -1255,6 +1257,14 @@ _dbus_message_test (const char *test_data_dir)
       _dbus_assert (message2 == NULL);
       _dbus_assert (dbus_error_is_set (&error));
       dbus_error_free (&error);
+
+      /* Bytes needed to demarshal empty message: 0 (more) */
+
+      _dbus_assert (dbus_message_demarshal_bytes_needed ("", 0) == 0);
+      
+      /* Bytes needed to demarshal invalid message: -1 (error). */
+
+      _dbus_assert (dbus_message_demarshal_bytes_needed (garbage_header, DBUS_MINIMUM_HEADER_SIZE) == -1);
     }
 
   dbus_message_unref (message);
