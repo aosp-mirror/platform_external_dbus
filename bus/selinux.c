@@ -433,8 +433,18 @@ bus_selinux_check (BusSELinuxID        *sender_sid,
                     SELINUX_SID_FROM_BUS (bus_sid), 
                     target_class, requested, &aeref, auxdata) < 0)
     {
-      _dbus_verbose ("SELinux denying due to security policy.\n");
-      return FALSE;
+    switch (errno)
+      {
+      case EACCES:
+        _dbus_verbose ("SELinux denying due to security policy.\n");
+        return FALSE;
+      case EINVAL:
+        _dbus_verbose ("SELinux denying due to invalid security context.\n");
+        return FALSE;
+      default:
+        _dbus_verbose ("SELinux denying due to: %s\n", _dbus_strerror (errno));
+        return FALSE;
+      }
     }
   else
     return TRUE;
