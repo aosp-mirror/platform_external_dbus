@@ -142,7 +142,7 @@ _dbus_message_byteswap (DBusMessage *message)
  * Gets the data to be sent over the network for this message.
  * The header and then the body should be written out.
  * This function is guaranteed to always return the same
- * data once a message is locked (with _dbus_message_lock()).
+ * data once a message is locked (with dbus_message_lock()).
  *
  * @param message the message.
  * @param header return location for message header data.
@@ -163,16 +163,19 @@ _dbus_message_get_network_data (DBusMessage          *message,
  * Sets the serial number of a message.
  * This can only be done once on a message.
  *
+ * DBusConnection will automatically set the serial to an appropriate value 
+ * when the message is sent; this function is only needed when encapsulating 
+ * messages in another protocol, or otherwise bypassing DBusConnection.
+ *
  * @param message the message
  * @param serial the serial
  */
-void
-_dbus_message_set_serial (DBusMessage   *message,
-                          dbus_uint32_t  serial)
+void 
+dbus_message_set_serial (DBusMessage   *message,
+                         dbus_uint32_t  serial)
 {
-  _dbus_assert (message != NULL);
-  _dbus_assert (!message->locked);
-  _dbus_assert (dbus_message_get_serial (message) == 0);
+  _dbus_return_if_fail (message != NULL);
+  _dbus_return_if_fail (!message->locked);
 
   _dbus_header_set_serial (&message->header, serial);
 }
@@ -277,12 +280,13 @@ _dbus_message_remove_size_counter (DBusMessage  *message,
  * reference to a message in the outgoing queue and change it
  * underneath us. Messages are locked when they enter the outgoing
  * queue (dbus_connection_send_message()), and the library complains
- * if the message is modified while locked.
+ * if the message is modified while locked. This function may also 
+ * called externally, for applications wrapping D-Bus in another protocol.
  *
  * @param message the message to lock.
  */
 void
-_dbus_message_lock (DBusMessage  *message)
+dbus_message_lock (DBusMessage  *message)
 {
   if (!message->locked)
     {
@@ -3941,7 +3945,7 @@ dbus_message_marshal (DBusMessage  *msg,
   _dbus_return_val_if_fail (msg != NULL, FALSE);
   _dbus_return_val_if_fail (marshalled_data_p != NULL, FALSE);
   _dbus_return_val_if_fail (len_p != NULL, FALSE);
-
+  
   if (!_dbus_string_init (&tmp))
     return FALSE;
 
@@ -4021,6 +4025,57 @@ dbus_message_demarshal (const char *str,
   _DBUS_SET_OOM (error);
   _dbus_message_loader_unref (loader);
   return NULL;
+}
+
+/**
+ * Returns the number of bytes required to be in the buffer to demarshal a
+ * D-Bus message.
+ *
+ * Generally, this function is only useful for encapsulating D-Bus messages in
+ * a different protocol.
+ *
+ * @param str data to be marshalled
+ * @param len the length of str
+ * @param error the location to save errors to
+ * @returns -1 if there was no valid data to be demarshalled, 0 if there wasn't enough data to determine how much should be demarshalled. Otherwise returns the number of bytes to be demarshalled
+ * 
+ */
+int 
+dbus_message_demarshal_bytes_needed(const char *buf, 
+                                    int         len)
+{
+  DBusString str;
+  int byte_order, fields_array_len, header_len, body_len;
+  DBusValidity validity = DBUS_VALID;
+  int have_message;
+
+  if (!buf || len < DBUS_MINIMUM_HEADER_SIZE)
+    return 0;
+
+  if (len > DBUS_MAXIMUM_MESSAGE_LENGTH)
+    len = DBUS_MAXIMUM_MESSAGE_LENGTH;
+  _dbus_string_init_const_len (&str, buf, len);
+  
+  validity = DBUS_VALID;
+  have_message
+    = _dbus_header_have_message_untrusted(DBUS_MAXIMUM_MESSAGE_LENGTH,
+                                          &validity, &byte_order,
+                                          &fields_array_len,
+                                          &header_len,
+                                          &body_len,
+                                          &str, 0,
+                                          len);
+  _dbus_string_free (&str);
+
+  if (validity == DBUS_VALID)
+    {
+      _dbus_assert(have_message);
+      return header_len + body_len;
+    }
+  else
+    {
+      return -1; /* broken! */
+    }
 }
 
 /** @} */

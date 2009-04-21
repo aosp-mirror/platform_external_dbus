@@ -1950,7 +1950,7 @@ _dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *con
   if (dbus_message_get_serial (message) == 0)
     {
       serial = _dbus_connection_get_next_client_serial (connection);
-      _dbus_message_set_serial (message, serial);
+      dbus_message_set_serial (message, serial);
       if (client_serial)
         *client_serial = serial;
     }
@@ -1963,7 +1963,7 @@ _dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *con
   _dbus_verbose ("Message %p serial is %u\n",
                  message, dbus_message_get_serial (message));
   
-  _dbus_message_lock (message);
+  dbus_message_lock (message);
 
   /* Now we need to run an iteration to hopefully just write the messages
    * out immediately, and otherwise get them queued up
@@ -3208,7 +3208,7 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
   if (serial == 0)
     {
       serial = _dbus_connection_get_next_client_serial (connection);
-      _dbus_message_set_serial (message, serial);
+      dbus_message_set_serial (message, serial);
     }
 
   if (!_dbus_pending_call_set_timeout_error_unlocked (pending, message, serial))
