@@ -77,9 +77,9 @@ dbus_daemon_SOURCES=				\
 	main.c					
 
 dbus_daemon_LDADD=					\
+	$(top_builddir)/dbus/libdbus-convenience.la	\
 	$(EFENCE)					\
-	$(DBUS_BUS_LIBS)				\
-	$(top_builddir)/dbus/libdbus-convenience.la
+	$(DBUS_BUS_LIBS)
 
 dbus_daemon_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@ @PIE_LDFLAGS@
 

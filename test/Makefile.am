@@ -61,17 +61,17 @@ test_sleep_forever_SOURCES =			\
 decode_gcov_SOURCES=				\
 	decode-gcov.c
 
-TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
+TEST_LIBS=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_TEST_LIBS)
 
-test_service_LDADD=$(TEST_LIBS) libdbus-testutils.la
+test_service_LDADD=libdbus-testutils.la $(TEST_LIBS)
 test_service_LDFLAGS=@R_DYNAMIC_LDFLAG@
-test_names_LDADD=$(TEST_LIBS) libdbus-testutils.la
+test_names_LDADD=libdbus-testutils.la $(TEST_LIBS)
 test_names_LDFLAGS=@R_DYNAMIC_LDFLAG@
 ## break_loader_LDADD= $(TEST_LIBS)
 ## break_loader_LDFLAGS=@R_DYNAMIC_LDFLAG@
-test_shell_service_LDADD=$(TEST_LIBS) libdbus-testutils.la
+test_shell_service_LDADD=libdbus-testutils.la $(TEST_LIBS)
 test_shell_service_LDFLAGS=@R_DYNAMIC_LDFLAG@
-shell_test_LDADD=$(TEST_LIBS) libdbus-testutils.la
+shell_test_LDADD=libdbus-testutils.la $(TEST_LIBS)
 shell_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 spawn_test_LDADD=$(TEST_LIBS)
 spawn_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
