@@ -1075,7 +1075,7 @@ _dbus_keyring_test (void)
   dbus_error_init (&error);
   ring1 = _dbus_keyring_new_for_credentials (NULL, &context,
                                              &error);
-  _dbus_assert (ring1);
+  _dbus_assert (ring1 != NULL);
   _dbus_assert (error.name == NULL);
 
   id = _dbus_keyring_get_best_key (ring1, &error);
@@ -1087,7 +1087,7 @@ _dbus_keyring_test (void)
     }
 
   ring2 = _dbus_keyring_new_for_credentials (NULL, &context, &error);
-  _dbus_assert (ring2);
+  _dbus_assert (ring2 != NULL);
   _dbus_assert (error.name == NULL);
   
   if (ring1->n_keys != ring2->n_keys)

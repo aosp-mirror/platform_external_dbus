@@ -37,7 +37,7 @@ typedef struct {
   int expected_queue[NUM_CONN];
 } CommandAndResult;
 
-CommandAndResult test_data[] = {
+static CommandAndResult test_data[] = {
   {ADD_CONNECTION, 0, ALLOW_REPLACEMENT | REPLACE_EXISTING,
    PRIMARY_OWNER, {0,-1,-1,-1}},
   {ADD_CONNECTION, 0, REPLACE_EXISTING,

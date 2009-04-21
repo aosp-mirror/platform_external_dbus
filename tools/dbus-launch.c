@@ -335,7 +335,7 @@ do_waitpid (pid_t pid)
 static pid_t bus_pid_to_kill = -1;
 
 static void
-kill_bus()
+kill_bus(void)
 {
   verbose ("Killing message bus and exiting babysitter\n");
   kill (bus_pid_to_kill, SIGTERM);

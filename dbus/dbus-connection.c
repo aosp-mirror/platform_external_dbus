@@ -2927,7 +2927,7 @@ dbus_connection_get_server_id (DBusConnection *connection)
 {
   char *id;
 
-  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (connection != NULL, NULL);
   
   CONNECTION_LOCK (connection);
   id = _dbus_strdup (_dbus_transport_get_server_id (connection->transport));
@@ -3340,7 +3340,7 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
  * 
  * @param connection the connection.
  */
-DBusDispatchStatus
+static DBusDispatchStatus
 _dbus_connection_flush_unlocked (DBusConnection *connection)
 {
   /* We have to specify DBUS_ITERATION_DO_READING here because

@@ -1643,7 +1643,7 @@ bus_driver_handle_get_id (DBusConnection *connection,
  * frequency of use (but doesn't matter with only a few items
  * anyhow)
  */
-struct
+static struct
 {
   const char *name;
   const char *in_args;

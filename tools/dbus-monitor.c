@@ -195,7 +195,7 @@ usage (char *name, int ecode)
   exit (ecode);
 }
 
-dbus_bool_t sigint_received = FALSE;
+static dbus_bool_t sigint_received = FALSE;
 
 static void
 sigint_handler (int signum)
