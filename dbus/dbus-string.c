@@ -1245,7 +1245,7 @@ _dbus_string_append_printf_valist  (DBusString        *str,
                                     va_list            args)
 {
   int len;
-  va_list args_copy;
+  va_list args_copy = 0;
 
   DBUS_STRING_PREAMBLE (str);
 

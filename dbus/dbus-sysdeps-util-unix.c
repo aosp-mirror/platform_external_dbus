@@ -1235,3 +1235,4 @@ fail:
   _dbus_string_free (&path);
   return FALSE;
 }
+

@@ -11,7 +11,7 @@ die (const char *message)
 }
 
 static void
-open_destroy_shared_session_bus_connection ()
+open_destroy_shared_session_bus_connection (void)
 {
   DBusError error;
   DBusConnection *connection;
