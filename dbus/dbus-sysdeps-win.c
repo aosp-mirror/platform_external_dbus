@@ -52,6 +52,10 @@
 #include <ws2tcpip.h>
 #include <wincrypt.h>
 
+/* Declarations missing in mingw's headers */
+extern BOOL WINAPI ConvertStringSidToSidA (LPCSTR  StringSid, PSID *Sid);
+extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
+
 #include <fcntl.h>
 
 #include <process.h>

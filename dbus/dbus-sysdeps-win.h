@@ -50,10 +50,6 @@ extern void *_dbus_win_get_dll_hmodule (void);
 #endif
 #endif
 
-/* Declarations missing in mingw's headers */
-extern BOOL WINAPI ConvertStringSidToSidA (LPCSTR  StringSid, PSID *Sid);
-extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
-
 
 #define DBUS_CONSOLE_DIR "/var/run/console/"
 
