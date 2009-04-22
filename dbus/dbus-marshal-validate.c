@@ -100,6 +100,7 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
         case DBUS_TYPE_UINT16:
         case DBUS_TYPE_INT32:
         case DBUS_TYPE_UINT32:
+        case DBUS_TYPE_UNIX_FD:
         case DBUS_TYPE_INT64:
         case DBUS_TYPE_UINT64:
         case DBUS_TYPE_DOUBLE:
@@ -319,12 +320,13 @@ validate_body_helper (DBusTypeReader       *reader,
         case DBUS_TYPE_BYTE:
           ++p;
           break;
-          
+
         case DBUS_TYPE_BOOLEAN:
         case DBUS_TYPE_INT16:
         case DBUS_TYPE_UINT16:
         case DBUS_TYPE_INT32:
         case DBUS_TYPE_UINT32:
+        case DBUS_TYPE_UNIX_FD:
         case DBUS_TYPE_INT64:
         case DBUS_TYPE_UINT64:
         case DBUS_TYPE_DOUBLE:

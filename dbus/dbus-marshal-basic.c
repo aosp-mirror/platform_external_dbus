@@ -414,6 +414,7 @@ _dbus_marshal_set_basic (DBusString       *str,
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       pos = _DBUS_ALIGN_VALUE (pos, 4);
       set_4_octets (str, pos, vp->u32, byte_order);
       if (old_end_pos)
@@ -540,6 +541,7 @@ _dbus_marshal_read_basic (const DBusString      *str,
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_BOOLEAN:
+    case DBUS_TYPE_UNIX_FD:
       {
       volatile dbus_uint32_t *vp = value;
       pos = _DBUS_ALIGN_VALUE (pos, 4);
@@ -839,6 +841,7 @@ _dbus_marshal_write_basic (DBusString *str,
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       return marshal_4_octets (str, insert_at, vp->u32,
                                byte_order, pos_after);
       break;
@@ -1066,6 +1069,7 @@ _dbus_marshal_write_fixed_multi (DBusString *str,
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       return marshal_fixed_multi (str, insert_at, vp, n_elements, byte_order, 4, pos_after);
       break;
     case DBUS_TYPE_INT64:
@@ -1114,6 +1118,7 @@ _dbus_marshal_skip_basic (const DBusString      *str,
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       *pos = _DBUS_ALIGN_VALUE (*pos, 4);
       *pos += 4;
       break;
@@ -1202,6 +1207,7 @@ _dbus_type_get_alignment (int typecode)
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       /* this stuff is 4 since it starts with a length */
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
@@ -1256,6 +1262,7 @@ _dbus_type_is_valid (int typecode)
     case DBUS_TYPE_STRUCT:
     case DBUS_TYPE_DICT_ENTRY:
     case DBUS_TYPE_VARIANT:
+    case DBUS_TYPE_UNIX_FD:
       return TRUE;
 
     default:
@@ -1316,6 +1323,8 @@ _dbus_type_to_string (int typecode)
       return "begin_dict_entry";
     case DBUS_DICT_ENTRY_END_CHAR:
       return "end_dict_entry";
+    case DBUS_TYPE_UNIX_FD:
+      return "unix_fd";
     default:
       return "unknown";
     }
