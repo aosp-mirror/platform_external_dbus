@@ -2388,17 +2388,14 @@ const char*
 _dbus_get_tmpdir(void)
 {
   static const char* tmpdir = NULL;
+  static char buf[1000];
 
   if (tmpdir == NULL)
     {
-      if (tmpdir == NULL)
-        tmpdir = getenv("TMP");
-      if (tmpdir == NULL)
-        tmpdir = getenv("TEMP");
-      if (tmpdir == NULL)
-        tmpdir = getenv("TMPDIR");
-      if (tmpdir == NULL)
-          tmpdir = "C:\\Temp";
+      if (!GetTempPath (sizeof (buf), buf))
+        strcpy (buf, "\\");
+
+      tmpdir = buf;
     }
 
   _dbus_assert(tmpdir != NULL);
