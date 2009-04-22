@@ -192,6 +192,8 @@ dbus_bool_t _dbus_windows_user_is_process_owner (const char        *windows_sid)
 dbus_bool_t _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
                                                             DBusCredentials *credentials);
 
+dbus_bool_t _dbus_socket_can_pass_unix_fd(int fd);
+
 /** Opaque type representing an atomically-modifiable integer
  * that can be used from multiple threads.
  */

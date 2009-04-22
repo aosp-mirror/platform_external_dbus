@@ -3462,4 +3462,36 @@ _dbus_get_is_errno_eagain_or_ewouldblock (void)
   return errno == EAGAIN || errno == EWOULDBLOCK;
 }
 
+/**
+ *  Checks whether file descriptors may be passed via the socket
+ *
+ *  @param fd the socket
+ *  @return TRUE when fd passing over this socket is supported
+ *
+ */
+dbus_bool_t
+_dbus_socket_can_pass_unix_fd(int fd) {
+
+#ifdef SCM_RIGHTS
+  union {
+    struct sockaddr sa;
+    struct sockaddr_storage storage;
+    struct sockaddr_un un;
+  } sa_buf;
+
+  socklen_t sa_len = sizeof(sa_buf);
+
+  _DBUS_ZERO(sa_buf);
+
+  if (getsockname(fd, &sa_buf.sa, &sa_len) < 0)
+    return FALSE;
+
+  return sa_buf.sa.sa_family == AF_UNIX;
+
+#else
+  return FALSE;
+
+#endif
+}
+
 /* tests in dbus-sysdeps-util.c */
