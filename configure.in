@@ -816,6 +816,8 @@ fi
 
 AC_CHECK_FUNCS(getpeerucred getpeereid)
 
+AC_CHECK_FUNCS(pipe2)
+
 #### Abstract sockets
 
 if test x$enable_abstract_sockets = xauto; then
