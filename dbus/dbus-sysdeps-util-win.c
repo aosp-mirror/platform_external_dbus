@@ -406,24 +406,12 @@ _dbus_set_signal_handler (int               sig,
 dbus_bool_t 
 _dbus_file_exists (const char *file)
 {
-  HANDLE h = CreateFile(
-          file, /* LPCTSTR lpFileName*/
-          0, /* DWORD dwDesiredAccess */
-          0, /* DWORD dwShareMode*/
-          NULL, /* LPSECURITY_ATTRIBUTES lpSecurityAttributes */
-          OPEN_EXISTING, /* DWORD dwCreationDisposition */
-          FILE_ATTRIBUTE_NORMAL, /* DWORD dwFlagsAndAttributes */
-          NULL /* HANDLE hTemplateFile */
-        );
+  DWORD attributes = GetFileAttributes (file);
 
-    /* file not found, use local copy of session.conf  */
-    if (h != INVALID_HANDLE_VALUE && GetLastError() != ERROR_PATH_NOT_FOUND)
-      {
-        CloseHandle(h);
-        return TRUE;
-      }
-    else
-        return FALSE;  
+  if (attributes != INVALID_FILE_ATTRIBUTES && GetLastError() != ERROR_PATH_NOT_FOUND)
+    return TRUE;
+  else
+    return FALSE;  
 }
 
 /**
