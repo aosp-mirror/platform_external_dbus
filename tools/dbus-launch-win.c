@@ -46,7 +46,19 @@ errno_t strcpy_s(char *dest, size_t size, char *src)
 }
 #endif
 
-/* TODO: use unicode version as suggested by Tor Lillqvist */
+/* TODO: Use Unicode APIs */
+
+/* TODO: This Windows version of dbus-launch is curretly rather
+ * pointless as it doesn't take the same command-line options as the
+ * UNIX dbus-launch does. A main point of the dbus-launch command is
+ * to pass it for instance a --config-file option to make the started
+ * dbus-daemon use that config file.
+ *
+ * This version also doesn't print out any information, which is a
+ * main point of the UNIX one. It should at least support the
+ * --sh-syntax option, and maybe also a --cmd-syntax to print out the
+ * variable settings in cmd.exe syntax?
+ */
 
 #define AUTO_ACTIVATE_CONSOLE_WHEN_VERBOSE_MODE 1
 
