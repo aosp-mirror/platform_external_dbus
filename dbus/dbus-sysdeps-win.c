@@ -79,6 +79,31 @@
 
 typedef int socklen_t;
 
+static char*
+_dbus_win_error_string (int error_number)
+{
+  char *msg;
+
+  FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                 FORMAT_MESSAGE_IGNORE_INSERTS |
+                 FORMAT_MESSAGE_FROM_SYSTEM,
+                 NULL, error_number, 0,
+                 (LPSTR) &msg, 0, NULL);
+
+  if (msg[strlen (msg) - 1] == '\n')
+    msg[strlen (msg) - 1] = '\0';
+  if (msg[strlen (msg) - 1] == '\r')
+    msg[strlen (msg) - 1] = '\0';
+
+  return msg;
+}
+
+static void
+_dbus_win_free_error_string (char *string)
+{
+  LocalFree (string);
+}
+
 /**
  * write data to a pipe.
  *
@@ -2232,10 +2257,12 @@ _dbus_string_save_to_file (const DBusString *str,
   /* Unlike rename(), MoveFileEx() can replace existing files */
   if (MoveFileExA (tmp_filename_c, filename_c, MOVEFILE_REPLACE_EXISTING) < 0)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Could not rename %s to %s: %s",
                       tmp_filename_c, filename_c,
-                      _dbus_strerror (errno));
+                      emsg);
+      _dbus_win_free_error_string (emsg);
 
       goto out;
     }
