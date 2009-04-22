@@ -180,6 +180,8 @@ dbus_bool_t        dbus_connection_get_is_connected             (DBusConnection 
 dbus_bool_t        dbus_connection_get_is_authenticated         (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_anonymous             (DBusConnection             *connection);
 char*              dbus_connection_get_server_id                (DBusConnection             *connection);
+dbus_bool_t        dbus_connection_can_send_type                (DBusConnection             *connection,
+                                                                 int                         type);
 void               dbus_connection_set_exit_on_disconnect       (DBusConnection             *connection,
                                                                  dbus_bool_t                 exit_on_disconnect);
 void               dbus_connection_flush                        (DBusConnection             *connection);

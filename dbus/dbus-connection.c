@@ -33,6 +33,7 @@
 #include "dbus-list.h"
 #include "dbus-hash.h"
 #include "dbus-message-internal.h"
+#include "dbus-message-private.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-dataslot.h"
@@ -41,6 +42,7 @@
 #include "dbus-object-tree.h"
 #include "dbus-threads-internal.h"
 #include "dbus-bus.h"
+#include "dbus-marshal-basic.h"
 
 #ifdef DBUS_DISABLE_CHECKS
 #define TOOK_LOCK_CHECK(connection)
@@ -2932,12 +2934,56 @@ dbus_connection_get_server_id (DBusConnection *connection)
   char *id;
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
-  
+
   CONNECTION_LOCK (connection);
   id = _dbus_strdup (_dbus_transport_get_server_id (connection->transport));
   CONNECTION_UNLOCK (connection);
-  
+
   return id;
+}
+
+/**
+ * Tests whether a certain type can be send via the connection. This
+ * will always return TRUE for all types, with the exception of
+ * DBUS_TYPE_UNIX_FD. The function will return TRUE for
+ * DBUS_TYPE_UNIX_FD only on systems that know Unix file descriptors
+ * and can send them via the chosen transport and when the remote side
+ * supports this.
+ *
+ * This function can be used to do runtime checking for types that
+ * might be unknown to the specific D-Bus client implementation
+ * version, i.e. it will return FALSE for all types this
+ * implementation does not know.
+ *
+ * @param connection the connection
+ * @param type the type to check
+ * @returns TRUE if the type may be send via the connection
+ */
+dbus_bool_t
+dbus_connection_can_send_type(DBusConnection *connection,
+                                  int type)
+{
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+
+  if (!_dbus_type_is_valid(type))
+    return FALSE;
+
+  if (type != DBUS_TYPE_UNIX_FD)
+    return TRUE;
+
+#ifdef HAVE_UNIX_FD_PASSING
+  {
+    dbus_bool_t b;
+
+    CONNECTION_LOCK(connection);
+    b = _dbus_transport_can_pass_unix_fd(connection->transport);
+    CONNECTION_UNLOCK(connection);
+
+    return b;
+  }
+#endif
+
+  return FALSE;
 }
 
 /**
