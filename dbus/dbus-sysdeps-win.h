@@ -26,6 +26,7 @@
 #ifndef DBUS_SYSDEPS_WIN_H
 #define DBUS_SYSDEPS_WIN_H
 
+extern void *_dbus_win_get_dll_hmodule (void);
 #define _WINSOCKAPI_
 
 #include "dbus-hash.h"

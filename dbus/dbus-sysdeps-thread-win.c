@@ -36,6 +36,14 @@ struct DBusCondVar {
 static DWORD dbus_cond_event_tls = TLS_OUT_OF_INDEXES;
 
 
+static HMODULE dbus_dll_hmodule;
+
+void *
+_dbus_win_get_dll_hmodule (void)
+{
+  return dbus_dll_hmodule;
+}
+
 BOOL WINAPI DllMain (HINSTANCE hinstDLL,
 		     DWORD     fdwReason,
 		     LPVOID    lpvReserved);
@@ -49,6 +57,9 @@ DllMain (HINSTANCE hinstDLL,
   HANDLE event;
   switch (fdwReason) 
     { 
+    case DLL_PROCESS_ATTACH:
+      dbus_dll_hmodule = hinstDLL;
+      break;
     case DLL_THREAD_DETACH:
       if (dbus_cond_event_tls != TLS_OUT_OF_INDEXES)
 	{
