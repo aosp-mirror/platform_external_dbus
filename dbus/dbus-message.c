@@ -33,6 +33,10 @@
 #include "dbus-memory.h"
 #include "dbus-list.h"
 #include "dbus-threads-internal.h"
+#ifdef HAVE_UNIX_FD_PASSING
+#include "dbus-sysdeps-unix.h"
+#endif
+
 #include <string.h>
 
 static void dbus_message_finalize (DBusMessage *message);
@@ -157,6 +161,30 @@ _dbus_message_get_network_data (DBusMessage          *message,
 
   *header = &message->header.data;
   *body = &message->body;
+}
+
+/**
+ * Gets the unix fds to be sent over the network for this message.
+ * This function is guaranteed to always return the same data once a
+ * message is locked (with dbus_message_lock()).
+ *
+ * @param message the message.
+ * @param fds return location of unix fd array
+ * @param n_fds return number of entries in array
+ */
+void _dbus_message_get_unix_fds(DBusMessage *message,
+                                const int  **fds,
+                                unsigned    *n_fds)
+{
+  _dbus_assert (message->locked);
+
+#ifdef HAVE_UNIX_FD_PASSING
+  *fds = message->unix_fds;
+  *n_fds = message->n_unix_fds;
+#else
+  *fds = NULL;
+  *n_fds = 0;
+#endif
 }
 
 /**
@@ -494,6 +522,33 @@ dbus_message_get_cached (void)
   return message;
 }
 
+#ifdef HAVE_UNIX_FD_PASSING
+static void
+close_unix_fds(int *fds, unsigned *n_fds)
+{
+  DBusError e;
+  int i;
+
+  if (*n_fds <= 0)
+    return;
+
+  dbus_error_init(&e);
+
+  for (i = 0; i < *n_fds; i++)
+    {
+      if (!_dbus_close(fds[i], &e))
+        {
+          _dbus_warn("Failed to close file descriptor: %s\n", e.message);
+          dbus_error_free(&e);
+        }
+    }
+
+  *n_fds = 0;
+
+  /* We don't free the array here, in case we can recycle it later */
+}
+#endif
+
 static void
 free_size_counter (void *element,
                    void *data)
@@ -527,6 +582,10 @@ dbus_message_cache_or_finalize (DBusMessage *message)
   _dbus_list_foreach (&message->size_counters,
                       free_size_counter, message);
   _dbus_list_clear (&message->size_counters);
+
+#ifdef HAVE_UNIX_FD_PASSING
+  close_unix_fds(message->unix_fds, &message->n_unix_fds);
+#endif
 
   was_cached = FALSE;
 
@@ -634,6 +693,12 @@ _dbus_message_iter_check (DBusMessageRealIter *iter)
  * dbus_message_get_args() is the place to go for complete
  * documentation.
  *
+ * Unix file descriptors that are read with this function will have
+ * the FD_CLOEXEC flag set. If you need them without this flag set,
+ * make sure to unset it with fcntl().
+ *
+ * @todo This may leak memory and file descriptors if parsing fails. See #21259
+ *
  * @see dbus_message_get_args
  * @param iter the message iter
  * @param error error to be filled in
@@ -673,7 +738,38 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
           goto out;
 	}
 
-      if (dbus_type_is_basic (spec_type))
+      if (spec_type == DBUS_TYPE_UNIX_FD)
+        {
+#ifdef HAVE_UNIX_FD_PASSING
+          DBusBasicValue idx;
+          int *pfd, nfd;
+
+          pfd = va_arg (var_args, int*);
+          _dbus_assert(pfd);
+
+          _dbus_type_reader_read_basic(&real->u.reader, &idx);
+
+          if (idx.u32 >= real->message->n_unix_fds)
+            {
+              dbus_set_error (error, DBUS_ERROR_INCONSISTENT_MESSAGE,
+                              "Message refers to file descriptor at index %i,"
+                              "but has only %i descriptors attached.\n",
+                              idx.u32,
+                              real->message->n_unix_fds);
+              goto out;
+            }
+
+          if ((nfd = _dbus_dup(real->message->unix_fds[idx.u32], error)) < 0)
+            goto out;
+
+          *pfd = nfd;
+#else
+          dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
+                          "Platform does not support file desciptor passing.\n");
+          goto out;
+#endif
+        }
+      else if (dbus_type_is_basic (spec_type))
         {
           DBusBasicValue *ptr;
 
@@ -707,7 +803,8 @@ _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
               goto out;
             }
 
-          if (dbus_type_is_fixed (spec_element_type))
+          if (dbus_type_is_fixed (spec_element_type) &&
+              element_type != DBUS_TYPE_UNIX_FD)
             {
               ptr = va_arg (var_args, const DBusBasicValue**);
               n_elements_p = va_arg (var_args, int*);
@@ -943,6 +1040,11 @@ dbus_message_finalize (DBusMessage *message)
   _dbus_header_free (&message->header);
   _dbus_string_free (&message->body);
 
+#ifdef HAVE_UNIX_FD_PASSING
+  close_unix_fds(message->unix_fds, &message->n_unix_fds);
+  dbus_free(message->unix_fds);
+#endif
+
   _dbus_assert (message->refcount.value == 0);
   
   dbus_free (message);
@@ -969,6 +1071,11 @@ dbus_message_new_empty_header (void)
 #ifndef DBUS_DISABLE_CHECKS
       message->generation = _dbus_current_generation;
 #endif
+
+#ifdef HAVE_UNIX_FD_PASSING
+      message->unix_fds = NULL;
+      message->n_unix_fds_allocated = 0;
+#endif
     }
   
   message->refcount.value = 1;
@@ -980,6 +1087,10 @@ dbus_message_new_empty_header (void)
   message->size_counters = NULL;
   message->size_counter_delta = 0;
   message->changed_stamp = 0;
+
+#ifdef HAVE_UNIX_FD_PASSING
+  message->n_unix_fds = 0;
+#endif
 
   if (!from_cache)
     _dbus_data_slot_list_init (&message->slot_list);
@@ -1308,8 +1419,10 @@ dbus_message_new_error_printf (DBusMessage *reply_to,
  * outgoing message queue and thus not modifiable) the new message
  * will not be locked.
  *
+ * @todo This function can't be used in programs that try to recover from OOM errors.
+ *
  * @param message the message
- * @returns the new message.or #NULL if not enough memory
+ * @returns the new message.or #NULL if not enough memory or Unix file descriptors (in case the message to copy includes Unix file descriptors) can be allocated.
  */
 DBusMessage *
 dbus_message_copy (const DBusMessage *message)
@@ -1347,11 +1460,36 @@ dbus_message_copy (const DBusMessage *message)
 			  &retval->body, 0))
     goto failed_copy;
 
+#ifdef HAVE_UNIX_FD_PASSING
+  retval->unix_fds = dbus_new(int, message->n_unix_fds);
+  if (retval->unix_fds == NULL && message->n_unix_fds > 0)
+    goto failed_copy;
+
+  retval->n_unix_fds_allocated = message->n_unix_fds;
+
+  for (retval->n_unix_fds = 0;
+       retval->n_unix_fds < message->n_unix_fds;
+       retval->n_unix_fds++)
+    {
+      retval->unix_fds[retval->n_unix_fds] = _dbus_dup(message->unix_fds[retval->n_unix_fds], NULL);
+
+      if (retval->unix_fds[retval->n_unix_fds] < 0)
+        goto failed_copy;
+    }
+
+#endif
+
   return retval;
 
  failed_copy:
   _dbus_header_free (&retval->header);
   _dbus_string_free (&retval->body);
+
+#ifdef HAVE_UNIX_FD_PASSING
+  close_unix_fds(retval->unix_fds, &retval->n_unix_fds);
+  dbus_free(retval->unix_fds);
+#endif
+
   dbus_free (retval);
 
   return NULL;
@@ -1555,8 +1693,9 @@ dbus_message_append_args_valist (DBusMessage *message,
                                                  buf,
                                                  &array))
             goto failed;
-          
-          if (dbus_type_is_fixed (element_type))
+
+          if (dbus_type_is_fixed (element_type) &&
+              element_type != DBUS_TYPE_UNIX_FD)
             {
               const DBusBasicValue **value;
               int n_elements;
@@ -1973,8 +2112,30 @@ dbus_message_iter_get_basic (DBusMessageIter  *iter,
   _dbus_return_if_fail (_dbus_message_iter_check (real));
   _dbus_return_if_fail (value != NULL);
 
-  _dbus_type_reader_read_basic (&real->u.reader,
-                                value);
+  if (dbus_message_iter_get_arg_type (iter) == DBUS_TYPE_UNIX_FD)
+    {
+#ifdef HAVE_UNIX_FD_PASSING
+      DBusBasicValue idx;
+
+      _dbus_type_reader_read_basic(&real->u.reader, &idx);
+
+      if (idx.u32 >= real->message->n_unix_fds) {
+        /* Hmm, we cannot really signal an error here, so let's make
+           sure to return an invalid fd. */
+        *((int*) value) = -1;
+        return;
+      }
+
+      *((int*) value) = _dbus_dup(real->message->unix_fds[idx.u32], NULL);
+#else
+      *((int*) value) = -1;
+#endif
+    }
+  else
+    {
+      _dbus_type_reader_read_basic (&real->u.reader,
+                                    value);
+    }
 }
 
 /**
@@ -2047,7 +2208,7 @@ dbus_message_iter_get_fixed_array (DBusMessageIter  *iter,
   _dbus_return_if_fail (_dbus_message_iter_check (real));
   _dbus_return_if_fail (value != NULL);
   _dbus_return_if_fail ((subtype == DBUS_TYPE_INVALID) ||
-                         dbus_type_is_fixed (subtype));
+                        (dbus_type_is_fixed (subtype) && subtype != DBUS_TYPE_UNIX_FD));
 
   _dbus_type_reader_read_fixed_multi (&real->u.reader,
                                       value, n_elements);
@@ -2217,6 +2378,40 @@ _dbus_message_iter_append_check (DBusMessageRealIter *iter)
 }
 #endif /* DBUS_DISABLE_CHECKS */
 
+#ifdef HAVE_UNIX_FD_PASSING
+static int *
+expand_fd_array(DBusMessage *m,
+                unsigned     n)
+{
+  _dbus_assert(m);
+
+  /* This makes space for adding n new fds to the array and returns a
+     pointer to the place were the first fd should be put. */
+
+  if (m->n_unix_fds + n > m->n_unix_fds_allocated)
+    {
+      unsigned k;
+      int *p;
+
+      /* Make twice as much space as necessary */
+      k = (m->n_unix_fds + n) * 2;
+
+      /* Allocate at least four */
+      if (k < 4)
+        k = 4;
+
+      p = dbus_realloc(m->unix_fds, k * sizeof(int));
+      if (p == NULL)
+        return NULL;
+
+      m->unix_fds = p;
+      m->n_unix_fds_allocated = k;
+    }
+
+  return m->unix_fds + m->n_unix_fds;
+}
+#endif
+
 /**
  * Appends a basic-typed value to the message. The basic types are the
  * non-container types such as integer and string.
@@ -2248,7 +2443,50 @@ dbus_message_iter_append_basic (DBusMessageIter *iter,
   if (!_dbus_message_iter_open_signature (real))
     return FALSE;
 
-  ret = _dbus_type_writer_write_basic (&real->u.writer, type, value);
+  if (type == DBUS_TYPE_UNIX_FD)
+    {
+#ifdef HAVE_UNIX_FD_PASSING
+      int *fds;
+      dbus_uint32_t u;
+
+      /* First step, include the fd in the fd list of this message */
+      if (!(fds = expand_fd_array(real->message, 1)))
+        return FALSE;
+
+      *fds = _dbus_dup(*(int*) value, NULL);
+      if (*fds < 0)
+        return FALSE;
+
+      u = real->message->n_unix_fds;
+
+      /* Second step, write the index to the fd */
+      if (!(ret = _dbus_type_writer_write_basic (&real->u.writer, DBUS_TYPE_UNIX_FD, &u))) {
+        _dbus_close(*fds, NULL);
+        return FALSE;
+      }
+
+      real->message->n_unix_fds += 1;
+      u += 1;
+
+      /* Final step, update the header accordingly */
+      ret = _dbus_header_set_field_basic (&real->message->header,
+                                          DBUS_HEADER_FIELD_UNIX_FDS,
+                                          DBUS_TYPE_UINT32,
+                                          &u);
+
+      /* If any of these operations fail the message is
+         hosed. However, no memory or fds should be leaked since what
+         has been added to message has been added to the message, and
+         can hence be accounted for when the message is being
+         freed. */
+#else
+      ret = FALSE;
+#endif
+    }
+  else
+    {
+      ret = _dbus_type_writer_write_basic (&real->u.writer, type, value);
+    }
 
   if (!_dbus_message_iter_close_signature (real))
     ret = FALSE;
@@ -2302,7 +2540,7 @@ dbus_message_iter_append_fixed_array (DBusMessageIter *iter,
 
   _dbus_return_val_if_fail (_dbus_message_iter_append_check (real), FALSE);
   _dbus_return_val_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER, FALSE);
-  _dbus_return_val_if_fail (dbus_type_is_fixed (element_type), FALSE);
+  _dbus_return_val_if_fail (dbus_type_is_fixed (element_type) && element_type != DBUS_TYPE_UNIX_FD, FALSE);
   _dbus_return_val_if_fail (real->u.writer.container_type == DBUS_TYPE_ARRAY, FALSE);
   _dbus_return_val_if_fail (value != NULL, FALSE);
   _dbus_return_val_if_fail (n_elements >= 0, FALSE);
@@ -3321,6 +3559,12 @@ _dbus_message_loader_new (void)
   /* this can be configured by the app, but defaults to the protocol max */
   loader->max_message_size = DBUS_MAXIMUM_MESSAGE_LENGTH;
 
+  /* We set a very relatively conservative default here since due to how
+  SCM_RIGHTS works we need to preallocate an fd array of the maximum
+  number of unix fds we want to receive in advance. A
+  try-and-reallocate loop is not possible. */
+  loader->max_message_unix_fds = 1024;
+
   if (!_dbus_string_init (&loader->data))
     {
       dbus_free (loader);
@@ -3330,6 +3574,12 @@ _dbus_message_loader_new (void)
   /* preallocate the buffer for speed, ignore failure */
   _dbus_string_set_length (&loader->data, INITIAL_LOADER_DATA_LEN);
   _dbus_string_set_length (&loader->data, 0);
+
+#ifdef HAVE_UNIX_FD_PASSING
+  loader->unix_fds = NULL;
+  loader->n_unix_fds = loader->n_unix_fds_allocated = 0;
+  loader->unix_fds_outstanding = FALSE;
+#endif
 
   return loader;
 }
@@ -3360,6 +3610,10 @@ _dbus_message_loader_unref (DBusMessageLoader *loader)
   loader->refcount -= 1;
   if (loader->refcount == 0)
     {
+#ifdef HAVE_UNIX_FD_PASSING
+      close_unix_fds(loader->unix_fds, &loader->n_unix_fds);
+      dbus_free(loader->unix_fds);
+#endif
       _dbus_list_foreach (&loader->messages,
                           (DBusForeachFunction) dbus_message_unref,
                           NULL);
@@ -3419,6 +3673,81 @@ _dbus_message_loader_return_buffer (DBusMessageLoader  *loader,
   loader->buffer_outstanding = FALSE;
 }
 
+/**
+ * Gets the buffer to use for reading unix fds from the network.
+ *
+ * This works similar to _dbus_message_loader_get_buffer()
+ *
+ * @param loader the message loader.
+ * @param fds the array to read fds into
+ * @param max_n_fds how many fds to read at most
+ * @return TRUE on success, FALSE on OOM
+ */
+dbus_bool_t
+_dbus_message_loader_get_unix_fds(DBusMessageLoader  *loader,
+                                  int               **fds,
+                                  unsigned           *max_n_fds)
+{
+#ifdef HAVE_UNIX_FD_PASSING
+  _dbus_assert (!loader->unix_fds_outstanding);
+
+  /* Allocate space where we can put the fds we read. We allocate
+     space for max_message_unix_fds since this is an
+     upper limit how many fds can be received within a single
+     message. Since SCM_RIGHTS doesn't allow a reallocate+retry logic
+     we are allocating the maximum possible array size right from the
+     beginning. This sucks a bit, however unless SCM_RIGHTS is fixed
+     there is no better way. */
+
+  if (loader->n_unix_fds_allocated < loader->max_message_unix_fds)
+    {
+      int *a = dbus_realloc(loader->unix_fds,
+                            loader->max_message_unix_fds * sizeof(loader->unix_fds[0]));
+
+      if (!a)
+        return FALSE;
+
+      loader->unix_fds = a;
+      loader->n_unix_fds_allocated = loader->max_message_unix_fds;
+    }
+
+  *fds = loader->unix_fds + loader->n_unix_fds;
+  *max_n_fds = loader->n_unix_fds_allocated - loader->n_unix_fds;
+
+  loader->unix_fds_outstanding = TRUE;
+  return TRUE;
+#else
+  _dbus_assert_not_reached("Platform doesn't support unix fd passing");
+#endif
+}
+
+/**
+ * Returns a buffer obtained from _dbus_message_loader_get_unix_fds().
+ *
+ * This works similar to _dbus_message_loader_return_buffer()
+ *
+ * @param loader the message loader.
+ * @param fds the array fds were read into
+ * @param max_n_fds how many fds were read
+ */
+
+void
+_dbus_message_loader_return_unix_fds(DBusMessageLoader  *loader,
+                                     int                *fds,
+                                     unsigned            n_fds)
+{
+#ifdef HAVE_UNIX_FD_PASSING
+  _dbus_assert(loader->unix_fds_outstanding);
+  _dbus_assert(loader->unix_fds + loader->n_unix_fds == fds);
+  _dbus_assert(loader->n_unix_fds + n_fds <= loader->n_unix_fds_allocated);
+
+  loader->n_unix_fds += n_fds;
+  loader->unix_fds_outstanding = FALSE;
+#else
+  _dbus_assert_not_reached("Platform doesn't support unix fd passing");
+#endif
+}
+
 /*
  * FIXME when we move the header out of the buffer, that memmoves all
  * buffered messages. Kind of crappy.
@@ -3458,6 +3787,7 @@ load_message (DBusMessageLoader *loader,
   const DBusString *type_str;
   int type_pos;
   DBusValidationMode mode;
+  dbus_uint32_t n_unix_fds = 0;
 
   mode = DBUS_VALIDATION_MODE_DATA_IS_UNTRUSTED;
   
@@ -3526,6 +3856,59 @@ load_message (DBusMessageLoader *loader,
           goto failed;
         }
     }
+
+  /* 3. COPY OVER UNIX FDS */
+  _dbus_header_get_field_basic(&message->header,
+                               DBUS_HEADER_FIELD_UNIX_FDS,
+                               DBUS_TYPE_UINT32,
+                               &n_unix_fds);
+
+#ifdef HAVE_UNIX_FD_PASSING
+
+  if (n_unix_fds > loader->n_unix_fds)
+    {
+      _dbus_verbose("Message contains references to more unix fds than were sent %u != %u\n",
+                    n_unix_fds, loader->n_unix_fds);
+
+      loader->corrupted = TRUE;
+      loader->corruption_reason = DBUS_INVALID_MISSING_UNIX_FDS;
+      goto failed;
+    }
+
+  /* If this was a recycled message there might still be
+     some memory allocated for the fds */
+  dbus_free(message->unix_fds);
+
+  if (n_unix_fds > 0)
+    {
+      message->unix_fds = _dbus_memdup(loader->unix_fds, n_unix_fds * sizeof(message->unix_fds[0]));
+      if (message->unix_fds == NULL)
+        {
+          _dbus_verbose ("Failed to allocate file descriptor array\n");
+          oom = TRUE;
+          goto failed;
+        }
+
+      message->n_unix_fds_allocated = message->n_unix_fds = n_unix_fds;
+      loader->n_unix_fds -= n_unix_fds;
+      memmove(loader->unix_fds + n_unix_fds, loader->unix_fds, loader->n_unix_fds);
+    }
+  else
+    message->unix_fds = NULL;
+
+#else
+
+  if (n_unix_fds > 0)
+    {
+      _dbus_verbose ("Hmm, message claims to come with file descriptors "
+                     "but that's not supported on our platform, disconnecting.\n");
+
+      loader->corrupted = TRUE;
+      loader->corruption_reason = DBUS_INVALID_MISSING_UNIX_FDS;
+      goto failed;
+    }
+
+#endif
 
   /* 3. COPY OVER BODY AND QUEUE MESSAGE */
 
@@ -3754,6 +4137,37 @@ long
 _dbus_message_loader_get_max_message_size (DBusMessageLoader  *loader)
 {
   return loader->max_message_size;
+}
+
+/**
+ * Sets the maximum unix fds per message we allow.
+ *
+ * @param loader the loader
+ * @param size the max number of unix fds in a message
+ */
+void
+_dbus_message_loader_set_max_message_unix_fds (DBusMessageLoader  *loader,
+                                               long                n)
+{
+  if (n > DBUS_MAXIMUM_MESSAGE_UNIX_FDS)
+    {
+      _dbus_verbose ("clamping requested max message unix_fds %ld to %d\n",
+                     n, DBUS_MAXIMUM_MESSAGE_UNIX_FDS);
+      n = DBUS_MAXIMUM_MESSAGE_UNIX_FDS;
+    }
+  loader->max_message_unix_fds = n;
+}
+
+/**
+ * Gets the maximum allowed number of unix fds per message
+ *
+ * @param loader the loader
+ * @returns max unix fds
+ */
+long
+_dbus_message_loader_get_max_message_unix_fds (DBusMessageLoader  *loader)
+{
+  return loader->max_message_unix_fds;
 }
 
 static DBusDataSlotAllocator slot_allocator;

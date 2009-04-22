@@ -23,6 +23,8 @@
 #ifndef DBUS_TRANSPORT_PROTECTED_H
 #define DBUS_TRANSPORT_PROTECTED_H
 
+#include <config.h>
+
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-transport.h>
@@ -70,6 +72,10 @@ struct DBusTransportVTable
                                  int           *fd_p);
   /**< Get socket file descriptor */
 };
+
+/** How many unix file descriptors may be queued up before they are
+   handed off to messages */
+#define DBUS_MAX_QUEUED_FDS 1024
 
 /**
  * Object representing a transport such as a socket.

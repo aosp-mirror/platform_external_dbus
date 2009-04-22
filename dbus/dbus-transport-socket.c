@@ -28,7 +28,6 @@
 #include "dbus-watch.h"
 #include "dbus-credentials.h"
 
-
 /**
  * @defgroup DBusTransportSocket DBusTransport implementations for sockets
  * @ingroup  DBusInternals
@@ -551,6 +550,9 @@ do_writing (DBusTransport *transport)
 
       if (_dbus_auth_needs_encoding (transport->auth))
         {
+          /* Does fd passing even make sense with encoded data? */
+          _dbus_assert(!DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport));
+
           if (_dbus_string_get_length (&socket_transport->encoded_outgoing) == 0)
             {
               if (!_dbus_auth_encode_data (transport->auth,
@@ -588,27 +590,53 @@ do_writing (DBusTransport *transport)
 
 #if 0
           _dbus_verbose ("message is %d bytes\n",
-                         total_bytes_to_write);          
+                         total_bytes_to_write);
 #endif
-          
-          if (socket_transport->message_bytes_written < header_len)
+
+#ifdef HAVE_UNIX_FD_PASSING
+          if (socket_transport->message_bytes_written <= 0 && transport->can_pass_unix_fd)
             {
+              /* Send the fds along with the first byte of the message */
+              const int *unix_fds;
+              unsigned n;
+
+              _dbus_message_get_unix_fds(message, &unix_fds, &n);
+
               bytes_written =
-                _dbus_write_socket_two (socket_transport->fd,
-                                        header,
-                                        socket_transport->message_bytes_written,
-                                        header_len - socket_transport->message_bytes_written,
-                                        body,
-                                        0, body_len);
+                _dbus_write_socket_with_unix_fds_two (socket_transport->fd,
+                                                      header,
+                                                      socket_transport->message_bytes_written,
+                                                      header_len - socket_transport->message_bytes_written,
+                                                      body,
+                                                      0, body_len,
+                                                      unix_fds,
+                                                      n);
+
+              if (bytes_written > 0 && n > 0)
+                _dbus_verbose("Wrote %i unix fds\n", n);
             }
           else
+#endif
             {
-              bytes_written =
-                _dbus_write_socket (socket_transport->fd,
-                                    body,
-                                    (socket_transport->message_bytes_written - header_len),
-                                    body_len -
-                                    (socket_transport->message_bytes_written - header_len));
+              if (socket_transport->message_bytes_written < header_len)
+                {
+                  bytes_written =
+                    _dbus_write_socket_two (socket_transport->fd,
+                                            header,
+                                            socket_transport->message_bytes_written,
+                                            header_len - socket_transport->message_bytes_written,
+                                            body,
+                                            0, body_len);
+                }
+              else
+                {
+                  bytes_written =
+                    _dbus_write_socket (socket_transport->fd,
+                                        body,
+                                        (socket_transport->message_bytes_written - header_len),
+                                        body_len -
+                                        (socket_transport->message_bytes_written - header_len));
+                }
             }
         }
 
@@ -700,6 +728,9 @@ do_reading (DBusTransport *transport)
   
   if (_dbus_auth_needs_decoding (transport->auth))
     {
+      /* Does fd passing even make sense with encoded data? */
+      _dbus_assert(!DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport));
+
       if (_dbus_string_get_length (&socket_transport->encoded_incoming) > 0)
         bytes_read = _dbus_string_get_length (&socket_transport->encoded_incoming);
       else
@@ -744,10 +775,37 @@ do_reading (DBusTransport *transport)
     {
       _dbus_message_loader_get_buffer (transport->loader,
                                        &buffer);
-      
-      bytes_read = _dbus_read_socket (socket_transport->fd,
-                                      buffer, socket_transport->max_bytes_read_per_iteration);
-      
+
+#ifdef HAVE_UNIX_FD_PASSING
+      if (transport->can_pass_unix_fd)
+        {
+          int *fds, n_fds;
+
+          if (!_dbus_message_loader_get_unix_fds(transport->loader, &fds, &n_fds))
+            {
+              _dbus_verbose ("Out of memory reading file descriptors\n");
+              _dbus_message_loader_return_buffer (transport->loader, buffer, 0);
+              oom = TRUE;
+              goto out;
+            }
+
+          bytes_read = _dbus_read_socket_with_unix_fds(socket_transport->fd,
+                                                       buffer,
+                                                       socket_transport->max_bytes_read_per_iteration,
+                                                       fds, &n_fds);
+
+          if (bytes_read >= 0 && n_fds > 0)
+            _dbus_verbose("Read %i unix fds\n", n_fds);
+
+          _dbus_message_loader_return_unix_fds(transport->loader, fds, bytes_read < 0 ? 0 : n_fds);
+        }
+      else
+#endif
+        {
+          bytes_read = _dbus_read_socket (socket_transport->fd,
+                                          buffer, socket_transport->max_bytes_read_per_iteration);
+        }
+
       _dbus_message_loader_return_buffer (transport->loader,
                                           buffer,
                                           bytes_read < 0 ? 0 : bytes_read);
@@ -1184,7 +1242,11 @@ _dbus_transport_new_for_socket (int               fd,
                                   &socket_vtable,
                                   server_guid, address))
     goto failed_4;
-  
+
+#ifdef HAVE_UNIX_FD_PASSING
+  socket_transport->base.can_pass_unix_fd = _dbus_socket_can_pass_unix_fd(fd);
+#endif
+
   socket_transport->fd = fd;
   socket_transport->message_bytes_written = 0;
   

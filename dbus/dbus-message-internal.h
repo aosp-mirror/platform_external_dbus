@@ -34,6 +34,9 @@ typedef struct DBusMessageLoader DBusMessageLoader;
 void _dbus_message_get_network_data  (DBusMessage       *message,
 				      const DBusString **header,
 				      const DBusString **body);
+void _dbus_message_get_unix_fds      (DBusMessage *messgage,
+                                      const int **fds,
+                                      unsigned *n_fds);
 
 void        _dbus_message_lock                  (DBusMessage  *message);
 void        _dbus_message_unlock                (DBusMessage  *message);
@@ -54,6 +57,14 @@ void               _dbus_message_loader_get_buffer            (DBusMessageLoader
 void               _dbus_message_loader_return_buffer         (DBusMessageLoader  *loader,
                                                                DBusString         *buffer,
                                                                int                 bytes_read);
+
+dbus_bool_t        _dbus_message_loader_get_unix_fds          (DBusMessageLoader  *loader,
+                                                               int               **fds,
+                                                               unsigned           *max_n_fds);
+void               _dbus_message_loader_return_unix_fds       (DBusMessageLoader  *loader,
+                                                               int                *fds,
+                                                               unsigned            n_fds);
+
 dbus_bool_t        _dbus_message_loader_queue_messages        (DBusMessageLoader  *loader);
 DBusMessage*       _dbus_message_loader_peek_message          (DBusMessageLoader  *loader);
 DBusMessage*       _dbus_message_loader_pop_message           (DBusMessageLoader  *loader);
@@ -66,6 +77,10 @@ dbus_bool_t        _dbus_message_loader_get_is_corrupted      (DBusMessageLoader
 void               _dbus_message_loader_set_max_message_size  (DBusMessageLoader  *loader,
                                                                long                size);
 long               _dbus_message_loader_get_max_message_size  (DBusMessageLoader  *loader);
+
+void               _dbus_message_loader_set_max_message_unix_fds(DBusMessageLoader  *loader,
+                                                                 long                n);
+long               _dbus_message_loader_get_max_message_unix_fds(DBusMessageLoader  *loader);
 
 DBUS_END_DECLS
 

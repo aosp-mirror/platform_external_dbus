@@ -29,6 +29,8 @@
 #include "dbus-auth.h"
 #include "dbus-address.h"
 #include "dbus-credentials.h"
+#include "dbus-message-private.h"
+#include "dbus-marshal-header.h"
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-server-debug-pipe.h"
 #endif
@@ -180,7 +182,13 @@ _dbus_transport_init_base (DBusTransport             *transport,
 
   /* credentials read from socket if any */
   transport->credentials = creds;
-  
+
+#ifdef HAVE_UNIX_FD_PASSING
+  transport->can_pass_unix_fd = FALSE;
+  transport->unix_fds = NULL;
+  transport->n_unix_fds = 0;
+#endif
+
   _dbus_counter_set_notify (transport->live_messages_size,
                             transport->max_live_messages_size,
                             live_messages_size_notify,
@@ -188,7 +196,7 @@ _dbus_transport_init_base (DBusTransport             *transport,
 
   if (transport->address)
     _dbus_verbose ("Initialized transport on address %s\n", transport->address);
-  
+
   return TRUE;
 }
 
@@ -800,6 +808,18 @@ _dbus_transport_get_is_anonymous (DBusTransport *transport)
     return TRUE;
   else
     return FALSE;
+}
+
+/**
+ * Returns TRUE if the transport supports sending unix fds.
+ *
+ * @param transport the transport
+ * @returns #TRUE if TRUE it is possible to send unix fds across the transport.
+ */
+dbus_bool_t
+_dbus_transport_can_pass_unix_fd(DBusTransport *transport)
+{
+  return DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport);
 }
 
 /**
