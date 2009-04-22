@@ -26,10 +26,6 @@
 
 #include <config.h>
 
-#ifndef PACKAGE
-#error "config.h not included here"
-#endif
-
 /**
  * @addtogroup DBusMarshal
  *

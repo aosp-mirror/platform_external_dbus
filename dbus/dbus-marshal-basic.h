@@ -31,10 +31,6 @@
 #include <dbus/dbus-arch-deps.h>
 #include <dbus/dbus-string.h>
 
-#ifndef PACKAGE
-#error "config.h not included here"
-#endif
-
 #ifdef WORDS_BIGENDIAN
 #define DBUS_COMPILER_BYTE_ORDER DBUS_BIG_ENDIAN
 #else
