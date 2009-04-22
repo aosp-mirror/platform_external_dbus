@@ -112,7 +112,7 @@ int main(int argc,char **argv)
   if (result == 0) 
     {
       if (verbose)
-          fprintf(stderr,"could not start dbus-daemon error=%d",GetLastError());
+          fprintf(stderr, "Could not start dbus-daemon error=%d",GetLastError());
       return 4;
     }
    
