@@ -660,12 +660,12 @@ auth_via_default_rules (DBusTransport *transport)
       if (_dbus_credentials_include(our_identity,DBUS_CREDENTIAL_WINDOWS_SID))
           _dbus_verbose ("Client authorized as SID '%s'"
                          " but our SID is '%s', disconnecting\n",
-                         _dbus_credentials_get_windows_sid(our_identity),
+                         _dbus_credentials_get_windows_sid(auth_identity),
                          _dbus_credentials_get_windows_sid(our_identity));
       else
           _dbus_verbose ("Client authorized as UID "DBUS_UID_FORMAT
                          " but our UID is "DBUS_UID_FORMAT", disconnecting\n",
-                         _dbus_credentials_get_unix_uid(our_identity),
+                         _dbus_credentials_get_unix_uid(auth_identity),
                          _dbus_credentials_get_unix_uid(our_identity));
       _dbus_transport_disconnect (transport);
       allow = FALSE;
