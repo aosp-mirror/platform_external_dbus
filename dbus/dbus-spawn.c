@@ -1123,9 +1123,6 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
   if (!_dbus_full_duplex_pipe (&babysitter_pipe[0], &babysitter_pipe[1], TRUE, error))
     goto cleanup_and_fail;
 
-  _dbus_fd_set_close_on_exec (babysitter_pipe[0]);
-  _dbus_fd_set_close_on_exec (babysitter_pipe[1]);
-
   /* Setting up the babysitter is only useful in the parent,
    * but we don't want to run out of memory and fail
    * after we've already forked, since then we'd leak

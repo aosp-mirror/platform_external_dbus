@@ -3067,6 +3067,8 @@ _dbus_print_backtrace (void)
  * Creates a full-duplex pipe (as in socketpair()).
  * Sets both ends of the pipe nonblocking.
  *
+ * Marks both file descriptors as close-on-exec
+ *
  * @todo libdbus only uses this for the debug-pipe server, so in
  * principle it could be in dbus-sysdeps-util.c, except that
  * dbus-sysdeps-util.c isn't in libdbus when tests are enabled and the
@@ -3086,14 +3088,35 @@ _dbus_full_duplex_pipe (int        *fd1,
 {
 #ifdef HAVE_SOCKETPAIR
   int fds[2];
+  int retval;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (socketpair (AF_UNIX, SOCK_STREAM, 0, fds) < 0)
+#ifdef SOCK_CLOEXEC
+  dbus_bool_t cloexec_done;
+
+  retval = socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds);
+  cloexec_done = retval >= 0;
+
+  if (retval < 0 && errno == EINVAL)
+#endif
+    {
+      retval = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
+    }
+
+  if (retval < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not create full-duplex pipe");
       return FALSE;
+    }
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+#ifdef SOCK_CLOEXEC
+  if (!cloexec_done)
+#endif
+    {
+      _dbus_fd_set_close_on_exec (fds[0]);
+      _dbus_fd_set_close_on_exec (fds[1]);
     }
 
   if (!blocking &&

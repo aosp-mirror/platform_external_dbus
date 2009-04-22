@@ -208,9 +208,6 @@ setup_reload_pipe (DBusLoop *loop)
       exit (1);
     }
 
-  _dbus_fd_set_close_on_exec (reload_pipe[0]);
-  _dbus_fd_set_close_on_exec (reload_pipe[1]);
-
   watch = _dbus_watch_new (reload_pipe[RELOAD_READ_END],
 			   DBUS_WATCH_READABLE, TRUE,
 			   handle_reload_watch, NULL, NULL);
