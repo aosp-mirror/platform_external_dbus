@@ -22,7 +22,7 @@
  *
  */
 
-#define _GNU_SOURCE 
+#include <config.h>
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
