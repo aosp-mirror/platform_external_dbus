@@ -1897,7 +1897,7 @@ _dbus_append_user_from_current_process (DBusString *str)
  * Gets our process ID
  * @returns process ID
  */
-unsigned long
+dbus_pid_t
 _dbus_getpid (void)
 {
   return GetCurrentProcessId ();
