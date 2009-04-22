@@ -23,6 +23,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
+#include <mbstring.h>
 #include <assert.h>
 
 #if defined __MINGW32__ || (defined _MSC_VER && _MSC_VER <= 1310)
@@ -74,7 +75,7 @@ int main(int argc,char **argv)
 #else
       daemon_name = "dbus-daemon.exe";
 #endif
-  if ((p = strrchr(dbusDaemonPath,'\\'))) 
+  if ((p = _mbsrchr (dbusDaemonPath, '\\'))) 
     {
       *(p+1)= '\0';
       strcat_s(dbusDaemonPath,sizeof(dbusDaemonPath),daemon_name);
