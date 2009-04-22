@@ -875,6 +875,11 @@ _dbus_unix_user_is_process_owner (dbus_uid_t uid)
   return FALSE;
 }
 
+dbus_bool_t _dbus_windows_user_is_process_owner (const char *windows_sid)
+{
+  return TRUE;
+}
+
 /*=====================================================================
   unix emulation functions - should be removed sometime in the future
  =====================================================================*/

@@ -3220,12 +3220,6 @@ _dbus_atomic_dec (DBusAtomic *atomic)
 void
 _dbus_flush_caches (void)
 {
-
-}
-
-dbus_bool_t _dbus_windows_user_is_process_owner (const char *windows_sid)
-{
-    return TRUE;
 }
 
 /**
