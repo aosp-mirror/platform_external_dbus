@@ -35,6 +35,11 @@
 #include <dbus/dbus-internals.h>
 #include <string.h>
 
+#ifdef HAVE_UNIX_FD_PASSING
+#include <dbus/dbus-sysdeps-unix.h>
+#include <unistd.h>
+#endif
+
 static dbus_bool_t
 send_one_message (DBusConnection *connection,
                   BusContext     *context,
@@ -4715,5 +4720,151 @@ bus_dispatch_sha1_test (const DBusString *test_data_dir)
 
   return TRUE;
 }
+
+#ifdef HAVE_UNIX_FD_PASSING
+
+dbus_bool_t
+bus_unix_fds_passing_test(const DBusString *test_data_dir)
+{
+  BusContext *context;
+  DBusConnection *foo, *bar;
+  DBusError error;
+  DBusMessage *m;
+  dbus_bool_t b;
+  int one[2], two[2], x, y, z;
+  char r;
+
+  dbus_error_init (&error);
+
+  context = bus_context_new_test (test_data_dir, "valid-config-files/debug-allow-all.conf");
+  if (context == NULL)
+    _dbus_assert_not_reached ("could not alloc context");
+
+  foo = dbus_connection_open_private ("debug-pipe:name=test-server", &error);
+  if (foo == NULL)
+    _dbus_assert_not_reached ("could not alloc connection");
+
+  if (!bus_setup_debug_client (foo))
+    _dbus_assert_not_reached ("could not set up connection");
+
+  spin_connection_until_authenticated (context, foo);
+
+  if (!check_hello_message (context, foo))
+    _dbus_assert_not_reached ("hello message failed");
+
+  if (!check_add_match_all (context, foo))
+    _dbus_assert_not_reached ("AddMatch message failed");
+
+  bar = dbus_connection_open_private ("debug-pipe:name=test-server", &error);
+  if (bar == NULL)
+    _dbus_assert_not_reached ("could not alloc connection");
+
+  if (!bus_setup_debug_client (bar))
+    _dbus_assert_not_reached ("could not set up connection");
+
+  spin_connection_until_authenticated (context, bar);
+
+  if (!check_hello_message (context, bar))
+    _dbus_assert_not_reached ("hello message failed");
+
+  if (!check_add_match_all (context, bar))
+    _dbus_assert_not_reached ("AddMatch message failed");
+
+  if (!(m = dbus_message_new_signal("/", "a.b.c", "d")))
+    _dbus_assert_not_reached ("could not alloc message");
+
+  if (!(_dbus_full_duplex_pipe(one, one+1, TRUE, &error)))
+    _dbus_assert_not_reached("Failed to allocate pipe #1");
+
+  if (!(_dbus_full_duplex_pipe(two, two+1, TRUE, &error)))
+    _dbus_assert_not_reached("Failed to allocate pipe #2");
+
+  if (!dbus_message_append_args(m,
+                                DBUS_TYPE_UNIX_FD, one,
+                                DBUS_TYPE_UNIX_FD, two,
+                                DBUS_TYPE_UNIX_FD, two,
+                                DBUS_TYPE_INVALID))
+    _dbus_assert_not_reached("Failed to attach fds.");
+
+  if (!_dbus_close(one[0], &error))
+    _dbus_assert_not_reached("Failed to close pipe #1 ");
+  if (!_dbus_close(two[0], &error))
+    _dbus_assert_not_reached("Failed to close pipe #2 ");
+
+
+  if (!dbus_connection_send (foo, m, NULL))
+    _dbus_assert_not_reached("Failed to send fds");
+
+  dbus_message_unref(m);
+
+  bus_test_run_clients_loop (SEND_PENDING (foo));
+
+  bus_test_run_everything (context);
+
+  block_connection_until_message_from_bus (context, foo, "unix fd reception on foo");
+
+  if (!(m = pop_message_waiting_for_memory (foo)))
+    _dbus_assert_not_reached("Failed to receive msg");
+
+  if (!dbus_message_is_signal(m, "a.b.c", "d"))
+    _dbus_assert_not_reached("bogus message received");
+
+  dbus_message_unref(m);
+
+  block_connection_until_message_from_bus (context, bar, "unix fd reception on bar");
+
+  if (!(m = pop_message_waiting_for_memory (bar)))
+    _dbus_assert_not_reached("Failed to receive msg");
+
+  if (!dbus_message_is_signal(m, "a.b.c", "d"))
+    _dbus_assert_not_reached("bogus message received");
+
+  if (!dbus_message_get_args(m,
+                             &error,
+                             DBUS_TYPE_UNIX_FD, &x,
+                             DBUS_TYPE_UNIX_FD, &y,
+                             DBUS_TYPE_UNIX_FD, &z,
+                             DBUS_TYPE_INVALID))
+    _dbus_assert_not_reached("Failed to parse fds.");
+
+  dbus_message_unref(m);
+
+  if (write(x, "X", 1) != 1)
+    _dbus_assert_not_reached("Failed to write to pipe #1");
+  if (write(y, "Y", 1) != 1)
+    _dbus_assert_not_reached("Failed to write to pipe #2");
+  if (write(z, "Z", 1) != 1)
+    _dbus_assert_not_reached("Failed to write to pipe #2/2nd fd");
+
+  if (!_dbus_close(x, &error))
+    _dbus_assert_not_reached("Failed to close pipe #1/other side ");
+  if (!_dbus_close(y, &error))
+    _dbus_assert_not_reached("Failed to close pipe #2/other side ");
+  if (!_dbus_close(z, &error))
+    _dbus_assert_not_reached("Failed to close pipe #2/other size 2nd fd ");
+
+  if (read(one[1], &r, 1) != 1 || r != 'X')
+    _dbus_assert_not_reached("Failed to read value from pipe.");
+  if (read(two[1], &r, 1) != 1 || r != 'Y')
+    _dbus_assert_not_reached("Failed to read value from pipe.");
+  if (read(two[1], &r, 1) != 1 || r != 'Z')
+    _dbus_assert_not_reached("Failed to read value from pipe.");
+
+  if (!_dbus_close(one[1], &error))
+    _dbus_assert_not_reached("Failed to close pipe #1 ");
+  if (!_dbus_close(two[1], &error))
+    _dbus_assert_not_reached("Failed to close pipe #2 ");
+
+  _dbus_verbose ("Disconnecting foo\n");
+  kill_client_connection_unchecked (foo);
+
+  _dbus_verbose ("Disconnecting bar\n");
+  kill_client_connection_unchecked (bar);
+
+  bus_context_unref (context);
+
+  return TRUE;
+}
+#endif
 
 #endif /* DBUS_BUILD_TESTS */

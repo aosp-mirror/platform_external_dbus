@@ -27,6 +27,7 @@
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-sysdeps.h>
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-message-private.h>
 #include "selinux.h"
 
 #ifdef DBUS_BUILD_TESTS
@@ -69,6 +70,7 @@ test_post_hook (void)
   if (_dbus_getenv ("DBUS_TEST_SELINUX"))
     bus_selinux_shutdown ();
   check_memleaks (progname);
+  _dbus_check_fdleaks();
 }
 
 int
@@ -137,6 +139,14 @@ main (int argc, char **argv)
   if (!bus_activation_service_reload_test (&test_data_dir))
     die ("service reload");
   test_post_hook ();
+
+#ifdef HAVE_UNIX_FD_PASSING
+  test_pre_hook ();
+  printf ("%s: Running unix fd passing test\n", argv[0]);
+  if (!bus_unix_fds_passing_test (&test_data_dir))
+    die ("unix fd passing");
+  test_post_hook ();
+#endif
 
   printf ("%s: Success\n", argv[0]);
 
