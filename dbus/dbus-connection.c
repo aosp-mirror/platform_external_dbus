@@ -485,9 +485,9 @@ _dbus_connection_queue_received_message_link (DBusConnection  *connection,
 
   _dbus_connection_wakeup_mainloop (connection);
   
-  _dbus_verbose ("Message %p (%d %s %s %s '%s' reply to %u) added to incoming queue %p, %d incoming\n",
+  _dbus_verbose ("Message %p (%s %s %s %s '%s' reply to %u) added to incoming queue %p, %d incoming\n",
                  message,
-                 dbus_message_get_type (message),
+                 dbus_message_type_to_string (dbus_message_get_type (message)),
                  dbus_message_get_path (message) ?
                  dbus_message_get_path (message) :
                  "no path",
@@ -611,9 +611,9 @@ _dbus_connection_message_sent (DBusConnection *connection,
   
   connection->n_outgoing -= 1;
 
-  _dbus_verbose ("Message %p (%d %s %s %s '%s') removed from outgoing queue %p, %d left to send\n",
+  _dbus_verbose ("Message %p (%s %s %s %s '%s') removed from outgoing queue %p, %d left to send\n",
                  message,
-                 dbus_message_get_type (message),
+                 dbus_message_type_to_string (dbus_message_get_type (message)),
                  dbus_message_get_path (message) ?
                  dbus_message_get_path (message) :
                  "no path",
@@ -1947,9 +1947,9 @@ _dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *con
 
   sig = dbus_message_get_signature (message);
   
-  _dbus_verbose ("Message %p (%d %s %s %s '%s') for %s added to outgoing queue %p, %d pending to send\n",
+  _dbus_verbose ("Message %p (%s %s %s %s '%s') for %s added to outgoing queue %p, %d pending to send\n",
                  message,
-                 dbus_message_get_type (message),
+                 dbus_message_type_to_string (dbus_message_get_type (message)),
                  dbus_message_get_path (message) ?
                  dbus_message_get_path (message) :
                  "no path",
@@ -3865,9 +3865,9 @@ _dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
       link = _dbus_list_pop_first_link (&connection->incoming_messages);
       connection->n_incoming -= 1;
 
-      _dbus_verbose ("Message %p (%d %s %s %s '%s') removed from incoming queue %p, %d incoming\n",
+      _dbus_verbose ("Message %p (%s %s %s %s '%s') removed from incoming queue %p, %d incoming\n",
                      link->data,
-                     dbus_message_get_type (link->data),
+                     dbus_message_type_to_string (dbus_message_get_type (link->data)),
                      dbus_message_get_path (link->data) ?
                      dbus_message_get_path (link->data) :
                      "no path",
@@ -3930,9 +3930,9 @@ _dbus_connection_putback_message_link_unlocked (DBusConnection *connection,
                            message_link);
   connection->n_incoming += 1;
 
-  _dbus_verbose ("Message %p (%d %s %s '%s') put back into queue %p, %d incoming\n",
+  _dbus_verbose ("Message %p (%s %s %s '%s') put back into queue %p, %d incoming\n",
                  message_link->data,
-                 dbus_message_get_type (message_link->data),
+                 dbus_message_type_to_string (dbus_message_get_type (message_link->data)),
                  dbus_message_get_interface (message_link->data) ?
                  dbus_message_get_interface (message_link->data) :
                  "no interface",
@@ -4473,9 +4473,9 @@ dbus_connection_dispatch (DBusConnection *connection)
 
   message = message_link->data;
 
-  _dbus_verbose (" dispatching message %p (%d %s %s '%s')\n",
+  _dbus_verbose (" dispatching message %p (%s %s %s '%s')\n",
                  message,
-                 dbus_message_get_type (message),
+                 dbus_message_type_to_string (dbus_message_get_type (message)),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
@@ -4582,9 +4582,9 @@ dbus_connection_dispatch (DBusConnection *connection)
   /* We're still protected from dispatch() reentrancy here
    * since we acquired the dispatcher
    */
-  _dbus_verbose ("  running object path dispatch on message %p (%d %s %s '%s')\n",
+  _dbus_verbose ("  running object path dispatch on message %p (%s %s %s '%s')\n",
                  message,
-                 dbus_message_get_type (message),
+                 dbus_message_type_to_string (dbus_message_get_type (message)),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
@@ -4663,8 +4663,8 @@ dbus_connection_dispatch (DBusConnection *connection)
       result = DBUS_HANDLER_RESULT_HANDLED;
     }
   
-  _dbus_verbose ("  done dispatching %p (%d %s %s '%s') on connection %p\n", message,
-                 dbus_message_get_type (message),
+  _dbus_verbose ("  done dispatching %p (%s %s %s '%s') on connection %p\n", message,
+                 dbus_message_type_to_string (dbus_message_get_type (message)),
                  dbus_message_get_interface (message) ?
                  dbus_message_get_interface (message) :
                  "no interface",
