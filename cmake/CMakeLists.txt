@@ -49,6 +49,9 @@ find_package(LibXml2)
 find_package(LibExpat)
 find_package(X11)
 
+
+OPTION(DBUS_ENABLE_ABSTRACT_SOCKETS "enable support for abstract sockets" ON)
+
 # do config checks
 INCLUDE(ConfigureChecks.cmake)
 

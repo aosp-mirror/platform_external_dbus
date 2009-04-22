@@ -130,3 +130,20 @@ else(DBUS_HAVE_VA_COPY)
     SET(DBUS_VA_COPY_AS_ARRAY "1" CACHE STRING "'va_lists' cannot be copies as values")
   endif(DBUS_HAVE___VA_COPY)
 endif(DBUS_HAVE_VA_COPY)
+
+#### Abstract sockets
+
+if (DBUS_ENABLE_ABSTRACT_SOCKETS)
+
+  try_compile(HAVE_ABSTRACT_SOCKETS
+              ${CMAKE_BINARY_DIR}
+              ${CMAKE_SOURCE_DIR}/modules/CheckForAbstractSockets.c)
+
+endif(DBUS_ENABLE_ABSTRACT_SOCKETS)
+
+if(HAVE_ABSTRACT_SOCKETS)
+  set(DBUS_PATH_OR_ABSTRACT_VALUE abstract)
+else(HAVE_ABSTRACT_SOCKETS)
+  set(DBUS_PATH_OR_ABSTRACT_VALUE path)
+endif(HAVE_ABSTRACT_SOCKETS)
+

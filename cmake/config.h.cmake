@@ -48,7 +48,21 @@
 /* xmldocs */
 /* doxygen */
 #cmakedefine DBUS_GCOV_ENABLED 1
+
 /* abstract-sockets */
+
+#cmakedefine HAVE_ABSTRACT_SOCKETS 1
+
+#cmakedefine DBUS_PATH_OR_ABSTRACT_VALUE 1
+
+#if (defined DBUS_PATH_OR_ABSTRACT_VALUE)
+#define DBUS_PATH_OR_ABSTRACT @DBUS_PATH_OR_ABSTRACT_VALUE@
+#endif
+
+#ifdef DBUS_PATH_OR_ABSTRACT_VALUE
+#undef DBUS_PATH_OR_ABSTRACT_VALUE
+#endif
+
 /* selinux */
 #cmakedefine DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 1
 /* kqueue */
@@ -67,6 +81,10 @@
 #cmakedefine DBUS_VA_COPY_FUNC
 #if (defined DBUS_VA_COPY_FUNC)
 # define DBUS_VA_COPY @DBUS_VA_COPY_FUNC@
+#endif
+
+#ifdef DBUS_VA_COPY_FUNC
+#undef DBUS_VA_COPY_FUNC
 #endif
 
 #cmakedefine DBUS_VA_COPY_AS_ARRAY 1
