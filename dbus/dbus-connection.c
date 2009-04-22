@@ -3086,8 +3086,23 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
   _dbus_return_if_fail (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_SIGNAL ||
                         (dbus_message_get_interface (message) != NULL &&
                          dbus_message_get_member (message) != NULL));
-  
+
   CONNECTION_LOCK (connection);
+
+#ifdef HAVE_UNIX_FD_PASSING
+
+  if (!_dbus_transport_can_pass_unix_fd(connection->transport) &&
+      message->n_unix_fds > 0)
+    {
+      /* Refuse to send fds on a connection that cannot handle
+         them. Unfortunately we cannot return a proper error here, so
+         the best we can is just return. */
+      CONNECTION_UNLOCK (connection);
+      return;
+    }
+
+#endif
+
   _dbus_connection_send_preallocated_and_unlock (connection,
 						 preallocated,
 						 message, client_serial);
@@ -3151,6 +3166,20 @@ dbus_connection_send (DBusConnection *connection,
 
   CONNECTION_LOCK (connection);
 
+#ifdef HAVE_UNIX_FD_PASSING
+
+  if (!_dbus_transport_can_pass_unix_fd(connection->transport) &&
+      message->n_unix_fds > 0)
+    {
+      /* Refuse to send fds on a connection that cannot handle
+         them. Unfortunately we cannot return a proper error here, so
+         the best we can is just return. */
+      CONNECTION_UNLOCK (connection);
+      return FALSE;
+    }
+
+#endif
+
   return _dbus_connection_send_and_unlock (connection,
 					   message,
 					   serial);
@@ -3207,12 +3236,16 @@ reply_handler_timeout (void *data)
  * timeout to mean "very long timeout." libdbus clamps an INT_MAX
  * timeout down to a few hours timeout though.
  *
- * @warning if the connection is disconnected, the #DBusPendingCall
- * will be set to #NULL, so be careful with this.
- * 
+ * @warning if the connection is disconnected or you try to send Unix
+ * file descriptors on a connection that does not support them, the
+ * #DBusPendingCall will be set to #NULL, so be careful with this.
+ *
  * @param connection the connection
  * @param message the message to send
- * @param pending_return return location for a #DBusPendingCall object, or #NULL if connection is disconnected
+ * @param pending_return return location for a #DBusPendingCall
+ * object, or #NULL if connection is disconnected or when you try to
+ * send Unix file descriptors on a connection that does not support
+ * them.
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
  * @returns #FALSE if no memory, #TRUE otherwise.
  *
@@ -3235,6 +3268,21 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
     *pending_return = NULL;
 
   CONNECTION_LOCK (connection);
+
+#ifdef HAVE_UNIX_FD_PASSING
+
+  if (!_dbus_transport_can_pass_unix_fd(connection->transport) &&
+      message->n_unix_fds > 0)
+    {
+      /* Refuse to send fds on a connection that cannot handle
+         them. Unfortunately we cannot return a proper error here, so
+         the best we can do is return TRUE but leave *pending_return
+         as NULL. */
+      CONNECTION_UNLOCK (connection);
+      return TRUE;
+    }
+
+#endif
 
    if (!_dbus_connection_get_is_connected_unlocked (connection))
     {
@@ -3344,12 +3392,26 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
 {
   DBusMessage *reply;
   DBusPendingCall *pending;
-  
+
   _dbus_return_val_if_fail (connection != NULL, NULL);
   _dbus_return_val_if_fail (message != NULL, NULL);
   _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, NULL);
   _dbus_return_val_if_error_is_set (error, NULL);
-  
+
+#ifdef HAVE_UNIX_FD_PASSING
+
+  CONNECTION_LOCK (connection);
+  if (!_dbus_transport_can_pass_unix_fd(connection->transport) &&
+      message->n_unix_fds > 0)
+    {
+      CONNECTION_UNLOCK (connection);
+      dbus_set_error(error, DBUS_ERROR_FAILED, "Cannot send file descriptors on this connection.");
+      return NULL;
+    }
+  CONNECTION_UNLOCK (connection);
+
+#endif
+
   if (!dbus_connection_send_with_reply (connection, message,
                                         &pending, timeout_milliseconds))
     {
