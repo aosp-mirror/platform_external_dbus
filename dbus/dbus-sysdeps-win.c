@@ -1015,13 +1015,15 @@ out0:
  * @param timeout_milliseconds timeout or -1 for infinite
  * @returns numbers of fds with revents, or <0 on error
  */
-#define USE_CHRIS_IMPL 0
-#if USE_CHRIS_IMPL
 int
 _dbus_poll (DBusPollFD *fds,
             int         n_fds,
             int         timeout_milliseconds)
 {
+#define USE_CHRIS_IMPL 0
+
+#if USE_CHRIS_IMPL
+
 #define DBUS_POLL_CHAR_BUFFER_SIZE 2000
   char msg[DBUS_POLL_CHAR_BUFFER_SIZE];
   char *msgp;
@@ -1160,15 +1162,9 @@ _dbus_poll (DBusPollFD *fds,
     free(pEvents);
 
   return ret;
-}
 
-#else   // USE_CHRIS_IMPL
+#else   /* USE_CHRIS_IMPL */
 
-int
-_dbus_poll (DBusPollFD *fds,
-            int         n_fds,
-            int         timeout_milliseconds)
-{
 #define DBUS_POLL_CHAR_BUFFER_SIZE 2000
   char msg[DBUS_POLL_CHAR_BUFFER_SIZE];
   char *msgp;
@@ -1283,9 +1279,8 @@ _dbus_poll (DBusPollFD *fds,
           }
       }
   return ready;
+#endif  /* USE_CHRIS_IMPL */
 }
-
-#endif  // USE_CHRIS_IMPL
 
 
 
