@@ -99,24 +99,26 @@ _dbus_write_pid_file (const DBusString *filename,
                       DBusError        *error)
 {
   const char *cfilename;
-  DBusFile file;
+  int fd;
   FILE *f;
 
   cfilename = _dbus_string_get_const_data (filename);
-
-  if (!_dbus_file_open(&file, cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644))
+  
+  fd = _open (cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644);
+  
+  if (fd < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to open \"%s\": %s", cfilename,
-                      _dbus_strerror (errno));
+                      strerror (errno));
       return FALSE;
     }
 
-  if ((f = fdopen (file.FDATA, "w")) == NULL)
+  if ((f = fdopen (fd, "w")) == NULL)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to fdopen fd %d: %s", file.FDATA, _dbus_strerror (errno));
-      _dbus_file_close (&file, NULL);
+                      "Failed to fdopen fd %d: %s", fd, strerror (errno));
+      _close (fd);
       return FALSE;
     }
 
@@ -124,7 +126,7 @@ _dbus_write_pid_file (const DBusString *filename,
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to write to \"%s\": %s", cfilename,
-                      _dbus_strerror (errno));
+                      strerror (errno));
 
       fclose (f);
       return FALSE;
@@ -134,7 +136,7 @@ _dbus_write_pid_file (const DBusString *filename,
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to close \"%s\": %s", cfilename,
-                      _dbus_strerror (errno));
+                      strerror (errno));
       return FALSE;
     }
 
@@ -364,11 +366,11 @@ _dbus_delete_directory (const DBusString *filename,
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  if (rmdir (filename_c) != 0)
+  if (_rmdir (filename_c) != 0)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Failed to remove directory %s: %s\n",
-                      filename_c, _dbus_strerror (errno));
+                      filename_c, strerror (errno));
       return FALSE;
     }
 

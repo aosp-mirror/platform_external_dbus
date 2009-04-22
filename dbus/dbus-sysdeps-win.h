@@ -90,35 +90,7 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
                                   wchar_t  **wdomain,
                                   DBusError *error);
 
-typedef struct DBusFile DBusFile;
-
-dbus_bool_t _dbus_file_open (DBusFile   *file,
-                             const char *filename,
-                             int         oflag,
-                             int         pmode);
-
-dbus_bool_t _dbus_file_close (DBusFile  *file,
-                              DBusError *error);
-
-
-int _dbus_file_read  (DBusFile   *file,
-                      DBusString *buffer,
-                      int         count);
-
-int _dbus_file_write (DBusFile         *file,
-                      const DBusString *buffer,
-                      int               start,
-                      int               len);
-
 dbus_bool_t _dbus_file_exists (const char *filename);
-
-
-#define FDATA private_data
-struct DBusFile
-  {
-    int FDATA;
-  };
-
 
 dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 
                                        char *s);
