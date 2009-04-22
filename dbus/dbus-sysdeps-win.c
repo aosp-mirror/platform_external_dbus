@@ -2977,7 +2977,10 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
   // before _dbus_global_lock to keep correct lock/release order
   hDBusDaemonMutex = CreateMutex( NULL, FALSE, szDBusDaemonMutex );
   ret = WaitForSingleObject( hDBusDaemonMutex, 1000 );
-  _dbus_assert(ret == WAIT_OBJECT_0);
+  if ( ret != WAIT_OBJECT_0 ) {
+    _dbus_warn("Could not lock mutex %s (return code %d). daemon already running?\n", szDBusDaemonMutex, ret );
+    _dbus_assert( !"Could not lock mutex, daemon already running?" );
+  }
 
   // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
