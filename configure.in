@@ -1094,6 +1094,16 @@ else
    AC_MSG_RESULT(no)
 fi
 
+# Check for SCM_RIGHTS
+AC_MSG_CHECKING([for SCM_RIGHTS])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <sys/socket.h>
+#include <sys/un.h>
+static int x = SCM_RIGHTS;
+]], [[]])],
+[ AC_MSG_RESULT([supported])
+  AC_DEFINE([HAVE_UNIX_FD_PASSING], [1], [Supports sending UNIX file descriptors]) ],
+[ AC_MSG_RESULT([not supported]) ])
 
 #### Set up final flags
 DBUS_CLIENT_CFLAGS=

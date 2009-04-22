@@ -200,6 +200,241 @@ _dbus_write_socket (int               fd,
 }
 
 /**
+ * Like _dbus_read_socket() but also tries to read unix fds from the
+ * socket. When there are more fds to read than space in the array
+ * passed this function will fail with ENOSPC.
+ *
+ * @param fd the socket
+ * @param buffer string to append data to
+ * @param count max amount of data to read
+ * @param fds array to place read file descriptors in
+ * @param n_fds on input space in fds array, on output how many fds actually got read
+ * @returns number of bytes appended to string
+ */
+int
+_dbus_read_socket_with_unix_fds (int               fd,
+                                 DBusString       *buffer,
+                                 int               count,
+                                 int              *fds,
+                                 int              *n_fds) {
+#ifndef HAVE_UNIX_FD_PASSING
+  int r;
+
+  if ((r = _dbus_read_socket(fd, buffer, count)) < 0)
+    return r;
+
+  *n_fds = 0;
+  return r;
+
+#else
+  int bytes_read;
+  int start;
+  struct msghdr m;
+  struct iovec iov;
+
+  _dbus_assert (count >= 0);
+  _dbus_assert (*n_fds >= 0);
+
+  start = _dbus_string_get_length (buffer);
+
+  if (!_dbus_string_lengthen (buffer, count))
+    {
+      errno = ENOMEM;
+      return -1;
+    }
+
+  _DBUS_ZERO(iov);
+  iov.iov_base = _dbus_string_get_data_len (buffer, start, count);
+  iov.iov_len = count;
+
+  _DBUS_ZERO(m);
+  m.msg_iov = &iov;
+  m.msg_iovlen = 1;
+
+  /* Hmm, we have no clue how long the control data will actually be
+     that is queued for us. The least we can do is assume that the
+     caller knows. Hence let's make space for the number of fds that
+     we shall read at max plus the cmsg header. */
+  m.msg_controllen = CMSG_SPACE(*n_fds * sizeof(int));
+
+  /* It's probably safe to assume that systems with SCM_RIGHTS also
+     know alloca() */
+  m.msg_control = alloca(m.msg_controllen);
+  memset(m.msg_control, 0, m.msg_controllen);
+
+ again:
+
+  bytes_read = recvmsg(fd, &m, 0
+#ifdef MSG_CMSG_CLOEXEC
+                       |MSG_CMSG_CLOEXEC
+#endif
+                       );
+
+  if (bytes_read < 0)
+    {
+      if (errno == EINTR)
+        goto again;
+      else
+        {
+          /* put length back (note that this doesn't actually realloc anything) */
+          _dbus_string_set_length (buffer, start);
+          return -1;
+        }
+    }
+  else
+    {
+      struct cmsghdr *cm;
+      dbus_bool_t found = FALSE;
+
+      if (m.msg_flags & MSG_CTRUNC)
+        {
+          /* Hmm, apparently the control data was truncated. The bad
+             thing is that we might have completely lost a couple of fds
+             without chance to recover them. Hence let's treat this as a
+             serious error. */
+
+          errno = ENOSPC;
+          _dbus_string_set_length (buffer, start);
+          return -1;
+        }
+
+      for (cm = CMSG_FIRSTHDR(&m); cm; cm = CMSG_NXTHDR(&m, cm))
+        if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SCM_RIGHTS)
+          {
+            unsigned i;
+
+            _dbus_assert(cm->cmsg_len <= CMSG_LEN(*n_fds * sizeof(int)));
+            *n_fds = (cm->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+            memcpy(fds, CMSG_DATA(cm), *n_fds * sizeof(int));
+            found = TRUE;
+
+            /* Linux doesn't tell us whether MSG_CMSG_CLOEXEC actually
+               worked, hence we need to go through this list and set
+               CLOEXEC everywhere in any case */
+            for (i = 0; i < *n_fds; i++)
+              _dbus_fd_set_close_on_exec(fds[i]);
+
+            break;
+          }
+
+      if (!found)
+        *n_fds = 0;
+
+      /* put length back (doesn't actually realloc) */
+      _dbus_string_set_length (buffer, start + bytes_read);
+
+#if 0
+      if (bytes_read > 0)
+        _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
+#endif
+
+      return bytes_read;
+    }
+#endif
+}
+
+int
+_dbus_write_socket_with_unix_fds(int               fd,
+                                 const DBusString *buffer,
+                                 int               start,
+                                 int               len,
+                                 const int        *fds,
+                                 int               n_fds) {
+
+#ifndef HAVE_UNIX_FD_PASSING
+
+  if (n_fds > 0) {
+    errno = ENOTSUP;
+    return -1;
+  }
+
+  return _dbus_write_socket(fd, buffer, start, len);
+#else
+  return _dbus_write_socket_with_unix_fds_two(fd, buffer, start, len, NULL, 0, 0, fds, n_fds);
+#endif
+}
+
+int
+_dbus_write_socket_with_unix_fds_two(int               fd,
+                                     const DBusString *buffer1,
+                                     int               start1,
+                                     int               len1,
+                                     const DBusString *buffer2,
+                                     int               start2,
+                                     int               len2,
+                                     const int        *fds,
+                                     int               n_fds) {
+
+#ifndef HAVE_UNIX_FD_PASSING
+
+  if (n_fds > 0) {
+    errno = ENOTSUP;
+    return -1;
+  }
+
+  return _dbus_write_socket_two(fd,
+                                buffer1, start1, len1,
+                                buffer2, start2, len2);
+#else
+
+  struct msghdr m;
+  struct cmsghdr *cm;
+  struct iovec iov[2];
+  int bytes_written;
+
+  _dbus_assert (len1 >= 0);
+  _dbus_assert (len2 >= 0);
+  _dbus_assert (n_fds >= 0);
+
+  _DBUS_ZERO(iov);
+  iov[0].iov_base = (char*) _dbus_string_get_const_data_len (buffer1, start1, len1);
+  iov[0].iov_len = len1;
+
+  if (buffer2)
+    {
+      iov[1].iov_base = (char*) _dbus_string_get_const_data_len (buffer2, start2, len2);
+      iov[1].iov_len = len2;
+    }
+
+  _DBUS_ZERO(m);
+  m.msg_iov = iov;
+  m.msg_iovlen = buffer2 ? 2 : 1;
+
+  if (n_fds > 0)
+    {
+      m.msg_controllen = CMSG_SPACE(n_fds * sizeof(int));
+      m.msg_control = alloca(m.msg_controllen);
+      memset(m.msg_control, 0, m.msg_controllen);
+
+      cm = CMSG_FIRSTHDR(&m);
+      cm->cmsg_level = SOL_SOCKET;
+      cm->cmsg_type = SCM_RIGHTS;
+      cm->cmsg_len = CMSG_LEN(n_fds * sizeof(int));
+      memcpy(CMSG_DATA(cm), fds, n_fds * sizeof(int));
+    }
+
+ again:
+
+  bytes_written = sendmsg (fd, &m, 0
+#ifdef MSG_NOSIGNAL
+                           |MSG_NOSIGNAL
+#endif
+                           );
+
+  if (bytes_written < 0 && errno == EINTR)
+    goto again;
+
+#if 0
+  if (bytes_written > 0)
+    _dbus_verbose_bytes_of_string (buffer, start, bytes_written);
+#endif
+
+  return bytes_written;
+#endif
+}
+
+/**
  * write data to a pipe.
  *
  * @param pipe the pipe instance
@@ -301,7 +536,7 @@ _dbus_write_socket_two (int               fd,
   vectors[1].iov_base = (char*) data2;
   vectors[1].iov_len = len2;
 
-  memset(&m, 0, sizeof(m));
+  _DBUS_ZERO(m);
   m.msg_iov = vectors;
   m.msg_iovlen = data2 ? 2 : 1;
 
