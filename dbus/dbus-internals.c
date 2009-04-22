@@ -298,7 +298,7 @@ static dbus_bool_t verbose = TRUE;
 #include <pthread.h>
 #endif
 
-#ifdef DBUS_WIN
+#ifdef _MSC_VER
 #define inline
 #endif
 #ifdef DBUS_USE_OUTPUT_DEBUG_STRING
