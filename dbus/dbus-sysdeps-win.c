@@ -2229,8 +2229,8 @@ _dbus_string_save_to_file (const DBusString *str,
 
   fd = -1;
 
-  if ((unlink (filename_c) == -1 && errno != ENOENT) ||
-       rename (tmp_filename_c, filename_c) < 0)
+  /* Unlike rename(), MoveFileEx() can replace existing files */
+  if (MoveFileExA (tmp_filename_c, filename_c, MOVEFILE_REPLACE_EXISTING) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not rename %s to %s: %s",
