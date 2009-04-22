@@ -124,6 +124,8 @@ _dbus_pipe_close  (DBusPipe         *pipe,
 
   if (_close (pipe->fd_or_handle) < 0)
     {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not close pipe %d: %s", pipe->fd_or_handle, strerror (errno));
       return -1;
     }
   else
