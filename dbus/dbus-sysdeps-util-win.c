@@ -22,8 +22,6 @@
  *
  */
 
-#undef open
-
 #define STRSAFE_NO_DEPRECATE
 
 #include "dbus-sysdeps.h"
