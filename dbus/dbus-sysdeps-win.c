@@ -50,6 +50,8 @@
 
 #include <windows.h>
 #include <ws2tcpip.h>
+#include <wincrypt.h>
+
 #include <fcntl.h>
 
 #include <process.h>
@@ -2337,41 +2339,21 @@ _dbus_create_directory (const DBusString *filename,
 }
 
 
-static void
-pseudorandom_generate_random_bytes_buffer (char *buffer,
-    int   n_bytes)
-{
-  long tv_usec;
-  int i;
-
-  /* fall back to pseudorandom */
-  _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
-                 n_bytes);
-
-  _dbus_get_current_time (NULL, &tv_usec);
-  srand (tv_usec);
-
-  i = 0;
-  while (i < n_bytes)
-    {
-      double r;
-      unsigned int b;
-
-      r = rand ();
-      b = (r / (double) RAND_MAX) * 255.0;
-
-      buffer[i] = b;
-
-      ++i;
-    }
-}
-
-static dbus_bool_t
-pseudorandom_generate_random_bytes (DBusString *str,
-                                    int         n_bytes)
+/**
+ * Generates the given number of random bytes,
+ * using the best mechanism we can come up with.
+ *
+ * @param str the string
+ * @param n_bytes the number of random bytes to append to string
+ * @returns #TRUE on success, #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_generate_random_bytes (DBusString *str,
+                             int         n_bytes)
 {
   int old_len;
   char *p;
+  HCRYPTPROV hprov;
 
   old_len = _dbus_string_get_length (str);
 
@@ -2380,7 +2362,16 @@ pseudorandom_generate_random_bytes (DBusString *str,
 
   p = _dbus_string_get_data_len (str, old_len, n_bytes);
 
-  pseudorandom_generate_random_bytes_buffer (p, n_bytes);
+  if (!CryptAcquireContext (&hprov, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+    return FALSE;
+
+  if (!CryptGenRandom (hprov, n_bytes, p))
+    {
+      CryptReleaseContext (hprov, 0);
+      return FALSE;
+    }
+
+  CryptReleaseContext (hprov, 0);
 
   return TRUE;
 }
@@ -2441,21 +2432,6 @@ _dbus_delete_file (const DBusString *filename,
     }
   else
     return TRUE;
-}
-
-/**
- * Generates the given number of random bytes,
- * using the best mechanism we can come up with.
- *
- * @param str the string
- * @param n_bytes the number of random bytes to append to string
- * @returns #TRUE on success, #FALSE if no memory
- */
-dbus_bool_t
-_dbus_generate_random_bytes (DBusString *str,
-                             int         n_bytes)
-{
-  return pseudorandom_generate_random_bytes (str, n_bytes);
 }
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
