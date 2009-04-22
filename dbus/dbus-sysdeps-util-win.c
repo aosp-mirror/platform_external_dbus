@@ -465,17 +465,11 @@ _dbus_stat(const DBusString *filename,
 	//TODO
 #else
   const char *filename_c;
-#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-
-  struct stat sb;
-#else
-
   WIN32_FILE_ATTRIBUTE_DATA wfad;
   char *lastdot;
   DWORD rc;
   PSID owner_sid, group_sid;
   PSECURITY_DESCRIPTOR sd;
-#endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
