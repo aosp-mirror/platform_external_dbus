@@ -4197,6 +4197,7 @@ check_list_services (BusContext     *context,
   if (!_dbus_string_array_contains ((const char **)services, existent))
     {
       _dbus_warn ("Did not get the expected %s from ListActivatableNames\n", existent);
+      dbus_free_string_array (services);
       return FALSE;
     }
 
