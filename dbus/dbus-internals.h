@@ -131,7 +131,7 @@ void _dbus_real_assert_not_reached (const char *explanation,
 #define _dbus_return_if_fail(condition)
 #define _dbus_return_val_if_fail(condition, val)
 #else
-extern const char _dbus_return_if_fail_warning_format[];
+extern const char *_dbus_return_if_fail_warning_format;
 
 #define _dbus_return_if_fail(condition) do {                                       \
    _dbus_assert ((*(const char*)_DBUS_FUNCTION_NAME) != '_');                      \
@@ -245,7 +245,7 @@ void _dbus_verbose_bytes_of_string (const DBusString    *str,
 
 const char* _dbus_header_field_to_string (int header_field);
 
-extern const char _dbus_no_memory_message[];
+extern const char *_dbus_no_memory_message;
 #define _DBUS_SET_OOM(error) dbus_set_error_const ((error), DBUS_ERROR_NO_MEMORY, _dbus_no_memory_message)
 
 #ifdef DBUS_BUILD_TESTS

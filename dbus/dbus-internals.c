@@ -189,7 +189,7 @@
  * making up a different string every time and wasting
  * space.
  */
-const char _dbus_no_memory_message[] = "Not enough memory";
+const char *_dbus_no_memory_message = "Not enough memory";
 
 static dbus_bool_t warn_initted = FALSE;
 static dbus_bool_t fatal_warnings = FALSE;
@@ -797,7 +797,7 @@ _dbus_header_field_to_string (int header_field)
 
 #ifndef DBUS_DISABLE_CHECKS
 /** String used in _dbus_return_if_fail macro */
-const char _dbus_return_if_fail_warning_format[] =
+const char *_dbus_return_if_fail_warning_format =
 "arguments to %s() were incorrect, assertion \"%s\" failed in file %s line %d.\n"
 "This is normally a bug in some application using the D-Bus library.\n";
 #endif
