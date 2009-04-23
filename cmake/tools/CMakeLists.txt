@@ -22,6 +22,13 @@ set (dbus_launch_SOURCES
 )
 endif (WIN32)
 
+if (DBUS_BUILD_X11)
+set (dbus_launch_SOURCES
+     ${dbus_launch_SOURCES}
+     ../../tools/dbus-launch-x11.c
+)
+endif(DBUS_BUILD_X11)
+
 set (dbus_cleanup_sockets_SOURCES
 	../../tools/dbus-cleanup-sockets.c
 )
@@ -40,6 +47,9 @@ install_targets(/bin dbus-send )
 
 add_executable(dbus-launch ${dbus_launch_SOURCES})
 target_link_libraries(dbus-launch )
+if (DBUS_BUILD_X11)
+  target_link_libraries(dbus-launch ${X11_LIBRARIES} )
+endif (DBUS_BUILD_X11)
 install_targets(/bin dbus-launch )
 
 add_executable(dbus-monitor ${dbus_monitor_SOURCES})
