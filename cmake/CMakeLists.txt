@@ -230,11 +230,7 @@ set (DBUS_DAEMONDIR ${EXPANDED_BINDIR})
 
 #AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[enable unit test code]),enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
 OPTION(DBUS_BUILD_TESTS "enable unit test code" ON)
-if (DBUS_BUILD_TESTS)
-	if(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
-		add_definitions(-g)
-	endif(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
-endif (DBUS_BUILD_TESTS)
+add_definitions(-DDBUS_BUILD_TESTS)
 
 # win32 dbus service support - this support is not complete
 OPTION(DBUS_SERVICE "enable dbus service installer" OFF)
