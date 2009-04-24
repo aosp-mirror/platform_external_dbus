@@ -4791,6 +4791,11 @@ bus_unix_fds_passing_test(const DBusString *test_data_dir)
   if (!_dbus_close(two[0], &error))
     _dbus_assert_not_reached("Failed to close pipe #2 ");
 
+  if (!(dbus_connection_can_send_type(foo, DBUS_TYPE_UNIX_FD)))
+    _dbus_assert_not_reached("Connection cannot do fd passing");
+
+  if (!(dbus_connection_can_send_type(bar, DBUS_TYPE_UNIX_FD)))
+    _dbus_assert_not_reached("Connection cannot do fd passing");
 
   if (!dbus_connection_send (foo, m, NULL))
     _dbus_assert_not_reached("Failed to send fds");

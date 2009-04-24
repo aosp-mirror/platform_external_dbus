@@ -144,6 +144,9 @@ DBusTransportOpenResult _dbus_transport_open_platform_specific (DBusAddressEntry
                                                                 DBusTransport    **transport_p,
                                                                 DBusError         *error);
 
+#define DBUS_TRANSPORT_CAN_SEND_UNIX_FD(x)      \
+  _dbus_auth_get_unix_fd_negotiated((x)->auth)
+
 DBUS_END_DECLS
 
 #endif /* DBUS_TRANSPORT_PROTECTED_H */

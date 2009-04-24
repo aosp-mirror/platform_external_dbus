@@ -594,7 +594,7 @@ do_writing (DBusTransport *transport)
 #endif
 
 #ifdef HAVE_UNIX_FD_PASSING
-          if (socket_transport->message_bytes_written <= 0 && transport->can_pass_unix_fd)
+          if (socket_transport->message_bytes_written <= 0 && DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport))
             {
               /* Send the fds along with the first byte of the message */
               const int *unix_fds;
@@ -777,7 +777,7 @@ do_reading (DBusTransport *transport)
                                        &buffer);
 
 #ifdef HAVE_UNIX_FD_PASSING
-      if (transport->can_pass_unix_fd)
+      if (DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport))
         {
           int *fds, n_fds;
 
@@ -1244,7 +1244,7 @@ _dbus_transport_new_for_socket (int               fd,
     goto failed_4;
 
 #ifdef HAVE_UNIX_FD_PASSING
-  socket_transport->base.can_pass_unix_fd = _dbus_socket_can_pass_unix_fd(fd);
+  _dbus_auth_set_unix_fd_possible(socket_transport->base.auth, _dbus_socket_can_pass_unix_fd(fd));
 #endif
 
   socket_transport->fd = fd;

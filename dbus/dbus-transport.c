@@ -184,7 +184,6 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->credentials = creds;
 
 #ifdef HAVE_UNIX_FD_PASSING
-  transport->can_pass_unix_fd = FALSE;
   transport->unix_fds = NULL;
   transport->n_unix_fds = 0;
 #endif
