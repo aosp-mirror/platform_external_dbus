@@ -228,7 +228,7 @@ _dbus_babysitter_unref (DBusBabysitter *sitter)
         {
           PING();
           CloseHandle (sitter->start_sync_event);
-          sitter->end_sync_event = NULL;
+          sitter->start_sync_event = NULL;
         }
 
 #ifdef DBUS_BUILD_TESTS
