@@ -1,6 +1,4 @@
-
-include_directories(${CMAKE_SOURCE_DIR}/..)
-include_directories( ${CMAKE_INCLUDE_PATH} )
+project(bus)
 
 add_definitions(-DDBUS_COMPILATION)
 
@@ -45,8 +43,11 @@ set (BUS_SOURCES
 	${BUS_DIR}/bus.c					
 	${BUS_DIR}/bus.h					
 	${BUS_DIR}/config-parser.c				
-	${BUS_DIR}/config-parser.h				
-	${BUS_DIR}/connection.c				
+	${BUS_DIR}/config-parser.h
+    ${BUS_DIR}/config-parser-common.c
+    ${BUS_DIR}/config-parser-common.h
+#    ${BUS_DIR}/config-parser-trivial.c
+	${BUS_DIR}/connection.c
 	${BUS_DIR}/connection.h				
 	${BUS_DIR}/desktop-file.c				
 	${BUS_DIR}/desktop-file.h				
@@ -74,30 +75,34 @@ set (BUS_SOURCES
 	${DIR_WATCH_SOURCE}
 )
 
-set (dbus_daemon_SOURCES
-	${BUS_SOURCES}
-	${BUS_DIR}/main.c					
-)
-
 include_directories(${XML_INCLUDE_DIR})
 SET (LIBS ${XML_LIBRARY})
 
-add_executable(dbus-daemon${CMAKE_EXE_POSTFIX} ${dbus_daemon_SOURCES})
-target_link_libraries(dbus-daemon${CMAKE_EXE_POSTFIX} dbus-1 ${LIBS})
-install_targets(/bin dbus-daemon${CMAKE_EXE_POSTFIX} )
+if(splitlib AND MSVC)
+	add_library(bus-lib STATIC ${BUS_SOURCES})
+	add_executable(dbus-daemon ${BUS_DIR}/main.c)
+	target_link_libraries(dbus-daemon ${DBUS_1} ${LIBS} bus-lib)
+else(splitlib AND MSVC)
+	add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_DIR}/main.c)
+	target_link_libraries(dbus-daemon ${DBUS_1} ${LIBS})
+endif(splitlib AND MSVC)
+set_target_properties(dbus-daemon PROPERTIES DEBUG_POSTFIX d)
+
+install_targets(/bin dbus-daemon)
 install_files(/etc FILES ${config_DATA})
 
 if (DBUS_SERVICE)
 	set (dbus_service_SOURCES 
 		${BUS_DIR}/bus-service-win.c
-  # TODO: add additional files
+	# TODO: add additional files
 	#	${BUS_DIR}/service-main.c
 	#	${BUS_SOURCES} 
 	)
 
-	add_executable(dbus-service${CMAKE_EXE_POSTFIX} ${dbus_service_SOURCES} )
-	target_link_libraries(dbus-service${CMAKE_EXE_POSTFIX} dbus-1 ${LIBS})
-	install_targets(/bin dbus-service${CMAKE_EXE_POSTFIX} )
+	add_executable(dbus-service ${dbus_service_SOURCES} )
+	target_link_libraries(dbus-service ${DBUS_1} ${LIBS})
+	install_targets(/bin dbus-service )
+    set_target_properties(dbus-service PROPERTIES DEBUG_POSTFIX d)
 
 endif (DBUS_SERVICE)
 
@@ -115,14 +120,14 @@ endif (DBUS_SERVICE)
 ## even when not doing "make check"
 #noinst_PROGRAMS=$(TESTS) 
 
-set (bus_test_SOURCES
-	${BUS_SOURCES}
-	${BUS_DIR}/test-main.c
-)
-
 if (DBUS_BUILD_TESTS)	
-	add_executable(bus-test ${bus_test_SOURCES})
-	target_link_libraries(bus-test dbus-1 ${LIBS} )
+	if(splitlib AND MSVC)
+		add_executable(bus-test ${BUS_DIR}/test-main.c)
+		target_link_libraries(bus-test ${DBUS_1} ${LIBS} bus-lib)
+	else(splitlib AND MSVC)
+		add_executable(bus-test ${BUS_SOURCES} ${BUS_DIR}/test-main.c)
+		target_link_libraries(bus-test ${DBUS_1} ${LIBS})
+	endif(splitlib AND MSVC)
 	#install_targets(/bin bus-test)
 	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
 endif (DBUS_BUILD_TESTS)

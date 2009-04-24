@@ -1,8 +1,7 @@
-project(dbus)
+project(dbus-lib)
 
 #INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
 
-include_directories(${CMAKE_SOURCE_DIR}/..)
 SET(DBUS_DIR ${CMAKE_SOURCE_DIR}/../dbus)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-arch-deps.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/dbus-arch-deps.h )
@@ -24,6 +23,7 @@ set (dbusinclude_HEADERS
 	${DBUS_DIR}/dbus-server.h
 	${DBUS_DIR}/dbus-shared.h
 	${DBUS_DIR}/dbus-signature.h
+	${DBUS_DIR}/dbus-spawn.h
 	${DBUS_DIR}/dbus-threads.h
 	${DBUS_DIR}/dbus-types.h
 	dbus-arch-deps.h
@@ -64,6 +64,8 @@ set (DBUS_LIB_SOURCES
 #  find a clean Windows implementation
 #  and move code to a *-win.c file
 )
+
+
 if(UNIX)
 	set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
 		${DBUS_DIR}/dbus-transport-unix.c
@@ -225,17 +227,57 @@ set(libdbus_HEADERS
 	${DBUS_UTIL_HEADERS}
 )
 
-if(MSVC)
-	add_library(dbus-1 STATIC ${libdbus_SOURCES} ${libdbus_HEADERS} )
-	project_source_group(${GROUP_CODE} libdbus_SOURCES libdbus_HEADERS)
-else(MSVC)
-	add_library(dbus-1 ${libdbus_SOURCES} ${libdbus_HEADERS} )
-endif(MSVC)
+if(MSVC AND splitlib)
+	set(DBUS_LIB_TYPE STATIC)
+elseif(MSVC AND splitlib)
+	set(DBUS_LIB_TYPE SHARED)
+endif(MSVC AND splitlib)
 
-target_link_libraries(dbus-1 ${LIBS} )
 
-install_targets(/lib dbus-1 )
-install_files(/include/dbus FILES ${dbusinclude_HEADERS})
+if(splitlib AND MSVC)
+	# code for the client library and daemon/tests
+	add_library(dbus-lib-generic ${DBUS_LIB_TYPE} ${DBUS_SHARED_SOURCES} ${DBUS_SHARED_HEADERS})
+	
+	# code only for daemon/tests
+	add_library(dbus-lib-util ${DBUS_LIB_TYPE} ${DBUS_UTIL_SOURCES} ${DBUS_UTIL_HEADERS})
+	
+	# code for the client library
+	add_library(dbus-lib-client ${DBUS_LIB_TYPE} ${DBUS_LIB_SOURCES} ${DBUS_LIB_HEADERS})
+	
+	target_link_libraries(dbus-lib-generic ${LIBS})
+	target_link_libraries(dbus-lib-util ${LIBS})
+	target_link_libraries(dbus-lib-client ${LIBS})
+	
+	if(MSVC_IDE)
+		project_source_group(${GROUP_CODE} DBUS_LIB_SOURCES DBUS_LIB_HEADERS)
+		project_source_group(${GROUP_CODE} DBUS_SHARED_SOURCES DBUS_SHARED_HEADERS)
+		project_source_group(${GROUP_CODE} DBUS_UTIL_SOURCES DBUS_UTIL_SOURCES)
+	endif(MSVC_IDE)
+else(splitlib AND MSVC)
+	# all code into one library
+	add_library(dbus-1 ${DBUS_LIB_TYPE} ${libdbus_SOURCES} ${libdbus_HEADERS} )
+	target_link_libraries(dbus-1 ${LIBS})
+	
+	if(MSVC)
+		set(DEF_LIBRARY_NAME dbus-1.dll)
+		configure_file("${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def.cmake" "${CMAKE_BINARY_DIR}/dbus-1.def")
+		set(DEF_LIBRARY_NAME dbus-1d.dll)
+		configure_file("${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def.cmake" "${CMAKE_BINARY_DIR}/dbus-1d.def")
+		set_target_properties(dbus-1  PROPERTIES LINK_FLAGS_RELWITHDEBINFO /def:"${CMAKE_BINARY_DIR}/dbus-1.def")
+		set_target_properties(dbus-1  PROPERTIES LINK_FLAGS_RELEASE /def:"${CMAKE_BINARY_DIR}/dbus-1.def")
+		set_target_properties(dbus-1  PROPERTIES LINK_FLAGS_MINSIZEREL /def:"${CMAKE_BINARY_DIR}/dbus-1.def")
+		set_target_properties(dbus-1  PROPERTIES LINK_FLAGS_DEBUG /def:"${CMAKE_BINARY_DIR}/dbus-1d.def")
+	endif(MSVC)
+	if(MSVC_IDE)	
+		project_source_group(${GROUP_CODE} libdbus_SOURCES libdbus_HEADERS)
+	endif(MSVC_IDE)
+endif(splitlib AND MSVC)
+
+
+if(NOT splitlib)
+	install_targets(/lib dbus-1 )
+	install_files(/include/dbus FILES ${dbusinclude_HEADERS})
+endif(NOT splitlib)
 
 #ADD_EXECUTABLE(dbus-example dbus-example.c)
 #target_link_libraries(${CMAKE_SOURCE_DIR}/../dbus/dbus-example dbus-1)
@@ -254,7 +296,7 @@ install_files(/include/dbus FILES ${dbusinclude_HEADERS})
 if (DBUS_BUILD_TESTS)
 	set (TESTS_ENVIRONMENT "DBUS_TEST_DATA=${CMAKE_SOURCE_DIR}/test/data DBUS_TEST_HOMEDIR=${CMAKE_BUILD_DIR}/dbus")
 	ADD_EXECUTABLE(dbus-test ${CMAKE_SOURCE_DIR}/../dbus/dbus-test-main.c)
-	target_link_libraries(dbus-test dbus-1 ${LIBS})
+	target_link_libraries(dbus-test ${DBUS_1} ${LIBS})
 	add_test(dbus-test ${EXECUTABLE_OUTPUT_PATH}/dbus-test ${CMAKE_SOURCE_DIR}/../test/data)
 	#install_targets(/bin dbus-test)
 ENDIF (DBUS_BUILD_TESTS)

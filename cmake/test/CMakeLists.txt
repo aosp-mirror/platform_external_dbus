@@ -1,3 +1,4 @@
+project(test)
 
 #if HAVE_GLIB
 #    GLIB_SUBDIR=glib
@@ -15,9 +16,6 @@ add_subdirectory( name-test )
 #DIST_SUBDIRS=glib python qt name-test
 
 #INCLUDES=-I$(top_srcdir) $(DBUS_test-CFLAGS) 
-
-include_directories( ${CMAKE_SOURCE_DIR}/.. )
-include_directories( ${CMAKE_INCLUDE_PATH} )
 
 if (WIN32)
 add_definitions(-Dsleep=_sleep)
@@ -89,7 +87,7 @@ set (decode_gcov_SOURCES
 )
 
 add_executable(test-service ${test-service_SOURCES})
-target_link_libraries(test-service dbus-1)
+target_link_libraries(test-service ${DBUS_1})
 #install_targets(/bin test-service)
 
 # (rh) does not work at now
@@ -98,63 +96,68 @@ ADD_TEST(test-service ${EXECUTABLE_OUTPUT_PATH}/test-service${EXT})
 
 
 add_executable(test-names ${test-names_SOURCES})
-target_link_libraries(test-names dbus-1)
+target_link_libraries(test-names ${DBUS_1})
 #install_targets(/bin test-names)
 ADD_TEST(test-names ${EXECUTABLE_OUTPUT_PATH}/test-names${EXT})
 
 add_executable(test-shell ${test-shell_SOURCES})
-target_link_libraries(test-shell dbus-1)
+target_link_libraries(test-shell ${DBUS_1})
 #install_targets(/bin test-shell)
 ADD_TEST(test-shell ${EXECUTABLE_OUTPUT_PATH}/test-shell${EXT})
 
 add_executable(test-shell-service ${test-shell_SOURCES})
-target_link_libraries(test-shell-service dbus-1)
+target_link_libraries(test-shell-service ${DBUS_1})
 #install_targets(/bin test-shell-service)
 ADD_TEST(test-shell-service ${EXECUTABLE_OUTPUT_PATH}/test-shell-service${EXT})
 
 add_executable(test-spawn ${test-spawn_SOURCES})
-target_link_libraries(test-spawn dbus-1)
+target_link_libraries(test-spawn ${DBUS_1})
 # (rh) does not work now
 #ADD_TEST(test-spawn ${EXECUTABLE_OUTPUT_PATH}/test-spawn${EXT})
 
 add_executable(test-exit ${test-exit_SOURCES})
-target_link_libraries(test-exit dbus-1)
+target_link_libraries(test-exit ${DBUS_1})
 #install_targets(/bin test-exit)
 ADD_TEST(test-exit ${EXECUTABLE_OUTPUT_PATH}/test-exit${EXT})
 
 add_executable(test-segfault ${test-segfault_SOURCES})
-target_link_libraries(test-segfault dbus-1)
+target_link_libraries(test-segfault ${DBUS_1})
 #install_targets(/bin test-segfault)
 ADD_TEST(test-segfault ${EXECUTABLE_OUTPUT_PATH}/test-segfault${EXT})
 
 add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
-target_link_libraries(test-sleep-forever dbus-1)
+target_link_libraries(test-sleep-forever ${DBUS_1})
 # (rh) don't know for what this test is good 
 #ADD_TEST(test-sleep-forever ${EXECUTABLE_OUTPUT_PATH}/test-sleep-forever${EXT})
 
 #add_executable(decode-gcov ${decode_gcov_SOURCES})
-#target_link_libraries(decode-gcov dbus-1)
+#target_link_libraries(decode-gcov ${DBUS_1})
 
 #EXTRA_DIST=
 #
 ### keep these in creation order, i.e. uppermost dirs first 
 set (TESTDIRS
 	test/data					
-	test/data/valid-messages			
-	test/data/invalid-messages			
-	test/data/incomplete-messages		
-	test/data/auth				
-	test/data/sha-1				
-	test/data/valid-config-files			
-	test/data/valid-config-files/basic.d		
-	test/data/valid-config-files/system.d	
-	test/data/valid-service-files		
-	test/data/invalid-config-files		
-	test/data/equiv-config-files			
-	test/data/equiv-config-files/basic		
-	test/data/equiv-config-files/basic/basic.d	
-	test/data/equiv-config-files/entities	
+	test/data/auth
+	test/data/equiv-config-files
+	test/data/equiv-config-files/basic
+	test/data/equiv-config-files/basic/basic.d
+	test/data/equiv-config-files/entities
 	test/data/equiv-config-files/entities/basic.d
+	test/data/incomplete-messages
+	test/data/invalid-config-files
+	test/data/invalid-config-files-system
+	test/data/invalid-messages
+	test/data/invalid-service-files-system
+	test/data/sha-1
+	test/data/valid-config-files
+	test/data/valid-config-files/basic.d		
+	test/data/valid-config-files/system.d
+	test/data/valid-config-files-system
+	test/data/valid-introspection-files
+	test/data/valid-messages
+	test/data/valid-service-files
+	test/data/valid-service-files-system
 )
 set (CONFIG_VERBOSE 0)
 

@@ -19,6 +19,12 @@
 #cmakedefine PACKAGE "@PACKAGE@"
 /* Version number of package */
 #cmakedefine VERSION "@VERSION@"
+#cmakedefine DBUS_MAJOR_VERSION ${VERSION_MAJOR}
+#cmakedefine DBUS_MINOR_VERSION ${VERSION_MINOR}
+#cmakedefine DBUS_MICRO_VERSION ${VERSION_RELEASE}
+#cmakedefine DBUS_VERSION ((@VERSION_MAJOR@ << 16) | (@VERSION_MINOR@ << 8) | (@VERSION_RELEASE@))
+#cmakedefine DBUS_VERSION_STRING "@VERSION@"
+
 // test binaries
 /* Full path to test file test/test-exit in builddir */
 #define TEST_BUS_BINARY          "@TEST_BUS_BINARY@"
