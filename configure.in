@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 m4_define([dbus_major_version], [1])
 m4_define([dbus_minor_version], [2])
-m4_define([dbus_micro_version], [13])
+m4_define([dbus_micro_version], [14])
 m4_define([dbus_version],
           [dbus_major_version.dbus_minor_version.dbus_micro_version])
 AC_INIT(dbus, [dbus_version])
