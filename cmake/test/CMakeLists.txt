@@ -178,10 +178,29 @@ FOREACH(FILE_TYPE *.message *.message-raw *.auth-script *.sha1 *.txt *.conf *.se
 	ENDFOREACH(DIR)
 ENDFOREACH(FILE_TYPE)
 
+
 ### generate test files
 SET (CONFIG_FILES test/data/valid-config-files)
 configure_file(${CMAKE_SOURCE_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf )
 configure_file(${CMAKE_SOURCE_DIR}/${CONFIG_FILES}/debug-allow-all.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all.conf )
+
+FOREACH(FILE_TYPE *.conf.in *.service.in)
+  FOREACH(DIR ${TESTDIRS})
+    FILE(GLOB FILES "${CMAKE_SOURCE_DIR}/../${DIR}/${FILE_TYPE}" )
+    FILE(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${DIR})
+    FOREACH(FILE ${FILES})
+      GET_FILENAME_COMPONENT(FILENAME ${FILE} NAME)
+      STRING(REGEX REPLACE "\\.in$" "" FILENAME ${FILENAME})
+      SET (TARGET ${CMAKE_BINARY_DIR}/${DIR}/${FILENAME})
+      configure_file(${FILE} ${TARGET} @ONLY IMMEDIATE)
+      IF (CONFIG_VERBOSE)
+        MESSAGE("FROM: ${FILE}\nTO: ${TARGET}\n")
+      ENDIF (CONFIG_VERBOSE)
+    ENDFOREACH(FILE)
+  ENDFOREACH(DIR)
+ENDFOREACH(FILE_TYPE)
+
+
 
 # (rh) disabled copying because bus-test could not parse this files for unknown reasons
 FILE(GLOB FILES "${CMAKE_BINARY_DIR}/bus/*.conf" )
