@@ -51,7 +51,11 @@ _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 _DBUS_DEFINE_GLOBAL_LOCK (system_users);
 
+#ifdef DBUS_WIN
+  #include <stdlib.h>
+#else
 extern char **environ;
+#endif
 
 /**
  * @defgroup DBusSysdeps Internal system-dependent API
