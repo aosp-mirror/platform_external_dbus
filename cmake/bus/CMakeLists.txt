@@ -151,6 +151,26 @@ endif(MSVC)
 ##install_file(${configdir}/system.d FILE
 
 
+set(LAUNCH_HELPER_SOURCES ${XML_SOURCES}
+    ${BUS_DIR}/config-parser-common.c
+    ${BUS_DIR}/config-parser-trivial.c
+    ${BUS_DIR}/desktop-file.c
+    ${BUS_DIR}/utils.c
+    ${BUS_DIR}/activation-helper.c
+
+)
+
+add_executable(dbus-daemon-launch-helper ${LAUNCH_HELPER_SOURCES} ${BUS_DIR}/activation-helper-bin.c )
+target_link_libraries(dbus-daemon-launch-helper ${DBUS_1} ${LIBS} )
+
+add_executable(dbus-daemon-launch-helper-test ${LAUNCH_HELPER_SOURCES}     ${BUS_DIR}/activation-helper-bin.c)
+set_target_properties(dbus-daemon-launch-helper-test PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST")
+target_link_libraries(dbus-daemon-launch-helper-test ${DBUS_1} ${LIBS} )
+
+add_executable(bus-test-launch-helper ${LAUNCH_HELPER_SOURCES}  ${BUS_DIR}/test-launch-helper.c)
+set_target_properties(bus-test-launch-helper PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST -DACTIVATION_LAUNCHER_DO_OOM")
+
+target_link_libraries(bus-test-launch-helper ${DBUS_1} ${LIBS} )
 
 #### Init scripts fun
 #SCRIPT_IN_FILES=messagebus.in

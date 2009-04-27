@@ -498,8 +498,8 @@ if (DBUS_BUILD_TESTS)
     # set variables used for the .in files (substituted by configure_file) in test/data:
     set(TEST_VALID_SERVICE_DIR ${CMAKE_BINARY_DIR}/test/data/valid-service-files)
     set(TEST_VALID_SERVICE_SYSTEM_DIR ${CMAKE_BINARY_DIR}/test/data/valid-service-files-system)
-# TODO: TEST_SOCKET_DIR
-# TODO: TEST_LAUNCH_HELPER_BINARY
+    set(TEST_SOCKET_DIR ${DBUS_SESSION_SOCKET_DIR} )
+    set(TEST_LAUNCH_HELPER_BINARY ${EXECUTABLE_OUTPUT_PATH}/dbus-daemon-launch-helper-test)
 endif  (DBUS_BUILD_TESTS)
 
 ########### subdirs ###############
