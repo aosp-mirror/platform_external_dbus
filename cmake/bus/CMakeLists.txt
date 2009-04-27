@@ -129,7 +129,7 @@ if (DBUS_BUILD_TESTS)
 		target_link_libraries(bus-test ${DBUS_1} ${LIBS})
 	endif(splitlib AND MSVC)
 	#install_targets(/bin bus-test)
-	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
+	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_BINARY_DIR}/test/data)
 endif (DBUS_BUILD_TESTS)
 
 if(MSVC)
