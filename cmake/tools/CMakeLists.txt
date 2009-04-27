@@ -56,4 +56,6 @@ add_executable(dbus-monitor ${dbus_monitor_SOURCES})
 target_link_libraries(dbus-monitor ${DBUS_1})
 install_targets(/bin dbus-monitor )
 
-set_target_properties(dbus-send dbus-launch dbus-monitor PROPERTIES DEBUG_POSTFIX d)
+if(WIN32)
+  set_target_properties(dbus-send dbus-launch dbus-monitor PROPERTIES DEBUG_POSTFIX d)
+endif(WIN32)
