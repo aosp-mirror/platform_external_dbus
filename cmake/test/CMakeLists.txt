@@ -178,9 +178,6 @@ ENDFOREACH(FILE_TYPE)
 
 
 ### generate test files
-SET (CONFIG_FILES test/data/valid-config-files)
-configure_file(${CMAKE_SOURCE_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf )
-configure_file(${CMAKE_SOURCE_DIR}/${CONFIG_FILES}/debug-allow-all.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all.conf )
 
 FOREACH(FILE_TYPE *.conf.in *.service.in)
   FOREACH(DIR ${TESTDIRS})
@@ -197,19 +194,6 @@ FOREACH(FILE_TYPE *.conf.in *.service.in)
     ENDFOREACH(FILE)
   ENDFOREACH(DIR)
 ENDFOREACH(FILE_TYPE)
-
-
-
-# (rh) disabled copying because bus-test could not parse this files for unknown reasons
-FILE(GLOB FILES "${CMAKE_BINARY_DIR}/bus/*.conf" )
-FOREACH(FILE ${FILES})	
-	GET_FILENAME_COMPONENT(FILENAME ${FILE} NAME)
-	SET (TARGET ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/${FILENAME})
-	configure_file(${FILE} ${TARGET})
-	IF (CONFIG_VERBOSE)
-		MESSAGE("FROM: ${FILE}\nTO: ${TARGET}\n")
-	ENDIF (CONFIG_VERBOSE)
-ENDFOREACH(FILE)
 
 # todo: for installation the TEST_..._BINARY variables must reflect the 
 #       installation dir or has to be defined relative
