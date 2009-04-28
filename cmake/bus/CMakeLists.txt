@@ -160,17 +160,21 @@ set(LAUNCH_HELPER_SOURCES ${XML_SOURCES}
 
 )
 
-add_executable(dbus-daemon-launch-helper ${LAUNCH_HELPER_SOURCES} ${BUS_DIR}/activation-helper-bin.c )
-target_link_libraries(dbus-daemon-launch-helper ${DBUS_1} ${LIBS} )
+if(NOT WIN32)
+# TODO PENDING(kdab) fix build on windows (activation-helper.c)
+   add_executable(dbus-daemon-launch-helper ${LAUNCH_HELPER_SOURCES} ${BUS_DIR}/activation-helper-bin.c )
+   target_link_libraries(dbus-daemon-launch-helper ${DBUS_1} ${LIBS} )
+   
+   add_executable(dbus-daemon-launch-helper-test ${LAUNCH_HELPER_SOURCES}     ${BUS_DIR}/activation-helper-bin.c)
+   set_target_properties(dbus-daemon-launch-helper-test PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST")
+   target_link_libraries(dbus-daemon-launch-helper-test ${DBUS_1} ${LIBS} )
+   
+   add_executable(bus-test-launch-helper ${LAUNCH_HELPER_SOURCES}  ${BUS_DIR}/test-launch-helper.c)
+   set_target_properties(bus-test-launch-helper PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST -DACTIVATION_LAUNCHER_DO_OOM")
+   target_link_libraries(bus-test-launch-helper ${DBUS_1} ${LIBS} )
+   add_test(bus-test-launch-helper ${EXECUTABLE_OUTPUT_PATH}/bus-test-launch-helper )
 
-add_executable(dbus-daemon-launch-helper-test ${LAUNCH_HELPER_SOURCES}     ${BUS_DIR}/activation-helper-bin.c)
-set_target_properties(dbus-daemon-launch-helper-test PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST")
-target_link_libraries(dbus-daemon-launch-helper-test ${DBUS_1} ${LIBS} )
-
-add_executable(bus-test-launch-helper ${LAUNCH_HELPER_SOURCES}  ${BUS_DIR}/test-launch-helper.c)
-set_target_properties(bus-test-launch-helper PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST -DACTIVATION_LAUNCHER_DO_OOM")
-target_link_libraries(bus-test-launch-helper ${DBUS_1} ${LIBS} )
-add_test(bus-test-launch-helper ${EXECUTABLE_OUTPUT_PATH}/bus-test-launch-helper )
+endif(NOT WIN32)
 
 #### Init scripts fun
 #SCRIPT_IN_FILES=messagebus.in
