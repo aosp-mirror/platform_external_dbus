@@ -64,7 +64,12 @@
 
 #cmakedefine DBUS_BUILD_X11 1
 
-#cmakedefine DBUS_VA_COPY @DBUS_VA_COPY_FUNC@
+#cmakedefine DBUS_VA_COPY_FUNC
+#if (defined DBUS_VA_COPY_FUNC)
+# define DBUS_VA_COPY @DBUS_VA_COPY_FUNC@
+#endif
+
+#cmakedefine DBUS_VA_COPY_AS_ARRAY 1
 
 // headers
 /* Define to 1 if you have dirent.h */
@@ -164,9 +169,6 @@
 #  define strtoll _strtoi64
 #  define strtoull _strtoui64
    typedef int mode_t;
-# endif
-# ifdef DBUS_VA_COPY
-#  undef DBUS_VA_COPY // DBUS_VA_COPY kills mingw's bus-test
 # endif
 #endif	// defined(_WIN32) || defined(_WIN64)
 

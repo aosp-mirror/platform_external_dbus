@@ -105,7 +105,7 @@ try_compile(DBUS_HAVE_VA_COPY
             ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c)
 
 if(DBUS_HAVE_VA_COPY)
-  SET(DBUS_VA_COPY va_copy CACHE STRING "va_copy function")
+  SET(DBUS_VA_COPY_FUNC va_copy CACHE STRING "va_copy function")
 else(DBUS_HAVE_VA_COPY)
   write_file("${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c" "#include <stdarg.h>
 	  void f (int i, ...) {
@@ -121,10 +121,12 @@ else(DBUS_HAVE_VA_COPY)
 	    return 0;
 	  }
   ")
-  try_compile(DBUS_HAVE_VA_COPY
+  try_compile(DBUS_HAVE___VA_COPY
               ${CMAKE_BINARY_DIR}
               ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c)
   if(DBUS_HAVE___VA_COPY)
-    SET(DBUS_VA_COPY __va_copy CACHE STRING "va_copy function")
+    SET(DBUS_VA_COPY_FUNC __va_copy CACHE STRING "va_copy function")
+  else(DBUS_HAVE___VA_COPY)
+    SET(DBUS_VA_COPY_AS_ARRAY "1" CACHE STRING "'va_lists' cannot be copies as values")
   endif(DBUS_HAVE___VA_COPY)
 endif(DBUS_HAVE_VA_COPY)
