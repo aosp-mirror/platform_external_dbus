@@ -21,8 +21,6 @@ if (WIN32)
 add_definitions(-Dsleep=_sleep)
 endif (WIN32)
 
-set (TEST_SOCKET_DIR "/")
-
 #if (DBUS_BUILD_TESTS)
 ## break-loader removed for now
 #test-BINARIES=test-service test-names test-shell-service shell-test spawn-test test-segfault test-exit test-sleep-forever
