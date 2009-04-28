@@ -66,7 +66,7 @@ set (test-shell_SOURCES
         ${CMAKE_SOURCE_DIR}/../test/shell-test.c
 )
 
-set (test-spawn_SOURCES
+set (spawn-test_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/spawn-test.c
 )
 
@@ -110,10 +110,10 @@ target_link_libraries(test-shell-service ${DBUS_1})
 #install_targets(/bin test-shell-service)
 ADD_TEST(test-shell-service ${EXECUTABLE_OUTPUT_PATH}/test-shell-service${EXT})
 
-add_executable(test-spawn ${test-spawn_SOURCES})
-target_link_libraries(test-spawn ${DBUS_1})
+add_executable(spawn-test ${spawn-test_SOURCES})
+target_link_libraries(spawn-test ${DBUS_1})
 # (rh) does not work now
-#ADD_TEST(test-spawn ${EXECUTABLE_OUTPUT_PATH}/test-spawn${EXT})
+ADD_TEST(spawn-test ${EXECUTABLE_OUTPUT_PATH}/spawn-test${EXT})
 
 add_executable(test-exit ${test-exit_SOURCES})
 target_link_libraries(test-exit ${DBUS_1})
@@ -127,8 +127,6 @@ ADD_TEST(test-segfault ${EXECUTABLE_OUTPUT_PATH}/test-segfault${EXT})
 
 add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
 target_link_libraries(test-sleep-forever ${DBUS_1})
-# (rh) don't know for what this test is good 
-#ADD_TEST(test-sleep-forever ${EXECUTABLE_OUTPUT_PATH}/test-sleep-forever${EXT})
 
 #add_executable(decode-gcov ${decode_gcov_SOURCES})
 #target_link_libraries(decode-gcov ${DBUS_1})
