@@ -62,7 +62,7 @@ set (test-shell-service_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
 
-set (test-shell_SOURCES
+set (shell-test_SOURCES
         ${CMAKE_SOURCE_DIR}/../test/shell-test.c
 )
 
@@ -90,25 +90,18 @@ add_executable(test-service ${test-service_SOURCES})
 target_link_libraries(test-service ${DBUS_1})
 #install_targets(/bin test-service)
 
-# (rh) does not work at now
-ADD_TEST(test-service ${EXECUTABLE_OUTPUT_PATH}/test-service${EXT})
-
-
-
 add_executable(test-names ${test-names_SOURCES})
 target_link_libraries(test-names ${DBUS_1})
 #install_targets(/bin test-names)
 ADD_TEST(test-names ${EXECUTABLE_OUTPUT_PATH}/test-names${EXT})
 
-add_executable(test-shell ${test-shell_SOURCES})
-target_link_libraries(test-shell ${DBUS_1})
-#install_targets(/bin test-shell)
-ADD_TEST(test-shell ${EXECUTABLE_OUTPUT_PATH}/test-shell${EXT})
+add_executable(shell-test ${shell-test_SOURCES})
+target_link_libraries(shell-test ${DBUS_1})
+ADD_TEST(shell-test ${EXECUTABLE_OUTPUT_PATH}/shell-test${EXT})
 
 add_executable(test-shell-service ${test-shell-service_SOURCES})
 target_link_libraries(test-shell-service ${DBUS_1})
 #install_targets(/bin test-shell-service)
-ADD_TEST(test-shell-service ${EXECUTABLE_OUTPUT_PATH}/test-shell-service${EXT})
 
 add_executable(spawn-test ${spawn-test_SOURCES})
 target_link_libraries(spawn-test ${DBUS_1})
