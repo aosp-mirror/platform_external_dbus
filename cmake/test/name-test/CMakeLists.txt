@@ -5,10 +5,9 @@ set (NAMEtest-DIR ../../../test/name-test)
 add_definitions(-DDBUS_COMPILATION)
 
 # there is also a test-names executable, don't know if this is the same
-add_executable(test-names1 ${NAMEtest-DIR}/test-names.c)
-target_link_libraries(test-names1 ${DBUS_1})
-#install_targets(/bin test-names1)
-ADD_TEST(test-names ${EXECUTABLE_OUTPUT_PATH}/test-names1)
+add_executable(test-names2 ${NAMEtest-DIR}/test-names.c)
+target_link_libraries(test-names2 ${DBUS_1})
+ADD_TEST(test-names2 ${EXECUTABLE_OUTPUT_PATH}/test-names2)
 
 add_executable(test-pending-call-dispatch ${NAMEtest-DIR}/test-pending-call-dispatch.c)
 target_link_libraries(test-pending-call-dispatch ${DBUS_1})
