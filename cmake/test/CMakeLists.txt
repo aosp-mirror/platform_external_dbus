@@ -105,7 +105,7 @@ target_link_libraries(test-shell ${DBUS_1})
 #install_targets(/bin test-shell)
 ADD_TEST(test-shell ${EXECUTABLE_OUTPUT_PATH}/test-shell${EXT})
 
-add_executable(test-shell-service ${test-shell_SOURCES})
+add_executable(test-shell-service ${test-shell-service_SOURCES})
 target_link_libraries(test-shell-service ${DBUS_1})
 #install_targets(/bin test-shell-service)
 ADD_TEST(test-shell-service ${EXECUTABLE_OUTPUT_PATH}/test-shell-service${EXT})
