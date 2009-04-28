@@ -114,13 +114,13 @@ bus_config_parser_element_name_to_type (const char *name)
     {
       return ELEMENT_ASSOCIATE;
     }
-  else if (strcmp (name, "keep_umask") == 0)
-    {
-      return ELEMENT_KEEP_UMASK;
-    }
   else if (strcmp (name, "syslog") == 0)
     {
       return ELEMENT_SYSLOG;
+    }
+  else if (strcmp (name, "keep_umask") == 0)
+    {
+      return ELEMENT_KEEP_UMASK;
     }
   else if (strcmp (name, "allow_anonymous") == 0)
     {
@@ -174,10 +174,10 @@ bus_config_parser_element_type_to_name (ElementType type)
       return "selinux";
     case ELEMENT_ASSOCIATE:
       return "associate";
-    case ELEMENT_KEEP_UMASK:
-      return "keep_umask";
     case ELEMENT_SYSLOG:
       return "syslog";
+    case ELEMENT_KEEP_UMASK:
+      return "keep_umask";
     case ELEMENT_ALLOW_ANONYMOUS:
       return "allow_anonymous";
     }
