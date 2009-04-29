@@ -3242,26 +3242,33 @@ _dbus_get_is_errno_eagain_or_ewouldblock (void)
  * @returns #FALSE on failure
  */
 dbus_bool_t 
-_dbus_get_install_root(char *s, int len)
+_dbus_get_install_root(char *prefix, int len)
 {
-  char *p = NULL;
-  int ret = GetModuleFileName(NULL,s,len);
-  if ( ret == 0 
-    || ret == len && GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-    {
-      *s = '\0';
-      return FALSE;
+    //To find the prefix, we cut the filename and also \bin\ if present
+    char* p = 0;
+    int i;
+    DWORD pathLength;
+    int lastSlash;
+    SetLastError( 0 );
+    pathLength = GetModuleFileName(NULL, prefix, len);
+    if ( pathLength == 0 || GetLastError() != 0 ) {
+        *prefix = '\0';
+        return FALSE;
     }
-  else if ((p = strstr(s,"\\bin\\")))
-    {
-      *(p+1)= '\0';
-      return TRUE;
+    lastSlash = -1;
+    for (i = 0; i < pathLength; ++i)
+        if (prefix[i] == '\\')
+            lastSlash = i;
+    if (lastSlash == -1) {
+        *prefix = '\0';
+        return FALSE;
     }
-  else
-    {
-      *s = '\0';
-      return FALSE;
-    }
+    //cut off binary name
+    prefix[lastSlash+1] = 0;
+    //cut possible "\\bin"
+    if (lastSlash > 3 && strncmp(prefix + lastSlash - 4, "\\bin", 4) == 0)
+        prefix[lastSlash-3] = 0;
+    return TRUE;
 }
 
 /** 
