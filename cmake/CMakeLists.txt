@@ -110,6 +110,8 @@ if(WIN32)
   set (CMAKE_DEBUG_POSTFIX "d")
 endif(WIN32)
 
+SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}  -D_DEBUG")
+
 #########################################################################
 # Windows CE
 #
