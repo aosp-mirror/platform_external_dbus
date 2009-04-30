@@ -82,12 +82,9 @@ set (decode_gcov_SOURCES
 
 add_executable(test-service ${test-service_SOURCES})
 target_link_libraries(test-service ${DBUS_1})
-#install_targets(/bin test-service)
 
 add_executable(test-names ${test-names_SOURCES})
 target_link_libraries(test-names ${DBUS_1})
-#install_targets(/bin test-names)
-ADD_TEST(test-names ${EXECUTABLE_OUTPUT_PATH}/test-names${EXT})
 
 add_executable(shell-test ${shell-test_SOURCES})
 target_link_libraries(shell-test ${DBUS_1})
@@ -95,22 +92,15 @@ ADD_TEST(shell-test ${EXECUTABLE_OUTPUT_PATH}/shell-test${EXT})
 
 add_executable(test-shell-service ${test-shell-service_SOURCES})
 target_link_libraries(test-shell-service ${DBUS_1})
-#install_targets(/bin test-shell-service)
 
 add_executable(spawn-test ${spawn-test_SOURCES})
 target_link_libraries(spawn-test ${DBUS_1})
-# (rh) does not work now
-ADD_TEST(spawn-test ${EXECUTABLE_OUTPUT_PATH}/spawn-test${EXT})
 
 add_executable(test-exit ${test-exit_SOURCES})
 target_link_libraries(test-exit ${DBUS_1})
-#install_targets(/bin test-exit)
-ADD_TEST(test-exit ${EXECUTABLE_OUTPUT_PATH}/test-exit${EXT})
 
 add_executable(test-segfault ${test-segfault_SOURCES})
 target_link_libraries(test-segfault ${DBUS_1})
-#install_targets(/bin test-segfault)
-ADD_TEST(test-segfault ${EXECUTABLE_OUTPUT_PATH}/test-segfault${EXT})
 
 add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
 target_link_libraries(test-sleep-forever ${DBUS_1})
