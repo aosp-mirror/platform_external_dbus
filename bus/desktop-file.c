@@ -330,7 +330,7 @@ new_line (BusDesktopFileParser *parser)
 
   line = &section->lines[section->n_lines++];
 
-  memset (line, 0, sizeof (BusDesktopFileLine));
+  _DBUS_ZERO(*line);
     
   return line;
 }

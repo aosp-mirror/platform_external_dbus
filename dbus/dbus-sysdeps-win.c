@@ -2616,7 +2616,7 @@ static void dump_backtrace_for_thread(HANDLE hThread)
 
     DPRINTF("Backtrace:\n");
 
-    memset(&context, 0, sizeof(context));
+    _DBUS_ZERO(context);
     context.ContextFlags = CONTEXT_FULL;
 
     SuspendThread(hThread);
@@ -2628,7 +2628,7 @@ static void dump_backtrace_for_thread(HANDLE hThread)
         return;
     }
 
-    memset(&sf, 0, sizeof(sf));
+    _DBUS_ZERO(sf);
 
 #ifdef __i386__
     sf.AddrFrame.Offset = context.Ebp;

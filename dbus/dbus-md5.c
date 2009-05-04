@@ -451,7 +451,7 @@ _dbus_md5_final (DBusMD5Context   *context,
   /* some kind of security paranoia, though it seems pointless
    * to me given the nonzeroed stuff flying around
    */
-  memset ((void*)context, '\0', sizeof (DBusMD5Context));
+  _DBUS_ZERO(*context);
 
   return TRUE;
 }

@@ -1382,13 +1382,13 @@ write_credentials_byte (int             server_fd,
   iov.iov_base = buf;
   iov.iov_len = 1;
 
-  memset (&msg, 0, sizeof (msg));
+  _DBUS_ZERO(msg);
   msg.msg_iov = &iov;
   msg.msg_iovlen = 1;
 
   msg.msg_control = &cmsg;
   msg.msg_controllen = sizeof (cmsg);
-  memset (&cmsg, 0, sizeof (cmsg));
+  _DBUS_ZERO(cmsg);
   cmsg.hdr.cmsg_len = sizeof (cmsg);
   cmsg.hdr.cmsg_level = SOL_SOCKET;
   cmsg.hdr.cmsg_type = SCM_CREDS;
@@ -1498,12 +1498,12 @@ _dbus_read_credentials_socket  (int              client_fd,
   iov.iov_base = &buf;
   iov.iov_len = 1;
 
-  memset (&msg, 0, sizeof (msg));
+  _DBUS_ZERO(msg);
   msg.msg_iov = &iov;
   msg.msg_iovlen = 1;
 
 #if defined(HAVE_CMSGCRED) || defined(LOCAL_CREDS)
-  memset (&cmsg, 0, sizeof (cmsg));
+  _DBUS_ZERO(cmsg);
   msg.msg_control = &cmsg;
   msg.msg_controllen = sizeof (cmsg);
 #endif
