@@ -1324,8 +1324,6 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
       return NULL;
     }
 
-  _dbus_fd_set_close_on_exec (fd);
-  
   _dbus_verbose ("Successfully connected to tcp socket %s:%s\n",
                  host, port);
   

@@ -94,9 +94,28 @@ _dbus_open_socket (int              *fd_p,
                    int               protocol,
                    DBusError        *error)
 {
-  *fd_p = socket (domain, type, protocol);
+#ifdef SOCK_CLOEXEC
+  dbus_bool_t cloexec_done;
+
+  *fd_p = socket (domain, type | SOCK_CLOEXEC, protocol);
+  cloexec_done = *fd_p >= 0;
+
+  /* Check if kernel seems to be too old to know SOCK_CLOEXEC */
+  if (*fd_p < 0 && errno == EINVAL)
+#endif
+    {
+      *fd_p = socket (domain, type, protocol);
+    }
+
   if (*fd_p >= 0)
     {
+#ifdef SOCK_CLOEXEC
+      if (!cloexec_done)
+#endif
+        {
+          _dbus_fd_set_close_on_exec(*fd_p);
+        }
+
       _dbus_verbose ("socket fd %d opened\n", *fd_p);
       return TRUE;
     }
@@ -120,6 +139,9 @@ _dbus_open_tcp_socket (int              *fd,
 /**
  * Opens a UNIX domain socket (as in the socket() call).
  * Does not bind the socket.
+ *
+ * This will set FD_CLOEXEC for the socket returned
+ *
  * @param fd return location for socket descriptor
  * @param error return location for an error
  * @returns #FALSE if error is set
@@ -770,6 +792,8 @@ _dbus_write_two (int               fd,
  * requested (it's possible only on Linux; see "man 7 unix" on Linux).
  * On non-Linux abstract socket usage always fails.
  *
+ * This will set FD_CLOEXEC for the socket returned.
+ *
  * @param path the path to UNIX domain socket
  * @param abstract #TRUE to use abstract namespace
  * @param error return location for error code
@@ -905,6 +929,8 @@ _dbus_set_local_creds (int fd, dbus_bool_t on)
  * sockets if requested (it's possible only on Linux;
  * see "man 7 unix" on Linux).
  * On non-Linux abstract socket usage always fails.
+ *
+ * This will set FD_CLOEXEC for the socket returned
  *
  * @param path the socket name
  * @param abstract #TRUE to use abstract namespace
@@ -1042,6 +1068,8 @@ _dbus_listen_unix_socket (const char     *path,
  * and port. The connection fd is returned, and is set up as
  * nonblocking.
  *
+ * This will set FD_CLOEXEC for the socket returned
+ *
  * @param host the host name to connect to
  * @param port the port to connect to
  * @param family the address family to listen on, NULL for all
@@ -1148,6 +1176,8 @@ _dbus_connect_tcp_socket (const char     *host,
  * the socket. The socket is set to be nonblocking.  In case of port=0
  * a random free port is used and returned in the port parameter.
  * If inaddr_any is specified, the hostname is ignored.
+ *
+ * This will set FD_CLOEXEC for the socket returned
  *
  * @param host the host name to listen on
  * @param port the port to listen on, if zero a free port will be used
@@ -1669,6 +1699,8 @@ _dbus_send_credentials_socket  (int              server_fd,
  * Accepts a connection on a listening socket.
  * Handles EINTR for you.
  *
+ * This will enable FD_CLOEXEC for the returned socket.
+ *
  * @param listen_fd the listen file descriptor
  * @returns the connection fd of the client, or -1 on error
  */
@@ -1678,12 +1710,25 @@ _dbus_accept  (int listen_fd)
   int client_fd;
   struct sockaddr addr;
   socklen_t addrlen;
+#ifdef HAVE_ACCEPT4
+  dbus_bool_t cloexec_done;
+#endif
 
   addrlen = sizeof (addr);
-  
+
  retry:
-  client_fd = accept (listen_fd, &addr, &addrlen);
-  
+
+#ifdef HAVE_ACCEPT4
+  /* We assume that if accept4 is available SOCK_CLOEXEC is too */
+  client_fd = accept4 (listen_fd, &addr, &addrlen, SOCK_CLOEXEC);
+  cloexec_done = client_fd >= 0;
+
+  if (client_fd < 0 && errno == ENOSYS)
+#endif
+    {
+      client_fd = accept (listen_fd, &addr, &addrlen);
+    }
+
   if (client_fd < 0)
     {
       if (errno == EINTR)
@@ -1691,7 +1736,14 @@ _dbus_accept  (int listen_fd)
     }
 
   _dbus_verbose ("client fd %d accepted\n", client_fd);
-  
+
+#ifdef HAVE_ACCEPT4
+  if (!cloexec_done)
+#endif
+    {
+      _dbus_fd_set_close_on_exec(client_fd);
+    }
+
   return client_fd;
 }
 

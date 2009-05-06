@@ -195,8 +195,6 @@ socket_handle_watch (DBusWatch    *watch,
         }
       else
         {
-	  _dbus_fd_set_close_on_exec (client_fd);	  
-
           if (!handle_new_client_fd_and_unlock (server, client_fd))
             _dbus_verbose ("Rejected client connection due to lack of memory\n");
         }
@@ -412,9 +410,6 @@ _dbus_server_new_for_tcp_socket (const char     *host,
       _DBUS_ASSERT_ERROR_IS_SET(error);
       goto failed_1;
     }
-
-  for (i = 0 ; i < nlisten_fds ; i++)
-    _dbus_fd_set_close_on_exec (listen_fds[i]);
 
   _dbus_string_init_const (&host_str, host);
   if (!_dbus_string_append (&address, "tcp:host=") ||

@@ -201,8 +201,7 @@ _dbus_server_new_for_domain_socket (const char     *path,
     }
   
   listen_fd = _dbus_listen_unix_socket (path, abstract, error);
-  _dbus_fd_set_close_on_exec (listen_fd);
-  
+
   if (listen_fd < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
