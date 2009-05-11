@@ -157,7 +157,8 @@ do_expiration_with_current_time (BusExpireList *list,
                                             item->added_tv_usec,
                                             tv_sec, tv_usec);
 
-      if (elapsed >= (double) list->expire_after)
+      if (((item->added_tv_sec == 0) && (item->added_tv_usec == 0)) ||
+		      (elapsed >= (double) list->expire_after))
         {
           _dbus_verbose ("Expiring an item %p\n", item);
 
