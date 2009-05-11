@@ -2280,6 +2280,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   DBusDispatchStatus status;
   DBusConnection *connection;
   dbus_uint32_t client_serial;
+  DBusTimeout *timeout;
   int timeout_milliseconds;
 
   _dbus_assert (pending != NULL);
@@ -2300,19 +2301,29 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
    * in _dbus_pending_call_new() so overflows aren't possible
    * below
    */
-  timeout_milliseconds = dbus_timeout_get_interval (_dbus_pending_call_get_timeout_unlocked (pending));
-  
-  _dbus_get_current_time (&start_tv_sec, &start_tv_usec);
-  end_tv_sec = start_tv_sec + timeout_milliseconds / 1000;
-  end_tv_usec = start_tv_usec + (timeout_milliseconds % 1000) * 1000;
-  end_tv_sec += end_tv_usec / _DBUS_USEC_PER_SECOND;
-  end_tv_usec = end_tv_usec % _DBUS_USEC_PER_SECOND;
+  timeout = _dbus_pending_call_get_timeout_unlocked (pending);
+  if (timeout)
+    {
+      timeout_milliseconds = dbus_timeout_get_interval (timeout);
+      
+      _dbus_get_current_time (&start_tv_sec, &start_tv_usec);
+      end_tv_sec = start_tv_sec + timeout_milliseconds / 1000;
+      end_tv_usec = start_tv_usec + (timeout_milliseconds % 1000) * 1000;
+      end_tv_sec += end_tv_usec / _DBUS_USEC_PER_SECOND;
+      end_tv_usec = end_tv_usec % _DBUS_USEC_PER_SECOND;
 
-  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %u from %ld sec %ld usec to %ld sec %ld usec\n",
-                 timeout_milliseconds,
-                 client_serial,
-                 start_tv_sec, start_tv_usec,
-                 end_tv_sec, end_tv_usec);
+      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %u from %ld sec %ld usec to %ld sec %ld usec\n",
+                     timeout_milliseconds,
+                     client_serial,
+                     start_tv_sec, start_tv_usec,
+                     end_tv_sec, end_tv_usec);
+    }
+  else
+    {
+      timeout_milliseconds = -1;
+
+      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block for reply serial %u\n", client_serial);
+    }
 
   /* check to see if we already got the data off the socket */
   /* from another blocked pending call */
@@ -2368,10 +2379,33 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
       dbus_pending_call_unref (pending);
       return;
     }
-  else if (tv_sec < start_tv_sec)
-    _dbus_verbose ("dbus_connection_send_with_reply_and_block(): clock set backward\n");
   else if (connection->disconnect_message_link == NULL)
     _dbus_verbose ("dbus_connection_send_with_reply_and_block(): disconnected\n");
+  else if (timeout == NULL)
+    {
+       if (status == DBUS_DISPATCH_NEED_MEMORY)
+        {
+          /* Try sleeping a bit, as we aren't sure we need to block for reading,
+           * we may already have a reply in the buffer and just can't process
+           * it.
+           */
+          _dbus_verbose ("dbus_connection_send_with_reply_and_block() waiting for more memory\n");
+
+          _dbus_memory_pause_based_on_timeout (timeout_milliseconds);
+        }
+      else
+        {          
+          /* block again, we don't have the reply buffered yet. */
+          _dbus_connection_do_iteration_unlocked (connection,
+                                                  DBUS_ITERATION_DO_READING |
+                                                  DBUS_ITERATION_BLOCK,
+                                                  timeout_milliseconds);
+        }
+
+      goto recheck_status;
+    }
+  else if (tv_sec < start_tv_sec)
+    _dbus_verbose ("dbus_connection_send_with_reply_and_block(): clock set backward\n");
   else if (tv_sec < end_tv_sec ||
            (tv_sec == end_tv_sec && tv_usec < end_tv_usec))
     {
