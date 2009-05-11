@@ -223,6 +223,62 @@ handle_echo (DBusConnection     *connection,
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static DBusHandlerResult
+handle_delay_echo (DBusConnection     *connection,
+                   DBusMessage        *message)
+{
+  DBusError error;
+  DBusMessage *reply;
+  char *s;
+
+  _dbus_verbose ("sleeping for a short time\n");
+
+  usleep (50000);
+
+  _dbus_verbose ("sending reply to DelayEcho method\n");
+  
+  dbus_error_init (&error);
+  
+  if (!dbus_message_get_args (message,
+                              &error,
+                              DBUS_TYPE_STRING, &s,
+                              DBUS_TYPE_INVALID))
+    {
+      reply = dbus_message_new_error (message,
+                                      error.name,
+                                      error.message);
+
+      if (reply == NULL)
+        die ("No memory\n");
+
+      if (!dbus_connection_send (connection, reply, NULL))
+        die ("No memory\n");
+
+      dbus_message_unref (reply);
+
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    die ("No memory\n");
+  
+  if (!dbus_message_append_args (reply,
+                                 DBUS_TYPE_STRING, &s,
+                                 DBUS_TYPE_INVALID))
+    die ("No memory");
+  
+  if (!dbus_connection_send (connection, reply, NULL))
+    die ("No memory\n");
+
+  fprintf (stderr, "DelayEcho service echoed string: \"%s\"\n", s);
+  
+  dbus_message_unref (reply);
+    
+  return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+
 static void
 path_unregistered_func (DBusConnection  *connection,
                         void            *user_data)
@@ -239,6 +295,10 @@ path_message_func (DBusConnection  *connection,
                                    "org.freedesktop.TestSuite",
                                    "Echo"))
     return handle_echo (connection, message);
+  else if (dbus_message_is_method_call (message,
+                                        "org.freedesktop.TestSuite",
+                                        "DelayEcho"))
+    return handle_delay_echo (connection, message);
   else if (dbus_message_is_method_call (message,
                                         "org.freedesktop.TestSuite",
                                         "Exit"))
