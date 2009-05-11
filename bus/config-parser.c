@@ -437,7 +437,7 @@ bus_config_parser_new (const DBusString      *basedir,
        */
       parser->limits.max_match_rules_per_connection = 512;
       
-      parser->limits.reply_timeout = 5 * 60 * 1000; /* 5 minutes */
+      parser->limits.reply_timeout = -1; /* never */
 
       /* this is effectively a limit on message queue size for messages
        * that require a reply
