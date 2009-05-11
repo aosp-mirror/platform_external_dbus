@@ -158,7 +158,7 @@ do_expiration_with_current_time (BusExpireList *list,
                                             tv_sec, tv_usec);
 
       if (((item->added_tv_sec == 0) && (item->added_tv_usec == 0)) ||
-		      (elapsed >= (double) list->expire_after))
+          ((list->expire_after > 0) && (elapsed >= (double) list->expire_after)))
         {
           _dbus_verbose ("Expiring an item %p\n", item);
 
@@ -174,7 +174,7 @@ do_expiration_with_current_time (BusExpireList *list,
               break;
             }
         }
-      else
+      else if (list->expire_after > 0)
         {
           double to_wait;
 
