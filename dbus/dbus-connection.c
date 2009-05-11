@@ -2275,13 +2275,12 @@ void
 _dbus_connection_block_pending_call (DBusPendingCall *pending)
 {
   long start_tv_sec, start_tv_usec;
-  long end_tv_sec, end_tv_usec;
   long tv_sec, tv_usec;
   DBusDispatchStatus status;
   DBusConnection *connection;
   dbus_uint32_t client_serial;
   DBusTimeout *timeout;
-  int timeout_milliseconds;
+  int timeout_milliseconds, elapsed_milliseconds;
 
   _dbus_assert (pending != NULL);
 
@@ -2305,18 +2304,12 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   if (timeout)
     {
       timeout_milliseconds = dbus_timeout_get_interval (timeout);
-      
       _dbus_get_current_time (&start_tv_sec, &start_tv_usec);
-      end_tv_sec = start_tv_sec + timeout_milliseconds / 1000;
-      end_tv_usec = start_tv_usec + (timeout_milliseconds % 1000) * 1000;
-      end_tv_sec += end_tv_usec / _DBUS_USEC_PER_SECOND;
-      end_tv_usec = end_tv_usec % _DBUS_USEC_PER_SECOND;
 
-      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %u from %ld sec %ld usec to %ld sec %ld usec\n",
+      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %u from %ld sec %ld usec\n",
                      timeout_milliseconds,
                      client_serial,
-                     start_tv_sec, start_tv_usec,
-                     end_tv_sec, end_tv_usec);
+                     start_tv_sec, start_tv_usec);
     }
   else
     {
@@ -2365,6 +2358,8 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
     }
   
   _dbus_get_current_time (&tv_sec, &tv_usec);
+  elapsed_milliseconds = (tv_sec - start_tv_sec) * 1000 +
+	  (tv_usec - start_tv_usec) / 1000;
   
   if (!_dbus_connection_get_is_connected_unlocked (connection))
     {
@@ -2406,11 +2401,9 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
     }
   else if (tv_sec < start_tv_sec)
     _dbus_verbose ("dbus_connection_send_with_reply_and_block(): clock set backward\n");
-  else if (tv_sec < end_tv_sec ||
-           (tv_sec == end_tv_sec && tv_usec < end_tv_usec))
+  else if (elapsed_milliseconds < timeout_milliseconds)
     {
-      timeout_milliseconds = (end_tv_sec - tv_sec) * 1000 +
-        (end_tv_usec - tv_usec) / 1000;
+      timeout_milliseconds -= elapsed_milliseconds;
       _dbus_verbose ("dbus_connection_send_with_reply_and_block(): %d milliseconds remain\n", timeout_milliseconds);
       _dbus_assert (timeout_milliseconds >= 0);
       
