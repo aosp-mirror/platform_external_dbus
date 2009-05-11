@@ -56,6 +56,5 @@
   <limit name="max_names_per_connection">50000</limit>
   <limit name="max_match_rules_per_connection">50000</limit>
   <limit name="max_replies_per_connection">50000</limit>
-  <limit name="reply_timeout">300000</limit>
 
 </busconfig>
