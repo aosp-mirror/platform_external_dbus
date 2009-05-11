@@ -100,13 +100,6 @@ _dbus_pending_call_new_unlocked (DBusConnection    *connection,
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
 
-  /* clamp the timeout otherwise math in
-   * _dbus_connection_block_for_reply would get all overflow-prone
-   */
-  if ((timeout_milliseconds > _DBUS_ONE_HOUR_IN_MILLISECONDS * 6) &&
-      (timeout_milliseconds < _DBUS_INT_MAX))
-    timeout_milliseconds = _DBUS_ONE_HOUR_IN_MILLISECONDS * 6;
-  
   if (!dbus_pending_call_allocate_data_slot (&notify_user_data_slot))
     return NULL;
   
