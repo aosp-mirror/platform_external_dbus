@@ -883,21 +883,34 @@ _dbus_connection_attach_pending_call_unlocked (DBusConnection  *connection,
 
   timeout = _dbus_pending_call_get_timeout_unlocked (pending);
 
-  if (!_dbus_connection_add_timeout_unlocked (connection, timeout))
-    return FALSE;
-  
-  if (!_dbus_hash_table_insert_int (connection->pending_replies,
-                                    reply_serial,
-                                    pending))
+  if (timeout)
     {
-      _dbus_connection_remove_timeout_unlocked (connection, timeout);
+      if (!_dbus_connection_add_timeout_unlocked (connection, timeout))
+        return FALSE;
+      
+      if (!_dbus_hash_table_insert_int (connection->pending_replies,
+                                        reply_serial,
+                                        pending))
+        {
+          _dbus_connection_remove_timeout_unlocked (connection, timeout);
 
-      _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
-      HAVE_LOCK_CHECK (connection);
-      return FALSE;
+          _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
+          HAVE_LOCK_CHECK (connection);
+          return FALSE;
+        }
+      
+      _dbus_pending_call_set_timeout_added_unlocked (pending, TRUE);
     }
-  
-  _dbus_pending_call_set_timeout_added_unlocked (pending, TRUE);
+  else
+    {
+      if (!_dbus_hash_table_insert_int (connection->pending_replies,
+                                        reply_serial,
+                                        pending))
+        {
+          HAVE_LOCK_CHECK (connection);
+          return FALSE;
+        }
+    }
 
   _dbus_pending_call_ref_unlocked (pending);
 
@@ -2188,8 +2201,10 @@ connection_timeout_and_complete_all_pending_calls_unlocked (DBusConnection *conn
        
       _dbus_pending_call_queue_timeout_error_unlocked (pending, 
                                                        connection);
-      _dbus_connection_remove_timeout_unlocked (connection,
-                                                _dbus_pending_call_get_timeout_unlocked (pending));
+
+      if (_dbus_pending_call_is_timeout_added_unlocked (pending))
+          _dbus_connection_remove_timeout_unlocked (connection,
+                                                    _dbus_pending_call_get_timeout_unlocked (pending));
       _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);       
       _dbus_hash_iter_remove_entry (&iter);
 
