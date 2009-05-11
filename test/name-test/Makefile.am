@@ -16,7 +16,7 @@ if DBUS_BUILD_TESTS
 
 ## we use noinst_PROGRAMS not check_PROGRAMS for TESTS so that we
 ## build even when not doing "make check"
-noinst_PROGRAMS=test-names test-pending-call-dispatch test-threads-init test-ids test-shutdown test-privserver test-privserver-client
+noinst_PROGRAMS=test-names test-pending-call-dispatch test-pending-call-timeout test-threads-init test-ids test-shutdown test-privserver test-privserver-client
 
 test_names_SOURCES=				\
 	test-names.c
@@ -29,6 +29,12 @@ test_pending_call_dispatch_SOURCES =		\
 
 test_pending_call_dispatch_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_TEST_LIBS)
 test_pending_call_dispatch_LDFLAGS=@R_DYNAMIC_LDFLAG@
+
+test_pending_call_timeout_SOURCES =		\
+	test-pending-call-timeout.c
+
+test_pending_call_timeout_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_TEST_LIBS)
+test_pending_call_timeout_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 test_threads_init_SOURCES =            \
 	test-threads-init.c
