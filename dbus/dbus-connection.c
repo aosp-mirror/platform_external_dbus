@@ -3201,10 +3201,8 @@ reply_handler_timeout (void *data)
  *
  * If -1 is passed for the timeout, a sane default timeout is used. -1
  * is typically the best value for the timeout for this reason, unless
- * you want a very short or very long timeout.  There is no way to
- * avoid a timeout entirely, other than passing INT_MAX for the
- * timeout to mean "very long timeout." libdbus clamps an INT_MAX
- * timeout down to a few hours timeout though.
+ * you want a very short or very long timeout.  If INT_MAX is passed for
+ * the timeout, no timeout will be set and the call will block forever.
  *
  * @warning if the connection is disconnected, the #DBusPendingCall
  * will be set to #NULL, so be careful with this.
@@ -3212,7 +3210,7 @@ reply_handler_timeout (void *data)
  * @param connection the connection
  * @param message the message to send
  * @param pending_return return location for a #DBusPendingCall object, or #NULL if connection is disconnected
- * @param timeout_milliseconds timeout in milliseconds or -1 for default
+ * @param timeout_milliseconds timeout in milliseconds, -1 for default or INT_MAX for no timeout
  * @returns #FALSE if no memory, #TRUE otherwise.
  *
  */
@@ -3330,7 +3328,7 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
  *
  * @param connection the connection
  * @param message the message to send
- * @param timeout_milliseconds timeout in milliseconds or -1 for default
+ * @param timeout_milliseconds timeout in milliseconds, -1 for default or INT_MAX for no timeout.
  * @param error return location for error message
  * @returns the message that is the reply or #NULL with an error code if the
  * function fails.
