@@ -284,7 +284,10 @@ if test "x$GCC" = "xyes"; then
   esac
   case " $CFLAGS " in
   *[\ \	]-Wno-pointer-sign[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wno-pointer-sign" ;;
+  *) if cc_supports_flag -Wno-pointer-sign; then
+        CFLAGS="$CFLAGS -Wno-pointer-sign"
+     fi
+     ;;
   esac  
   
   # http://bugs.freedesktop.org/show_bug.cgi?id=19195
@@ -811,8 +814,9 @@ AC_CHECK_FUNCS(getpeerucred getpeereid)
 
 #### Abstract sockets
 
-if ! test x$enable_abstract_sockets = xno; then
+if test x$enable_abstract_sockets = xauto; then
 AC_LANG_PUSH(C)
+warn_on_xcompile=no
 AC_CACHE_CHECK([abstract socket namespace],
 		ac_cv_have_abstract_sockets,
 		[AC_RUN_IFELSE([AC_LANG_PROGRAM(
@@ -852,8 +856,15 @@ AC_CACHE_CHECK([abstract socket namespace],
     exit (0);
 ]])],
               [ac_cv_have_abstract_sockets=yes],
-              [ac_cv_have_abstract_sockets=no]
+              [ac_cv_have_abstract_sockets=no],
+              [
+                ac_cv_have_abstract_sockets=no
+                warn_on_xcompile=yes
+              ]
 )])
+if test x$warn_on_xcompile = xyes ; then
+  AC_MSG_WARN([Cannot check for abstract sockets when cross-compiling, please use --enable-abstract-sockets])
+fi
 AC_LANG_POP(C)
 fi
 
