@@ -54,12 +54,21 @@ void               _dbus_transport_do_iteration           (DBusTransport        
                                                            int                         timeout_milliseconds);
 DBusDispatchStatus _dbus_transport_get_dispatch_status    (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_queue_messages         (DBusTransport              *transport);
+
 void               _dbus_transport_set_max_message_size   (DBusTransport              *transport,
                                                            long                        size);
 long               _dbus_transport_get_max_message_size   (DBusTransport              *transport);
 void               _dbus_transport_set_max_received_size  (DBusTransport              *transport,
                                                            long                        size);
 long               _dbus_transport_get_max_received_size  (DBusTransport              *transport);
+
+void               _dbus_transport_set_max_message_unix_fds (DBusTransport              *transport,
+                                                             long                        n);
+long               _dbus_transport_get_max_message_unix_fds (DBusTransport              *transport);
+void               _dbus_transport_set_max_received_unix_fds(DBusTransport              *transport,
+                                                             long                        n);
+long               _dbus_transport_get_max_received_unix_fds(DBusTransport              *transport);
+
 dbus_bool_t        _dbus_transport_get_socket_fd          (DBusTransport              *transport,
                                                            int                        *fd_p);
 dbus_bool_t        _dbus_transport_get_unix_user          (DBusTransport              *transport,

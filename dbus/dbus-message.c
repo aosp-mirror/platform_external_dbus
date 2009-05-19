@@ -209,20 +209,19 @@ dbus_message_set_serial (DBusMessage   *message,
 }
 
 /**
- * Adds a counter to be incremented immediately with the
- * size of this message, and decremented by the size
- * of this message when this message if finalized.
- * The link contains a counter with its refcount already
- * incremented, but the counter itself not incremented.
- * Ownership of link and counter refcount is passed to
- * the message.
+ * Adds a counter to be incremented immediately with the size/unix fds
+ * of this message, and decremented by the size/unix fds of this
+ * message when this message if finalized.  The link contains a
+ * counter with its refcount already incremented, but the counter
+ * itself not incremented.  Ownership of link and counter refcount is
+ * passed to the message.
  *
  * @param message the message
  * @param link link with counter as data
  */
 void
-_dbus_message_add_size_counter_link (DBusMessage  *message,
-                                     DBusList     *link)
+_dbus_message_add_counter_link (DBusMessage  *message,
+                                DBusList     *link)
 {
   /* right now we don't recompute the delta when message
    * size changes, and that's OK for current purposes
@@ -230,11 +229,15 @@ _dbus_message_add_size_counter_link (DBusMessage  *message,
    * Do recompute it whenever there are no outstanding counters,
    * since it's basically free.
    */
-  if (message->size_counters == NULL)
+  if (message->counters == NULL)
     {
       message->size_counter_delta =
         _dbus_string_get_length (&message->header.data) +
         _dbus_string_get_length (&message->body);
+
+#ifdef HAVE_UNIX_FD_PASSING
+      message->unix_fd_counter_delta = message->n_unix_fds;
+#endif
 
 #if 0
       _dbus_verbose ("message has size %ld\n",
@@ -242,23 +245,27 @@ _dbus_message_add_size_counter_link (DBusMessage  *message,
 #endif
     }
 
-  _dbus_list_append_link (&message->size_counters, link);
+  _dbus_list_append_link (&message->counters, link);
 
-  _dbus_counter_adjust (link->data, message->size_counter_delta);
+  _dbus_counter_adjust_size (link->data, message->size_counter_delta);
+
+#ifdef HAVE_UNIX_FD_PASSING
+  _dbus_counter_adjust_unix_fd (link->data, message->unix_fd_counter_delta);
+#endif
 }
 
 /**
- * Adds a counter to be incremented immediately with the
- * size of this message, and decremented by the size
- * of this message when this message if finalized.
+ * Adds a counter to be incremented immediately with the size/unix fds
+ * of this message, and decremented by the size/unix fds of this
+ * message when this message if finalized.
  *
  * @param message the message
  * @param counter the counter
  * @returns #FALSE if no memory
  */
 dbus_bool_t
-_dbus_message_add_size_counter (DBusMessage *message,
-                                DBusCounter *counter)
+_dbus_message_add_counter (DBusMessage *message,
+                           DBusCounter *counter)
 {
   DBusList *link;
 
@@ -267,38 +274,42 @@ _dbus_message_add_size_counter (DBusMessage *message,
     return FALSE;
 
   _dbus_counter_ref (counter);
-  _dbus_message_add_size_counter_link (message, link);
+  _dbus_message_add_counter_link (message, link);
 
   return TRUE;
 }
 
 /**
- * Removes a counter tracking the size of this message, and decrements
- * the counter by the size of this message.
+ * Removes a counter tracking the size/unix fds of this message, and
+ * decrements the counter by the size/unix fds of this message.
  *
  * @param message the message
  * @param link_return return the link used
  * @param counter the counter
  */
 void
-_dbus_message_remove_size_counter (DBusMessage  *message,
-                                   DBusCounter  *counter,
-                                   DBusList    **link_return)
+_dbus_message_remove_counter (DBusMessage  *message,
+                              DBusCounter  *counter,
+                              DBusList    **link_return)
 {
   DBusList *link;
 
-  link = _dbus_list_find_last (&message->size_counters,
+  link = _dbus_list_find_last (&message->counters,
                                counter);
   _dbus_assert (link != NULL);
 
-  _dbus_list_unlink (&message->size_counters,
+  _dbus_list_unlink (&message->counters,
                      link);
   if (link_return)
     *link_return = link;
   else
     _dbus_list_free_link (link);
 
-  _dbus_counter_adjust (counter, - message->size_counter_delta);
+  _dbus_counter_adjust_size (counter, - message->size_counter_delta);
+
+#ifdef HAVE_UNIX_FD_PASSING
+  _dbus_counter_adjust_unix_fd (counter, - message->unix_fd_counter_delta);
+#endif
 
   _dbus_counter_unref (counter);
 }
@@ -515,7 +526,7 @@ dbus_message_get_cached (void)
   _dbus_assert (message != NULL);
 
   _dbus_assert (message->refcount.value == 0);
-  _dbus_assert (message->size_counters == NULL);
+  _dbus_assert (message->counters == NULL);
   
   _DBUS_UNLOCK (message_cache);
 
@@ -550,13 +561,16 @@ close_unix_fds(int *fds, unsigned *n_fds)
 #endif
 
 static void
-free_size_counter (void *element,
-                   void *data)
+free_counter (void *element,
+              void *data)
 {
   DBusCounter *counter = element;
   DBusMessage *message = data;
 
-  _dbus_counter_adjust (counter, - message->size_counter_delta);
+  _dbus_counter_adjust_size (counter, - message->size_counter_delta);
+#ifdef HAVE_UNIX_FD_PASSING
+  _dbus_counter_adjust_unix_fd (counter, - message->unix_fd_counter_delta);
+#endif
 
   _dbus_counter_unref (counter);
 }
@@ -579,9 +593,9 @@ dbus_message_cache_or_finalize (DBusMessage *message)
    */
   _dbus_data_slot_list_clear (&message->slot_list);
 
-  _dbus_list_foreach (&message->size_counters,
-                      free_size_counter, message);
-  _dbus_list_clear (&message->size_counters);
+  _dbus_list_foreach (&message->counters,
+                      free_counter, message);
+  _dbus_list_clear (&message->counters);
 
 #ifdef HAVE_UNIX_FD_PASSING
   close_unix_fds(message->unix_fds, &message->n_unix_fds);
@@ -1033,9 +1047,9 @@ dbus_message_finalize (DBusMessage *message)
   /* This calls application callbacks! */
   _dbus_data_slot_list_free (&message->slot_list);
 
-  _dbus_list_foreach (&message->size_counters,
-                      free_size_counter, message);
-  _dbus_list_clear (&message->size_counters);
+  _dbus_list_foreach (&message->counters,
+                      free_counter, message);
+  _dbus_list_clear (&message->counters);
 
   _dbus_header_free (&message->header);
   _dbus_string_free (&message->body);
@@ -1084,12 +1098,13 @@ dbus_message_new_empty_header (void)
 #ifndef DBUS_DISABLE_CHECKS
   message->in_cache = FALSE;
 #endif
-  message->size_counters = NULL;
+  message->counters = NULL;
   message->size_counter_delta = 0;
   message->changed_stamp = 0;
 
 #ifdef HAVE_UNIX_FD_PASSING
   message->n_unix_fds = 0;
+  message->unix_fd_counter_delta = 0;
 #endif
 
   if (!from_cache)

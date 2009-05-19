@@ -191,7 +191,8 @@ check_read_watch (DBusTransport *transport)
 
   if (_dbus_transport_get_is_authenticated (transport))
     need_read_watch =
-      _dbus_counter_get_value (transport->live_messages_size) < transport->max_live_messages_size;
+      (_dbus_counter_get_size_value (transport->live_messages) < transport->max_live_messages_size) &&
+      (_dbus_counter_get_unix_fd_value (transport->live_messages) < transport->max_live_messages_unix_fds);
   else
     {
       if (transport->receive_credentials_pending)

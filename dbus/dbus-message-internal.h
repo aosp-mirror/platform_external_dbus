@@ -40,11 +40,11 @@ void _dbus_message_get_unix_fds      (DBusMessage *messgage,
 
 void        _dbus_message_lock                  (DBusMessage  *message);
 void        _dbus_message_unlock                (DBusMessage  *message);
-dbus_bool_t _dbus_message_add_size_counter      (DBusMessage  *message,
+dbus_bool_t _dbus_message_add_counter           (DBusMessage  *message,
                                                  DBusCounter  *counter);
-void        _dbus_message_add_size_counter_link (DBusMessage  *message,
+void        _dbus_message_add_counter_link      (DBusMessage  *message,
                                                  DBusList     *link);
-void        _dbus_message_remove_size_counter   (DBusMessage  *message,
+void        _dbus_message_remove_counter        (DBusMessage  *message,
                                                  DBusCounter  *counter,
                                                  DBusList    **link_return);
 

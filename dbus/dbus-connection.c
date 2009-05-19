@@ -627,8 +627,8 @@ _dbus_connection_message_sent (DBusConnection *connection,
                  connection, connection->n_outgoing);
 
   /* Save this link in the link cache also */
-  _dbus_message_remove_size_counter (message, connection->outgoing_counter,
-                                     &link);
+  _dbus_message_remove_counter (message, connection->outgoing_counter,
+                                &link);
   _dbus_list_prepend_link (&connection->link_cache, link);
   
   dbus_message_unref (message);
@@ -1922,8 +1922,8 @@ _dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *con
   _dbus_list_prepend_link (&connection->outgoing_messages,
                            preallocated->queue_link);
 
-  _dbus_message_add_size_counter_link (message,
-                                       preallocated->counter_link);
+  _dbus_message_add_counter_link (message,
+                                  preallocated->counter_link);
 
   dbus_free (preallocated);
   preallocated = NULL;
@@ -2539,9 +2539,9 @@ free_outgoing_message (void *element,
   DBusMessage *message = element;
   DBusConnection *connection = data;
 
-  _dbus_message_remove_size_counter (message,
-                                     connection->outgoing_counter,
-                                     NULL);
+  _dbus_message_remove_counter (message,
+                                connection->outgoing_counter,
+                                NULL);
   dbus_message_unref (message);
 }
 
@@ -5932,6 +5932,45 @@ dbus_connection_get_max_message_size (DBusConnection *connection)
 }
 
 /**
+ * Specifies the maximum number of unix fds a message on this
+ * connection is allowed to receive. Messages with more unix fds will
+ * result in disconnecting the connection.
+ *
+ * @param connection a #DBusConnection
+ * @param size maximum message unix fds the connection can receive
+ */
+void
+dbus_connection_set_max_message_unix_fds (DBusConnection *connection,
+                                          long            n)
+{
+  _dbus_return_if_fail (connection != NULL);
+
+  CONNECTION_LOCK (connection);
+  _dbus_transport_set_max_message_unix_fds (connection->transport,
+                                            n);
+  CONNECTION_UNLOCK (connection);
+}
+
+/**
+ * Gets the value set by dbus_connection_set_max_message_unix_fds().
+ *
+ * @param connection the connection
+ * @returns the max numer of unix fds of a single message
+ */
+long
+dbus_connection_get_max_message_unix_fds (DBusConnection *connection)
+{
+  long res;
+
+  _dbus_return_val_if_fail (connection != NULL, 0);
+
+  CONNECTION_LOCK (connection);
+  res = _dbus_transport_get_max_message_unix_fds (connection->transport);
+  CONNECTION_UNLOCK (connection);
+  return res;
+}
+
+/**
  * Sets the maximum total number of bytes that can be used for all messages
  * received on this connection. Messages count toward the maximum until
  * they are finalized. When the maximum is reached, the connection will
@@ -5988,6 +6027,48 @@ dbus_connection_get_max_received_size (DBusConnection *connection)
 }
 
 /**
+ * Sets the maximum total number of unix fds that can be used for all messages
+ * received on this connection. Messages count toward the maximum until
+ * they are finalized. When the maximum is reached, the connection will
+ * not read more data until some messages are finalized.
+ *
+ * The semantics are analogous to those of dbus_connection_set_max_received_size().
+ *
+ * @param connection the connection
+ * @param size the maximum size in bytes of all outstanding messages
+ */
+void
+dbus_connection_set_max_received_unix_fds (DBusConnection *connection,
+                                           long            n)
+{
+  _dbus_return_if_fail (connection != NULL);
+
+  CONNECTION_LOCK (connection);
+  _dbus_transport_set_max_received_unix_fds (connection->transport,
+                                             n);
+  CONNECTION_UNLOCK (connection);
+}
+
+/**
+ * Gets the value set by dbus_connection_set_max_received_unix_fds().
+ *
+ * @param connection the connection
+ * @returns the max unix fds of all live messages
+ */
+long
+dbus_connection_get_max_received_unix_fds (DBusConnection *connection)
+{
+  long res;
+
+  _dbus_return_val_if_fail (connection != NULL, 0);
+
+  CONNECTION_LOCK (connection);
+  res = _dbus_transport_get_max_received_unix_fds (connection->transport);
+  CONNECTION_UNLOCK (connection);
+  return res;
+}
+
+/**
  * Gets the approximate size in bytes of all messages in the outgoing
  * message queue. The size is approximate in that you shouldn't use
  * it to decide how many bytes to read off the network or anything
@@ -6003,9 +6084,29 @@ dbus_connection_get_outgoing_size (DBusConnection *connection)
   long res;
 
   _dbus_return_val_if_fail (connection != NULL, 0);
-  
+
   CONNECTION_LOCK (connection);
-  res = _dbus_counter_get_value (connection->outgoing_counter);
+  res = _dbus_counter_get_size_value (connection->outgoing_counter);
+  CONNECTION_UNLOCK (connection);
+  return res;
+}
+
+/**
+ * Gets the approximate number of uni fds of all messages in the
+ * outgoing message queue.
+ *
+ * @param connection the connection
+ * @returns the number of unix fds that have been queued up but not sent
+ */
+long
+dbus_connection_get_outgoing_unix_fds (DBusConnection *connection)
+{
+  long res;
+
+  _dbus_return_val_if_fail (connection != NULL, 0);
+
+  CONNECTION_LOCK (connection);
+  res = _dbus_counter_get_unix_fd_value (connection->outgoing_counter);
   CONNECTION_UNLOCK (connection);
   return res;
 }

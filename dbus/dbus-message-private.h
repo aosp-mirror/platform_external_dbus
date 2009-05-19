@@ -112,7 +112,7 @@ struct DBusMessage
   unsigned int in_cache : 1; /**< Has been "freed" since it's in the cache (this is a debug feature) */
 #endif
 
-  DBusList *size_counters;   /**< 0-N DBusCounter used to track message size. */
+  DBusList *counters;   /**< 0-N DBusCounter used to track message size/unix fds. */
   long size_counter_delta;   /**< Size we incremented the size counters by.   */
 
   dbus_uint32_t changed_stamp : CHANGED_STAMP_BITS; /**< Incremented when iterators are invalidated. */
@@ -130,6 +130,8 @@ struct DBusMessage
      them when adding or removing them here. */
   unsigned n_unix_fds; /**< Number of valid fds in the array */
   unsigned n_unix_fds_allocated; /**< Allocated size of the array */
+
+  long unix_fd_counter_delta; /**< Size we incremented the unix fd counter by */
 #endif
 };
 

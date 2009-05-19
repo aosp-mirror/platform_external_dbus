@@ -57,7 +57,7 @@
  */
 
 static void
-live_messages_size_notify (DBusCounter *counter,
+live_messages_notify (DBusCounter *counter,
                            void        *user_data)
 {
   DBusTransport *transport = user_data;
@@ -65,8 +65,10 @@ live_messages_size_notify (DBusCounter *counter,
   _dbus_transport_ref (transport);
 
 #if 0
-  _dbus_verbose ("Counter value is now %d\n",
-                 (int) _dbus_counter_get_value (counter));
+  _dbus_verbose ("Size counter value is now %d\n",
+                 (int) _dbus_counter_get_size_value (counter));
+  _dbus_verbose ("Unix FD counter value is now %d\n",
+                 (int) _dbus_counter_get_unix_fd_value (counter));
 #endif
   
   /* disable or re-enable the read watch for the transport if
@@ -157,7 +159,7 @@ _dbus_transport_init_base (DBusTransport             *transport,
   transport->vtable = vtable;
   transport->loader = loader;
   transport->auth = auth;
-  transport->live_messages_size = counter;
+  transport->live_messages = counter;
   transport->authenticated = FALSE;
   transport->disconnected = FALSE;
   transport->is_server = (server_guid != NULL);
@@ -180,17 +182,17 @@ _dbus_transport_init_base (DBusTransport             *transport,
    */
   transport->max_live_messages_size = _DBUS_ONE_MEGABYTE * 63;
 
+  /* On Linux RLIMIT_NOFILE defaults to 1024, so allowing 4096 fds live
+     should be more than enough */
+  transport->max_live_messages_unix_fds = 4096;
+
   /* credentials read from socket if any */
   transport->credentials = creds;
 
-#ifdef HAVE_UNIX_FD_PASSING
-  transport->unix_fds = NULL;
-  transport->n_unix_fds = 0;
-#endif
-
-  _dbus_counter_set_notify (transport->live_messages_size,
+  _dbus_counter_set_notify (transport->live_messages,
                             transport->max_live_messages_size,
-                            live_messages_size_notify,
+                            transport->max_live_messages_unix_fds,
+                            live_messages_notify,
                             transport);
 
   if (transport->address)
@@ -219,9 +221,9 @@ _dbus_transport_finalize_base (DBusTransport *transport)
   
   _dbus_message_loader_unref (transport->loader);
   _dbus_auth_unref (transport->auth);
-  _dbus_counter_set_notify (transport->live_messages_size,
-                            0, NULL, NULL);
-  _dbus_counter_unref (transport->live_messages_size);
+  _dbus_counter_set_notify (transport->live_messages,
+                            0, 0, NULL, NULL);
+  _dbus_counter_unref (transport->live_messages);
   dbus_free (transport->address);
   dbus_free (transport->expected_guid);
   if (transport->credentials)
@@ -1078,7 +1080,8 @@ recover_unused_bytes (DBusTransport *transport)
 DBusDispatchStatus
 _dbus_transport_get_dispatch_status (DBusTransport *transport)
 {
-  if (_dbus_counter_get_value (transport->live_messages_size) >= transport->max_live_messages_size)
+  if (_dbus_counter_get_size_value (transport->live_messages) >= transport->max_live_messages_size ||
+      _dbus_counter_get_unix_fd_value (transport->live_messages) >= transport->max_live_messages_unix_fds)
     return DBUS_DISPATCH_COMPLETE; /* complete for now */
 
   if (!_dbus_transport_get_is_authenticated (transport))
@@ -1135,7 +1138,7 @@ _dbus_transport_queue_messages (DBusTransport *transport)
       
       _dbus_verbose ("queueing received message %p\n", message);
 
-      if (!_dbus_message_add_size_counter (message, transport->live_messages_size))
+      if (!_dbus_message_add_counter (message, transport->live_messages))
         {
           _dbus_message_loader_putback_message_link (transport->loader,
                                                      link);
@@ -1173,6 +1176,19 @@ _dbus_transport_set_max_message_size (DBusTransport  *transport,
 }
 
 /**
+ * See dbus_connection_set_max_message_unix_fds().
+ *
+ * @param transport the transport
+ * @param n the max number of unix fds of a single message
+ */
+void
+_dbus_transport_set_max_message_unix_fds (DBusTransport  *transport,
+                                          long            n)
+{
+  _dbus_message_loader_set_max_message_unix_fds (transport->loader, n);
+}
+
+/**
  * See dbus_connection_get_max_message_size().
  *
  * @param transport the transport
@@ -1182,6 +1198,18 @@ long
 _dbus_transport_get_max_message_size (DBusTransport  *transport)
 {
   return _dbus_message_loader_get_max_message_size (transport->loader);
+}
+
+/**
+ * See dbus_connection_get_max_message_unix_fds().
+ *
+ * @param transport the transport
+ * @returns max message unix fds
+ */
+long
+_dbus_transport_get_max_message_unix_fds (DBusTransport  *transport)
+{
+  return _dbus_message_loader_get_max_message_unix_fds (transport->loader);
 }
 
 /**
@@ -1195,12 +1223,30 @@ _dbus_transport_set_max_received_size (DBusTransport  *transport,
                                        long            size)
 {
   transport->max_live_messages_size = size;
-  _dbus_counter_set_notify (transport->live_messages_size,
+  _dbus_counter_set_notify (transport->live_messages,
                             transport->max_live_messages_size,
-                            live_messages_size_notify,
+                            transport->max_live_messages_unix_fds,
+                            live_messages_notify,
                             transport);
 }
 
+/**
+ * See dbus_connection_set_max_received_unix_fds().
+ *
+ * @param transport the transport
+ * @param n the max unix fds of all incoming messages
+ */
+void
+_dbus_transport_set_max_received_unix_fds (DBusTransport  *transport,
+                                           long            n)
+{
+  transport->max_live_messages_unix_fds = n;
+  _dbus_counter_set_notify (transport->live_messages,
+                            transport->max_live_messages_size,
+                            transport->max_live_messages_unix_fds,
+                            live_messages_notify,
+                            transport);
+}
 
 /**
  * See dbus_connection_get_max_received_size().
@@ -1212,6 +1258,18 @@ long
 _dbus_transport_get_max_received_size (DBusTransport  *transport)
 {
   return transport->max_live_messages_size;
+}
+
+/**
+ * See dbus_connection_set_max_received_unix_fds().
+ *
+ * @param transport the transport
+ * @returns max unix fds for all live messages
+ */
+long
+_dbus_transport_get_max_received_unix_fds (DBusTransport  *transport)
+{
+  return transport->max_live_messages_unix_fds;
 }
 
 /**

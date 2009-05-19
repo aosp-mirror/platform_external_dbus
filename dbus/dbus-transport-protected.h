@@ -73,10 +73,6 @@ struct DBusTransportVTable
   /**< Get socket file descriptor */
 };
 
-/** How many unix file descriptors may be queued up before they are
-   handed off to messages */
-#define DBUS_MAX_QUEUED_FDS 1024
-
 /**
  * Object representing a transport such as a socket.
  * A transport can shuttle messages from point A to point B,
@@ -98,9 +94,9 @@ struct DBusTransport
   DBusCredentials *credentials;               /**< Credentials of other end read from the socket */  
 
   long max_live_messages_size;                /**< Max total size of received messages. */
+  long max_live_messages_unix_fds;            /**< Max total unix fds of received messages. */
 
-  DBusCounter *live_messages_size;            /**< Counter for size of all live messages. */
-
+  DBusCounter *live_messages;                 /**< Counter for size/unix fds of all live messages. */
 
   char *address;                              /**< Address of the server we are connecting to (#NULL for the server side of a transport) */
 
