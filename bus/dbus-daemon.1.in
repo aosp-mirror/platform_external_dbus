@@ -365,10 +365,15 @@ Available limit names are:
 .nf
       "max_incoming_bytes"         : total size in bytes of messages
                                      incoming from a single connection
+      "max_incoming_unix_fds"      : total number of unix fds of messages
+                                     incoming from a single connection
       "max_outgoing_bytes"         : total size in bytes of messages
+                                     queued up for a single connection
+      "max_outgoing_unix_fds"      : total number of unix fds of messages
                                      queued up for a single connection
       "max_message_size"           : max size of a single message in
                                      bytes
+      "max_message_unix_fds"       : max unix fds of a single message
       "service_start_timeout"      : milliseconds (thousandths) until 
                                      a started service has to connect
       "auth_timeout"               : milliseconds (thousandths) a
