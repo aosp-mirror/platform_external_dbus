@@ -590,41 +590,23 @@ if test "x$dbus_cv_va_val_copy" = "xno"; then
 fi
 
 
-#### Atomic integers (checks by Sebastian Wilhelmi for GLib)
-AC_MSG_CHECKING([whether to use inline assembler routines for atomic integers])
-have_atomic_inc_cond=0
-if test x"$GCC" = xyes; then
-  if test "x$enable_ansi" = "xyes"; then
-    AC_MSG_RESULT([no])
-  else
-    case $host_cpu in
-      i386)
-        AC_MSG_RESULT([no])
-        ;;
-      i?86)
-        case $host_os in
-          darwin*)
-            AC_MSG_RESULT([darwin])
-            # check at compile-time, so that it is possible to build universal
-            # (with multiple architectures at once on the compile line)
-            have_atomic_inc_cond="(defined(__i386__) || defined(__x86_64__))"
-            ;;
-          *)
-            AC_MSG_RESULT([i486])
-            have_atomic_inc_cond=1
-            ;;
-        esac
-        ;;
-      *)
-        AC_MSG_RESULT([no])
-        ;;
-    esac
-  fi
+#### Atomic integers
+
+AC_CACHE_CHECK([whether $CC knows __sync_sub_and_fetch()],
+  dbus_cv_sync_sub_and_fetch,
+  [AC_LINK_IFELSE(
+     AC_LANG_PROGRAM([], [[int a = 4; __sync_sub_and_fetch(&a, 4);]]),
+     [dbus_cv_sync_sub_and_fetch=yes],
+     [dbus_cv_sync_sub_and_fetch=no])
+  ])
+
+if test "x$dbus_cv_sync_sub_and_fetch" = "xyes" ; then
+   have_sync=1
+else
+   have_sync=0
 fi
-AC_DEFINE_UNQUOTED([DBUS_USE_ATOMIC_INT_486_COND], [$have_atomic_inc_cond],
-                   [Always defined; expands to 1 if we should use atomic integer implementation for 486, else 0])
-AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT_COND, [$have_atomic_inc_cond],
-                   [Always defined; expands to 1 if we have an atomic integer implementation, else 0])
+
+AC_DEFINE_UNQUOTED([DBUS_USE_SYNC], [$have_sync], [Use the gcc __sync extension])
 
 #### Various functions
 AC_CHECK_LIB(socket,socket)

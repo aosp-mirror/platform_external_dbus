@@ -424,7 +424,9 @@ init_locks (void)
     LOCK_ADDR (pending_call_slots),
     LOCK_ADDR (server_slots),
     LOCK_ADDR (message_slots),
+#if !DBUS_USE_SYNC
     LOCK_ADDR (atomic),
+#endif
     LOCK_ADDR (bus),
     LOCK_ADDR (bus_datas),
     LOCK_ADDR (shutdown_funcs),

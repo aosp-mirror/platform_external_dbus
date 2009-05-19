@@ -2180,23 +2180,8 @@ _dbus_parse_uid (const DBusString      *uid_str,
   return TRUE;
 }
 
-
+#if !DBUS_USE_SYNC
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
-
-#if DBUS_USE_ATOMIC_INT_486_COND
-/* Taken from CVS version 1.7 of glibc's sysdeps/i386/i486/atomicity.h */
-/* Since the asm stuff here is gcc-specific we go ahead and use "inline" also */
-static inline dbus_int32_t
-atomic_exchange_and_add (DBusAtomic            *atomic,
-                         volatile dbus_int32_t  val)
-{
-  register dbus_int32_t result;
-
-  __asm__ __volatile__ ("lock; xaddl %0,%1"
-                        : "=r" (result), "=m" (atomic->value)
-			: "0" (val), "m" (atomic->value));
-  return result;
-}
 #endif
 
 /**
@@ -2204,14 +2189,12 @@ atomic_exchange_and_add (DBusAtomic            *atomic,
  *
  * @param atomic pointer to the integer to increment
  * @returns the value before incrementing
- *
- * @todo implement arch-specific faster atomic ops
  */
 dbus_int32_t
 _dbus_atomic_inc (DBusAtomic *atomic)
 {
-#if DBUS_USE_ATOMIC_INT_486_COND
-  return atomic_exchange_and_add (atomic, 1);
+#if DBUS_USE_SYNC
+  return __sync_add_and_fetch(&atomic->value, 1)-1;
 #else
   dbus_int32_t res;
   _DBUS_LOCK (atomic);
@@ -2227,14 +2210,12 @@ _dbus_atomic_inc (DBusAtomic *atomic)
  *
  * @param atomic pointer to the integer to decrement
  * @returns the value before decrementing
- *
- * @todo implement arch-specific faster atomic ops
  */
 dbus_int32_t
 _dbus_atomic_dec (DBusAtomic *atomic)
 {
-#if DBUS_USE_ATOMIC_INT_486_COND
-  return atomic_exchange_and_add (atomic, -1);
+#if DBUS_USE_SYNC
+  return __sync_sub_and_fetch(&atomic->value, 1)+1;
 #else
   dbus_int32_t res;
   
