@@ -34,7 +34,7 @@ typedef struct DBusMessageLoader DBusMessageLoader;
 void _dbus_message_get_network_data  (DBusMessage       *message,
 				      const DBusString **header,
 				      const DBusString **body);
-void _dbus_message_get_unix_fds      (DBusMessage *messgage,
+void _dbus_message_get_unix_fds      (DBusMessage *message,
                                       const int **fds,
                                       unsigned *n_fds);
 

@@ -159,6 +159,7 @@ dbus_bool_t dbus_message_get_args_valist      (DBusMessage     *message,
 					       int              first_arg_type,
 					       va_list          var_args);
 
+dbus_bool_t dbus_message_contains_unix_fds    (DBusMessage *message);
 
 dbus_bool_t dbus_message_iter_init             (DBusMessage     *message,
                                                 DBusMessageIter *iter);

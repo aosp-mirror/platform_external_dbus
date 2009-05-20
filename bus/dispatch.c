@@ -56,6 +56,10 @@ send_one_message (DBusConnection *connection,
                                           message,
                                           NULL))
     return TRUE; /* silently don't send it */
+
+  if (dbus_message_contains_unix_fds(message) &&
+      !dbus_connection_can_send_type(connection, DBUS_TYPE_UNIX_FD))
+    return TRUE; /* silently don't send it */
   
   if (!bus_transaction_send (transaction,
                              connection,
@@ -300,6 +304,16 @@ bus_dispatch (DBusConnection *connection,
                                                   addressed_recipient,
                                                   message, &error))
             goto out;
+
+          if (dbus_message_contains_unix_fds(message) &&
+              !dbus_connection_can_send_type(addressed_recipient, DBUS_TYPE_UNIX_FD))
+            {
+              dbus_set_error(&error,
+                             DBUS_ERROR_NOT_SUPPORTED,
+                             "Tried to send message with Unix file descriptors"
+                             "to a client that doesn't support that.");
+              goto out;
+          }
           
           /* Dispatch the message */
           if (!bus_transaction_send (transaction, addressed_recipient, message))

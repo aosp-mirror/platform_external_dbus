@@ -3560,6 +3560,20 @@ dbus_set_error_from_message (DBusError   *error,
   return TRUE;
 }
 
+/**
+ * Checks whether a message contains unix fds
+ *
+ * @param message the message
+ * @returns #TRUE if the message contains unix fds
+ */
+dbus_bool_t
+dbus_message_contains_unix_fds(DBusMessage *message)
+{
+  _dbus_assert(message);
+
+  return message->n_unix_fds > 0;
+}
+
 /** @} */
 
 /**
