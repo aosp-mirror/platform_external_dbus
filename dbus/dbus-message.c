@@ -707,10 +707,6 @@ _dbus_message_iter_check (DBusMessageRealIter *iter)
  * dbus_message_get_args() is the place to go for complete
  * documentation.
  *
- * Unix file descriptors that are read with this function will have
- * the FD_CLOEXEC flag set. If you need them without this flag set,
- * make sure to unset it with fcntl().
- *
  * @todo This may leak memory and file descriptors if parsing fails. See #21259
  *
  * @see dbus_message_get_args
@@ -1582,9 +1578,10 @@ dbus_message_get_type (DBusMessage *message)
  * Appends fields to a message given a variable argument list. The
  * variable argument list should contain the type of each argument
  * followed by the value to append. Appendable types are basic types,
- * and arrays of fixed-length basic types. To append variable-length
- * basic types, or any more complex value, you have to use an iterator
- * rather than this function.
+ * and arrays of fixed-length basic types (except arrays of Unix file
+ * descriptors). To append variable-length basic types, or any more
+ * complex value, you have to use an iterator rather than this
+ * function.
  *
  * To append a basic type, specify its type code followed by the
  * address of the value. For example:
@@ -1599,17 +1596,21 @@ dbus_message_get_type (DBusMessage *message)
  *                           DBUS_TYPE_INVALID);
  * @endcode
  *
- * To append an array of fixed-length basic types, pass in the
- * DBUS_TYPE_ARRAY typecode, the element typecode, the address of
- * the array pointer, and a 32-bit integer giving the number of
- * elements in the array. So for example:
- * @code
- * const dbus_int32_t array[] = { 1, 2, 3 };
- * const dbus_int32_t *v_ARRAY = array;
- * dbus_message_append_args (message,
- *                           DBUS_TYPE_ARRAY, DBUS_TYPE_INT32, &v_ARRAY, 3,
- *                           DBUS_TYPE_INVALID);
+ * To append an array of fixed-length basic types (except Unix file
+ * descriptors), pass in the DBUS_TYPE_ARRAY typecode, the element
+ * typecode, the address of the array pointer, and a 32-bit integer
+ * giving the number of elements in the array. So for example: @code
+ * const dbus_int32_t array[] = { 1, 2, 3 }; const dbus_int32_t
+ * *v_ARRAY = array; dbus_message_append_args (message,
+ * DBUS_TYPE_ARRAY, DBUS_TYPE_INT32, &v_ARRAY, 3, DBUS_TYPE_INVALID);
  * @endcode
+ *
+ * This function does not support arrays of Unix file descriptors. If
+ * you need those you need to manually recurse into the array.
+ *
+ * For Unix file descriptors this function will internally duplicate
+ * the descriptor you passed in. Hence you may close the descriptor
+ * immediately after this call.
  *
  * @warning in C, given "int array[]", "&array == array" (the
  * comp.lang.c FAQ says otherwise, but gcc and the FAQ don't agree).
@@ -1789,7 +1790,16 @@ dbus_message_append_args_valist (DBusMessage *message,
  * signature are supported; but these are returned as allocated memory
  * and must be freed with dbus_free_string_array(), while the other
  * types are returned as const references. To get a string array
- * pass in "char ***array_location" and "int *n_elements"
+ * pass in "char ***array_location" and "int *n_elements".
+ *
+ * Similar to dbus_message_get_fixed_array() this function does not
+ * support arrays of type DBUS_TYPE_UNIX_FD. If you need to parse
+ * messages with arrays of Unix file descriptors you need to recurse
+ * into the array manually.
+ *
+ * Unix file descriptors that are read with this function will have
+ * the FD_CLOEXEC flag set. If you need them without this flag set,
+ * make sure to unset it with fcntl().
  *
  * The variable argument list should contain the type of the argument
  * followed by a pointer to where the value should be stored. The list
@@ -2014,10 +2024,10 @@ dbus_message_iter_get_element_type (DBusMessageIter *iter)
  * you won't be able to recurse further. There's no array of int32 to
  * recurse into.
  *
- * If a container is an array of fixed-length types, it is much more
- * efficient to use dbus_message_iter_get_fixed_array() to get the
- * whole array in one shot, rather than individually walking over the
- * array elements.
+ * If a container is an array of fixed-length types (except Unix file
+ * descriptors), it is much more efficient to use
+ * dbus_message_iter_get_fixed_array() to get the whole array in one
+ * shot, rather than individually walking over the array elements.
  *
  * Be sure you have somehow checked that
  * dbus_message_iter_get_arg_type() matches the type you are expecting
@@ -2087,17 +2097,24 @@ dbus_message_iter_get_signature (DBusMessageIter *iter)
  * and for string a "const char**". The returned value is
  * by reference and should not be freed.
  *
+ * This call duplicates Unix file descriptors when reading them. It is
+ * your job to close them when you don't need them anymore.
+ *
+ * Unix file descriptors that are read with this function will have
+ * the FD_CLOEXEC flag set. If you need them without this flag set,
+ * make sure to unset it with fcntl().
+ *
  * Be sure you have somehow checked that
  * dbus_message_iter_get_arg_type() matches the type you are
  * expecting, or you'll crash when you try to use an integer as a
  * string or something.
  *
- * To read any container type (array, struct, dict) you will need
- * to recurse into the container with dbus_message_iter_recurse().
- * If the container is an array of fixed-length values, you can
- * get all the array elements at once with
- * dbus_message_iter_get_fixed_array(). Otherwise, you have to
- * iterate over the container's contents one value at a time.
+ * To read any container type (array, struct, dict) you will need to
+ * recurse into the container with dbus_message_iter_recurse().  If
+ * the container is an array of fixed-length values (except Unix file
+ * descriptors), you can get all the array elements at once with
+ * dbus_message_iter_get_fixed_array(). Otherwise, you have to iterate
+ * over the container's contents one value at a time.
  * 
  * All basic-typed values are guaranteed to fit in 8 bytes. So you can
  * write code like this:
@@ -2186,6 +2203,10 @@ dbus_message_iter_get_array_len (DBusMessageIter *iter)
  * Fixed-length values are those basic types that are not string-like,
  * such as integers, bool, double. The returned block will be from the
  * current position in the array until the end of the array.
+ *
+ * There is one exception here: although DBUS_TYPE_UNIX_FD is
+ * considered a 'fixed' type arrays of this type may not be read with
+ * this function.
  *
  * The message iter should be "in" the array (that is, you recurse into the
  * array, and then you call dbus_message_iter_get_fixed_array() on the
@@ -2434,6 +2455,10 @@ expand_fd_array(DBusMessage *m,
  * The "value" argument should be the address of a basic-typed value.
  * So for string, const char**. For integer, dbus_int32_t*.
  *
+ * For Unix file descriptors this function will internally duplicate
+ * the descriptor you passed in. Hence you may close the descriptor
+ * immediately after this call.
+ *
  * @todo If this fails due to lack of memory, the message is hosed and
  * you have to start over building the whole message.
  *
@@ -2512,10 +2537,10 @@ dbus_message_iter_append_basic (DBusMessageIter *iter,
 /**
  * Appends a block of fixed-length values to an array. The
  * fixed-length types are all basic types that are not string-like. So
- * int32, double, bool, etc. You must call
- * dbus_message_iter_open_container() to open an array of values
- * before calling this function. You may call this function multiple
- * times (and intermixed with calls to
+ * int32, double, bool, etc. (Unix file descriptors however are not
+ * supported.) You must call dbus_message_iter_open_container() to
+ * open an array of values before calling this function. You may call
+ * this function multiple times (and intermixed with calls to
  * dbus_message_iter_append_basic()) for the same array.
  *
  * The "value" argument should be the address of the array.  So for
@@ -2537,6 +2562,10 @@ dbus_message_iter_append_basic (DBusMessageIter *iter,
  *
  * @todo If this fails due to lack of memory, the message is hosed and
  * you have to start over building the whole message.
+ *
+ * For Unix file descriptors this function will internally duplicate
+ * the descriptor you passed in. Hence you may close the descriptor
+ * immediately after this call.
  *
  * @param iter the append iterator
  * @param element_type the type of the array elements
