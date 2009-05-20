@@ -415,6 +415,10 @@
                 <entry><literal>DICT_ENTRY</literal></entry>
                 <entry>101 (ASCII 'e'), 123 (ASCII '{'), 125 (ASCII '}') </entry>
                 <entry>Entry in a dict or map (array of key-value pairs)</entry>
+              </row><row>
+                <entry><literal>UNIX_FD</literal></entry>
+                <entry>104 (ASCII 'h')</entry>
+                <entry>Unix file descriptor</entry>
               </row>
             </tbody>
           </tgroup>
@@ -579,6 +583,15 @@
                 <entry>
                   8
                 </entry>
+              </row><row>
+                <entry><literal>UNIX_FD</literal></entry>
+                <entry>32-bit unsigned integer in the message's byte
+                order. The actual file descriptors need to be
+                transferred out-of-band via some platform specific
+                mechanism. On the wire, values of this type store the index to the
+                file descriptor in the array of file descriptors that
+                accompany the message.</entry>
+                <entry>4</entry>
 	      </row>
             </tbody>
           </tgroup>
@@ -999,6 +1012,22 @@
                   If omitted, it is assumed to be the 
                   empty signature "" (i.e. the body must be 0-length).</entry>
                 </row>
+                <row>
+                  <entry><literal>UNIX_FDS</literal></entry>
+                  <entry>9</entry>
+                  <entry><literal>UINT32</literal></entry>
+                  <entry>optional</entry>
+                  <entry>The number of Unix file descriptors that
+                  accompany the message.  If omitted, it is assumed
+                  that no Unix file descriptors accompany the
+                  message. The actual file descriptors need to be
+                  transferred via platform specific mechanism
+                  out-of-band. They must be sent at the same time as
+                  part of the message itself. They may not be sent
+                  before the first byte of the message itself is
+                  transferred or after the last byte of the message
+                  itself.</entry>
+                </row>
               </tbody>
             </tgroup>
           </informaltable>
@@ -1410,6 +1439,7 @@
 	  <listitem><para>BEGIN</para></listitem>
 	  <listitem><para>DATA &lt;data in hex encoding&gt;</para></listitem>
 	  <listitem><para>ERROR [human-readable error explanation]</para></listitem>
+	  <listitem><para>NEGOTIATE_UNIX_FD</para></listitem>
 	</itemizedlist>
 
         From server to client are as follows:
@@ -1419,6 +1449,7 @@
 	  <listitem><para>OK &lt;GUID in hex&gt;</para></listitem>
 	  <listitem><para>DATA &lt;data in hex encoding&gt;</para></listitem>
 	  <listitem><para>ERROR</para></listitem>
+	  <listitem><para>AGREE_UNIX_FD</para></listitem>
 	</itemizedlist>
       </para>
       <para>
@@ -1480,14 +1511,15 @@
         an OK command must be sent to the client.
       </para>
       <para>
-        The first octet received by the client after the \r\n of the OK
-        command must be the first octet of the authenticated/encrypted 
-        stream of D-Bus messages.
-      </para>
-      <para>
         The first octet received by the server after the \r\n of the BEGIN
         command from the client must be the first octet of the
         authenticated/encrypted stream of D-Bus messages.
+      </para>
+      <para>
+        If BEGIN is received by the server, the first octet received
+        by the client after the \r\n of the OK command must be the
+        first octet of the authenticated/encrypted stream of D-Bus
+        messages.
       </para>
     </sect2>
     <sect2 id="auth-command-cancel">
@@ -1542,20 +1574,24 @@
     <sect2 id="auth-command-ok">
       <title>OK Command</title>
       <para>
-        The OK command indicates that the client has been authenticated,
-        and that further communication will be a stream of D-Bus messages
-        (optionally encrypted, as negotiated) rather than this protocol.
+        The OK command indicates that the client has been
+        authenticated. The client may now proceed with negotiating
+        Unix file descriptor passing. To do that it shall send
+        NEGOTIATE_UNIX_FD to the server.
       </para>
       <para>
-        The first octet received by the client after the \r\n of the OK
-        command must be the first octet of the authenticated/encrypted 
-        stream of D-Bus messages.
+        Otherwise, the client must respond to the OK command by
+        sending a BEGIN command, followed by its stream of messages,
+        or by disconnecting.  The server must not accept additional
+        commands using this protocol after the BEGIN command has been
+        received. Further communication will be a stream of D-Bus
+        messages (optionally encrypted, as negotiated) rather than
+        this protocol.
       </para>
       <para>
-        The client must respond to the OK command by sending a BEGIN
-        command, followed by its stream of messages, or by disconnecting.
-        The server must not accept additional commands using this protocol 
-        after the OK command has been sent.
+        If a client sends BEGIN the first octet received by the client
+        after the \r\n of the OK command must be the first octet of
+        the authenticated/encrypted stream of D-Bus messages.
       </para>
       <para>
         The OK command has one argument, which is the GUID of the server.
@@ -1587,6 +1623,56 @@
         receiving an ERROR from applications that don't understand it. Thus the
         ERROR feature of the auth protocol is an escape hatch that lets us
         negotiate extensions or changes to the D-Bus protocol in the future.
+      </para>
+    </sect2>
+    <sect2 id="auth-command-negotiate-unix-fd">
+      <title>NEGOTIATE_UNIX_FD Command</title>
+      <para>
+        The NEGOTIATE_UNIX_FD command indicates that the client
+        supports Unix file descriptor passing. This command may only
+        be sent after the connection is authenticated, i.e. after OK
+        was received by the client. This command may only be sent on
+        transports that support Unix file descriptor passing.
+      </para>
+      <para>
+        On receiving NEGOTIATE_UNIX_FD the server must respond with
+        either AGREE_UNIX_FD or ERROR. It shall respond the former if
+        the transport chosen supports Unix file descriptor passing and
+        the server supports this feature. It shall respond the latter
+        if the transport does not support Unix file descriptor
+        passing, the server does not support this feature, or the
+        server decides not to enable file descriptor passing due to
+        security or other reasons.
+      </para>
+    </sect2>
+    <sect2 id="auth-command-agree-unix-fd">
+      <title>AGREE_UNIX_FD Command</title>
+      <para>
+        The AGREE_UNIX_FD command indicates that the server supports
+        Unix file descriptor passing. This command may only be sent
+        after the connection is authenticated, and the client sent
+        NEGOTIATE_UNIX_FD to enable Unix file descriptor passing. This
+        command may only be sent on transports that support Unix file
+        descriptor passing.
+      </para>
+      <para>
+        On receiving AGREE_UNIX_FD the client must respond with BEGIN,
+        followed by its stream of messages, or by disconnecting.  The
+        server must not accept additional commands using this protocol
+        after the BEGIN command has been received. Further
+        communication will be a stream of D-Bus messages (optionally
+        encrypted, as negotiated) rather than this protocol.
+      </para>
+    </sect2>
+    <sect2 id="auth-command-future">
+      <title>Future Extensions</title>
+      <para>
+        Future extensions to the authentication and negotiation
+        protocol are possible. For that new commands may be
+        introduced. If a client or server receives an unknown command
+        it shall respond with ERROR and not consider this fatal. New
+        commands may be introduced both before, and after
+        authentication, i.e. both before and after the OK command.
       </para>
     </sect2>
     <sect2 id="auth-examples">
@@ -1666,6 +1752,30 @@
             S: DATA 8799cabb2ea93e
             C: DATA 8ac876e8f68ee9809bfa876e6f9876g8fa8e76e98f
             S: OK 1234deadbeef
+            C: BEGIN
+          </programlisting>
+	</figure>
+        <figure>
+	  <title>Example of successful magic cookie authentication with successful negotiation of Unix FD passing</title>
+	  <programlisting>
+            (MAGIC_COOKIE is a made up mechanism)
+
+            C: AUTH MAGIC_COOKIE 3138363935333137393635383634
+            S: OK 1234deadbeef
+            C: NEGOTIATE_UNIX_FD
+            S: AGREE_UNIX_FD
+            C: BEGIN
+          </programlisting>
+	</figure>
+        <figure>
+	  <title>Example of successful magic cookie authentication with unsuccessful negotiation of Unix FD passing</title>
+	  <programlisting>
+            (MAGIC_COOKIE is a made up mechanism)
+
+            C: AUTH MAGIC_COOKIE 3138363935333137393635383634
+            S: OK 1234deadbeef
+            C: NEGOTIATE_UNIX_FD
+            S: ERROR
             C: BEGIN
           </programlisting>
 	</figure>
@@ -4078,4 +4188,3 @@
 
   </glossary>
 </article>
-
