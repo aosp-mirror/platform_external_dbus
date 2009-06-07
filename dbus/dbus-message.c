@@ -4000,6 +4000,7 @@ dbus_message_marshal (DBusMessage  *msg,
                       int          *len_p)
 {
   DBusString tmp;
+  dbus_bool_t was_locked;
 
   _dbus_return_val_if_fail (msg != NULL, FALSE);
   _dbus_return_val_if_fail (marshalled_data_p != NULL, FALSE);
@@ -4007,6 +4008,12 @@ dbus_message_marshal (DBusMessage  *msg,
   
   if (!_dbus_string_init (&tmp))
     return FALSE;
+
+  /* Ensure the message is locked, to ensure the length header is filled in. */
+  was_locked = msg->locked;
+
+  if (!was_locked)
+    dbus_message_lock (msg);
 
   if (!_dbus_string_copy (&(msg->header.data), 0, &tmp, 0))
     goto fail;
@@ -4022,10 +4029,18 @@ dbus_message_marshal (DBusMessage  *msg,
     goto fail;
 
   _dbus_string_free (&tmp);
+
+  if (!was_locked)
+    msg->locked = FALSE;
+
   return TRUE;
 
  fail:
   _dbus_string_free (&tmp);
+
+  if (!was_locked)
+    msg->locked = FALSE;
+
   return FALSE;
 }
 
