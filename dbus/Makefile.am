@@ -71,6 +71,8 @@ DBUS_UTIL_arch_sources =			\
 	dbus-spawn-win.c
 else
 DBUS_LIB_arch_sources = 			\
+	dbus-uuidgen.c				\
+	dbus-uuidgen.h				\
 	dbus-server-unix.c 			\
 	dbus-server-unix.h
 
@@ -165,8 +167,6 @@ DBUS_LIB_SOURCES=				\
 	dbus-transport-protected.h		\
 	dbus-transport-socket.c			\
 	dbus-transport-socket.h			\
-	dbus-uuidgen.c				\
-	dbus-uuidgen.h				\
 	dbus-watch.c				\
 	dbus-watch.h
 

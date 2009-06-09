@@ -4,10 +4,10 @@ INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_X_CFLAGS) -DDBUS_LOCALEDIR
 
 extra_bin_programs=
 if DBUS_UNIX
-extra_bin_programs += dbus-launch dbus-cleanup-sockets
+extra_bin_programs += dbus-launch dbus-cleanup-sockets dbus-uuidgen
 endif
 
-bin_PROGRAMS=dbus-send dbus-monitor $(extra_bin_programs) dbus-uuidgen
+bin_PROGRAMS=dbus-send dbus-monitor $(extra_bin_programs)
 
 dbus_send_SOURCES=				\
 	dbus-print-message.c			\
