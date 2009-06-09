@@ -2426,6 +2426,39 @@
 	would be padded by Nul bytes.
       </para>
     </sect2>
+    <sect2 id="transports-nonce-tcp-sockets">
+      <title>Nonce-secured TCP Sockets</title>
+      <para>
+        The nonce-tcp transport provides a secured TCP transport, using a
+        simple authentication mechanism to ensure that only clients with read
+        access to a certain location in the filesystem can connect to the server.
+        The server writes a secret, the nonce, to a file and an incoming client
+        connection is only accepted if the client sends the nonce right after
+        the connect. The nonce mechanism requires no setup and is orthogonal to
+        the higher-level authentication mechanisms described in the
+        Authentication section.
+      </para>
+
+      <para>
+        On start, the server generates a random 16 byte nonce and writes it
+        to a file in the user's temporary directory. The nonce file location
+        is published as part of the server's D-Bus address using the
+        "noncefile" key-value pair.
+
+        After an accept, the server reads 16 bytes from the socket. If the
+        read bytes do not match the nonce stored in the nonce file, the
+        server MUST immediately drop the connection.
+        If the nonce match the received byte sequence, the client is accepted
+        and the transport behaves like an unsecured tcp transport.
+      </para>
+      <para>
+        After a successful connect to the server socket, the client MUST read
+        the nonce from the file published by the server via the noncefile=
+        key-value pair and send it over the socket. After that, the
+        transport behaves like an unsecured tcp transport.
+      </para>
+    </sect2>
+
   </sect1>
 
   <sect1 id="naming-conventions">
