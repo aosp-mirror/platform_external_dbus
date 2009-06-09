@@ -89,6 +89,10 @@ if test "$dbus_win" = yes; then
       *-rc*)  BUILD_FILEVERSION="${BUILD_FILEVERSION}1" ;;
       *)      BUILD_FILEVERSION="${BUILD_FILEVERSION}2" ;;
     esac
+    AC_CHECK_TOOL(WINDRES, windres, no)
+    if test "$WINDRES" = no; then
+      AC_MSG_ERROR([*** Could not find an implementation of windres in your PATH.])
+    fi
 else
     AC_DEFINE(DBUS_UNIX,1,[Defined if we run on a Unix-based system])
 fi

@@ -15,14 +15,10 @@ lib_LTLIBRARIES=libdbus-1.la
 # Deal with W32 .def and version-info.rc stuff
 #
 if DBUS_WIN
-LTRCCOMPILE = $(LIBTOOL) --mode=compile $(RC) \
-     `echo $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) | \
-     sed -e 's/-I/--include-dir /g;s/-D/--define /g'`
-
 SUFFIXES = rc
 
 .rc.o:
-	$(LTRCCOMPILE) -i $< -o $@
+	$(WINDRES) $< -o $@
 
 dbus_res = versioninfo.o
 dbus_res_ldflag = -Wl,$(dbus_res)
