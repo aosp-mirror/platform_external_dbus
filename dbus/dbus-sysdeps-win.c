@@ -3435,6 +3435,203 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
   return FALSE;
 }
 
+/** Checks if a file exists
+*
+* @param file full path to the file
+* @returns #TRUE if file exists
+*/
+dbus_bool_t 
+_dbus_file_exists (const char *file)
+{
+  DWORD attributes = GetFileAttributes (file);
+
+  if (attributes != INVALID_FILE_ATTRIBUTES && GetLastError() != ERROR_PATH_NOT_FOUND)
+    return TRUE;
+  else
+    return FALSE;  
+}
+
+/**
+ * A wrapper around strerror() because some platforms
+ * may be lame and not have strerror().
+ *
+ * @param error_number errno.
+ * @returns error description.
+ */
+const char*
+_dbus_strerror (int error_number)
+{
+#ifdef DBUS_WINCE
+  // TODO
+  return "unknown";
+#else
+  const char *msg;
+
+  switch (error_number)
+    {
+    case WSAEINTR:
+      return "Interrupted function call";
+    case WSAEACCES:
+      return "Permission denied";
+    case WSAEFAULT:
+      return "Bad address";
+    case WSAEINVAL:
+      return "Invalid argument";
+    case WSAEMFILE:
+      return "Too many open files";
+    case WSAEWOULDBLOCK:
+      return "Resource temporarily unavailable";
+    case WSAEINPROGRESS:
+      return "Operation now in progress";
+    case WSAEALREADY:
+      return "Operation already in progress";
+    case WSAENOTSOCK:
+      return "Socket operation on nonsocket";
+    case WSAEDESTADDRREQ:
+      return "Destination address required";
+    case WSAEMSGSIZE:
+      return "Message too long";
+    case WSAEPROTOTYPE:
+      return "Protocol wrong type for socket";
+    case WSAENOPROTOOPT:
+      return "Bad protocol option";
+    case WSAEPROTONOSUPPORT:
+      return "Protocol not supported";
+    case WSAESOCKTNOSUPPORT:
+      return "Socket type not supported";
+    case WSAEOPNOTSUPP:
+      return "Operation not supported";
+    case WSAEPFNOSUPPORT:
+      return "Protocol family not supported";
+    case WSAEAFNOSUPPORT:
+      return "Address family not supported by protocol family";
+    case WSAEADDRINUSE:
+      return "Address already in use";
+    case WSAEADDRNOTAVAIL:
+      return "Cannot assign requested address";
+    case WSAENETDOWN:
+      return "Network is down";
+    case WSAENETUNREACH:
+      return "Network is unreachable";
+    case WSAENETRESET:
+      return "Network dropped connection on reset";
+    case WSAECONNABORTED:
+      return "Software caused connection abort";
+    case WSAECONNRESET:
+      return "Connection reset by peer";
+    case WSAENOBUFS:
+      return "No buffer space available";
+    case WSAEISCONN:
+      return "Socket is already connected";
+    case WSAENOTCONN:
+      return "Socket is not connected";
+    case WSAESHUTDOWN:
+      return "Cannot send after socket shutdown";
+    case WSAETIMEDOUT:
+      return "Connection timed out";
+    case WSAECONNREFUSED:
+      return "Connection refused";
+    case WSAEHOSTDOWN:
+      return "Host is down";
+    case WSAEHOSTUNREACH:
+      return "No route to host";
+    case WSAEPROCLIM:
+      return "Too many processes";
+    case WSAEDISCON:
+      return "Graceful shutdown in progress";
+    case WSATYPE_NOT_FOUND:
+      return "Class type not found";
+    case WSAHOST_NOT_FOUND:
+      return "Host not found";
+    case WSATRY_AGAIN:
+      return "Nonauthoritative host not found";
+    case WSANO_RECOVERY:
+      return "This is a nonrecoverable error";
+    case WSANO_DATA:
+      return "Valid name, no data record of requested type";
+    case WSA_INVALID_HANDLE:
+      return "Specified event object handle is invalid";
+    case WSA_INVALID_PARAMETER:
+      return "One or more parameters are invalid";
+    case WSA_IO_INCOMPLETE:
+      return "Overlapped I/O event object not in signaled state";
+    case WSA_IO_PENDING:
+      return "Overlapped operations will complete later";
+    case WSA_NOT_ENOUGH_MEMORY:
+      return "Insufficient memory available";
+    case WSA_OPERATION_ABORTED:
+      return "Overlapped operation aborted";
+#ifdef WSAINVALIDPROCTABLE
+
+    case WSAINVALIDPROCTABLE:
+      return "Invalid procedure table from service provider";
+#endif
+#ifdef WSAINVALIDPROVIDER
+
+    case WSAINVALIDPROVIDER:
+      return "Invalid service provider version number";
+#endif
+#ifdef WSAPROVIDERFAILEDINIT
+
+    case WSAPROVIDERFAILEDINIT:
+      return "Unable to initialize a service provider";
+#endif
+
+    case WSASYSCALLFAILURE:
+      return "System call failure";
+    }
+  msg = strerror (error_number);
+  if (msg == NULL)
+    msg = "unknown";
+
+  return msg;
+#endif //DBUS_WINCE
+}
+
+/**
+ * Assigns an error name and message corresponding to a Win32 error
+ * code to a DBusError. Does nothing if error is #NULL.
+ *
+ * @param error the error.
+ * @param code the Win32 error code
+ */
+void
+_dbus_win_set_error_from_win_error (DBusError *error,
+                                    int        code)
+{
+  char *msg;
+
+  /* As we want the English message, use the A API */
+  FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                  FORMAT_MESSAGE_IGNORE_INSERTS |
+                  FORMAT_MESSAGE_FROM_SYSTEM,
+                  NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
+                  (LPTSTR) &msg, 0, NULL);
+  if (msg)
+    {
+      char *msg_copy;
+
+      msg_copy = dbus_malloc (strlen (msg));
+      strcpy (msg_copy, msg);
+      LocalFree (msg);
+
+      dbus_set_error (error, "win32.error", "%s", msg_copy);
+    }
+  else
+    dbus_set_error (error, "win32.error", "Unknown error code %d or FormatMessage failed", code);
+}
+
+void
+_dbus_win_warn_win_error (const char *message,
+                          int         code)
+{
+  DBusError error;
+
+  dbus_error_init (&error);
+  _dbus_win_set_error_from_win_error (&error, code);
+  _dbus_warn ("%s: %s\n", message, error.message);
+  dbus_error_free (&error);
+}
 /** @} end of sysdeps-win */
 /* tests in dbus-sysdeps-util.c */
 
