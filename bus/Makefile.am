@@ -139,9 +139,13 @@ bus_test_launch_helper_CPPFLAGS=	\
 
 extra_tests=
 extra_noinst_programs=
+extra_inst_programs=
 if DBUS_UNIX
 extra_tests+=bus-test-launch-helper
-extra_noinst_programs+=dbus-daemon-launch-helper dbus-daemon-launch-helper-test
+extra_noinst_programs+=dbus-daemon-launch-helper dbus-daemon-launch-helper-test dbus-daemon
+endif
+if DBUS_WIN
+extra_inst_programs+=dbus-daemon
 endif
 
 ## note that TESTS has special meaning (stuff to use in make check)
@@ -156,7 +160,8 @@ endif
 
 ## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
 ## even when not doing "make check"
-noinst_PROGRAMS=$(TESTS) dbus-daemon $(extra_noinst_programs)
+noinst_PROGRAMS=$(TESTS) $(extra_noinst_programs)
+bin_PROGRAMS=$(extra_inst_programs)
 
 bus_test_system_SOURCES=			\
 	$(XML_SOURCES)				\
@@ -187,16 +192,17 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper$(EXEEXT)
 
 install-data-hook:
-	if test '!' -d $(DESTDIR)$(DBUS_DAEMONDIR); then \
-		$(mkinstalldirs) $(DESTDIR)$(DBUS_DAEMONDIR); \
-		chmod 755 $(DESTDIR)$(DBUS_DAEMONDIR); \
-	fi
-	$(INSTALL_PROGRAM) dbus-daemon$(EXEEXT) $(DESTDIR)$(DBUS_DAEMONDIR)
 	$(mkinstalldirs) $(DESTDIR)$(localstatedir)/run/dbus
 	$(mkinstalldirs) $(DESTDIR)$(configdir)/system.d
 	$(mkinstalldirs) $(DESTDIR)$(configdir)/session.d
 	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/services
 	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/system-services
+if DBUS_UNIX
+	if test '!' -d $(DESTDIR)$(DBUS_DAEMONDIR); then \
+		$(mkinstalldirs) $(DESTDIR)$(DBUS_DAEMONDIR); \
+		chmod 755 $(DESTDIR)$(DBUS_DAEMONDIR); \
+	fi
+	$(INSTALL_PROGRAM) dbus-daemon$(EXEEXT) $(DESTDIR)$(DBUS_DAEMONDIR)
 	$(mkinstalldirs) $(DESTDIR)$(libexecdir)/dbus-1
 	if test -f dbus-daemin-launch-helper$(EXEEXT) ; then \
 	$(INSTALL_PROGRAM) dbus-daemon-launch-helper$(EXEEXT) $(DESTDIR)$(libexecdir); \
@@ -208,6 +214,7 @@ install-data-hook:
 		echo "You'll need to manually set permissions to root:$(DBUS_USER) and permissions 4750"; \
 	fi \
 	fi
+endif
 
 #### Init scripts fun
 SCRIPT_IN_FILES=messagebus.in \
