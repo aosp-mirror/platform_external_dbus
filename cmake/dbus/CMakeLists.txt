@@ -132,7 +132,6 @@ set (DBUS_SHARED_SOURCES
 	${DBUS_DIR}/dbus-mempool.c
 	${DBUS_DIR}/dbus-string.c
 	${DBUS_DIR}/dbus-sysdeps.c
-	${DBUS_DIR}/dbus-sysdeps-util.c
 )
 
 set (DBUS_SHARED_HEADERS
@@ -163,6 +162,7 @@ set (DBUS_UTIL_SOURCES
 	${DBUS_DIR}/dbus-message-util.c
 	${DBUS_DIR}/dbus-shell.c
 	${DBUS_DIR}/dbus-string-util.c
+        ${DBUS_DIR}/dbus-sysdeps-util.c
 )
 
 if (DBUS_BUILD_TESTS)
