@@ -59,7 +59,7 @@
 /* A "DO_NOT_HAVE_LOCK_CHECK" is impossible since we need the lock to check the flag */
 #endif
 
-#define TRACE_LOCKS 1
+#define TRACE_LOCKS 0
 
 #define CONNECTION_LOCK(connection)   do {                                      \
     if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
