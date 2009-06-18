@@ -29,6 +29,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef DBUS_ANDROID_LOG
+#define LOG_TAG "libdbus"
+#include <cutils/log.h>
+#endif /* DBUS_ANDROID_LOG */
+
 /**
  * @defgroup DBusInternals D-Bus secret internal implementation details
  * @brief Documentation useful when developing or debugging D-Bus itself.
@@ -244,7 +249,11 @@ _dbus_warn (const char *format,
     init_warnings ();
   
   va_start (args, format);
+#ifdef DBUS_ANDROID_LOG
+  LOG_PRI_VA(ANDROID_LOG_WARN, LOG_TAG, format, args);
+#else
   vfprintf (stderr, format, args);
+#endif /* DBUS_ANDROID_LOG */
   va_end (args);
 
   if (fatal_warnings)
@@ -274,7 +283,11 @@ _dbus_warn_check_failed(const char *format,
   fprintf (stderr, "process %lu: ", _dbus_getpid ());
   
   va_start (args, format);
+#ifdef DBUS_ANDROID_LOG
+  LOG_PRI_VA(ANDROID_LOG_ERROR, LOG_TAG, format, args);
+#else
   vfprintf (stderr, format, args);
+#endif /* DBUS_ANDROID_LOG */
   va_end (args);
 
   if (fatal_warnings_on_check_failed)
@@ -300,8 +313,14 @@ _dbus_verbose_init (void)
 {
   if (!verbose_initted)
     {
+#ifdef DBUS_ANDROID_LOG
+      /* Don't bother checking environment variable - just print the
+         verbose logs (can still be disabled with DBUS_ENABLE_VERBOSE_MODE) */
+      verbose = TRUE;
+#else
       const char *p = _dbus_getenv ("DBUS_VERBOSE"); 
       verbose = p != NULL && *p == '1';
+#endif
       verbose_initted = TRUE;
     }
 }
@@ -333,7 +352,7 @@ _dbus_verbose_real (const char *format,
   va_list args;
   static dbus_bool_t need_pid = TRUE;
   int len;
-  
+
   /* things are written a bit oddly here so that
    * in the non-verbose case we just have the one
    * conditional and return immediately.
@@ -360,7 +379,11 @@ _dbus_verbose_real (const char *format,
     need_pid = FALSE;
   
   va_start (args, format);
+#ifdef DBUS_ANDROID_LOG
+  LOG_PRI_VA(ANDROID_LOG_DEBUG, LOG_TAG, format, args);
+#else
   vfprintf (stderr, format, args);
+#endif /* DBUS_ANDROID_LOG */
   va_end (args);
 
   fflush (stderr);
