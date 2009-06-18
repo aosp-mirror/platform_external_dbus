@@ -1,3 +1,7 @@
+# Set to true to write libdbus logs to logcat instead of stderr
+# See also config.h to turn on verbose logs
+LOG_TO_ANDROID_LOGCAT := true
+
 ifneq ($(TARGET_SIMULATOR),true)
 
 LOCAL_PATH:= $(call my-dir)
@@ -57,6 +61,11 @@ LOCAL_CFLAGS+= \
 	-DDBUS_COMPILATION \
 	-DANDROID_MANAGED_SOCKET \
 	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\"
+
+ifeq ($(LOG_TO_ANDROID_LOGCAT),true)
+LOCAL_CFLAGS+= -DDBUS_ANDROID_LOG
+LOCAL_SHARED_LIBRARIES+= libcutils
+endif
 
 include $(BUILD_SHARED_LIBRARY)
 
