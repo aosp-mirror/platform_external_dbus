@@ -2200,6 +2200,35 @@ _dbus_message_iter_close_signature (DBusMessageRealIter *real)
   return retval;
 }
 
+/**
+ * Frees the signature string and marks the iterator as not having a
+ * type_str anymore.  Since the new signature is not set, the message
+ * will generally be hosed after this is called.
+ *
+ * @param real an iterator without a type_str
+ */
+static void
+_dbus_message_iter_abandon_signature (DBusMessageRealIter *real)
+{
+  DBusString *str;
+
+  _dbus_assert (real->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER);
+  _dbus_assert (real->u.writer.type_str != NULL);
+  _dbus_assert (real->sig_refcount > 0);
+
+  real->sig_refcount -= 1;
+
+  if (real->sig_refcount > 0)
+    return;
+  _dbus_assert (real->sig_refcount == 0);
+
+  str = real->u.writer.type_str;
+
+  _dbus_type_writer_remove_types (&real->u.writer);
+  _dbus_string_free (str);
+  dbus_free (str);
+}
+
 #ifndef DBUS_DISABLE_CHECKS
 static dbus_bool_t
 _dbus_message_iter_append_check (DBusMessageRealIter *iter)
@@ -2425,6 +2454,32 @@ dbus_message_iter_close_container (DBusMessageIter *iter,
     ret = FALSE;
 
   return ret;
+}
+
+/**
+ * Abandons creation of a contained-typed value and frees resources created
+ * by dbus_message_iter_open_container().  Once this returns, the message
+ * is hosed and you have to start over building the whole message.
+ *
+ * This should only be used to abandon creation of a message when you have
+ * open containers.
+ *
+ * @param iter the append iterator
+ * @param sub sub-iterator to close
+ */
+void
+dbus_message_iter_abandon_container (DBusMessageIter *iter,
+                                     DBusMessageIter *sub)
+{
+  DBusMessageRealIter *real = (DBusMessageRealIter *)iter;
+  DBusMessageRealIter *real_sub = (DBusMessageRealIter *)sub;
+
+  _dbus_return_if_fail (_dbus_message_iter_append_check (real));
+  _dbus_return_if_fail (real->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER);
+  _dbus_return_if_fail (_dbus_message_iter_append_check (real_sub));
+  _dbus_return_if_fail (real_sub->iter_type == DBUS_MESSAGE_ITER_TYPE_WRITER);
+
+  _dbus_message_iter_abandon_signature (real);
 }
 
 /**
