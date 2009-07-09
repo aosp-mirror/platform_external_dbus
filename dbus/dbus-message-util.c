@@ -1296,8 +1296,8 @@ _dbus_message_test (const char *test_data_dir)
 
   /* uh-oh, error, try and unwind */
 
-  _dbus_assert (dbus_message_iter_close_container (&array_iter, &struct_iter));
-  _dbus_assert (dbus_message_iter_close_container (&array_iter, &iter));
+  dbus_message_iter_abandon_container (&array_iter, &struct_iter);
+  dbus_message_iter_abandon_container (&array_iter, &iter);
 
   dbus_message_unref (message);
 

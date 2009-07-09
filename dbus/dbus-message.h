@@ -197,6 +197,8 @@ dbus_bool_t dbus_message_iter_open_container     (DBusMessageIter *iter,
                                                   DBusMessageIter *sub);
 dbus_bool_t dbus_message_iter_close_container    (DBusMessageIter *iter,
                                                   DBusMessageIter *sub);
+void        dbus_message_iter_abandon_container  (DBusMessageIter *iter,
+                                                  DBusMessageIter *sub);
 
 void dbus_message_lock    (DBusMessage  *message);
 
