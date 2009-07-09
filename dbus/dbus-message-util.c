@@ -939,6 +939,7 @@ _dbus_message_test (const char *test_data_dir)
   unsigned char v_BYTE;
   unsigned char v2_BYTE;
   dbus_bool_t v_BOOLEAN;
+  DBusMessageIter iter, array_iter, struct_iter;
 
   message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
                                           "/org/freedesktop/TestPath",
@@ -1271,6 +1272,34 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_message_loader_unref (loader);
 
   check_memleaks ();
+
+  /* Check that we can abandon a container */
+  message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
+		  			  "/org/freedesktop/TestPath",
+					  "Foo.TestInterface",
+					  "Method");
+
+  dbus_message_iter_init_append (message, &iter);
+
+  _dbus_assert (dbus_message_iter_open_container (&iter, DBUS_TYPE_ARRAY,
+			  			  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+						   DBUS_TYPE_STRING_AS_STRING
+						   DBUS_TYPE_STRING_AS_STRING
+						   DBUS_STRUCT_END_CHAR_AS_STRING),
+						  &array_iter));
+  _dbus_assert (dbus_message_iter_open_container (&array_iter, DBUS_TYPE_STRUCT,
+			  			  NULL, &struct_iter));
+
+  s = "peaches";
+  _dbus_assert (dbus_message_iter_append_basic (&struct_iter, DBUS_TYPE_STRING,
+			  			&s));
+
+  /* uh-oh, error, try and unwind */
+
+  _dbus_assert (dbus_message_iter_close_container (&array_iter, &struct_iter));
+  _dbus_assert (dbus_message_iter_close_container (&array_iter, &iter));
+
+  dbus_message_unref (message);
 
   /* Load all the sample messages from the message factory */
   {
