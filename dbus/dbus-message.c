@@ -1567,8 +1567,10 @@ dbus_message_append_args_valist (DBusMessage *message,
               if (!dbus_message_iter_append_fixed_array (&array,
                                                          element_type,
                                                          value,
-                                                         n_elements))
+                                                         n_elements)) {
+                dbus_message_iter_abandon_container (&iter, &array);
                 goto failed;
+              }
             }
           else if (element_type == DBUS_TYPE_STRING ||
                    element_type == DBUS_TYPE_SIGNATURE ||
@@ -1589,8 +1591,10 @@ dbus_message_append_args_valist (DBusMessage *message,
                 {
                   if (!dbus_message_iter_append_basic (&array,
                                                        element_type,
-                                                       &value[i]))
+                                                       &value[i])) {
+                    dbus_message_iter_abandon_container (&iter, &array);
                     goto failed;
+                  }
                   ++i;
                 }
             }
