@@ -2866,6 +2866,7 @@ _dbus_get_autolaunch_address (DBusString *address,
   int i;
   DBusString uuid;
   dbus_bool_t retval;
+  sigset_t new_set, old_set;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = FALSE;
@@ -2875,6 +2876,14 @@ _dbus_get_autolaunch_address (DBusString *address,
       _DBUS_SET_OOM (error);
       return FALSE;
     }
+
+  /* We need to block any existing handlers for SIGCHLD temporarily; they
+   * will cause waitpid() below to fail.
+   * https://bugs.freedesktop.org/show_bug.cgi?id=21347
+   */
+  sigemptyset (&new_set);
+  sigaddset (&new_set, SIGCHLD);
+  sigprocmask (SIG_BLOCK, &new_set, &old_set);
   
   if (!_dbus_get_local_machine_uuid_encoded (&uuid))
     {
@@ -2969,6 +2978,8 @@ _dbus_get_autolaunch_address (DBusString *address,
       for (i = 3; i < maxfds; i++)
         close (i);
 
+      sigprocmask(SIG_SETMASK, &old_set, NULL);
+
       execv (DBUS_BINDIR "/dbus-launch", argv);
 
       /* failed, try searching PATH */
@@ -3027,6 +3038,8 @@ _dbus_get_autolaunch_address (DBusString *address,
   retval = TRUE;
   
  out:
+  sigprocmask (SIG_SETMASK, &old_set, NULL);
+
   if (retval)
     _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   else
