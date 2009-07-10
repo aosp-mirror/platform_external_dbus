@@ -1149,10 +1149,13 @@ string_squash_nonprintable (DBusString *str)
   len = _dbus_string_get_length (str);
   
   for (i = 0; i < len; i++)
-    if (buf[i] == '\0')
-      buf[i] = ' ';
-    else if (buf[i] < 0x20 || buf[i] > 127)
-      buf[i] = '?';
+    {
+	  unsigned char c = (unsigned char) buf[i];
+      if (c == '\0')
+        c = ' ';
+      else if (c < 0x20 || c > 127)
+        c = '?';
+    }
 }
 
 /**
