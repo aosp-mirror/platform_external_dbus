@@ -1,5 +1,6 @@
 
 #include "test-utils.h"
+#include <unistd.h>
 
 static DBusLoop *loop;
 static dbus_bool_t already_quit = FALSE;
