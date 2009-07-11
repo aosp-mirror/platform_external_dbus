@@ -616,7 +616,11 @@ do_writing (DBusTransport *transport)
         {
           /* EINTR already handled for us */
           
-          if (_dbus_get_is_errno_eagain_or_ewouldblock ())
+          /* For some discussion of why we also ignore EPIPE here, see
+           * http://lists.freedesktop.org/archives/dbus/2008-March/009526.html
+           */
+          
+          if (_dbus_get_is_errno_eagain_or_ewouldblock () || _dbus_get_is_errno_epipe ())
             goto out;
           else
             {
@@ -807,6 +811,25 @@ do_reading (DBusTransport *transport)
 }
 
 static dbus_bool_t
+unix_error_with_read_to_come (DBusTransport *itransport,
+                              DBusWatch     *watch,
+                              unsigned int   flags)
+{
+  DBusTransportSocket *transport = (DBusTransportSocket *) itransport;
+
+  if (!(flags & DBUS_WATCH_HANGUP || flags & DBUS_WATCH_ERROR))
+    return FALSE;
+   
+  /* If we have a read watch enabled ...
+     we -might have data incoming ... => handle the HANGUP there */
+  if (watch != transport->read_watch &&
+      _dbus_watch_get_enabled (transport->read_watch))
+    return FALSE;
+      
+  return TRUE; 
+}
+
+static dbus_bool_t
 socket_handle_watch (DBusTransport *transport,
                    DBusWatch     *watch,
                    unsigned int   flags)
@@ -817,14 +840,11 @@ socket_handle_watch (DBusTransport *transport,
                 watch == socket_transport->write_watch);
   _dbus_assert (watch != NULL);
   
-  /* Disconnect in case of an error.  In case of hangup do not
-   * disconnect the transport because data can still be in the buffer
-   * and do_reading may need several iteration to read it all (because
-   * of its max_bytes_read_per_iteration limit).  The condition where
-   * flags == HANGUP (without READABLE) probably never happen in fact.
+  /* If we hit an error here on a write watch, don't disconnect the transport yet because data can
+   * still be in the buffer and do_reading may need several iteration to read
+   * it all (because of its max_bytes_read_per_iteration limit). 
    */
-  if ((flags & DBUS_WATCH_ERROR) ||
-      ((flags & DBUS_WATCH_HANGUP) && !(flags & DBUS_WATCH_READABLE)))
+  if (!(flags & DBUS_WATCH_READABLE) && unix_error_with_read_to_come (transport, watch, flags))
     {
       _dbus_verbose ("Hang up or error on watch\n");
       _dbus_transport_disconnect (transport);

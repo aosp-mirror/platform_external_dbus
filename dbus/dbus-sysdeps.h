@@ -362,6 +362,7 @@ dbus_bool_t _dbus_get_is_errno_nonzero               (void);
 dbus_bool_t _dbus_get_is_errno_eagain_or_ewouldblock (void);
 dbus_bool_t _dbus_get_is_errno_enomem                (void);
 dbus_bool_t _dbus_get_is_errno_eintr                 (void);
+dbus_bool_t _dbus_get_is_errno_epipe                 (void);
 const char* _dbus_strerror_from_errno                (void);
 
 void _dbus_disable_sigpipe (void);
