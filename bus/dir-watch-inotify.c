@@ -98,7 +98,11 @@ bus_watch_directory (const char *dir, BusContext *context)
   _dbus_assert (dir != NULL);
 
   if (inotify_fd == -1) {
+#ifdef HAVE_INOTIFY_INIT1
+     inotify_fd = inotify_init1 (IN_CLOEXEC);
+#else
      inotify_fd = inotify_init ();
+#endif
      if (inotify_fd <= 0) {
       _dbus_warn ("Cannot initialize inotify\n");
       goto out;
