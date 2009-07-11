@@ -129,249 +129,6 @@ if test x$enable_userdb_cache = xyes; then
     AC_DEFINE(DBUS_ENABLE_USERDB_CACHE,1,[Build with caching of user data])
 fi
 
-#### gcc warning flags
-
-cc_supports_flag() {
-  AC_MSG_CHECKING(whether $CC supports "$@")
-  Cfile=/tmp/foo${$}
-  touch ${Cfile}.c
-  $CC -c "$@" ${Cfile}.c -o ${Cfile}.o >/dev/null 2>&1
-  rc=$?
-  rm -f ${Cfile}.c ${Cfile}.o
-  case $rc in
-    0) AC_MSG_RESULT(yes);;
-    *) AC_MSG_RESULT(no);;
-  esac
-  return $rc
-}
-
-ld_supports_flag() {
-  AC_MSG_CHECKING([whether $LD supports "$@"])
-  AC_TRY_LINK([
-    int one(void) { return 1; }
-    int two(void) { return 2; }
-  ], [ two(); ] , [_ac_ld_flag_supported=yes], [_ac_ld_flag_supported=no])
-
-  if test "$_ac_ld_flag_supported" = "yes"; then
-    rm -f conftest.c
-    touch conftest.c
-    if $CC -c conftest.c; then
-      ld_out=`$LD $@ -o conftest conftest.o 2>&1`
-      ld_ret=$?
-      if test $ld_ret -ne 0 ; then
-        _ac_ld_flag_supported=no
-      elif echo "$ld_out" | egrep 'option ignored|^usage:|unrecognized option|illegal option' >/dev/null ; then
-        _ac_ld_flag_supported=no
-      fi
-    fi
-    rm -f conftest.c conftest.o conftest
-  fi
-
-  AC_MSG_RESULT($_ac_ld_flag_supported)
-  if test "$_ac_ld_flag_supported" = "yes" ; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-if test x$USE_MAINTAINER_MODE = xyes; then
-  if cc_supports_flag "-Werror"; then
-    CFLAGS="$CFLAGS -Werror"
-  fi
-fi
-
-if test "x$GCC" = "xyes"; then
-  changequote(,)dnl
-  case " $CFLAGS " in
-  *[\ \	]-Wall[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wall" ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-Wchar-subscripts[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wchar-subscripts" ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-Wmissing-declarations[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wmissing-declarations" ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-Wmissing-prototypes[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wmissing-prototypes" ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-Wnested-externs[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wnested-externs" ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-Wpointer-arith[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wpointer-arith" ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-Wcast-align[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wcast-align" ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-Wfloat-equal[\ \	]*) ;;
-  *) if cc_supports_flag -Wfloat-equals; then
-        CFLAGS="$CFLAGS -Wfloat-equal" 
-     fi
-     ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-Wdeclaration-after-statement[\ \	]*) ;;
-  *) if cc_supports_flag -Wdeclaration-after-statement; then
-        CFLAGS="$CFLAGS -Wdeclaration-after-statement"
-     fi
-     ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-fno-common[\ \	]*) ;;
-  *) if cc_supports_flag -fno-common; then
-        CFLAGS="$CFLAGS -fno-common"
-     fi
-     ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-fPIC[\ \	]*) ;;
-  *) if cc_supports_flag -fPIC; then
-        PIC_CFLAGS="-fPIC"
-        if ld_supports_flag -z,relro; then
-           PIC_LDFLAGS="-Wl,-z,relro"
-        fi
-     fi
-     ;;
-  esac
-
-  case " $CFLAGS " in
-  *[\ \	]-fPIE[\ \	]*) ;;
-  *) if cc_supports_flag -fPIE; then
-        PIE_CFLAGS="-fPIE"
-        if ld_supports_flag -z,relro; then
-           PIE_LDFLAGS="-pie -Wl,-z,relro"
-        else
-           PIE_LDFLAGS="-pie"
-        fi
-     fi
-     ;;
-  esac
-  
-  ### Disabled warnings, and compiler flag overrides
-  
-  # Let's just ignore unused for now
-  case " $CFLAGS " in
-  *[\ \	]-Wno-unused[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wno-unused" ;;
-  esac  
-  
-  # This group is for warnings we currently don't pass.
-  # We would like to, however.  Please fix.
-  
-  # http://bugs.freedesktop.org/show_bug.cgi?id=17433
-  case " $CFLAGS " in
-  *[\ \	]-Wno-sign-compare[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wno-sign-compare" ;;
-  esac
-  case " $CFLAGS " in
-  *[\ \	]-Wno-pointer-sign[\ \	]*) ;;
-  *) if cc_supports_flag -Wno-pointer-sign; then
-        CFLAGS="$CFLAGS -Wno-pointer-sign"
-     fi
-     ;;
-  esac  
-  
-  # http://bugs.freedesktop.org/show_bug.cgi?id=19195
-  case " $CFLAGS " in
-  *[\ \	]-Wno-format[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wno-format" ;;
-  esac
-  
-  # This one is special - it's not a warning override.
-  # http://bugs.freedesktop.org/show_bug.cgi?id=10599
-  case " $CFLAGS " in
-  *[\ \	]-fno-strict-aliasing[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -fno-strict-aliasing" ;;
-  esac
-  ### End disabled warnings
-
-  if test "x$enable_ansi" = "xyes"; then
-    case " $CFLAGS " in
-    *[\ \	]-ansi[\ \	]*) ;;
-    *) CFLAGS="$CFLAGS -ansi" ;;
-    esac
-
-    case " $CFLAGS " in
-    *[\ \	]-D_POSIX_C_SOURCE*) ;;
-    *) CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L" ;;
-    esac
-
-    case " $CFLAGS " in
-    *[\ \	]-D_BSD_SOURCE[\ \	]*) ;;
-    *) CFLAGS="$CFLAGS -D_BSD_SOURCE" ;;
-    esac
-
-    case " $CFLAGS " in
-    *[\ \	]-pedantic[\ \	]*) ;;
-    *) CFLAGS="$CFLAGS -pedantic" ;;
-    esac    
-  fi
-  if test x$enable_gcov = xyes; then
-    case " $CFLAGS " in
-    *[\ \	]-fprofile-arcs[\ \	]*) ;;
-    *) CFLAGS="$CFLAGS -fprofile-arcs" ;;
-    esac
-    case " $CFLAGS " in
-    *[\ \	]-ftest-coverage[\ \	]*) ;;
-    *) CFLAGS="$CFLAGS -ftest-coverage" ;;
-    esac
-
-    ## remove optimization
-    CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
-  fi
-  changequote([,])dnl
-else
-  if test x$enable_gcov = xyes; then
-    AC_MSG_ERROR([--enable-gcov can only be used with gcc])
-  fi
-fi
-
-AC_SUBST(PIC_CFLAGS)
-AC_SUBST(PIC_LDFLAGS)  
-AC_SUBST(PIE_CFLAGS)
-AC_SUBST(PIE_LDFLAGS)  
-
-if ld_supports_flag --gc-sections; then
-  SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
-  CFLAGS="-ffunction-sections -fdata-sections $CFLAGS"
-fi
-AC_SUBST(SECTION_FLAGS)
-AC_SUBST(SECTION_LDFLAGS)
-AC_MSG_RESULT($ac_gcsections)
-
-# Add -D_POSIX_PTHREAD_SEMANTICS if on Solaris
-#
-case $host_os in
-    solaris*)
-       CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS" ;;
-esac
-    
-changequote(,)dnl
-# compress spaces in flags
-CFLAGS=`echo "$CFLAGS" | sed -e 's/ +/ /g'`
-CXXFLAGS=`echo "$CXXFLAGS" | sed -e 's/ +/ /g'`
-CPPFLAGS=`echo "$CPPFLAGS" | sed -e 's/ +/ /g'`
-changequote([,])dnl
-
 if test x$enable_gcov = xyes; then
      ## so that config.h changes when you toggle gcov support
      AC_DEFINE_UNQUOTED(DBUS_GCOV_ENABLED, 1, [Defined if gcov is enabled to force a rebuild due to config.h changing])
@@ -1140,6 +897,250 @@ fi
 
 AC_SUBST(DBUS_X_CFLAGS)
 AC_SUBST(DBUS_X_LIBS)
+
+
+#### gcc warning flags
+
+cc_supports_flag() {
+  AC_MSG_CHECKING(whether $CC supports "$@")
+  Cfile=/tmp/foo${$}
+  touch ${Cfile}.c
+  $CC -c "$@" ${Cfile}.c -o ${Cfile}.o >/dev/null 2>&1
+  rc=$?
+  rm -f ${Cfile}.c ${Cfile}.o
+  case $rc in
+    0) AC_MSG_RESULT(yes);;
+    *) AC_MSG_RESULT(no);;
+  esac
+  return $rc
+}
+
+ld_supports_flag() {
+  AC_MSG_CHECKING([whether $LD supports "$@"])
+  AC_TRY_LINK([
+    int one(void) { return 1; }
+    int two(void) { return 2; }
+  ], [ two(); ] , [_ac_ld_flag_supported=yes], [_ac_ld_flag_supported=no])
+
+  if test "$_ac_ld_flag_supported" = "yes"; then
+    rm -f conftest.c
+    touch conftest.c
+    if $CC -c conftest.c; then
+      ld_out=`$LD $@ -o conftest conftest.o 2>&1`
+      ld_ret=$?
+      if test $ld_ret -ne 0 ; then
+        _ac_ld_flag_supported=no
+      elif echo "$ld_out" | egrep 'option ignored|^usage:|unrecognized option|illegal option' >/dev/null ; then
+        _ac_ld_flag_supported=no
+      fi
+    fi
+    rm -f conftest.c conftest.o conftest
+  fi
+
+  AC_MSG_RESULT($_ac_ld_flag_supported)
+  if test "$_ac_ld_flag_supported" = "yes" ; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+if test x$USE_MAINTAINER_MODE = xyes; then
+  if cc_supports_flag "-Werror"; then
+    CFLAGS="$CFLAGS -Werror"
+  fi
+fi
+
+if test "x$GCC" = "xyes"; then
+  changequote(,)dnl
+  case " $CFLAGS " in
+  *[\ \	]-Wall[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wall" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wchar-subscripts[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wchar-subscripts" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wmissing-declarations[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wmissing-declarations" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wmissing-prototypes[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wmissing-prototypes" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wnested-externs[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wnested-externs" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wpointer-arith[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wpointer-arith" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wcast-align[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wcast-align" ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wfloat-equal[\ \	]*) ;;
+  *) if cc_supports_flag -Wfloat-equals; then
+        CFLAGS="$CFLAGS -Wfloat-equal" 
+     fi
+     ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-Wdeclaration-after-statement[\ \	]*) ;;
+  *) if cc_supports_flag -Wdeclaration-after-statement; then
+        CFLAGS="$CFLAGS -Wdeclaration-after-statement"
+     fi
+     ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-fno-common[\ \	]*) ;;
+  *) if cc_supports_flag -fno-common; then
+        CFLAGS="$CFLAGS -fno-common"
+     fi
+     ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-fPIC[\ \	]*) ;;
+  *) if cc_supports_flag -fPIC; then
+        PIC_CFLAGS="-fPIC"
+        if ld_supports_flag -z,relro; then
+           PIC_LDFLAGS="-Wl,-z,relro"
+        fi
+     fi
+     ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-fPIE[\ \	]*) ;;
+  *) if cc_supports_flag -fPIE; then
+        PIE_CFLAGS="-fPIE"
+        if ld_supports_flag -z,relro; then
+           PIE_LDFLAGS="-pie -Wl,-z,relro"
+        else
+           PIE_LDFLAGS="-pie"
+        fi
+     fi
+     ;;
+  esac
+  
+  ### Disabled warnings, and compiler flag overrides
+  
+  # Let's just ignore unused for now
+  case " $CFLAGS " in
+  *[\ \	]-Wno-unused[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wno-unused" ;;
+  esac  
+  
+  # This group is for warnings we currently don't pass.
+  # We would like to, however.  Please fix.
+  
+  # http://bugs.freedesktop.org/show_bug.cgi?id=17433
+  case " $CFLAGS " in
+  *[\ \	]-Wno-sign-compare[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wno-sign-compare" ;;
+  esac
+  case " $CFLAGS " in
+  *[\ \	]-Wno-pointer-sign[\ \	]*) ;;
+  *) if cc_supports_flag -Wno-pointer-sign; then
+        CFLAGS="$CFLAGS -Wno-pointer-sign"
+     fi
+     ;;
+  esac  
+  
+  # http://bugs.freedesktop.org/show_bug.cgi?id=19195
+  case " $CFLAGS " in
+  *[\ \	]-Wno-format[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -Wno-format" ;;
+  esac
+  
+  # This one is special - it's not a warning override.
+  # http://bugs.freedesktop.org/show_bug.cgi?id=10599
+  case " $CFLAGS " in
+  *[\ \	]-fno-strict-aliasing[\ \	]*) ;;
+  *) CFLAGS="$CFLAGS -fno-strict-aliasing" ;;
+  esac
+  ### End disabled warnings
+
+  if test "x$enable_ansi" = "xyes"; then
+    case " $CFLAGS " in
+    *[\ \	]-ansi[\ \	]*) ;;
+    *) CFLAGS="$CFLAGS -ansi" ;;
+    esac
+
+    case " $CFLAGS " in
+    *[\ \	]-D_POSIX_C_SOURCE*) ;;
+    *) CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L" ;;
+    esac
+
+    case " $CFLAGS " in
+    *[\ \	]-D_BSD_SOURCE[\ \	]*) ;;
+    *) CFLAGS="$CFLAGS -D_BSD_SOURCE" ;;
+    esac
+
+    case " $CFLAGS " in
+    *[\ \	]-pedantic[\ \	]*) ;;
+    *) CFLAGS="$CFLAGS -pedantic" ;;
+    esac    
+  fi
+  if test x$enable_gcov = xyes; then
+    case " $CFLAGS " in
+    *[\ \	]-fprofile-arcs[\ \	]*) ;;
+    *) CFLAGS="$CFLAGS -fprofile-arcs" ;;
+    esac
+    case " $CFLAGS " in
+    *[\ \	]-ftest-coverage[\ \	]*) ;;
+    *) CFLAGS="$CFLAGS -ftest-coverage" ;;
+    esac
+
+    ## remove optimization
+    CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
+  fi
+  changequote([,])dnl
+else
+  if test x$enable_gcov = xyes; then
+    AC_MSG_ERROR([--enable-gcov can only be used with gcc])
+  fi
+fi
+
+AC_SUBST(PIC_CFLAGS)
+AC_SUBST(PIC_LDFLAGS)  
+AC_SUBST(PIE_CFLAGS)
+AC_SUBST(PIE_LDFLAGS)  
+
+if ld_supports_flag --gc-sections; then
+  SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
+  CFLAGS="-ffunction-sections -fdata-sections $CFLAGS"
+fi
+AC_SUBST(SECTION_FLAGS)
+AC_SUBST(SECTION_LDFLAGS)
+AC_MSG_RESULT($ac_gcsections)
+
+# Add -D_POSIX_PTHREAD_SEMANTICS if on Solaris
+#
+case $host_os in
+    solaris*)
+       CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS" ;;
+esac
+    
+changequote(,)dnl
+# compress spaces in flags
+CFLAGS=`echo "$CFLAGS" | sed -e 's/ +/ /g'`
+CXXFLAGS=`echo "$CXXFLAGS" | sed -e 's/ +/ /g'`
+CPPFLAGS=`echo "$CPPFLAGS" | sed -e 's/ +/ /g'`
+changequote([,])dnl
 
 ### Doxygen Documentation
 
