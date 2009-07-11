@@ -74,6 +74,7 @@ void           _dbus_watch_list_remove_watch  (DBusWatchList           *watch_li
 void           _dbus_watch_list_toggle_watch  (DBusWatchList           *watch_list,
                                                DBusWatch               *watch,
                                                dbus_bool_t              enabled);
+dbus_bool_t    _dbus_watch_get_enabled        (DBusWatch              *watch);
 
 /** @} */
 

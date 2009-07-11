@@ -51,6 +51,12 @@ struct DBusWatch
   unsigned int enabled : 1;            /**< Whether it's enabled. */
 };
 
+dbus_bool_t
+_dbus_watch_get_enabled (DBusWatch *watch)
+{
+  return watch->enabled;
+}
+
 /**
  * Creates a new DBusWatch. Used to add a file descriptor to be polled
  * by a main loop.

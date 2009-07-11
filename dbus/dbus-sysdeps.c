@@ -1078,6 +1078,16 @@ _dbus_get_is_errno_eintr (void)
 }
 
 /**
+ * See if errno is EPIPE
+ * @returns #TRUE if errno == EPIPE
+ */
+dbus_bool_t
+_dbus_get_is_errno_epipe (void)
+{
+  return errno == EPIPE;
+}
+
+/**
  * Get error message from errno
  * @returns _dbus_strerror(errno)
  */
