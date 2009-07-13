@@ -386,7 +386,7 @@ AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT_COND, [$have_atomic_inc_cond],
                    [Always defined; expands to 1 if we have an atomic integer implementation, else 0])
 
 #### Various functions
-AC_CHECK_LIB(socket,socket)
+AC_SEARCH_LIBS(socket,[socket network])
 AC_CHECK_FUNC(gethostbyname,,[AC_CHECK_LIB(nsl,gethostbyname)])
 
 AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep setenv clearenv unsetenv socketpair getgrouplist fpathconf setrlimit poll)
