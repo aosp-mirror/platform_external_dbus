@@ -3111,6 +3111,37 @@ _dbus_read_local_machine_uuid (DBusGUID   *machine_id,
 #define DBUS_UNIX_STANDARD_SESSION_SERVICEDIR "/dbus-1/services"
 #define DBUS_UNIX_STANDARD_SYSTEM_SERVICEDIR "/dbus-1/system-services"
 
+/**
+ * Determines the address of the session bus by querying a
+ * platform-specific method.  
+ *
+ * The first parameter will be a boolean specifying whether
+ * or not a dynamic session lookup is supported on this platform.
+ * 
+ * If supported is TRUE and the return value is #TRUE, the
+ * address will be  appended to @p address.
+ * If a failure happens, returns #FALSE and sets an error in 
+ * @p error.
+ *
+ * If supported is FALSE, ignore the return value.
+ *
+ * @param supported returns whether this method is supported
+ * @param address a DBusString where the address can be stored
+ * @param error a DBusError to store the error in case of failure
+ * @returns #TRUE on success, #FALSE if an error happened
+ */
+dbus_bool_t
+_dbus_lookup_session_address (dbus_bool_t *supported,
+                              DBusString  *address,
+                              DBusError   *error)
+{
+  /* On non-Mac Unix platforms, if the session address isn't already
+   * set in DBUS_SESSION_BUS_ADDRESS environment variable, we punt and
+   * fall back to the autolaunch: global default; see 
+   * init_session_address in dbus/dbus-bus.c. */
+  *supported = FALSE;
+  return TRUE;
+}
 
 /**
  * Returns the standard directories for a session bus to look for service 

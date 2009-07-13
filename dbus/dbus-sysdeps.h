@@ -468,6 +468,10 @@ void _dbus_log_security (const char *msg, va_list args);
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
 					  DBusError *error);
 
+dbus_bool_t _dbus_lookup_session_address (dbus_bool_t *supported,
+                                          DBusString  *address,
+                                          DBusError   *error);
+
 /** Type representing a universally unique ID
  * @todo rename to UUID instead of GUID
  */

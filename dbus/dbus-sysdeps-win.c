@@ -5,7 +5,7 @@
  * Copyright (C) 2003 CodeFactory AB
  * Copyright (C) 2005 Novell, Inc.
  * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
- * Copyright (C) 2006 Peter Kümmel  <syntheticpp@gmx.net>
+ * Copyright (C) 2006 Peter KÃ¼mmel  <syntheticpp@gmx.net>
  * Copyright (C) 2006 Christian Ehrlicher <ch.ehrlicher@gmx.de>
  *
  * Licensed under the Academic Free License version 2.1
@@ -3279,6 +3279,17 @@ dbus_bool_t
 _dbus_append_session_config_file (DBusString *str)
 {
   return _dbus_get_config_file_name(str, "session.conf");
+}
+
+/* See comment in dbus-sysdeps-unix.c */
+dbus_bool_t
+_dbus_lookup_session_address (dbus_bool_t *supported,
+                              DBusString  *address,
+                              DBusError   *error)
+{
+  /* Probably fill this in with something based on COM? */
+  *supported = FALSE;
+  return TRUE;
 }
 
 /**

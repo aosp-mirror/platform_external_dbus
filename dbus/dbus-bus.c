@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-bus.h"
 #include "dbus-protocol.h"
 #include "dbus-internals.h"
@@ -29,7 +30,7 @@
 #include "dbus-marshal-validate.h"
 #include "dbus-threads-internal.h"
 #include "dbus-connection-internal.h"
-#include <string.h>
+#include "dbus-string.h"
 
 /**
  * @defgroup DBusBus Message bus APIs
@@ -147,6 +148,63 @@ get_from_env (char           **connection_p,
 }
 
 static dbus_bool_t
+init_session_address (void)
+{
+  dbus_bool_t retval;
+ 
+  retval = FALSE;
+
+  /* First, look in the environment.  This is the normal case on 
+   * freedesktop.org/Unix systems. */
+  get_from_env (&bus_connection_addresses[DBUS_BUS_SESSION],
+                     "DBUS_SESSION_BUS_ADDRESS");
+  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+    {
+      dbus_bool_t supported;
+      DBusString addr;
+      DBusError error = DBUS_ERROR_INIT;
+
+      if (!_dbus_string_init (&addr))
+        return FALSE;
+
+      supported = FALSE;
+      /* So it's not in the environment - let's try a platform-specific method.
+       * On MacOS, this involves asking launchd.  On Windows (not specified yet)
+       * we might do a COM lookup.
+       * Ignore errors - if we failed, fall back to autolaunch. */
+      retval = _dbus_lookup_session_address (&supported, &addr, &error);
+      if (supported && retval)
+        {
+          retval =_dbus_string_steal_data (&addr, &bus_connection_addresses[DBUS_BUS_SESSION]);
+        }
+      else if (supported && !retval)
+        {
+          if (dbus_error_is_set(&error))
+            _dbus_warn ("Dynamic session lookup supported but failed: %s\n", error.message);
+          else
+            _dbus_warn ("Dynamic session lookup supported but failed silently\n");
+        }
+      _dbus_string_free (&addr);
+    }
+  else
+    retval = TRUE;
+
+  if (!retval)
+    return FALSE;
+
+  /* The DBUS_SESSION_BUS_DEFAULT_ADDRESS should have really been named
+   * DBUS_SESSION_BUS_FALLBACK_ADDRESS. 
+   */
+  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+    bus_connection_addresses[DBUS_BUS_SESSION] =
+      _dbus_strdup (DBUS_SESSION_BUS_DEFAULT_ADDRESS);
+  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+    return FALSE;
+
+  return TRUE;
+}
+
+static dbus_bool_t
 init_connections_unlocked (void)
 {
   if (!initialized)
@@ -198,16 +256,8 @@ init_connections_unlocked (void)
         {
           _dbus_verbose ("Filling in session bus address...\n");
           
-          if (!get_from_env (&bus_connection_addresses[DBUS_BUS_SESSION],
-                             "DBUS_SESSION_BUS_ADDRESS"))
+          if (!init_session_address ())
             return FALSE;
-
-	  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
-	    bus_connection_addresses[DBUS_BUS_SESSION] =
-	      _dbus_strdup (DBUS_SESSION_BUS_DEFAULT_ADDRESS);
-          
-          if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
-             return FALSE;
 
           _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_SESSION] ?
                          bus_connection_addresses[DBUS_BUS_SESSION] : "none set");
