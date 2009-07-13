@@ -238,6 +238,19 @@ dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
 #define _DBUS_POLLHUP     0x2000
 /** Invalid request: fd not open */
 #define _DBUS_POLLNVAL    0x8000
+#elif defined(__HAIKU__)
+/** There is data to read */
+#define _DBUS_POLLIN      0x0001
+/** Writing now will not block */
+#define _DBUS_POLLOUT     0x0002
+/** Error condition */
+#define _DBUS_POLLERR     0x0004
+/** There is urgent data to read */
+#define _DBUS_POLLPRI     0x0020
+/** Hung up */
+#define _DBUS_POLLHUP     0x0080
+/** Invalid request: fd not open */
+#define _DBUS_POLLNVAL    0x1000
 #else
 /** There is data to read */
 #define _DBUS_POLLIN      0x0001
