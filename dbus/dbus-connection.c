@@ -5368,6 +5368,7 @@ dbus_connection_remove_filter (DBusConnection            *connection,
         }
         
       link = _dbus_list_get_prev_link (&connection->filter_list, link);
+      filter = NULL;
     }
   
   CONNECTION_UNLOCK (connection);
