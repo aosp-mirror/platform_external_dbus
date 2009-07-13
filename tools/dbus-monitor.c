@@ -191,7 +191,7 @@ profile_filter_func (DBusConnection	*connection,
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--system | --session] [--monitor | --profile ] [watch expressions]\n", name);
+  fprintf (stderr, "Usage: %s [--system | --session | --address ADDRESS] [--monitor | --profile ] [watch expressions]\n", name);
   exit (ecode);
 }
 
@@ -210,7 +210,8 @@ main (int argc, char *argv[])
   DBusError error;
   DBusBusType type = DBUS_BUS_SESSION;
   DBusHandleMessageFunction filter_func = monitor_filter_func;
-
+  char *address = NULL;
+  
   int i = 0, j = 0, numFilters = 0;
   char **filters = NULL;
   for (i = 1; i < argc; i++)
@@ -221,6 +222,16 @@ main (int argc, char *argv[])
 	type = DBUS_BUS_SYSTEM;
       else if (!strcmp (arg, "--session"))
 	type = DBUS_BUS_SESSION;
+      else if (!strcmp (arg, "--address"))
+	{
+	  if (i+1 < argc)
+	    {
+	      address = argv[i+1];
+	      i++;
+	    }
+	  else
+	    usage (argv[0], 1);
+	}
       else if (!strcmp (arg, "--help"))
 	usage (argv[0], 0);
       else if (!strcmp (arg, "--monitor"))
@@ -241,11 +252,44 @@ main (int argc, char *argv[])
     }
 
   dbus_error_init (&error);
-  connection = dbus_bus_get (type, &error);
+  
+  if (address != NULL)
+    {
+      connection = dbus_connection_open (address, &error);
+      if (connection)
+        {
+          if (!dbus_bus_register (connection, &error))
+      	    {
+              fprintf (stderr, "Failed to register connection to bus at %s: %s\n",
+      	               address, error.message);
+              dbus_error_free (&error);
+              exit (1);
+      	    }
+        }
+    }
+  else
+    connection = dbus_bus_get (type, &error);
   if (connection == NULL)
     {
-      fprintf (stderr, "Failed to open connection to %s message bus: %s\n",
-	       (type == DBUS_BUS_SYSTEM) ? "system" : "session",
+      const char *where;
+      if (address != NULL)
+        where = address;
+      else
+        {
+          switch (type)
+            {
+            case DBUS_BUS_SYSTEM:
+              where = "system bus";
+              break;
+            case DBUS_BUS_SESSION:
+              where = "session bus";
+              break;
+            default:
+              where = "";
+            }
+        }
+      fprintf (stderr, "Failed to open connection to %s: %s\n",
+               where,
                error.message);
       dbus_error_free (&error);
       exit (1);

@@ -8,7 +8,7 @@ dbus-monitor \- debug probe to print message bus messages
 .SH SYNOPSIS
 .PP
 .B dbus-monitor
-[\-\-system | \-\-session] [\-\-profile | \-\-monitor]
+[\-\-system | \-\-session | \-\-address ADDRESS] [\-\-profile | \-\-monitor]
 [watch expressions]
 
 .SH DESCRIPTION
@@ -50,6 +50,9 @@ Monitor the system message bus.
 .TP
 .I "--session"
 Monitor the session message bus.  (This is the default.)
+.TP
+.I "--address ADDRESS"
+Monitor an arbitrary message bus given at ADDRESS.
 .TP
 .I "--profile"
 Use the profiling output format.
