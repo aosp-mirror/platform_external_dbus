@@ -1591,8 +1591,10 @@ fill_user_info (DBusUserInfo       *info,
     gid_t *buf;
     int buf_count;
     int i;
-    
-    buf_count = 17;
+    int initial_buf_count;
+
+    initial_buf_count = 17;
+    buf_count = initial_buf_count;
     buf = dbus_new (gid_t, buf_count);
     if (buf == NULL)
       {
@@ -1604,7 +1606,25 @@ fill_user_info (DBusUserInfo       *info,
                       info->primary_gid,
                       buf, &buf_count) < 0)
       {
-        gid_t *new = dbus_realloc (buf, buf_count * sizeof (buf[0]));
+        gid_t *new;
+        /* Presumed cause of negative return code: buf has insufficient
+           entries to hold the entire group list. The Linux behavior in this
+           case is to pass back the actual number of groups in buf_count, but
+           on Mac OS X 10.5, buf_count is unhelpfully left alone.
+           So as a hack, try to help out a bit by guessing a larger
+           number of groups, within reason.. might still fail, of course,
+           but we can at least print a more informative message.  I looked up
+           the "right way" to do this by downloading Apple's own source code
+           for the "id" command, and it turns out that they use an
+           undocumented library function getgrouplist_2 (!) which is not
+           declared in any header in /usr/include (!!). That did not seem
+           like the way to go here.  
+        */
+        if (buf_count == initial_buf_count) 
+          { 
+            buf_count *= 16; /* Retry with an arbitrarily scaled-up array */
+          }
+        new = dbus_realloc (buf, buf_count * sizeof (buf[0]));
         if (new == NULL)
           {
             dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -1617,14 +1637,22 @@ fill_user_info (DBusUserInfo       *info,
         errno = 0;
         if (getgrouplist (username_c, info->primary_gid, buf, &buf_count) < 0)
           {
-            dbus_set_error (error,
-                            _dbus_error_from_errno (errno),
-                            "Failed to get groups for username \"%s\" primary GID "
-                            DBUS_GID_FORMAT ": %s\n",
-                            username_c, info->primary_gid,
-                            _dbus_strerror (errno));
-            dbus_free (buf);
-            goto failed;
+            if (errno == 0)
+              {
+                _dbus_warn ("It appears that username \"%s\" is in more than %d groups.\nProceeding with just the first %d groups.",
+                            username_c, buf_count, buf_count);
+              } 
+            else
+              {
+                dbus_set_error (error,
+                                _dbus_error_from_errno (errno),
+                                "Failed to get groups for username \"%s\" primary GID "
+                                DBUS_GID_FORMAT ": %s\n",
+                                username_c, info->primary_gid,
+                                _dbus_strerror (errno));
+                dbus_free (buf);
+                goto failed;
+              }
           }
       }
 
