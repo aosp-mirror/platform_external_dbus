@@ -2869,23 +2869,30 @@ _dbus_get_tmpdir(void)
 }
 
 /**
- * Determines the address of the session bus by querying a
- * platform-specific method.
+ * Execute a subprocess, returning up to 1024 bytes of output
+ * into @p result.
  *
- * If successful, returns #TRUE and appends the address to @p
- * address. If a failure happens, returns #FALSE and
+ * If successful, returns #TRUE and appends the output to @p
+ * result. If a failure happens, returns #FALSE and
  * sets an error in @p error.
  *
- * @param address a DBusString where the address can be stored
+ * @note It's not an error if the subprocess terminates normally
+ * without writing any data to stdout. Verify the @p result length
+ * before and after this function call to cover this case.
+ *
+ * @param progname initial path to exec
+ * @param argv NULL-terminated list of arguments
+ * @param result a DBusString where the output can be append
  * @param error a DBusError to store the error in case of failure
  * @returns #TRUE on success, #FALSE if an error happened
  */
-dbus_bool_t
-_dbus_get_autolaunch_address (DBusString *address,
-                              DBusError  *error)
+static dbus_bool_t
+_read_subprocess_line_argv (const char *progpath,
+                            char       * const *argv,
+                            DBusString *result,
+                            DBusError  *error)
 {
-  static char *argv[6];
-  int address_pipe[2] = { -1, -1 };
+  int result_pipe[2] = { -1, -1 };
   int errors_pipe[2] = { -1, -1 };
   pid_t pid;
   int ret;
@@ -2913,6 +2920,186 @@ _dbus_get_autolaunch_address (DBusString *address,
   sigaddset (&new_set, SIGCHLD);
   sigprocmask (SIG_BLOCK, &new_set, &old_set);
   
+  orig_len = _dbus_string_get_length (result);
+  
+#define READ_END        0
+#define WRITE_END       1
+  if (pipe (result_pipe) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to create a pipe to call %s: %s",
+                      progpath, _dbus_strerror (errno));
+      _dbus_verbose ("Failed to create a pipe to call %s: %s\n",
+                     progpath, _dbus_strerror (errno));
+      goto out;
+    }
+  if (pipe (errors_pipe) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to create a pipe to call %s: %s",
+                      progpath, _dbus_strerror (errno));
+      _dbus_verbose ("Failed to create a pipe to call %s: %s\n",
+                     progpath, _dbus_strerror (errno));
+      goto out;
+    }
+
+  pid = fork ();
+  if (pid < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to fork() to call %s: %s",
+                      progpath, _dbus_strerror (errno));
+      _dbus_verbose ("Failed to fork() to call %s: %s\n",
+                     progpath, _dbus_strerror (errno));
+      goto out;
+    }
+
+  if (pid == 0)
+    {
+      /* child process */
+      int maxfds;
+      int fd;
+
+      fd = open ("/dev/null", O_RDWR);
+      if (fd == -1)
+        /* huh?! can't open /dev/null? */
+        _exit (1);
+
+      _dbus_verbose ("/dev/null fd %d opened\n", fd);
+      
+      /* set-up stdXXX */
+      close (result_pipe[READ_END]);
+      close (errors_pipe[READ_END]);
+      close (0);                /* close stdin */
+      close (1);                /* close stdout */
+      close (2);                /* close stderr */
+
+      if (dup2 (fd, 0) == -1)
+        _exit (1);
+      if (dup2 (result_pipe[WRITE_END], 1) == -1)
+        _exit (1);
+      if (dup2 (errors_pipe[WRITE_END], 2) == -1)
+        _exit (1);
+
+      maxfds = sysconf (_SC_OPEN_MAX);
+      /* Pick something reasonable if for some reason sysconf
+       * says unlimited.
+       */
+      if (maxfds < 0)
+        maxfds = 1024;
+      /* close all inherited fds */
+      for (i = 3; i < maxfds; i++)
+        close (i);
+
+      sigprocmask(SIG_SETMASK, &old_set, NULL);
+
+      /* If it looks fully-qualified, try execv first */
+      if (progpath[0] == '/')
+        execv (progpath, argv);
+      else
+        execvp (progpath, argv);
+
+      /* still nothing, we failed */
+      _exit (1);
+    }
+
+  /* parent process */
+  close (result_pipe[WRITE_END]);
+  close (errors_pipe[WRITE_END]);
+  result_pipe[WRITE_END] = -1;
+  errors_pipe[WRITE_END] = -1;
+
+  ret = 0;
+  do 
+    {
+      ret = _dbus_read (result_pipe[READ_END], result, 1024);
+    }
+  while (ret > 0);
+
+  /* reap the child process to avoid it lingering as zombie */
+  do
+    {
+      ret = waitpid (pid, &status, 0);
+    }
+  while (ret == -1 && errno == EINTR);
+
+  /* We succeeded if the process exited with status 0 and
+     anything was read */
+  if (!WIFEXITED (status) || WEXITSTATUS (status) != 0 )
+    {
+      /* The process ended with error */
+      DBusString error_message;
+      _dbus_string_init (&error_message);
+      ret = 0;
+      do
+        {
+          ret = _dbus_read (errors_pipe[READ_END], &error_message, 1024);
+        }
+      while (ret > 0);
+
+      _dbus_string_set_length (result, orig_len);
+      if (_dbus_string_get_length (&error_message) > 0)
+        dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
+                        "%s terminated abnormally with the following error: %s",
+                        progpath, _dbus_string_get_data (&error_message));
+      else
+        dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
+                        "%s terminated abnormally without any error message",
+                        progpath);
+      goto out;
+    }
+
+  retval = TRUE;
+  
+ out:
+  sigprocmask (SIG_SETMASK, &old_set, NULL);
+
+  if (retval)
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  else
+    _DBUS_ASSERT_ERROR_IS_SET (error);
+
+  if (result_pipe[0] != -1)
+    close (result_pipe[0]);
+  if (result_pipe[1] != -1)
+    close (result_pipe[1]);
+  if (errors_pipe[0] != -1)
+    close (errors_pipe[0]);
+  if (errors_pipe[1] != -1)
+    close (errors_pipe[1]);
+
+  return retval;  
+}
+
+/**
+ * Returns the address of a new session bus.
+ *
+ * If successful, returns #TRUE and appends the address to @p
+ * address. If a failure happens, returns #FALSE and
+ * sets an error in @p error.
+ *
+ * @param address a DBusString where the address can be stored
+ * @param error a DBusError to store the error in case of failure
+ * @returns #TRUE on success, #FALSE if an error happened
+ */
+dbus_bool_t
+_dbus_get_autolaunch_address (DBusString *address,
+                              DBusError  *error)
+{
+  static char *argv[6];
+  int i;
+  DBusString uuid;
+  dbus_bool_t retval;
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  retval = FALSE;
+
+  if (!_dbus_string_init (&uuid))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+  
   if (!_dbus_get_local_machine_uuid_encoded (&uuid))
     {
       _DBUS_SET_OOM (error);
@@ -2934,154 +3121,11 @@ _dbus_get_autolaunch_address (DBusString *address,
   ++i;
 
   _dbus_assert (i == _DBUS_N_ELEMENTS (argv));
-  
-  orig_len = _dbus_string_get_length (address);
-  
-#define READ_END        0
-#define WRITE_END       1
-  if (pipe (address_pipe) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to create a pipe: %s",
-                      _dbus_strerror (errno));
-      _dbus_verbose ("Failed to create a pipe to call dbus-launch: %s\n",
-                     _dbus_strerror (errno));
-      goto out;
-    }
-  if (pipe (errors_pipe) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to create a pipe: %s",
-                      _dbus_strerror (errno));
-      _dbus_verbose ("Failed to create a pipe to call dbus-launch: %s\n",
-                     _dbus_strerror (errno));
-      goto out;
-    }
 
-  pid = fork ();
-  if (pid < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to fork(): %s",
-                      _dbus_strerror (errno));
-      _dbus_verbose ("Failed to fork() to call dbus-launch: %s\n",
-                     _dbus_strerror (errno));
-      goto out;
-    }
+  retval = _read_subprocess_line_argv (DBUS_BINDIR "/dbus-launch", 
+                                       argv, address, error);
 
-  if (pid == 0)
-    {
-      /* child process */
-      int maxfds;
-      int fd;
-
-      fd = open ("/dev/null", O_RDWR);
-      if (fd == -1)
-        /* huh?! can't open /dev/null? */
-        _exit (1);
-
-      _dbus_verbose ("/dev/null fd %d opened\n", fd);
-      
-      /* set-up stdXXX */
-      close (address_pipe[READ_END]);
-      close (errors_pipe[READ_END]);
-      close (0);                /* close stdin */
-      close (1);                /* close stdout */
-      close (2);                /* close stderr */
-
-      if (dup2 (fd, 0) == -1)
-        _exit (1);
-      if (dup2 (address_pipe[WRITE_END], 1) == -1)
-        _exit (1);
-      if (dup2 (errors_pipe[WRITE_END], 2) == -1)
-        _exit (1);
-
-      maxfds = sysconf (_SC_OPEN_MAX);
-      /* Pick something reasonable if for some reason sysconf
-       * says unlimited.
-       */
-      if (maxfds < 0)
-        maxfds = 1024;
-      /* close all inherited fds */
-      for (i = 3; i < maxfds; i++)
-        close (i);
-
-      sigprocmask(SIG_SETMASK, &old_set, NULL);
-
-      execv (DBUS_BINDIR "/dbus-launch", argv);
-
-      /* failed, try searching PATH */
-      execvp ("dbus-launch", argv);
-
-      /* still nothing, we failed */
-      _exit (1);
-    }
-
-  /* parent process */
-  close (address_pipe[WRITE_END]);
-  close (errors_pipe[WRITE_END]);
-  address_pipe[WRITE_END] = -1;
-  errors_pipe[WRITE_END] = -1;
-
-  ret = 0;
-  do 
-    {
-      ret = _dbus_read (address_pipe[READ_END], address, 1024);
-    }
-  while (ret > 0);
-
-  /* reap the child process to avoid it lingering as zombie */
-  do
-    {
-      ret = waitpid (pid, &status, 0);
-    }
-  while (ret == -1 && errno == EINTR);
-
-  /* We succeeded if the process exited with status 0 and
-     anything was read */
-  if (!WIFEXITED (status) || WEXITSTATUS (status) != 0 ||
-      _dbus_string_get_length (address) == orig_len)
-    {
-      /* The process ended with error */
-      DBusString error_message;
-      _dbus_string_init (&error_message);
-      ret = 0;
-      do
-	{
-	  ret = _dbus_read (errors_pipe[READ_END], &error_message, 1024);
-	}
-      while (ret > 0);
-
-      _dbus_string_set_length (address, orig_len);
-      if (_dbus_string_get_length (&error_message) > 0)
-	dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
-			"dbus-launch failed to autolaunch D-Bus session: %s",
-			_dbus_string_get_data (&error_message));
-      else
-	dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
-			"Failed to execute dbus-launch to autolaunch D-Bus session");
-      goto out;
-    }
-
-  retval = TRUE;
-  
  out:
-  sigprocmask (SIG_SETMASK, &old_set, NULL);
-
-  if (retval)
-    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  else
-    _DBUS_ASSERT_ERROR_IS_SET (error);
-
-  if (address_pipe[0] != -1)
-    close (address_pipe[0]);
-  if (address_pipe[1] != -1)
-    close (address_pipe[1]);
-  if (errors_pipe[0] != -1)
-    close (errors_pipe[0]);
-  if (errors_pipe[1] != -1)
-    close (errors_pipe[1]);
-
   _dbus_string_free (&uuid);
   return retval;
 }
