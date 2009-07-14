@@ -2884,7 +2884,8 @@ _dbus_get_tmpdir(void)
  * without writing any data to stdout. Verify the @p result length
  * before and after this function call to cover this case.
  *
- * @param progname initial path to exec
+ * @param progname initial path to exec (may or may not be absolute)
+ * @param path_fallback if %TRUE, search PATH for executable
  * @param argv NULL-terminated list of arguments
  * @param result a DBusString where the output can be append
  * @param error a DBusError to store the error in case of failure
@@ -2892,6 +2893,7 @@ _dbus_get_tmpdir(void)
  */
 static dbus_bool_t
 _read_subprocess_line_argv (const char *progpath,
+                            dbus_bool_t path_fallback,
                             char       * const *argv,
                             DBusString *result,
                             DBusError  *error)
@@ -2903,18 +2905,12 @@ _read_subprocess_line_argv (const char *progpath,
   int status;
   int orig_len;
   int i;
-  DBusString uuid;
+
   dbus_bool_t retval;
   sigset_t new_set, old_set;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = FALSE;
-
-  if (!_dbus_string_init (&uuid))
-    {
-      _DBUS_SET_OOM (error);
-      return FALSE;
-    }
 
   /* We need to block any existing handlers for SIGCHLD temporarily; they
    * will cause waitpid() below to fail.
@@ -2995,11 +2991,22 @@ _read_subprocess_line_argv (const char *progpath,
       for (i = 3; i < maxfds; i++)
         close (i);
 
-      sigprocmask(SIG_SETMASK, &old_set, NULL);
+      sigprocmask (SIG_SETMASK, &old_set, NULL);
 
       /* If it looks fully-qualified, try execv first */
       if (progpath[0] == '/')
-        execv (progpath, argv);
+        {
+          execv (progpath, argv);
+          /* Ok, that failed.  Now if path_fallback is given, let's
+           * try unqualified.  This is mostly a hack to work
+           * around systems which ship dbus-launch in /usr/bin
+           * but everything else in /bin (because dbus-launch
+           * depends on X11).
+           */
+          if (path_fallback)
+            /* We must have a slash, because we checked above */
+            execvp (strrchr (progpath, '/')+1, argv);
+        }
       else
         execvp (progpath, argv);
 
@@ -3126,7 +3133,8 @@ _dbus_get_autolaunch_address (DBusString *address,
 
   _dbus_assert (i == _DBUS_N_ELEMENTS (argv));
 
-  retval = _read_subprocess_line_argv (DBUS_BINDIR "/dbus-launch", 
+  retval = _read_subprocess_line_argv (DBUS_BINDIR "/dbus-launch",
+                                       TRUE,
                                        argv, address, error);
 
  out:
