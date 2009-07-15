@@ -59,12 +59,95 @@ Coding Style
    data). Avoiding heuristics is also important for security reasons;
    if it looks funny, ignore it (or exit, or disconnect).
 
+Development
+===
+
+D-Bus uses Git as its version control system. The main repository is
+hosted at git.freedesktop.org/dbus/dbus. To clone D-Bus, execute the
+following command:
+
+    git clone git://git.freedesktop.org/dbus/dbus
+OR
+    git clone git.freedesktop.org:dbus/dbus
+
+The latter form is the one that allows pushing, but it also requires
+an SSH account on the server. The former form allows anonymous
+checkouts.
+
+D-Bus development happens in two branches in parallel: the current
+stable branch, with an even minor number (like 1.0, 1.2 and 1.4), and
+the next development branch, with the next odd number.
+
+The stable branch is named after the version number itself (dbus-1.2,
+dbus-1.4), whereas the development branch is simply known as "master".
+
+When making a change to D-Bus, do the following:
+
+ - check out the earliest branch of D-Bus that makes sense to have
+   your change in. If it's a bugfix, it's normally the current stable
+   branch; if it's a feature, it's normally the "master" branch. If
+   you have an important security fix, you may want to apply to older
+   branches too.
+
+ - for large changes:
+     if you're developing a new, large feature, it's recommended
+     to create a new branch and do your development there. Publish
+     your branch at a suitable place and ask others to help you
+     develop and test it. Once your feature is considered finalised,
+     you may merge it into the "master" branch.
+
+- for small changes:
+    . make your change to the source code
+    . execute tests to guarantee that you're not introducing a
+      regression. For that, execute: make check
+      (if possible, add a new test to check the fix you're
+      introducing)
+    . commit your change using "git commit"
+      in the commit message, write a short sentence describing what
+      you did in the first line. Then write a longer description in
+      the next paragraph(s).
+    . repeat the previous steps if necessary to have multiple commits
+
+ - extract your patches and send to the D-Bus mailing list for
+   review or post them to the D-Bus Bugzilla, attaching them to a bug
+   report. To extract the patches, execute:
+     git format-patch origin/master
+
+ - once your code has been reviewed, you may push it to the Git
+   server:
+     git push origin my-branch:remote
+   OR
+     git push origin dbus-X.Y
+   OR
+     git push origin master
+   (consult the Git manual to know which command applies)
+
+ - (Optional) if you've not worked on "master", merge your changes to
+   that branch. If you've worked on an earlier branch than the current
+   stable, merge your changes upwards towards the stable branch, then
+   from there into "master".
+
+    . execute: git checkout master
+    . ensure that you have the latest "master" from the server, update
+      if you don't
+    . execute: git merge dbus-X.Y
+    . if you have any conflicts, resolve them, git add the conflicted
+      files and then git commit
+    . push the "master" branch to the server as well
+
+  Executing this merge is recommended, but not necessary for all
+  changes. You should do this step if your bugfix is critical for the
+  development in "master", or if you suspect that conflicts will arise
+  (you're usually the best person to resolve conflicts introduced by
+  your own code), or if it has been too long since the last merge.
+
+
 Making a release
 ===
 
 To make a release of D-Bus, do the following:
 
- - check out a fresh copy from CVS
+ - check out a fresh copy from Git
 
  - verify that the libtool versioning/library soname is 
    changed if it needs to be, or not changed if not
@@ -85,21 +168,24 @@ To make a release of D-Bus, do the following:
 
  - if make distcheck fails, fix it.
 
- - once distcheck succeeds, "git-commit -a".  This is the version
+ - once distcheck succeeds, "git commit -a".  This is the version
    of the tree that corresponds exactly to the released tarball.
 
- - tag the tree with "git-tag -s -m 'Released X.Y.Z' dbus-X.Y.Z"
+ - tag the tree with "git tag -s -m 'Released X.Y.Z' dbus-X.Y.Z"
    where X.Y.Z is the version of the release.  If you can't sign
-   then simply created an unannotated tag: "git-tag dbus-X.Y.Z".
+   then simply created an unannotated tag: "git tag dbus-X.Y.Z".
 
  - bump the version number up in configure.in, and commit
    it.  Make sure you do this *after* tagging the previous
    release! The idea is that git has a newer version number
    than anything released.
 
- - push your changes to the central repository with "git-push"
+ - merge the branch you've released to the chronologically-later
+   branch (usually "master"). You'll probably have to fix a merge
+   conflict in configure.in (the version number).
 
- - push your new tag, too: "git-push origin dbus-X.Y.Z"
+ - push your changes and the tag to the central repository with
+     git push origin master dbus-X.Y dbus-X.Y.Z
 
  - scp your tarball to freedesktop.org server and copy it 
    to /srv/dbus.freedesktop.org/www/releases/dbus. This should 
