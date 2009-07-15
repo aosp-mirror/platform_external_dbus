@@ -458,6 +458,13 @@ AC_CHECK_HEADERS(errno.h)
 
 AC_CHECK_HEADERS(unistd.h)
 
+# Add -D_POSIX_PTHREAD_SEMANTICS if on Solaris
+#
+case $host_os in
+    solaris*)
+       CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS" ;;
+esac
+    
 # checking for a posix version of getpwnam_r
 # if we are cross compiling and can not run the test
 # assume getpwnam_r is the posix version
@@ -1151,13 +1158,6 @@ AC_SUBST(SECTION_FLAGS)
 AC_SUBST(SECTION_LDFLAGS)
 AC_MSG_RESULT($ac_gcsections)
 
-# Add -D_POSIX_PTHREAD_SEMANTICS if on Solaris
-#
-case $host_os in
-    solaris*)
-       CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS" ;;
-esac
-    
 changequote(,)dnl
 # compress spaces in flags
 CFLAGS=`echo "$CFLAGS" | sed -e 's/ +/ /g'`
