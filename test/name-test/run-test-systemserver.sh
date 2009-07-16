@@ -41,7 +41,7 @@ if ! grep -q 'DBus.Error' echo-error-output.tmp; then
 fi
 
 echo "running test echo signal"
-if ! python ./test-wait-for-echo.py; then
+if ! python $DBUS_TOP_SRCDIR/test/name-test/test-wait-for-echo.py; then
   echo "Failed test-wait-for-echo"
   exit 1
 fi
