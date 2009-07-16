@@ -2,8 +2,8 @@ dnl -*- mode: m4 -*-
 AC_PREREQ(2.52)
 
 m4_define([dbus_major_version], [1])
-m4_define([dbus_minor_version], [2])
-m4_define([dbus_micro_version], [16])
+m4_define([dbus_minor_version], [3])
+m4_define([dbus_micro_version], [0])
 m4_define([dbus_version],
           [dbus_major_version.dbus_minor_version.dbus_micro_version])
 AC_INIT(dbus, [dbus_version])
@@ -29,7 +29,7 @@ AM_MAINTAINER_MODE
 #
 
 ## increment if the interface has additions, changes, removals.
-LT_CURRENT=7
+LT_CURRENT=8
 
 ## increment any time the source changes; set to
 ##  0 if you increment CURRENT
@@ -38,7 +38,7 @@ LT_REVISION=0
 ## increment if any interfaces have been added; set to 0
 ## if any interfaces have been changed or removed. removal has
 ## precedence over adding, so set to 0 if both happened.
-LT_AGE=4
+LT_AGE=5
 
 AC_SUBST(LT_CURRENT)
 AC_SUBST(LT_REVISION)
