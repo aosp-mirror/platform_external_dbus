@@ -26,20 +26,26 @@
 #define DBUS_MARSHAL_BASIC_H
 
 #include <config.h>
+
+#ifdef HAVE_BYTESWAP_H
+#include <byteswap.h>
+#endif
+
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-arch-deps.h>
 #include <dbus/dbus-string.h>
-
-#ifndef PACKAGE
-#error "config.h not included here"
-#endif
 
 #ifdef WORDS_BIGENDIAN
 #define DBUS_COMPILER_BYTE_ORDER DBUS_BIG_ENDIAN
 #else
 #define DBUS_COMPILER_BYTE_ORDER DBUS_LITTLE_ENDIAN
 #endif
+
+#ifdef HAVE_BYTESWAP_H
+#define DBUS_UINT16_SWAP_LE_BE_CONSTANT(val) bswap_16(val)
+#define DBUS_UINT32_SWAP_LE_BE_CONSTANT(val) bswap_32(val)
+#else /* HAVE_BYTESWAP_H */
 
 #define DBUS_UINT16_SWAP_LE_BE_CONSTANT(val)	((dbus_uint16_t) (      \
     (dbus_uint16_t) ((dbus_uint16_t) (val) >> 8) |                      \
@@ -51,7 +57,13 @@
     (((dbus_uint32_t) (val) & (dbus_uint32_t) 0x00ff0000U) >>  8) |     \
     (((dbus_uint32_t) (val) & (dbus_uint32_t) 0xff000000U) >> 24)))
 
+#endif /* HAVE_BYTESWAP_H */
+
 #ifdef DBUS_HAVE_INT64
+
+#ifdef HAVE_BYTESWAP_H
+#define DBUS_UINT64_SWAP_LE_BE_CONSTANT(val) bswap_64(val)
+#else /* HAVE_BYTESWAP_H */
 
 #define DBUS_UINT64_SWAP_LE_BE_CONSTANT(val)	((dbus_uint64_t) (              \
       (((dbus_uint64_t) (val) &                                                 \
@@ -71,6 +83,8 @@
       (((dbus_uint64_t) (val) &                                                 \
 	(dbus_uint64_t) DBUS_UINT64_CONSTANT (0xff00000000000000)) >> 56)))
 #endif /* DBUS_HAVE_INT64 */
+
+#endif /* HAVE_BYTESWAP_H */
 
 #define DBUS_UINT16_SWAP_LE_BE(val) (DBUS_UINT16_SWAP_LE_BE_CONSTANT (val))
 #define DBUS_INT16_SWAP_LE_BE(val)  ((dbus_int16_t)DBUS_UINT16_SWAP_LE_BE_CONSTANT (val))

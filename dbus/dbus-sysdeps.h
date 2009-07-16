@@ -153,6 +153,28 @@ int         _dbus_write_socket_two (int               fd,
                                     const DBusString *buffer2,
                                     int               start2,
                                     int               len2);
+
+int _dbus_read_socket_with_unix_fds      (int               fd,
+                                          DBusString       *buffer,
+                                          int               count,
+                                          int              *fds,
+                                          int              *n_fds);
+int _dbus_write_socket_with_unix_fds     (int               fd,
+                                          const DBusString *buffer,
+                                          int               start,
+                                          int               len,
+                                          const int        *fds,
+                                          int               n_fds);
+int _dbus_write_socket_with_unix_fds_two (int               fd,
+                                          const DBusString *buffer1,
+                                          int               start1,
+                                          int               len1,
+                                          const DBusString *buffer2,
+                                          int               start2,
+                                          int               len2,
+                                          const int        *fds,
+                                          int               n_fds);
+
 int _dbus_connect_tcp_socket  (const char     *host,
                                const char     *port,
                                const char     *family,
@@ -191,6 +213,8 @@ dbus_bool_t _dbus_windows_user_is_process_owner (const char        *windows_sid)
 
 dbus_bool_t _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
                                                             DBusCredentials *credentials);
+
+dbus_bool_t _dbus_socket_can_pass_unix_fd(int fd);
 
 /** Opaque type representing an atomically-modifiable integer
  * that can be used from multiple threads.

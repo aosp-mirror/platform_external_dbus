@@ -23,6 +23,8 @@
 #ifndef DBUS_TRANSPORT_PROTECTED_H
 #define DBUS_TRANSPORT_PROTECTED_H
 
+#include <config.h>
+
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-transport.h>
@@ -92,9 +94,9 @@ struct DBusTransport
   DBusCredentials *credentials;               /**< Credentials of other end read from the socket */  
 
   long max_live_messages_size;                /**< Max total size of received messages. */
+  long max_live_messages_unix_fds;            /**< Max total unix fds of received messages. */
 
-  DBusCounter *live_messages_size;            /**< Counter for size of all live messages. */
-
+  DBusCounter *live_messages;                 /**< Counter for size/unix fds of all live messages. */
 
   char *address;                              /**< Address of the server we are connecting to (#NULL for the server side of a transport) */
 
@@ -137,6 +139,9 @@ typedef enum
 DBusTransportOpenResult _dbus_transport_open_platform_specific (DBusAddressEntry  *entry,
                                                                 DBusTransport    **transport_p,
                                                                 DBusError         *error);
+
+#define DBUS_TRANSPORT_CAN_SEND_UNIX_FD(x)      \
+  _dbus_auth_get_unix_fd_negotiated((x)->auth)
 
 DBUS_END_DECLS
 

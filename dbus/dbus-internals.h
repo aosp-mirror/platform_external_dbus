@@ -294,18 +294,23 @@ _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (server_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (message_slots);
 /* 5-10 */
-_DBUS_DECLARE_GLOBAL_LOCK (atomic);
 _DBUS_DECLARE_GLOBAL_LOCK (bus);
 _DBUS_DECLARE_GLOBAL_LOCK (bus_datas);
 _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 _DBUS_DECLARE_GLOBAL_LOCK (system_users);
-/* 10-15 */
 _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
+/* 10-14 */
 _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
 _DBUS_DECLARE_GLOBAL_LOCK (win_fds);
 _DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
 _DBUS_DECLARE_GLOBAL_LOCK (machine_uuid);
+
+#if !DBUS_USE_SYNC
+_DBUS_DECLARE_GLOBAL_LOCK (atomic);
 #define _DBUS_N_GLOBAL_LOCKS (15)
+#else
+#define _DBUS_N_GLOBAL_LOCKS (14)
+#endif
 
 dbus_bool_t _dbus_threads_init_debug (void);
 

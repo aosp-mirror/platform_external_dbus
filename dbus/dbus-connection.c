@@ -33,6 +33,7 @@
 #include "dbus-list.h"
 #include "dbus-hash.h"
 #include "dbus-message-internal.h"
+#include "dbus-message-private.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-dataslot.h"
@@ -41,6 +42,7 @@
 #include "dbus-object-tree.h"
 #include "dbus-threads-internal.h"
 #include "dbus-bus.h"
+#include "dbus-marshal-basic.h"
 
 #ifdef DBUS_DISABLE_CHECKS
 #define TOOK_LOCK_CHECK(connection)
@@ -223,7 +225,11 @@ struct DBusPreallocatedSend
   DBusList *counter_link;     /**< Preallocated link in the resource counter */
 };
 
+#ifdef HAVE_DECL_MSG_NOSIGNAL
+static dbus_bool_t _dbus_modify_sigpipe = FALSE;
+#else
 static dbus_bool_t _dbus_modify_sigpipe = TRUE;
+#endif
 
 /**
  * Implementation details of DBusConnection. All fields are private.
@@ -621,8 +627,8 @@ _dbus_connection_message_sent (DBusConnection *connection,
                  connection, connection->n_outgoing);
 
   /* Save this link in the link cache also */
-  _dbus_message_remove_size_counter (message, connection->outgoing_counter,
-                                     &link);
+  _dbus_message_remove_counter (message, connection->outgoing_counter,
+                                &link);
   _dbus_list_prepend_link (&connection->link_cache, link);
   
   dbus_message_unref (message);
@@ -1929,8 +1935,8 @@ _dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *con
   _dbus_list_prepend_link (&connection->outgoing_messages,
                            preallocated->queue_link);
 
-  _dbus_message_add_size_counter_link (message,
-                                       preallocated->counter_link);
+  _dbus_message_add_counter_link (message,
+                                  preallocated->counter_link);
 
   dbus_free (preallocated);
   preallocated = NULL;
@@ -2575,9 +2581,9 @@ free_outgoing_message (void *element,
   DBusMessage *message = element;
   DBusConnection *connection = data;
 
-  _dbus_message_remove_size_counter (message,
-                                     connection->outgoing_counter,
-                                     NULL);
+  _dbus_message_remove_counter (message,
+                                connection->outgoing_counter,
+                                NULL);
   dbus_message_unref (message);
 }
 
@@ -2970,12 +2976,56 @@ dbus_connection_get_server_id (DBusConnection *connection)
   char *id;
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
-  
+
   CONNECTION_LOCK (connection);
   id = _dbus_strdup (_dbus_transport_get_server_id (connection->transport));
   CONNECTION_UNLOCK (connection);
-  
+
   return id;
+}
+
+/**
+ * Tests whether a certain type can be send via the connection. This
+ * will always return TRUE for all types, with the exception of
+ * DBUS_TYPE_UNIX_FD. The function will return TRUE for
+ * DBUS_TYPE_UNIX_FD only on systems that know Unix file descriptors
+ * and can send them via the chosen transport and when the remote side
+ * supports this.
+ *
+ * This function can be used to do runtime checking for types that
+ * might be unknown to the specific D-Bus client implementation
+ * version, i.e. it will return FALSE for all types this
+ * implementation does not know.
+ *
+ * @param connection the connection
+ * @param type the type to check
+ * @returns TRUE if the type may be send via the connection
+ */
+dbus_bool_t
+dbus_connection_can_send_type(DBusConnection *connection,
+                                  int type)
+{
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+
+  if (!_dbus_type_is_valid(type))
+    return FALSE;
+
+  if (type != DBUS_TYPE_UNIX_FD)
+    return TRUE;
+
+#ifdef HAVE_UNIX_FD_PASSING
+  {
+    dbus_bool_t b;
+
+    CONNECTION_LOCK(connection);
+    b = _dbus_transport_can_pass_unix_fd(connection->transport);
+    CONNECTION_UNLOCK(connection);
+
+    return b;
+  }
+#endif
+
+  return FALSE;
 }
 
 /**
@@ -3078,8 +3128,23 @@ dbus_connection_send_preallocated (DBusConnection       *connection,
   _dbus_return_if_fail (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_SIGNAL ||
                         (dbus_message_get_interface (message) != NULL &&
                          dbus_message_get_member (message) != NULL));
-  
+
   CONNECTION_LOCK (connection);
+
+#ifdef HAVE_UNIX_FD_PASSING
+
+  if (!_dbus_transport_can_pass_unix_fd(connection->transport) &&
+      message->n_unix_fds > 0)
+    {
+      /* Refuse to send fds on a connection that cannot handle
+         them. Unfortunately we cannot return a proper error here, so
+         the best we can is just return. */
+      CONNECTION_UNLOCK (connection);
+      return;
+    }
+
+#endif
+
   _dbus_connection_send_preallocated_and_unlock (connection,
 						 preallocated,
 						 message, client_serial);
@@ -3143,6 +3208,20 @@ dbus_connection_send (DBusConnection *connection,
 
   CONNECTION_LOCK (connection);
 
+#ifdef HAVE_UNIX_FD_PASSING
+
+  if (!_dbus_transport_can_pass_unix_fd(connection->transport) &&
+      message->n_unix_fds > 0)
+    {
+      /* Refuse to send fds on a connection that cannot handle
+         them. Unfortunately we cannot return a proper error here, so
+         the best we can is just return. */
+      CONNECTION_UNLOCK (connection);
+      return FALSE;
+    }
+
+#endif
+
   return _dbus_connection_send_and_unlock (connection,
 					   message,
 					   serial);
@@ -3197,12 +3276,16 @@ reply_handler_timeout (void *data)
  * you want a very short or very long timeout.  If INT_MAX is passed for
  * the timeout, no timeout will be set and the call will block forever.
  *
- * @warning if the connection is disconnected, the #DBusPendingCall
- * will be set to #NULL, so be careful with this.
- * 
+ * @warning if the connection is disconnected or you try to send Unix
+ * file descriptors on a connection that does not support them, the
+ * #DBusPendingCall will be set to #NULL, so be careful with this.
+ *
  * @param connection the connection
  * @param message the message to send
- * @param pending_return return location for a #DBusPendingCall object, or #NULL if connection is disconnected
+ * @param pending_return return location for a #DBusPendingCall
+ * object, or #NULL if connection is disconnected or when you try to
+ * send Unix file descriptors on a connection that does not support
+ * them.
  * @param timeout_milliseconds timeout in milliseconds, -1 for default or INT_MAX for no timeout
  * @returns #FALSE if no memory, #TRUE otherwise.
  *
@@ -3225,6 +3308,21 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
     *pending_return = NULL;
 
   CONNECTION_LOCK (connection);
+
+#ifdef HAVE_UNIX_FD_PASSING
+
+  if (!_dbus_transport_can_pass_unix_fd(connection->transport) &&
+      message->n_unix_fds > 0)
+    {
+      /* Refuse to send fds on a connection that cannot handle
+         them. Unfortunately we cannot return a proper error here, so
+         the best we can do is return TRUE but leave *pending_return
+         as NULL. */
+      CONNECTION_UNLOCK (connection);
+      return TRUE;
+    }
+
+#endif
 
    if (!_dbus_connection_get_is_connected_unlocked (connection))
     {
@@ -3334,12 +3432,26 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
 {
   DBusMessage *reply;
   DBusPendingCall *pending;
-  
+
   _dbus_return_val_if_fail (connection != NULL, NULL);
   _dbus_return_val_if_fail (message != NULL, NULL);
   _dbus_return_val_if_fail (timeout_milliseconds >= 0 || timeout_milliseconds == -1, NULL);
   _dbus_return_val_if_error_is_set (error, NULL);
-  
+
+#ifdef HAVE_UNIX_FD_PASSING
+
+  CONNECTION_LOCK (connection);
+  if (!_dbus_transport_can_pass_unix_fd(connection->transport) &&
+      message->n_unix_fds > 0)
+    {
+      CONNECTION_UNLOCK (connection);
+      dbus_set_error(error, DBUS_ERROR_FAILED, "Cannot send file descriptors on this connection.");
+      return NULL;
+    }
+  CONNECTION_UNLOCK (connection);
+
+#endif
+
   if (!dbus_connection_send_with_reply (connection, message,
                                         &pending, timeout_milliseconds))
     {
@@ -5861,6 +5973,45 @@ dbus_connection_get_max_message_size (DBusConnection *connection)
 }
 
 /**
+ * Specifies the maximum number of unix fds a message on this
+ * connection is allowed to receive. Messages with more unix fds will
+ * result in disconnecting the connection.
+ *
+ * @param connection a #DBusConnection
+ * @param size maximum message unix fds the connection can receive
+ */
+void
+dbus_connection_set_max_message_unix_fds (DBusConnection *connection,
+                                          long            n)
+{
+  _dbus_return_if_fail (connection != NULL);
+
+  CONNECTION_LOCK (connection);
+  _dbus_transport_set_max_message_unix_fds (connection->transport,
+                                            n);
+  CONNECTION_UNLOCK (connection);
+}
+
+/**
+ * Gets the value set by dbus_connection_set_max_message_unix_fds().
+ *
+ * @param connection the connection
+ * @returns the max numer of unix fds of a single message
+ */
+long
+dbus_connection_get_max_message_unix_fds (DBusConnection *connection)
+{
+  long res;
+
+  _dbus_return_val_if_fail (connection != NULL, 0);
+
+  CONNECTION_LOCK (connection);
+  res = _dbus_transport_get_max_message_unix_fds (connection->transport);
+  CONNECTION_UNLOCK (connection);
+  return res;
+}
+
+/**
  * Sets the maximum total number of bytes that can be used for all messages
  * received on this connection. Messages count toward the maximum until
  * they are finalized. When the maximum is reached, the connection will
@@ -5917,6 +6068,48 @@ dbus_connection_get_max_received_size (DBusConnection *connection)
 }
 
 /**
+ * Sets the maximum total number of unix fds that can be used for all messages
+ * received on this connection. Messages count toward the maximum until
+ * they are finalized. When the maximum is reached, the connection will
+ * not read more data until some messages are finalized.
+ *
+ * The semantics are analogous to those of dbus_connection_set_max_received_size().
+ *
+ * @param connection the connection
+ * @param size the maximum size in bytes of all outstanding messages
+ */
+void
+dbus_connection_set_max_received_unix_fds (DBusConnection *connection,
+                                           long            n)
+{
+  _dbus_return_if_fail (connection != NULL);
+
+  CONNECTION_LOCK (connection);
+  _dbus_transport_set_max_received_unix_fds (connection->transport,
+                                             n);
+  CONNECTION_UNLOCK (connection);
+}
+
+/**
+ * Gets the value set by dbus_connection_set_max_received_unix_fds().
+ *
+ * @param connection the connection
+ * @returns the max unix fds of all live messages
+ */
+long
+dbus_connection_get_max_received_unix_fds (DBusConnection *connection)
+{
+  long res;
+
+  _dbus_return_val_if_fail (connection != NULL, 0);
+
+  CONNECTION_LOCK (connection);
+  res = _dbus_transport_get_max_received_unix_fds (connection->transport);
+  CONNECTION_UNLOCK (connection);
+  return res;
+}
+
+/**
  * Gets the approximate size in bytes of all messages in the outgoing
  * message queue. The size is approximate in that you shouldn't use
  * it to decide how many bytes to read off the network or anything
@@ -5932,9 +6125,29 @@ dbus_connection_get_outgoing_size (DBusConnection *connection)
   long res;
 
   _dbus_return_val_if_fail (connection != NULL, 0);
-  
+
   CONNECTION_LOCK (connection);
-  res = _dbus_counter_get_value (connection->outgoing_counter);
+  res = _dbus_counter_get_size_value (connection->outgoing_counter);
+  CONNECTION_UNLOCK (connection);
+  return res;
+}
+
+/**
+ * Gets the approximate number of uni fds of all messages in the
+ * outgoing message queue.
+ *
+ * @param connection the connection
+ * @returns the number of unix fds that have been queued up but not sent
+ */
+long
+dbus_connection_get_outgoing_unix_fds (DBusConnection *connection)
+{
+  long res;
+
+  _dbus_return_val_if_fail (connection != NULL, 0);
+
+  CONNECTION_LOCK (connection);
+  res = _dbus_counter_get_unix_fd_value (connection->outgoing_counter);
   CONNECTION_UNLOCK (connection);
   return res;
 }

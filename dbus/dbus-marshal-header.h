@@ -28,10 +28,6 @@
 #include <dbus/dbus-marshal-basic.h>
 #include <dbus/dbus-marshal-validate.h>
 
-#ifndef PACKAGE
-#error "config.h not included here"
-#endif
-
 typedef struct DBusHeader      DBusHeader;
 typedef struct DBusHeaderField DBusHeaderField;
 

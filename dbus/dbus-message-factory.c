@@ -949,6 +949,7 @@ static const int typecodes[] = {
   DBUS_STRUCT_END_CHAR,
   DBUS_DICT_ENTRY_BEGIN_CHAR,
   DBUS_DICT_ENTRY_END_CHAR,
+  DBUS_TYPE_UNIX_FD,
   255 /* random invalid typecode */
 };
   

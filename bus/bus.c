@@ -190,6 +190,12 @@ new_connection_callback (DBusServer     *server,
 
   dbus_connection_set_max_message_size (new_connection,
                                         context->limits.max_message_size);
+
+  dbus_connection_set_max_received_unix_fds (new_connection,
+                                         context->limits.max_incoming_unix_fds);
+
+  dbus_connection_set_max_message_unix_fds (new_connection,
+                                        context->limits.max_message_unix_fds);
   
   dbus_connection_set_allow_anonymous (new_connection,
                                        context->allow_anonymous);
@@ -1471,8 +1477,8 @@ bus_context_check_security_policy (BusContext     *context,
 
   /* See if limits on size have been exceeded */
   if (proposed_recipient &&
-      dbus_connection_get_outgoing_size (proposed_recipient) >
-      context->limits.max_outgoing_bytes)
+      ((dbus_connection_get_outgoing_size (proposed_recipient) > context->limits.max_outgoing_bytes) ||
+       (dbus_connection_get_outgoing_unix_fds (proposed_recipient) > context->limits.max_outgoing_unix_fds)))
     {
       dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
                       "The destination service \"%s\" has a full message queue",

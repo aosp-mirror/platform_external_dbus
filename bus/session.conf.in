@@ -45,8 +45,11 @@
 
   <!-- the memory limits are 1G instead of say 4G because they can't exceed 32-bit signed int max -->
   <limit name="max_incoming_bytes">1000000000</limit>
+  <limit name="max_incoming_unix_fds">250000000</limit>
   <limit name="max_outgoing_bytes">1000000000</limit>
+  <limit name="max_outgoing_unix_fds">250000000</limit>
   <limit name="max_message_size">1000000000</limit>
+  <limit name="max_message_unix_fds">4096</limit>
   <limit name="service_start_timeout">120000</limit>  
   <limit name="auth_timeout">240000</limit>
   <limit name="max_completed_connections">100000</limit>  

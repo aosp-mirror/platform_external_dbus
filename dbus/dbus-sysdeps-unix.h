@@ -44,7 +44,9 @@ DBUS_BEGIN_DECLS
 dbus_bool_t 
 _dbus_close     (int               fd,
                  DBusError        *error);
-int 
+int _dbus_dup   (int               fd,
+                 DBusError        *error);
+int
 _dbus_read      (int               fd,
                  DBusString       *buffer,
                  int               count);

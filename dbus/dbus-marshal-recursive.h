@@ -28,10 +28,6 @@
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-list.h>
 
-#ifndef PACKAGE
-#error "config.h not included here"
-#endif
-
 typedef struct DBusTypeReader      DBusTypeReader;
 typedef struct DBusTypeWriter      DBusTypeWriter;
 typedef struct DBusTypeReaderClass DBusTypeReaderClass;

@@ -404,6 +404,15 @@ bus_config_parser_new (const DBusString      *basedir,
       parser->limits.max_incoming_bytes = _DBUS_ONE_MEGABYTE * 127;
       parser->limits.max_outgoing_bytes = _DBUS_ONE_MEGABYTE * 127;
       parser->limits.max_message_size = _DBUS_ONE_MEGABYTE * 32;
+
+      /* We set relatively conservative values here since due to the
+      way SCM_RIGHTS works we need to preallocate an array for the
+      maximum number of file descriptors we can receive. Picking a
+      high value here thus translates directly to more memory
+      allocation. */
+      parser->limits.max_incoming_unix_fds = 1024*4;
+      parser->limits.max_outgoing_unix_fds = 1024*4;
+      parser->limits.max_message_unix_fds = 1024;
       
       /* Making this long means the user has to wait longer for an error
        * message if something screws up, but making it too short means
@@ -1828,15 +1837,30 @@ set_limit (BusConfigParser *parser,
       must_be_positive = TRUE;
       parser->limits.max_incoming_bytes = value;
     }
+  else if (strcmp (name, "max_incoming_unix_fds") == 0)
+    {
+      must_be_positive = TRUE;
+      parser->limits.max_incoming_unix_fds = value;
+    }
   else if (strcmp (name, "max_outgoing_bytes") == 0)
     {
       must_be_positive = TRUE;
       parser->limits.max_outgoing_bytes = value;
     }
+  else if (strcmp (name, "max_outgoing_unix_fds") == 0)
+    {
+      must_be_positive = TRUE;
+      parser->limits.max_outgoing_unix_fds = value;
+    }
   else if (strcmp (name, "max_message_size") == 0)
     {
       must_be_positive = TRUE;
       parser->limits.max_message_size = value;
+    }
+  else if (strcmp (name, "max_message_unix_fds") == 0)
+    {
+      must_be_positive = TRUE;
+      parser->limits.max_message_unix_fds = value;
     }
   else if (strcmp (name, "service_start_timeout") == 0)
     {
@@ -2979,8 +3003,11 @@ limits_equal (const BusLimits *a,
 {
   return
     (a->max_incoming_bytes == b->max_incoming_bytes
+     || a->max_incoming_unix_fds == b->max_incoming_unix_fds
      || a->max_outgoing_bytes == b->max_outgoing_bytes
+     || a->max_outgoing_unix_fds == b->max_outgoing_unix_fds
      || a->max_message_size == b->max_message_size
+     || a->max_message_unix_fds == b->max_message_unix_fds
      || a->activation_timeout == b->activation_timeout
      || a->auth_timeout == b->auth_timeout
      || a->max_completed_connections == b->max_completed_connections

@@ -47,8 +47,11 @@ typedef struct BusMatchRule     BusMatchRule;
 typedef struct
 {
   long max_incoming_bytes;          /**< How many incoming message bytes for a single connection */
+  long max_incoming_unix_fds;       /**< How many incoming message unix fds for a single connection */
   long max_outgoing_bytes;          /**< How many outgoing bytes can be queued for a single connection */
+  long max_outgoing_unix_fds;       /**< How many outgoing unix fds can be queued for a single connection */
   long max_message_size;            /**< Max size of a single message in bytes */
+  long max_message_unix_fds;        /**< Max number of unix fds of a single message*/
   int activation_timeout;           /**< How long to wait for an activation to time out */
   int auth_timeout;                 /**< How long to wait for an authentication to time out */
   int max_completed_connections;    /**< Max number of authorized connections */

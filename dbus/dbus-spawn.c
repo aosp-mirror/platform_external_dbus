@@ -21,6 +21,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
+
 #include "dbus-spawn.h"
 #include "dbus-sysdeps-unix.h"
 #include "dbus-internals.h"
@@ -805,15 +808,39 @@ static dbus_bool_t
 make_pipe (int         p[2],
            DBusError  *error)
 {
+  int retval;
+
+#ifdef HAVE_PIPE2
+  dbus_bool_t cloexec_done;
+
+  retval = pipe2 (p, O_CLOEXEC);
+  cloexec_done = retval >= 0;
+
+  /* Check if kernel seems to be too old to know pipe2(). We assume
+     that if pipe2 is available, O_CLOEXEC is too.  */
+  if (retval < 0 && errno == ENOSYS)
+#endif
+    {
+      retval = pipe(p);
+    }
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (pipe (p) < 0)
+
+  if (retval < 0)
     {
       dbus_set_error (error,
 		      DBUS_ERROR_SPAWN_FAILED,
 		      "Failed to create pipe for communicating with child process (%s)",
 		      _dbus_strerror (errno));
       return FALSE;
+    }
+
+#ifdef HAVE_PIPE2
+  if (!cloexec_done)
+#endif
+    {
+      _dbus_fd_set_close_on_exec (p[0]);
+      _dbus_fd_set_close_on_exec (p[1]);
     }
 
   return TRUE;
@@ -1117,14 +1144,8 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
   if (!make_pipe (child_err_report_pipe, error))
     goto cleanup_and_fail;
 
-  _dbus_fd_set_close_on_exec (child_err_report_pipe[READ_END]);
-  _dbus_fd_set_close_on_exec (child_err_report_pipe[WRITE_END]);
-
   if (!_dbus_full_duplex_pipe (&babysitter_pipe[0], &babysitter_pipe[1], TRUE, error))
     goto cleanup_and_fail;
-
-  _dbus_fd_set_close_on_exec (babysitter_pipe[0]);
-  _dbus_fd_set_close_on_exec (babysitter_pipe[1]);
 
   /* Setting up the babysitter is only useful in the parent,
    * but we don't want to run out of memory and fail

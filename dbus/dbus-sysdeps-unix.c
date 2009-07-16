@@ -22,7 +22,7 @@
  *
  */
 
-#define _GNU_SOURCE 
+#include <config.h>
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
@@ -94,9 +94,28 @@ _dbus_open_socket (int              *fd_p,
                    int               protocol,
                    DBusError        *error)
 {
-  *fd_p = socket (domain, type, protocol);
+#ifdef SOCK_CLOEXEC
+  dbus_bool_t cloexec_done;
+
+  *fd_p = socket (domain, type | SOCK_CLOEXEC, protocol);
+  cloexec_done = *fd_p >= 0;
+
+  /* Check if kernel seems to be too old to know SOCK_CLOEXEC */
+  if (*fd_p < 0 && errno == EINVAL)
+#endif
+    {
+      *fd_p = socket (domain, type, protocol);
+    }
+
   if (*fd_p >= 0)
     {
+#ifdef SOCK_CLOEXEC
+      if (!cloexec_done)
+#endif
+        {
+          _dbus_fd_set_close_on_exec(*fd_p);
+        }
+
       _dbus_verbose ("socket fd %d opened\n", *fd_p);
       return TRUE;
     }
@@ -120,6 +139,9 @@ _dbus_open_tcp_socket (int              *fd,
 /**
  * Opens a UNIX domain socket (as in the socket() call).
  * Does not bind the socket.
+ *
+ * This will set FD_CLOEXEC for the socket returned
+ *
  * @param fd return location for socket descriptor
  * @param error return location for an error
  * @returns #FALSE if error is set
@@ -179,7 +201,259 @@ _dbus_write_socket (int               fd,
                     int               start,
                     int               len)
 {
+#ifdef MSG_NOSIGNAL
+  const char *data;
+  int bytes_written;
+
+  data = _dbus_string_get_const_data_len (buffer, start, len);
+
+ again:
+
+  bytes_written = send (fd, data, len, MSG_NOSIGNAL);
+
+  if (bytes_written < 0 && errno == EINTR)
+    goto again;
+
+  return bytes_written;
+
+#else
   return _dbus_write (fd, buffer, start, len);
+#endif
+}
+
+/**
+ * Like _dbus_read_socket() but also tries to read unix fds from the
+ * socket. When there are more fds to read than space in the array
+ * passed this function will fail with ENOSPC.
+ *
+ * @param fd the socket
+ * @param buffer string to append data to
+ * @param count max amount of data to read
+ * @param fds array to place read file descriptors in
+ * @param n_fds on input space in fds array, on output how many fds actually got read
+ * @returns number of bytes appended to string
+ */
+int
+_dbus_read_socket_with_unix_fds (int               fd,
+                                 DBusString       *buffer,
+                                 int               count,
+                                 int              *fds,
+                                 int              *n_fds) {
+#ifndef HAVE_UNIX_FD_PASSING
+  int r;
+
+  if ((r = _dbus_read_socket(fd, buffer, count)) < 0)
+    return r;
+
+  *n_fds = 0;
+  return r;
+
+#else
+  int bytes_read;
+  int start;
+  struct msghdr m;
+  struct iovec iov;
+
+  _dbus_assert (count >= 0);
+  _dbus_assert (*n_fds >= 0);
+
+  start = _dbus_string_get_length (buffer);
+
+  if (!_dbus_string_lengthen (buffer, count))
+    {
+      errno = ENOMEM;
+      return -1;
+    }
+
+  _DBUS_ZERO(iov);
+  iov.iov_base = _dbus_string_get_data_len (buffer, start, count);
+  iov.iov_len = count;
+
+  _DBUS_ZERO(m);
+  m.msg_iov = &iov;
+  m.msg_iovlen = 1;
+
+  /* Hmm, we have no clue how long the control data will actually be
+     that is queued for us. The least we can do is assume that the
+     caller knows. Hence let's make space for the number of fds that
+     we shall read at max plus the cmsg header. */
+  m.msg_controllen = CMSG_SPACE(*n_fds * sizeof(int));
+
+  /* It's probably safe to assume that systems with SCM_RIGHTS also
+     know alloca() */
+  m.msg_control = alloca(m.msg_controllen);
+  memset(m.msg_control, 0, m.msg_controllen);
+
+ again:
+
+  bytes_read = recvmsg(fd, &m, 0
+#ifdef MSG_CMSG_CLOEXEC
+                       |MSG_CMSG_CLOEXEC
+#endif
+                       );
+
+  if (bytes_read < 0)
+    {
+      if (errno == EINTR)
+        goto again;
+      else
+        {
+          /* put length back (note that this doesn't actually realloc anything) */
+          _dbus_string_set_length (buffer, start);
+          return -1;
+        }
+    }
+  else
+    {
+      struct cmsghdr *cm;
+      dbus_bool_t found = FALSE;
+
+      if (m.msg_flags & MSG_CTRUNC)
+        {
+          /* Hmm, apparently the control data was truncated. The bad
+             thing is that we might have completely lost a couple of fds
+             without chance to recover them. Hence let's treat this as a
+             serious error. */
+
+          errno = ENOSPC;
+          _dbus_string_set_length (buffer, start);
+          return -1;
+        }
+
+      for (cm = CMSG_FIRSTHDR(&m); cm; cm = CMSG_NXTHDR(&m, cm))
+        if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SCM_RIGHTS)
+          {
+            unsigned i;
+
+            _dbus_assert(cm->cmsg_len <= CMSG_LEN(*n_fds * sizeof(int)));
+            *n_fds = (cm->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+            memcpy(fds, CMSG_DATA(cm), *n_fds * sizeof(int));
+            found = TRUE;
+
+            /* Linux doesn't tell us whether MSG_CMSG_CLOEXEC actually
+               worked, hence we need to go through this list and set
+               CLOEXEC everywhere in any case */
+            for (i = 0; i < *n_fds; i++)
+              _dbus_fd_set_close_on_exec(fds[i]);
+
+            break;
+          }
+
+      if (!found)
+        *n_fds = 0;
+
+      /* put length back (doesn't actually realloc) */
+      _dbus_string_set_length (buffer, start + bytes_read);
+
+#if 0
+      if (bytes_read > 0)
+        _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
+#endif
+
+      return bytes_read;
+    }
+#endif
+}
+
+int
+_dbus_write_socket_with_unix_fds(int               fd,
+                                 const DBusString *buffer,
+                                 int               start,
+                                 int               len,
+                                 const int        *fds,
+                                 int               n_fds) {
+
+#ifndef HAVE_UNIX_FD_PASSING
+
+  if (n_fds > 0) {
+    errno = ENOTSUP;
+    return -1;
+  }
+
+  return _dbus_write_socket(fd, buffer, start, len);
+#else
+  return _dbus_write_socket_with_unix_fds_two(fd, buffer, start, len, NULL, 0, 0, fds, n_fds);
+#endif
+}
+
+int
+_dbus_write_socket_with_unix_fds_two(int               fd,
+                                     const DBusString *buffer1,
+                                     int               start1,
+                                     int               len1,
+                                     const DBusString *buffer2,
+                                     int               start2,
+                                     int               len2,
+                                     const int        *fds,
+                                     int               n_fds) {
+
+#ifndef HAVE_UNIX_FD_PASSING
+
+  if (n_fds > 0) {
+    errno = ENOTSUP;
+    return -1;
+  }
+
+  return _dbus_write_socket_two(fd,
+                                buffer1, start1, len1,
+                                buffer2, start2, len2);
+#else
+
+  struct msghdr m;
+  struct cmsghdr *cm;
+  struct iovec iov[2];
+  int bytes_written;
+
+  _dbus_assert (len1 >= 0);
+  _dbus_assert (len2 >= 0);
+  _dbus_assert (n_fds >= 0);
+
+  _DBUS_ZERO(iov);
+  iov[0].iov_base = (char*) _dbus_string_get_const_data_len (buffer1, start1, len1);
+  iov[0].iov_len = len1;
+
+  if (buffer2)
+    {
+      iov[1].iov_base = (char*) _dbus_string_get_const_data_len (buffer2, start2, len2);
+      iov[1].iov_len = len2;
+    }
+
+  _DBUS_ZERO(m);
+  m.msg_iov = iov;
+  m.msg_iovlen = buffer2 ? 2 : 1;
+
+  if (n_fds > 0)
+    {
+      m.msg_controllen = CMSG_SPACE(n_fds * sizeof(int));
+      m.msg_control = alloca(m.msg_controllen);
+      memset(m.msg_control, 0, m.msg_controllen);
+
+      cm = CMSG_FIRSTHDR(&m);
+      cm->cmsg_level = SOL_SOCKET;
+      cm->cmsg_type = SCM_RIGHTS;
+      cm->cmsg_len = CMSG_LEN(n_fds * sizeof(int));
+      memcpy(CMSG_DATA(cm), fds, n_fds * sizeof(int));
+    }
+
+ again:
+
+  bytes_written = sendmsg (fd, &m, 0
+#ifdef MSG_NOSIGNAL
+                           |MSG_NOSIGNAL
+#endif
+                           );
+
+  if (bytes_written < 0 && errno == EINTR)
+    goto again;
+
+#if 0
+  if (bytes_written > 0)
+    _dbus_verbose_bytes_of_string (buffer, start, bytes_written);
+#endif
+
+  return bytes_written;
+#endif
 }
 
 /**
@@ -255,8 +529,52 @@ _dbus_write_socket_two (int               fd,
                         int               start2,
                         int               len2)
 {
+#ifdef MSG_NOSIGNAL
+  struct iovec vectors[2];
+  const char *data1;
+  const char *data2;
+  int bytes_written;
+  struct msghdr m;
+
+  _dbus_assert (buffer1 != NULL);
+  _dbus_assert (start1 >= 0);
+  _dbus_assert (start2 >= 0);
+  _dbus_assert (len1 >= 0);
+  _dbus_assert (len2 >= 0);
+
+  data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
+
+  if (buffer2 != NULL)
+    data2 = _dbus_string_get_const_data_len (buffer2, start2, len2);
+  else
+    {
+      data2 = NULL;
+      start2 = 0;
+      len2 = 0;
+    }
+
+  vectors[0].iov_base = (char*) data1;
+  vectors[0].iov_len = len1;
+  vectors[1].iov_base = (char*) data2;
+  vectors[1].iov_len = len2;
+
+  _DBUS_ZERO(m);
+  m.msg_iov = vectors;
+  m.msg_iovlen = data2 ? 2 : 1;
+
+ again:
+
+  bytes_written = sendmsg (fd, &m, MSG_NOSIGNAL);
+
+  if (bytes_written < 0 && errno == EINTR)
+    goto again;
+
+  return bytes_written;
+
+#else
   return _dbus_write_two (fd, buffer1, start1, len1,
                           buffer2, start2, len2);
+#endif
 }
 
 
@@ -474,6 +792,8 @@ _dbus_write_two (int               fd,
  * requested (it's possible only on Linux; see "man 7 unix" on Linux).
  * On non-Linux abstract socket usage always fails.
  *
+ * This will set FD_CLOEXEC for the socket returned.
+ *
  * @param path the path to UNIX domain socket
  * @param abstract #TRUE to use abstract namespace
  * @param error return location for error code
@@ -609,6 +929,8 @@ _dbus_set_local_creds (int fd, dbus_bool_t on)
  * sockets if requested (it's possible only on Linux;
  * see "man 7 unix" on Linux).
  * On non-Linux abstract socket usage always fails.
+ *
+ * This will set FD_CLOEXEC for the socket returned
  *
  * @param path the socket name
  * @param abstract #TRUE to use abstract namespace
@@ -746,6 +1068,8 @@ _dbus_listen_unix_socket (const char     *path,
  * and port. The connection fd is returned, and is set up as
  * nonblocking.
  *
+ * This will set FD_CLOEXEC for the socket returned
+ *
  * @param host the host name to connect to
  * @param port the port to connect to
  * @param family the address family to listen on, NULL for all
@@ -852,6 +1176,8 @@ _dbus_connect_tcp_socket (const char     *host,
  * the socket. The socket is set to be nonblocking.  In case of port=0
  * a random free port is used and returned in the port parameter.
  * If inaddr_any is specified, the hostname is ignored.
+ *
+ * This will set FD_CLOEXEC for the socket returned
  *
  * @param host the host name to listen on
  * @param port the port to listen on, if zero a free port will be used
@@ -1056,13 +1382,13 @@ write_credentials_byte (int             server_fd,
   iov.iov_base = buf;
   iov.iov_len = 1;
 
-  memset (&msg, 0, sizeof (msg));
+  _DBUS_ZERO(msg);
   msg.msg_iov = &iov;
   msg.msg_iovlen = 1;
 
   msg.msg_control = (caddr_t) &cmsg;
   msg.msg_controllen = CMSG_SPACE (sizeof (struct cmsgcred));
-  memset (&cmsg, 0, sizeof (cmsg));
+  _DBUS_ZERO(cmsg);
   cmsg.hdr.cmsg_len = CMSG_LEN (sizeof (struct cmsgcred));
   cmsg.hdr.cmsg_level = SOL_SOCKET;
   cmsg.hdr.cmsg_type = SCM_CREDS;
@@ -1172,12 +1498,12 @@ _dbus_read_credentials_socket  (int              client_fd,
   iov.iov_base = &buf;
   iov.iov_len = 1;
 
-  memset (&msg, 0, sizeof (msg));
+  _DBUS_ZERO(msg);
   msg.msg_iov = &iov;
   msg.msg_iovlen = 1;
 
 #if defined(HAVE_CMSGCRED) || defined(LOCAL_CREDS)
-  memset (&cmsg, 0, sizeof (cmsg));
+  _DBUS_ZERO(cmsg);
   msg.msg_control = (caddr_t) &cmsg;
   msg.msg_controllen = CMSG_SPACE (sizeof (struct cmsgcred));
 #endif
@@ -1377,6 +1703,8 @@ _dbus_send_credentials_socket  (int              server_fd,
  * Accepts a connection on a listening socket.
  * Handles EINTR for you.
  *
+ * This will enable FD_CLOEXEC for the returned socket.
+ *
  * @param listen_fd the listen file descriptor
  * @returns the connection fd of the client, or -1 on error
  */
@@ -1386,12 +1714,25 @@ _dbus_accept  (int listen_fd)
   int client_fd;
   struct sockaddr addr;
   socklen_t addrlen;
+#ifdef HAVE_ACCEPT4
+  dbus_bool_t cloexec_done;
+#endif
 
   addrlen = sizeof (addr);
-  
+
  retry:
-  client_fd = accept (listen_fd, &addr, &addrlen);
-  
+
+#ifdef HAVE_ACCEPT4
+  /* We assume that if accept4 is available SOCK_CLOEXEC is too */
+  client_fd = accept4 (listen_fd, &addr, &addrlen, SOCK_CLOEXEC);
+  cloexec_done = client_fd >= 0;
+
+  if (client_fd < 0 && errno == ENOSYS)
+#endif
+    {
+      client_fd = accept (listen_fd, &addr, &addrlen);
+    }
+
   if (client_fd < 0)
     {
       if (errno == EINTR)
@@ -1399,7 +1740,14 @@ _dbus_accept  (int listen_fd)
     }
 
   _dbus_verbose ("client fd %d accepted\n", client_fd);
-  
+
+#ifdef HAVE_ACCEPT4
+  if (!cloexec_done)
+#endif
+    {
+      _dbus_fd_set_close_on_exec(client_fd);
+    }
+
   return client_fd;
 }
 
@@ -1864,23 +2212,8 @@ _dbus_parse_uid (const DBusString      *uid_str,
   return TRUE;
 }
 
-
+#if !DBUS_USE_SYNC
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
-
-#if DBUS_USE_ATOMIC_INT_486_COND
-/* Taken from CVS version 1.7 of glibc's sysdeps/i386/i486/atomicity.h */
-/* Since the asm stuff here is gcc-specific we go ahead and use "inline" also */
-static inline dbus_int32_t
-atomic_exchange_and_add (DBusAtomic            *atomic,
-                         volatile dbus_int32_t  val)
-{
-  register dbus_int32_t result;
-
-  __asm__ __volatile__ ("lock; xaddl %0,%1"
-                        : "=r" (result), "=m" (atomic->value)
-			: "0" (val), "m" (atomic->value));
-  return result;
-}
 #endif
 
 /**
@@ -1888,14 +2221,12 @@ atomic_exchange_and_add (DBusAtomic            *atomic,
  *
  * @param atomic pointer to the integer to increment
  * @returns the value before incrementing
- *
- * @todo implement arch-specific faster atomic ops
  */
 dbus_int32_t
 _dbus_atomic_inc (DBusAtomic *atomic)
 {
-#if DBUS_USE_ATOMIC_INT_486_COND
-  return atomic_exchange_and_add (atomic, 1);
+#if DBUS_USE_SYNC
+  return __sync_add_and_fetch(&atomic->value, 1)-1;
 #else
   dbus_int32_t res;
   _DBUS_LOCK (atomic);
@@ -1911,14 +2242,12 @@ _dbus_atomic_inc (DBusAtomic *atomic)
  *
  * @param atomic pointer to the integer to decrement
  * @returns the value before decrementing
- *
- * @todo implement arch-specific faster atomic ops
  */
 dbus_int32_t
 _dbus_atomic_dec (DBusAtomic *atomic)
 {
-#if DBUS_USE_ATOMIC_INT_486_COND
-  return atomic_exchange_and_add (atomic, -1);
+#if DBUS_USE_SYNC
+  return __sync_sub_and_fetch(&atomic->value, 1)+1;
 #else
   dbus_int32_t res;
   
@@ -2683,6 +3012,48 @@ _dbus_close (int        fd,
 }
 
 /**
+ * Duplicates a file descriptor. Makes sure the fd returned is >= 3
+ * (i.e. avoids stdin/stdout/stderr). Sets O_CLOEXEC.
+ *
+ * @param fd the file descriptor to duplicate
+ * @returns duplicated file descriptor
+ * */
+int
+_dbus_dup(int        fd,
+          DBusError *error)
+{
+  int new_fd;
+
+#ifdef F_DUPFD_CLOEXEC
+  dbus_bool_t cloexec_done;
+
+  new_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+  cloexec_done = new_fd >= 0;
+
+  if (new_fd < 0 && errno == EINVAL)
+#endif
+    {
+      new_fd = fcntl(fd, F_DUPFD, 3);
+    }
+
+  if (new_fd < 0) {
+
+    dbus_set_error (error, _dbus_error_from_errno (errno),
+                    "Could not duplicate fd %d", fd);
+    return -1;
+  }
+
+#ifndef F_DUPFD_CLOEXEC
+  if (!cloexec_done)
+#endif
+    {
+      _dbus_fd_set_close_on_exec(new_fd);
+    }
+
+  return new_fd;
+}
+
+/**
  * Sets a file descriptor to be nonblocking.
  *
  * @param fd the file descriptor.
@@ -2761,6 +3132,8 @@ _dbus_print_backtrace (void)
  * Creates a full-duplex pipe (as in socketpair()).
  * Sets both ends of the pipe nonblocking.
  *
+ * Marks both file descriptors as close-on-exec
+ *
  * @todo libdbus only uses this for the debug-pipe server, so in
  * principle it could be in dbus-sysdeps-util.c, except that
  * dbus-sysdeps-util.c isn't in libdbus when tests are enabled and the
@@ -2780,14 +3153,35 @@ _dbus_full_duplex_pipe (int        *fd1,
 {
 #ifdef HAVE_SOCKETPAIR
   int fds[2];
+  int retval;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (socketpair (AF_UNIX, SOCK_STREAM, 0, fds) < 0)
+#ifdef SOCK_CLOEXEC
+  dbus_bool_t cloexec_done;
+
+  retval = socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fds);
+  cloexec_done = retval >= 0;
+
+  if (retval < 0 && errno == EINVAL)
+#endif
+    {
+      retval = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
+    }
+
+  if (retval < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not create full-duplex pipe");
       return FALSE;
+    }
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+#ifdef SOCK_CLOEXEC
+  if (!cloexec_done)
+#endif
+    {
+      _dbus_fd_set_close_on_exec (fds[0]);
+      _dbus_fd_set_close_on_exec (fds[1]);
     }
 
   if (!blocking &&
@@ -3485,6 +3879,38 @@ dbus_bool_t
 _dbus_get_is_errno_eagain_or_ewouldblock (void)
 {
   return errno == EAGAIN || errno == EWOULDBLOCK;
+}
+
+/**
+ *  Checks whether file descriptors may be passed via the socket
+ *
+ *  @param fd the socket
+ *  @return TRUE when fd passing over this socket is supported
+ *
+ */
+dbus_bool_t
+_dbus_socket_can_pass_unix_fd(int fd) {
+
+#ifdef SCM_RIGHTS
+  union {
+    struct sockaddr sa;
+    struct sockaddr_storage storage;
+    struct sockaddr_un un;
+  } sa_buf;
+
+  socklen_t sa_len = sizeof(sa_buf);
+
+  _DBUS_ZERO(sa_buf);
+
+  if (getsockname(fd, &sa_buf.sa, &sa_len) < 0)
+    return FALSE;
+
+  return sa_buf.sa.sa_family == AF_UNIX;
+
+#else
+  return FALSE;
+
+#endif
 }
 
 /* tests in dbus-sysdeps-util.c */
