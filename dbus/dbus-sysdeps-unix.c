@@ -1241,7 +1241,7 @@ _dbus_read_credentials_socket  (int              client_fd,
 #elif defined(HAVE_CMSGCRED)
     struct cmsgcred *cred;
 
-    cred = (struct cmsgcred *) CMSG_DATA (&cmsg);
+    cred = (struct cmsgcred *) CMSG_DATA (&cmsg.hdr);
     pid_read = cred->cmcred_pid;
     uid_read = cred->cmcred_euid;
 #elif defined(LOCAL_CREDS)
