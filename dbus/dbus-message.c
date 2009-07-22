@@ -3628,9 +3628,13 @@ dbus_set_error_from_message (DBusError   *error,
 dbus_bool_t
 dbus_message_contains_unix_fds(DBusMessage *message)
 {
+#ifdef HAVE_UNIX_FD_PASSING
   _dbus_assert(message);
 
   return message->n_unix_fds > 0;
+#else
+  return FALSE;
+#endif
 }
 
 /** @} */
