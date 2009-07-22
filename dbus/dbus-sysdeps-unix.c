@@ -3043,7 +3043,7 @@ _dbus_dup(int        fd,
     return -1;
   }
 
-#ifndef F_DUPFD_CLOEXEC
+#ifdef F_DUPFD_CLOEXEC
   if (!cloexec_done)
 #endif
     {
