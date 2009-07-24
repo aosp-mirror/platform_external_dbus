@@ -86,6 +86,9 @@ endif(SIZEOF_INT EQUAL 2)
 find_program(DOXYGEN doxygen)
 find_program(XMLTO xmlto)
 
+if(MSVC)
+   SET(DBUS_VA_COPY_FUNC "_DBUS_VA_COPY_ASSIGN";)
+else(MSVC)
 write_file("${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c" "#include <stdarg.h>
 	void f (int i, ...) {
 	va_list args1, args2;
@@ -130,7 +133,7 @@ else(DBUS_HAVE_VA_COPY)
     SET(DBUS_VA_COPY_AS_ARRAY "1" CACHE STRING "'va_lists' cannot be copies as values")
   endif(DBUS_HAVE___VA_COPY)
 endif(DBUS_HAVE_VA_COPY)
-
+endif(MSVC) # _not_ MSVC
 #### Abstract sockets
 
 if (DBUS_ENABLE_ABSTRACT_SOCKETS)

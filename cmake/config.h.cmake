@@ -78,6 +78,8 @@
 
 #cmakedefine DBUS_BUILD_X11 1
 
+#define _DBUS_VA_COPY_ASSIGN(a1,a2) { a1 = a2; }
+
 #cmakedefine DBUS_VA_COPY_FUNC
 #if (defined DBUS_VA_COPY_FUNC)
 # define DBUS_VA_COPY @DBUS_VA_COPY_FUNC@
