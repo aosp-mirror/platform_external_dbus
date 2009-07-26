@@ -38,7 +38,7 @@
 #undef DBUS_DISABLE_CHECKS
 
 /* Support a verbose mode */
-#define DBUS_ENABLE_VERBOSE_MODE 1
+#undef DBUS_ENABLE_VERBOSE_MODE
 
 /* Defined if gcov is enabled to force a rebuild due to config.h changing */
 #undef DBUS_GCOV_ENABLED
@@ -298,4 +298,4 @@
 		
 
 /* Define to 1 if the X Window System is missing or not being used. */
-#undef X_DISPLAY_MISSING
+#define X_DISPLAY_MISSING 1
