@@ -239,6 +239,8 @@ extern "C" {
 /** Message type of a signal message, see dbus_message_get_type() */
 #define DBUS_MESSAGE_TYPE_SIGNAL        4
 
+#define DBUS_NUM_MESSAGE_TYPES          5
+
 /* Header flags */
 
 /** If set, this flag means that the sender of a message does not care about getting
