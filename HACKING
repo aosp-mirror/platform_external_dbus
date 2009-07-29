@@ -173,7 +173,8 @@ To make a release of D-Bus, do the following:
 
  - tag the tree with "git tag -s -m 'Released X.Y.Z' dbus-X.Y.Z"
    where X.Y.Z is the version of the release.  If you can't sign
-   then simply created an unannotated tag: "git tag dbus-X.Y.Z".
+   then simply created an unsigned annotated tag:
+   "git tag -a -m 'Released X.Y.Z' dbus-X.Y.Z".
 
  - bump the version number up in configure.in, and commit
    it.  Make sure you do this *after* tagging the previous
@@ -187,9 +188,9 @@ To make a release of D-Bus, do the following:
  - push your changes and the tag to the central repository with
      git push origin master dbus-X.Y dbus-X.Y.Z
 
- - scp your tarball to freedesktop.org server and copy it 
-   to /srv/dbus.freedesktop.org/www/releases/dbus. This should 
-   be possible if you're in group "dbus"
+ - scp your tarball to freedesktop.org server and copy it to
+   dbus.freedesktop.org:/srv/dbus.freedesktop.org/www/releases/dbus/dbus-X.Y.Z.tar.gz.
+   This should be possible if you're in group "dbus"
 
  - update the wiki page http://www.freedesktop.org/Software/dbus by
    adding the new release under the Download heading. Then, cut the
