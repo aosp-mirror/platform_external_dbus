@@ -1369,8 +1369,11 @@ static dbus_bool_t
 match_rule_matches (BusMatchRule    *rule,
                     DBusConnection  *sender,
                     DBusConnection  *addressed_recipient,
-                    DBusMessage     *message)
+                    DBusMessage     *message,
+                    BusMatchFlags    already_matched)
 {
+  int flags;
+
   /* All features of the match rule are AND'd together,
    * so FALSE if any of them don't match.
    */
@@ -1379,8 +1382,11 @@ match_rule_matches (BusMatchRule    *rule,
    * or for addressed_recipient may mean a message with no
    * specific recipient (i.e. a signal)
    */
-  
-  if (rule->flags & BUS_MATCH_MESSAGE_TYPE)
+
+  /* Don't bother re-matching features we've already checked implicitly. */
+  flags = rule->flags & (~already_matched);
+
+  if (flags & BUS_MATCH_MESSAGE_TYPE)
     {
       _dbus_assert (rule->message_type != DBUS_MESSAGE_TYPE_INVALID);
 
@@ -1388,7 +1394,7 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
-  if (rule->flags & BUS_MATCH_INTERFACE)
+  if (flags & BUS_MATCH_INTERFACE)
     {
       const char *iface;
 
@@ -1402,7 +1408,7 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
-  if (rule->flags & BUS_MATCH_MEMBER)
+  if (flags & BUS_MATCH_MEMBER)
     {
       const char *member;
 
@@ -1416,7 +1422,7 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
-  if (rule->flags & BUS_MATCH_SENDER)
+  if (flags & BUS_MATCH_SENDER)
     {
       _dbus_assert (rule->sender != NULL);
 
@@ -1433,7 +1439,7 @@ match_rule_matches (BusMatchRule    *rule,
         }
     }
 
-  if (rule->flags & BUS_MATCH_DESTINATION)
+  if (flags & BUS_MATCH_DESTINATION)
     {
       const char *destination;
 
@@ -1456,7 +1462,7 @@ match_rule_matches (BusMatchRule    *rule,
         }
     }
 
-  if (rule->flags & BUS_MATCH_PATH)
+  if (flags & BUS_MATCH_PATH)
     {
       const char *path;
 
@@ -1470,7 +1476,7 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
-  if (rule->flags & BUS_MATCH_ARGS)
+  if (flags & BUS_MATCH_ARGS)
     {
       int i;
       DBusMessageIter iter;
@@ -1567,7 +1573,8 @@ get_recipients_from_list (DBusList       **rules,
 #endif
       
       if (match_rule_matches (rule,
-                              sender, addressed_recipient, message))
+                              sender, addressed_recipient, message,
+                              BUS_MATCH_MESSAGE_TYPE))
         {
           _dbus_verbose ("Rule matched\n");
 
@@ -2004,7 +2011,7 @@ check_matches (dbus_bool_t  expected_to_match,
   _dbus_assert (rule != NULL);
 
   /* We can't test sender/destination rules since we pass NULL here */
-  matched = match_rule_matches (rule, NULL, NULL, message);
+  matched = match_rule_matches (rule, NULL, NULL, message, 0);
 
   if (matched != expected_to_match)
     {
