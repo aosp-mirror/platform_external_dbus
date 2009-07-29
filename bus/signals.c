@@ -1029,6 +1029,19 @@ struct BusMatchmaker
   DBusList *rules_by_type[DBUS_NUM_MESSAGE_TYPES];
 };
 
+static void
+rule_list_free (DBusList **rules)
+{
+  while (*rules != NULL)
+    {
+      BusMatchRule *rule;
+
+      rule = (*rules)->data;
+      bus_match_rule_unref (rule);
+      _dbus_list_remove_link (rules, *rules);
+    }
+}
+
 BusMatchmaker*
 bus_matchmaker_new (void)
 {
@@ -1074,18 +1087,7 @@ bus_matchmaker_unref (BusMatchmaker *matchmaker)
       int i;
 
       for (i = DBUS_MESSAGE_TYPE_INVALID; i < DBUS_NUM_MESSAGE_TYPES; i++)
-        {
-          DBusList **rules = bus_matchmaker_get_rules (matchmaker, i);
-
-          while (*rules != NULL)
-            {
-              BusMatchRule *rule;
-
-              rule = (*rules)->data;
-              bus_match_rule_unref (rule);
-              _dbus_list_remove_link (rules, *rules);
-            }
-        }
+        rule_list_free (bus_matchmaker_get_rules (matchmaker, i));
 
       dbus_free (matchmaker);
     }
