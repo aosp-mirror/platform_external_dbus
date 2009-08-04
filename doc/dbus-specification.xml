@@ -4162,6 +4162,59 @@
        </para>
       </sect3>
 
+      <sect3 id="bus-messages-get-connection-unix-process-id">
+        <title><literal>org.freedesktop.DBus.GetConnectionUnixProcessID</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            UINT32 GetConnectionUnixProcessID (in STRING bus_name)
+          </programlisting>
+          Message arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>STRING</entry>
+                  <entry>Unique or well-known bus name of the connection to
+                    query, such as <literal>:12.34</literal> or
+                    <literal>com.example.tea</literal></entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols="3">
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>UINT32</entry>
+                <entry>Unix process id</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+        Returns the Unix process ID of the process connected to the server. If
+        unable to determine it (for instance, because the process is not on the
+        same machine as the bus daemon), an error is returned.
+       </para>
+      </sect3>
+
       <sect3 id="bus-messages-add-match">
         <title><literal>org.freedesktop.DBus.AddMatch</literal></title>
         <para>
