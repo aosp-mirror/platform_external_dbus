@@ -4230,6 +4230,21 @@ _dbus_message_loader_get_is_corrupted (DBusMessageLoader *loader)
 }
 
 /**
+ * Checks what kind of bad data confused the loader.
+ *
+ * @param loader the loader
+ * @returns why the loader is hosed, or DBUS_VALID if it isn't.
+ */
+DBusValidity
+_dbus_message_loader_get_corruption_reason (DBusMessageLoader *loader)
+{
+  _dbus_assert ((loader->corrupted && loader->corruption_reason != DBUS_VALID) ||
+                (!loader->corrupted && loader->corruption_reason == DBUS_VALID));
+
+  return loader->corruption_reason;
+}
+
+/**
  * Sets the maximum size message we allow.
  *
  * @param loader the loader

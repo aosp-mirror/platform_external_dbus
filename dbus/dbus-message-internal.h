@@ -23,6 +23,7 @@
 #ifndef DBUS_MESSAGE_INTERNAL_H
 #define DBUS_MESSAGE_INTERNAL_H
 
+#include <dbus/dbus-marshal-validate.h>
 #include <dbus/dbus-message.h>
 #include <dbus/dbus-resources.h>
 #include <dbus/dbus-list.h>
@@ -73,6 +74,7 @@ void               _dbus_message_loader_putback_message_link  (DBusMessageLoader
                                                                DBusList           *link);
 
 dbus_bool_t        _dbus_message_loader_get_is_corrupted      (DBusMessageLoader  *loader);
+DBusValidity       _dbus_message_loader_get_corruption_reason (DBusMessageLoader  *loader);
 
 void               _dbus_message_loader_set_max_message_size  (DBusMessageLoader  *loader,
                                                                long                size);
