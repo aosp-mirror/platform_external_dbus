@@ -4567,7 +4567,8 @@ dbus_message_demarshal (const char *str,
   return msg;
 
  fail_corrupt:
-  dbus_set_error (error, DBUS_ERROR_INVALID_ARGS, "Message is corrupted");
+  dbus_set_error (error, DBUS_ERROR_INVALID_ARGS, "Message is corrupted (%s)",
+                  _dbus_validity_to_error_message (loader->corruption_reason));
   _dbus_message_loader_unref (loader);
   return NULL;
 
