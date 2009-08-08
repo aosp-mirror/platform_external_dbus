@@ -789,7 +789,7 @@
                 <entry>2nd <literal>UINT32</literal></entry>
                 <entry>The serial of this message, used as a cookie 
                   by the sender to identify the reply corresponding
-                  to this request.
+                  to this request. This must not be zero.
                 </entry>
               </row>      
               <row>
