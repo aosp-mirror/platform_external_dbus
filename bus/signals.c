@@ -1446,7 +1446,7 @@ bus_matchmaker_remove_rule_by_value (BusMatchmaker   *matchmaker,
 
 static void
 rule_list_remove_by_connection (DBusList       **rules,
-                                DBusConnection  *disconnected)
+                                DBusConnection  *connection)
 {
   DBusList *link;
 
@@ -1459,7 +1459,7 @@ rule_list_remove_by_connection (DBusList       **rules,
       rule = link->data;
       next = _dbus_list_get_next_link (rules, link);
 
-      if (rule->matches_go_to == disconnected)
+      if (rule->matches_go_to == connection)
         {
           bus_matchmaker_remove_rule_link (rules, link);
         }
@@ -1472,7 +1472,7 @@ rule_list_remove_by_connection (DBusList       **rules,
            */
           const char *name;
 
-          name = bus_connection_get_name (disconnected);
+          name = bus_connection_get_name (connection);
           _dbus_assert (name != NULL); /* because we're an active connection */
 
           if (((rule->flags & BUS_MATCH_SENDER) &&
@@ -1490,7 +1490,7 @@ rule_list_remove_by_connection (DBusList       **rules,
 
 void
 bus_matchmaker_disconnected (BusMatchmaker   *matchmaker,
-                             DBusConnection  *disconnected)
+                             DBusConnection  *connection)
 {
   int i;
 
@@ -1502,23 +1502,23 @@ bus_matchmaker_disconnected (BusMatchmaker   *matchmaker,
    * the connection we'd need to do something more elaborate.
    */
 
-  _dbus_assert (bus_connection_is_active (disconnected));
+  _dbus_assert (bus_connection_is_active (connection));
 
-  _dbus_verbose ("Removing all rules for connection %p\n", disconnected);
+  _dbus_verbose ("Removing all rules for connection %p\n", connection);
 
   for (i = DBUS_MESSAGE_TYPE_INVALID; i < DBUS_NUM_MESSAGE_TYPES; i++)
     {
       RulePool *p = matchmaker->rules_by_type + i;
       DBusHashIter iter;
 
-      rule_list_remove_by_connection (&p->rules_without_iface, disconnected);
+      rule_list_remove_by_connection (&p->rules_without_iface, connection);
 
       _dbus_hash_iter_init (p->rules_by_iface, &iter);
       while (_dbus_hash_iter_next (&iter))
         {
           DBusList **items = _dbus_hash_iter_get_value (&iter);
 
-          rule_list_remove_by_connection (items, disconnected);
+          rule_list_remove_by_connection (items, connection);
 
           if (*items == NULL)
             _dbus_hash_iter_remove_entry (&iter);

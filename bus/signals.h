@@ -77,7 +77,7 @@ dbus_bool_t bus_matchmaker_remove_rule_by_value (BusMatchmaker   *matchmaker,
 void        bus_matchmaker_remove_rule          (BusMatchmaker   *matchmaker,
                                                  BusMatchRule    *rule);
 void        bus_matchmaker_disconnected         (BusMatchmaker   *matchmaker,
-                                                 DBusConnection  *disconnected);
+                                                 DBusConnection  *connection);
 dbus_bool_t bus_matchmaker_get_recipients       (BusMatchmaker   *matchmaker,
                                                  BusConnections  *connections,
                                                  DBusConnection  *sender,
