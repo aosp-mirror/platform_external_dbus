@@ -186,12 +186,17 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 
 	    dbus_message_iter_recurse (iter, &subiter);
 
+	    current_type = dbus_message_iter_get_arg_type (&subiter);
+
 	    printf("array [\n");
-	    while ((current_type = dbus_message_iter_get_arg_type (&subiter)) != DBUS_TYPE_INVALID)
+	    while (current_type != DBUS_TYPE_INVALID)
 	      {
 		print_iter (&subiter, literal, depth+1);
+
 		dbus_message_iter_next (&subiter);
-		if (dbus_message_iter_get_arg_type (&subiter) != DBUS_TYPE_INVALID)
+		current_type = dbus_message_iter_get_arg_type (&subiter);
+
+		if (current_type != DBUS_TYPE_INVALID)
 		  printf (",");
 	      }
 	    indent(depth);
