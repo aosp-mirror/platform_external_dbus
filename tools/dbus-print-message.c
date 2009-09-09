@@ -39,12 +39,63 @@ type_to_name (int message_type)
     }
 }
 
+#define INDENT 3
 
 static void
 indent (int depth)
 {
   while (depth-- > 0)
-    printf ("   ");
+    printf ("   "); /* INDENT spaces. */
+}
+
+static void
+print_ay (DBusMessageIter *iter, int depth)
+{
+  int current_type;
+  int n = 0;
+  int columns;
+
+  printf ("array of bytes [\n");
+
+  indent (depth + 1);
+
+  /* Each byte takes 3 cells (two hexits, and a space), except the last one. */
+  columns = (80 - ((depth + 1) * INDENT)) / 3;
+
+  if (columns < 8)
+    columns = 8;
+
+  current_type = dbus_message_iter_get_arg_type (iter);
+
+  while (current_type != DBUS_TYPE_INVALID)
+    {
+      unsigned char val;
+      dbus_message_iter_get_basic (iter, &val);
+      printf ("%02x", val);
+
+      n++;
+
+      dbus_message_iter_next (iter);
+      current_type = dbus_message_iter_get_arg_type (iter);
+
+      if (current_type != DBUS_TYPE_INVALID)
+        {
+          if (n == columns)
+            {
+              printf ("\n");
+              indent (depth + 1);
+              n = 0;
+            }
+          else
+            {
+              printf (" ");
+            }
+        }
+    }
+
+  printf ("\n");
+  indent (depth);
+  printf ("]\n");
 }
 
 static void
@@ -187,6 +238,12 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 	    dbus_message_iter_recurse (iter, &subiter);
 
 	    current_type = dbus_message_iter_get_arg_type (&subiter);
+
+	    if (current_type == DBUS_TYPE_BYTE)
+	      {
+		print_ay (&subiter, depth);
+		break;
+	      }
 
 	    printf("array [\n");
 	    while (current_type != DBUS_TYPE_INVALID)
