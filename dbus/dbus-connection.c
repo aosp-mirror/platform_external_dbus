@@ -2386,7 +2386,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
            */
           _dbus_verbose ("dbus_connection_send_with_reply_and_block() waiting for more memory\n");
 
-          _dbus_memory_pause_based_on_timeout (timeout_milliseconds);
+          _dbus_memory_pause_based_on_timeout (timeout_milliseconds - elapsed_milliseconds);
         }
       else
         {          
@@ -2394,7 +2394,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
           _dbus_connection_do_iteration_unlocked (connection,
                                                   DBUS_ITERATION_DO_READING |
                                                   DBUS_ITERATION_BLOCK,
-                                                  timeout_milliseconds);
+                                                  timeout_milliseconds - elapsed_milliseconds);
         }
 
       goto recheck_status;
@@ -2403,9 +2403,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
     _dbus_verbose ("dbus_connection_send_with_reply_and_block(): clock set backward\n");
   else if (elapsed_milliseconds < timeout_milliseconds)
     {
-      timeout_milliseconds -= elapsed_milliseconds;
-      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): %d milliseconds remain\n", timeout_milliseconds);
-      _dbus_assert (timeout_milliseconds >= 0);
+      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): %d milliseconds remain\n", timeout_milliseconds - elapsed_milliseconds);
       
       if (status == DBUS_DISPATCH_NEED_MEMORY)
         {
@@ -2415,7 +2413,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
            */
           _dbus_verbose ("dbus_connection_send_with_reply_and_block() waiting for more memory\n");
 
-          _dbus_memory_pause_based_on_timeout (timeout_milliseconds);
+          _dbus_memory_pause_based_on_timeout (timeout_milliseconds - elapsed_milliseconds);
         }
       else
         {          
@@ -2423,14 +2421,14 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
           _dbus_connection_do_iteration_unlocked (connection,
                                                   DBUS_ITERATION_DO_READING |
                                                   DBUS_ITERATION_BLOCK,
-                                                  timeout_milliseconds);
+                                                  timeout_milliseconds - elapsed_milliseconds);
         }
 
       goto recheck_status;
     }
 
   _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %ld milliseconds and got no reply\n",
-                 (tv_sec - start_tv_sec) * 1000 + (tv_usec - start_tv_usec) / 1000);
+                 elapsed_milliseconds);
 
   _dbus_assert (!_dbus_pending_call_get_completed_unlocked (pending));
   
