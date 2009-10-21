@@ -466,6 +466,8 @@ closedir(dirp);
 	fi
 fi
 
+AC_CHECK_HEADERS(dirent.h)
+
 AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 
 AC_CHECK_HEADERS(errno.h)
