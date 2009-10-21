@@ -4,7 +4,7 @@
  * Copyright (C) 2002, 2003, 2004, 2006  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,7 +14,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
@@ -25,6 +25,7 @@
 #include "dbus-server-socket.h"
 #include "dbus-transport-socket.h"
 #include "dbus-connection-internal.h"
+#include "dbus-nonce.h"
 #include "dbus-string.h"
 
 /**
@@ -35,7 +36,7 @@
  * @{
  */
 /**
- * 
+ *
  * Opaque object representing a Socket server implementation.
  */
 typedef struct DBusServerSocket DBusServerSocket;
@@ -51,7 +52,7 @@ struct DBusServerSocket
   int *fds;          /**< File descriptor or -1 if disconnected. */
   DBusWatch **watch; /**< File descriptor watch. */
   char *socket_name; /**< Name of domain socket, to unlink if appropriate */
-  DBusString noncefile; /**< Nonce file used to authenticate clients */
+  DBusNonceFile *noncefile; /**< Nonce file used to authenticate clients */
 };
 
 static void
@@ -59,7 +60,7 @@ socket_finalize (DBusServer *server)
 {
   DBusServerSocket *socket_server = (DBusServerSocket*) server;
   int i;
-  
+
   _dbus_server_finalize_base (server);
 
   for (i = 0 ; i < socket_server->n_fds ; i++)
@@ -68,15 +69,12 @@ socket_finalize (DBusServer *server)
         _dbus_watch_unref (socket_server->watch[i]);
         socket_server->watch[i] = NULL;
       }
-  
+
   dbus_free (socket_server->fds);
   dbus_free (socket_server->watch);
   dbus_free (socket_server->socket_name);
-  if (_dbus_string_get_length(&socket_server->noncefile) > 0)
-  {
-    _dbus_delete_file(&socket_server->noncefile, NULL);
-  }
-  _dbus_string_free (&socket_server->noncefile);
+  _dbus_noncefile_delete (socket_server->noncefile, NULL); //PENDING(kdab) review error ignore
+  dbus_free (socket_server->noncefile);
   dbus_free (server);
 }
 
@@ -90,19 +88,19 @@ handle_new_client_fd_and_unlock (DBusServer *server,
   DBusNewConnectionFunction new_connection_function;
   DBusServerSocket* socket_server;
   void *new_connection_data;
-  
+
   socket_server = (DBusServerSocket*)server;
   _dbus_verbose ("Creating new client connection with fd %d\n", client_fd);
 
   HAVE_LOCK_CHECK (server);
-  
+
   if (!_dbus_set_fd_nonblocking (client_fd, NULL))
     {
       SERVER_UNLOCK (server);
       return TRUE;
     }
-  
-  transport = _dbus_transport_new_for_socket (client_fd, &server->guid_hex, NULL);
+
+  transport = _dbus_transport_new_for_socket (client_fd, &server->guid_hex, FALSE);
   if (transport == NULL)
     {
       _dbus_close_socket (client_fd, NULL);
@@ -117,21 +115,21 @@ handle_new_client_fd_and_unlock (DBusServer *server,
       SERVER_UNLOCK (server);
       return FALSE;
     }
-  
+
   /* note that client_fd is now owned by the transport, and will be
    * closed on transport disconnection/finalization
    */
-  
+
   connection = _dbus_connection_new_for_transport (transport);
   _dbus_transport_unref (transport);
   transport = NULL; /* now under the connection lock */
-  
+
   if (connection == NULL)
     {
       SERVER_UNLOCK (server);
       return FALSE;
     }
-  
+
   /* See if someone wants to handle this new connection, self-referencing
    * for paranoia.
    */
@@ -140,14 +138,14 @@ handle_new_client_fd_and_unlock (DBusServer *server,
 
   _dbus_server_ref_unlocked (server);
   SERVER_UNLOCK (server);
-  
+
   if (new_connection_function)
     {
       (* new_connection_function) (server, connection,
                                    new_connection_data);
     }
   dbus_server_unref (server);
-  
+
   /* If no one grabbed a reference, the connection will die. */
   _dbus_connection_close_if_only_one_ref (connection);
   dbus_connection_unref (connection);
@@ -161,14 +159,15 @@ socket_handle_watch (DBusWatch    *watch,
                    void         *data)
 {
   DBusServer *server = data;
-#ifndef DBUS_DISABLE_ASSERT
   DBusServerSocket *socket_server = data;
+
+#ifndef DBUS_DISABLE_ASSERT
   int i;
   dbus_bool_t found = FALSE;
 #endif
 
   SERVER_LOCK (server);
-  
+
 #ifndef DBUS_DISABLE_ASSERT
   for (i = 0 ; i < socket_server->n_fds ; i++)
     {
@@ -179,20 +178,20 @@ socket_handle_watch (DBusWatch    *watch,
 #endif
 
   _dbus_verbose ("Handling client connection, flags 0x%x\n", flags);
-  
+
   if (flags & DBUS_WATCH_READABLE)
     {
       int client_fd;
       int listen_fd;
-      
+
       listen_fd = dbus_watch_get_socket (watch);
 
-      client_fd = _dbus_accept_with_noncefile (listen_fd, &socket_server->noncefile);
-      
+      client_fd = _dbus_accept_with_noncefile (listen_fd, socket_server->noncefile);
+
       if (client_fd < 0)
         {
           /* EINTR handled for us */
-          
+
           if (_dbus_get_is_errno_eagain_or_ewouldblock ())
             _dbus_verbose ("No client available to accept after all\n");
           else
@@ -216,7 +215,7 @@ socket_handle_watch (DBusWatch    *watch,
 
   return TRUE;
 }
-  
+
 static void
 socket_disconnect (DBusServer *server)
 {
@@ -224,7 +223,7 @@ socket_disconnect (DBusServer *server)
   int i;
 
   HAVE_LOCK_CHECK (server);
-  
+
   for (i = 0 ; i < socket_server->n_fds ; i++)
     {
       if (socket_server->watch[i])
@@ -265,23 +264,25 @@ static const DBusServerVTable socket_vtable = {
  * @param fds list of file descriptors.
  * @param n_fds number of file descriptors
  * @param address the server's address
- * @param noncefile the noncefile to use, NULL if without nonce
+ * @param use_nonce whether to create and use a nonce for authentication
  * @returns the new server, or #NULL if no memory.
- * 
+ *
  */
 DBusServer*
 _dbus_server_new_for_socket (int              *fds,
                              int               n_fds,
                              const DBusString *address,
-                             const DBusString *noncefile)
+                             DBusNonceFile    *noncefile)
 {
   DBusServerSocket *socket_server;
   DBusServer *server;
   int i;
-  
+
   socket_server = dbus_new0 (DBusServerSocket, 1);
   if (socket_server == NULL)
     return NULL;
+
+  socket_server->noncefile = noncefile;
 
   socket_server->fds = dbus_new (int, n_fds);
   if (!socket_server->fds)
@@ -312,16 +313,10 @@ _dbus_server_new_for_socket (int              *fds,
                                &socket_vtable, address))
     goto failed_2;
 
-  if (!_dbus_string_init (&socket_server->noncefile))
-    goto failed_2;
-
-  if (noncefile && !_dbus_string_copy (noncefile, 0, &socket_server->noncefile, 0))
-    goto failed_3;
-
   server = (DBusServer*)socket_server;
 
   SERVER_LOCK (server);
-  
+
   for (i = 0 ; i < n_fds ; i++)
     {
       if (!_dbus_server_add_watch (&socket_server->base,
@@ -339,11 +334,12 @@ _dbus_server_new_for_socket (int              *fds,
     }
 
   SERVER_UNLOCK (server);
-  
+
   return (DBusServer*) socket_server;
 
  failed_3:
-  _dbus_string_free (&socket_server->noncefile);
+  _dbus_noncefile_delete (socket_server->noncefile, NULL);
+  _dbus_free (socket_server->noncefile );
  failed_2:
   for (i = 0 ; i < n_fds ; i++)
     {
@@ -377,8 +373,9 @@ _dbus_server_new_for_socket (int              *fds,
  * @param host the hostname to report for the listen address
  * @param bind the hostname to listen on
  * @param port the port to listen on or 0 to let the OS choose
- * @param family 
+ * @param family
  * @param error location to store reason for failure.
+ * @param use_nonce whether to use a nonce for low-level authentication (nonce-tcp transport) or not (tcp transport)
  * @returns the new server, or #NULL on failure.
  */
 DBusServer*
@@ -395,9 +392,11 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   DBusString address;
   DBusString host_str;
   DBusString port_str;
-  DBusString noncefile;
+  DBusNonceFile *noncefile;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  noncefile = NULL;
 
   if (!_dbus_string_init (&address))
     {
@@ -447,36 +446,27 @@ _dbus_server_new_for_tcp_socket (const char     *host,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto failed_2;
     }
-  
-  if (!_dbus_string_init (&noncefile))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      goto failed_2;
-    }
 
   if (use_nonce)
     {
-      if (!_dbus_generate_noncefilename (&noncefile))
+      noncefile = dbus_new0 (DBusNonceFile, 1);
+      if (noncefile == NULL)
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           goto failed_2;
         }
 
-        if (_dbus_string_get_length(&noncefile) == 0 ||
-          !_dbus_string_append (&address, ",noncefile=") ||
-          !_dbus_address_append_escaped (&address, &noncefile))
+      if (!_dbus_noncefile_create (noncefile, NULL))
+          goto failed_2;
+
+      if (!_dbus_string_append (&address, ",noncefile=") ||
+          !_dbus_address_append_escaped (&address, _dbus_noncefile_get_path (noncefile)))
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           goto failed_2;
         }
 
-      if (!_dbus_generate_and_write_nonce (&noncefile, error))
-        {
-          goto failed_2;
-        }
     }
 
-  server = _dbus_server_new_for_socket (listen_fds, nlisten_fds, &address, &noncefile);
+  server = _dbus_server_new_for_socket (listen_fds, nlisten_fds, &address, noncefile);
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -493,7 +483,6 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   for (i = 0 ; i < nlisten_fds ; i++)
     _dbus_close_socket (listen_fds[i], NULL);
   dbus_free(listen_fds);
-  _dbus_string_free (&noncefile);
 
  failed_1:
   _dbus_string_free (&port_str);
@@ -507,14 +496,14 @@ _dbus_server_new_for_tcp_socket (const char     *host,
 /**
  * Tries to interpret the address entry for various socket-related
  * addresses (well, currently only tcp and nonce-tcp).
- * 
+ *
  * Sets error if the result is not OK.
- * 
+ *
  * @param entry an address entry
  * @param server_p a new DBusServer, or #NULL on failure.
  * @param error location to store rationale for failure on bad address
  * @returns the outcome
- * 
+ *
  */
 DBusServerListenResult
 _dbus_server_listen_socket (DBusAddressEntry *entry,
@@ -524,9 +513,9 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
   const char *method;
 
   *server_p = NULL;
-  
+
   method = dbus_address_entry_get_method (entry);
-  
+
   if (strcmp (method, "tcp") == 0 || strcmp (method, "nonce-tcp") == 0)
     {
       const char *host;
@@ -564,10 +553,10 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
  * This is a bad hack since it's really unix domain socket
  * specific. Also, the function weirdly adopts ownership
  * of the passed-in string.
- * 
+ *
  * @param server a socket server
  * @param filename socket filename to report/delete
- * 
+ *
  */
 void
 _dbus_server_socket_own_filename (DBusServer *server,

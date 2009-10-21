@@ -30,11 +30,11 @@
 #include <stdio.h>
 
 #ifdef HAVE_ERRNO_H
-#include <errno.h>
+# include <errno.h>
 #endif
 
-dbus_bool_t
-_dbus_check_nonce (int fd, const DBusString *nonce, DBusError *error)
+static dbus_bool_t
+do_check_nonce (int fd, const DBusString *nonce, DBusError *error)
 {
   DBusString buffer;
   DBusString p;
@@ -126,33 +126,33 @@ _dbus_read_nonce (const DBusString *fname, DBusString *nonce, DBusError* error)
   return TRUE;
 }
 
-int
-_dbus_accept_with_nonce (int listen_fd, const DBusString *nonce)
+static int
+accept_with_nonce (int listen_fd, const DBusString *nonce)
 {
-  _dbus_assert (nonce != NULL);
+
+}
+
+int
+_dbus_accept_with_noncefile (int listen_fd, const DBusNonceFile *noncefile)
+{
   int fd;
+  DBusString nonce;
+
+  _dbus_assert (noncefile != NULL);
+  _dbus_string_init (&nonce);
+  //PENDING(kdab): set better errors
+  if (_dbus_read_nonce (_dbus_noncefile_get_path(noncefile), &nonce, NULL) != TRUE)
+    return -1;
   fd = _dbus_accept (listen_fd);
   if (_dbus_socket_is_invalid (fd))
     return fd;
-  if (_dbus_check_nonce(fd, nonce, NULL) != TRUE) {
+  if (do_check_nonce(fd, &nonce, NULL) != TRUE) {
     _dbus_verbose ("nonce check failed. Closing socket.\n");
     _dbus_close_socket(fd, NULL);
     return -1;
   }
 
   return fd;
-}
-
-int
-_dbus_accept_with_noncefile (int listen_fd, const DBusString *noncefile)
-{
-  _dbus_assert (noncefile != NULL);
-  DBusString nonce;
-  _dbus_string_init (&nonce);
-  //PENDING(kdab): set better errors
-  if (_dbus_read_nonce (noncefile, &nonce, NULL) != TRUE)
-    return -1;
-  return _dbus_accept_with_nonce (listen_fd, &nonce);
 }
 
 dbus_bool_t
@@ -182,8 +182,8 @@ oom:
   return FALSE;
 }
 
-dbus_bool_t
-_dbus_generate_and_write_nonce (const DBusString *filename, DBusError *error)
+static dbus_bool_t
+generate_and_write_nonce (const DBusString *filename, DBusError *error)
 {
   DBusString nonce;
   dbus_bool_t ret;
@@ -199,7 +199,7 @@ _dbus_generate_and_write_nonce (const DBusString *filename, DBusError *error)
       return FALSE;
     }
 
-  ret = _dbus_string_save_to_file (filename, &nonce, error);
+  ret = _dbus_string_save_to_file (&nonce, filename, error);
 
   _dbus_string_free (&nonce);
 
@@ -252,5 +252,144 @@ _dbus_send_nonce(int fd, const DBusString *noncefile, DBusError *error)
 
   return TRUE;
 }
+
+static dbus_bool_t
+do_noncefile_create (DBusNonceFile *noncefile,
+                     DBusError *error,
+                     dbus_bool_t use_subdir)
+{
+    dbus_bool_t ret;
+    DBusString randomStr;
+
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+    _dbus_assert (noncefile);
+
+    if (!_dbus_string_init (&randomStr))
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        goto on_error;
+      }
+
+    if (!_dbus_generate_random_ascii (&randomStr, 8))
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        goto on_error;
+      }
+
+    if (!_dbus_string_init (&noncefile->dir)
+        || !_dbus_string_append (&noncefile->dir, _dbus_get_tmpdir()))
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        goto on_error;
+      }
+    if (use_subdir)
+      {
+        if (!_dbus_string_append (&noncefile->dir, DBUS_DIR_SEPARATOR "dbus_nonce-")
+            || !_dbus_string_append (&noncefile->dir, _dbus_string_get_const_data (&randomStr)) )
+          {
+            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+            goto on_error;
+          }
+        if (!_dbus_string_init (&noncefile->path)
+            || !_dbus_string_copy (&noncefile->dir, 0, &noncefile->path, 0)
+            || !_dbus_string_append (&noncefile->dir, DBUS_DIR_SEPARATOR "nonce"))
+          {
+            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+            goto on_error;
+          }
+        if (!_dbus_create_directory (&noncefile->dir, error))
+          {
+            goto on_error;
+          }
+
+      }
+    else
+      {
+        if (!_dbus_string_init (&noncefile->path)
+            || !_dbus_string_copy (&noncefile->dir, 0, &noncefile->path, 0)
+            || !_dbus_string_append (&noncefile->path, DBUS_DIR_SEPARATOR "dbus_nonce-")
+            || !_dbus_string_append (&noncefile->path, _dbus_string_get_const_data (&randomStr)))
+          {
+            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+            goto on_error;
+          }
+
+      }
+
+    if (!generate_and_write_nonce (&noncefile->path, error))
+      {
+        if (use_subdir)
+          _dbus_delete_directory (&noncefile->dir, NULL); //we ignore possible errors deleting the dir and return the write error instead
+        goto on_error;
+      }
+
+    _dbus_string_free (&randomStr);
+
+    return TRUE;
+  on_error:
+    if (use_subdir)
+      _dbus_delete_directory (&noncefile->dir, NULL);
+    _dbus_string_free (&noncefile->dir);
+    _dbus_string_free (&noncefile->path);
+    _dbus_string_free (&randomStr);
+    return FALSE;
+}
+
+#ifdef DBUS_WIN
+dbus_bool_t
+_dbus_noncefile_create (DBusNonceFile *noncefile,
+                        DBusError *error)
+{
+    return do_noncefile_create (noncefile, error, /*use_subdir=*/FALSE);
+}
+
+dbus_bool_t
+_dbus_noncefile_delete (DBusNonceFile *noncefile,
+                        DBusError *error)
+{
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+    _dbus_delete_file (&noncefile->path, error);
+    _dbus_string_free (&noncefile->dir);
+    _dbus_string_free (&noncefile->path);
+}
+
+#else
+dbus_bool_t
+_dbus_noncefile_create (DBusNonceFile *noncefile,
+                        DBusError *error)
+{
+    return do_noncefile_create (noncefile, error, /*use_subdir=*/TRUE);
+}
+
+dbus_bool_t
+_dbus_noncefile_delete (DBusNonceFile *noncefile,
+                        DBusError *error)
+{
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+    _dbus_delete_directory (&noncefile->dir, error);
+    _dbus_string_free (&noncefile->dir);
+    _dbus_string_free (&noncefile->path);
+}
+#endif
+
+
+const DBusString*
+_dbus_noncefile_get_path (const DBusNonceFile *noncefile)
+{
+    _dbus_assert (noncefile);
+    return &noncefile->path;
+}
+
+dbus_bool_t
+_dbus_noncefile_check_nonce (int fd,
+                             const DBusNonceFile *noncefile,
+                             DBusError* error)
+{
+    return do_check_nonce (fd, _dbus_noncefile_get_path (noncefile), error);
+}
+
 
 /** @} end of nonce */

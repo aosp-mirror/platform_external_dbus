@@ -30,25 +30,38 @@
 
 DBUS_BEGIN_DECLS
 
-dbus_bool_t _dbus_check_nonce (int fd,
-                               const DBusString *nonce,
-                               DBusError *error);
+typedef struct DBusNonceFile DBusNonceFile;
+
+struct DBusNonceFile
+{
+  DBusString path;
+  DBusString dir;
+};
+
+// server
+
+dbus_bool_t _dbus_noncefile_create (DBusNonceFile *noncefile,
+                                    DBusError *error);
+
+dbus_bool_t _dbus_noncefile_delete (DBusNonceFile *noncefile,
+                                    DBusError *error);
+
+dbus_bool_t _dbus_noncefile_check_nonce (int fd,
+                                         const DBusNonceFile *noncefile,
+                                         DBusError *error);
+
+const DBusString* _dbus_noncefile_get_path (const DBusNonceFile *noncefile);
+
+int _dbus_accept_with_noncefile (int listen_fd,
+                                 const DBusNonceFile *noncefile);
+
+// shared
 
 dbus_bool_t _dbus_read_nonce (const DBusString *fname,
                               DBusString *nonce,
                               DBusError *error);
 
-int _dbus_accept_with_nonce (int listen_fd,
-                             const DBusString *nonce);
-
-int _dbus_accept_with_noncefile (int listen_fd,
-                                 const DBusString *noncefile);
-
-dbus_bool_t _dbus_generate_noncefilename (DBusString *buf,
-                                          DBusError *error);
-
-dbus_bool_t _dbus_generate_and_write_nonce (const DBusString *filename,
-                                            DBusError *error);
+// client
 
 dbus_bool_t _dbus_send_nonce (int fd,
                               const DBusString *noncefile,
