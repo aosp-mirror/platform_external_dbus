@@ -1,3 +1,8 @@
+This README.windbus file below originates from the "windbus" fork. It
+does not reflect reality here. Changes from both windbus and the
+separate "dbus4win" fork have been merged into this code repository,
+as applicable.
+
 ----------------------------------------
 Windows port of the freedesktop.org D-Bus
 ----------------------------------------
