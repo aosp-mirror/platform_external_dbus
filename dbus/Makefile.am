@@ -38,7 +38,9 @@ else
 dbus_res =
 dbus_res_ldflag =
 no_undefined =
-export_symbols =
+## don't export symbols that start with "_" (we use this
+## convention for internal symbols)
+export_symbols = -export-symbols-regex "^[^_].*"
 install-def-file:
 uninstall-def-file:
 
@@ -238,9 +240,7 @@ EXTRA_DIST=dbus-arch-deps.h.in
 noinst_LTLIBRARIES=libdbus-convenience.la
 
 libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
-## don't export symbols that start with "_" (we use this 
-## convention for internal symbols)
-libdbus_1_la_LDFLAGS= -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
+libdbus_1_la_LDFLAGS= $(export_symbols) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
 
 libdbus_convenience_la_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
