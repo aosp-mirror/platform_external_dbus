@@ -25,6 +25,7 @@
 #include "dbus-server-socket.h"
 #include "dbus-transport-socket.h"
 #include "dbus-connection-internal.h"
+#include "dbus-memory.h"
 #include "dbus-nonce.h"
 #include "dbus-string.h"
 
@@ -339,7 +340,7 @@ _dbus_server_new_for_socket (int              *fds,
 
  failed_3:
   _dbus_noncefile_delete (socket_server->noncefile, NULL);
-  _dbus_free (socket_server->noncefile );
+  dbus_free (socket_server->noncefile );
  failed_2:
   for (i = 0 ; i < n_fds ; i++)
     {

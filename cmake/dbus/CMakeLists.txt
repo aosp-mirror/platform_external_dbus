@@ -186,20 +186,20 @@ if (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
 		${DBUS_DIR}/dbus-sysdeps-win.c
 		${DBUS_DIR}/dbus-sysdeps-thread-win.c
-		${DBUS_DIR}/dbus-sysdeps-util-win.c
 		${DBUS_DIR}/dbus-spawn-win.c
 	)
 	set (DBUS_SHARED_HEADERS ${DBUS_SHARED_HEADERS} 
 		${DBUS_DIR}/dbus-sockets-win.h
 		${DBUS_DIR}/dbus-sysdeps-win.h
 	)
+	set (DBUS_UTIL_SOURCES ${DBUS_UTIL_SOURCES}
+		${DBUS_DIR}/dbus-sysdeps-util-win.c
+	)
 	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
-
 else (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
 		${DBUS_DIR}/dbus-sysdeps-unix.c
 		${DBUS_DIR}/dbus-sysdeps-pthread.c
-		${DBUS_DIR}/dbus-sysdeps-util-unix.c
 		${DBUS_DIR}/dbus-spawn.c
 		${DBUS_DIR}/dbus-userdb.c
 	)
@@ -211,6 +211,7 @@ else (WIN32)
 	)
 	set (DBUS_UTIL_SOURCES ${DBUS_UTIL_SOURCES}
 		${DBUS_DIR}/dbus-userdb-util.c
+		${DBUS_DIR}/dbus-sysdeps-util-unix.c
 	)
 endif (WIN32)
 

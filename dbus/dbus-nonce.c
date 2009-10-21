@@ -51,7 +51,7 @@ do_check_nonce (int fd, const DBusString *nonce, DBusError *error)
         dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
         _dbus_string_free (&p);
         _dbus_string_free (&buffer);
-        return;
+        return FALSE;
       }
 
   while (nleft)
@@ -105,8 +105,9 @@ _dbus_read_nonce (const DBusString *fname, DBusString *nonce, DBusError* error)
 {
   FILE *fp;
   char buffer[17];
-  buffer[sizeof buffer - 1] = '\0';
   size_t nread;
+
+  buffer[sizeof buffer - 1] = '\0';
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -355,6 +356,7 @@ _dbus_noncefile_delete (DBusNonceFile *noncefile,
     _dbus_delete_file (&noncefile->path, error);
     _dbus_string_free (&noncefile->dir);
     _dbus_string_free (&noncefile->path);
+    return TRUE;
 }
 
 #else
@@ -389,6 +391,7 @@ _dbus_noncefile_delete (DBusNonceFile *noncefile,
     _dbus_delete_directory (&noncefile->dir, error);
     _dbus_string_free (&noncefile->dir);
     _dbus_string_free (&noncefile->path);
+    return TRUE;
 }
 #endif
 

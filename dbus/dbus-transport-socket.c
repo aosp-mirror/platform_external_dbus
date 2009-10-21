@@ -23,6 +23,7 @@
 
 #include "dbus-internals.h"
 #include "dbus-connection-internal.h"
+#include "dbus-nonce.h"
 #include "dbus-transport-socket.h"
 #include "dbus-transport-protected.h"
 #include "dbus-watch.h"

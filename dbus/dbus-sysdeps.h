@@ -181,6 +181,11 @@ int _dbus_connect_tcp_socket  (const char     *host,
                                const char     *port,
                                const char     *family,
                                DBusError      *error);
+int _dbus_connect_tcp_socket_with_nonce  (const char     *host,
+                                          const char     *port,
+                                          const char     *family,
+                                          const char     *noncefile,
+                                          DBusError      *error);
 int _dbus_listen_tcp_socket   (const char     *host,
                                const char     *port,
                                const char     *family,

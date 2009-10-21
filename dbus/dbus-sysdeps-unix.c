@@ -34,6 +34,7 @@
 #include "dbus-userdb.h"
 #include "dbus-list.h"
 #include "dbus-credentials.h"
+#include "dbus-nonce.h"
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -3906,6 +3907,34 @@ dbus_bool_t
 _dbus_get_is_errno_eagain_or_ewouldblock (void)
 {
   return errno == EAGAIN || errno == EWOULDBLOCK;
+}
+
+/**
+ * Removes a directory; Directory must be empty
+ *
+ * @param filename directory filename
+ * @param error initialized error object
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_delete_directory (const DBusString *filename,
+                        DBusError        *error)
+{
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  filename_c = _dbus_string_get_const_data (filename);
+
+  if (rmdir (filename_c) != 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Failed to remove directory %s: %s\n",
+                      filename_c, _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  return TRUE;
 }
 
 /**
