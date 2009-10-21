@@ -1516,6 +1516,16 @@ _dbus_listen_tcp_socket (const char     *host,
   struct addrinfo hints;
   struct addrinfo *ai, *tmp;
 
+  // On Vista, sockaddr_gen must be a sockaddr_in6, and not a sockaddr_in6_old
+  //That's required for family == IPv6(which is the default on Vista if family is not given)
+  //So we use our own union instead of sockaddr_gen:
+
+  typedef union {
+	struct sockaddr Address;
+	struct sockaddr_in AddressIn;
+	struct sockaddr_in6 AddressIn6;
+  } mysockaddr_gen;
+
   *fds_p = NULL;
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -1608,7 +1618,7 @@ _dbus_listen_tcp_socket (const char     *host,
              to use the same port */
           if (!port || !strcmp(port, "0"))
             {
-              sockaddr_gen addr;
+              mysockaddr_gen addr;
               socklen_t addrlen = sizeof(addr);
               char portbuf[10];
 
