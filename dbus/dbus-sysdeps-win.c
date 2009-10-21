@@ -62,6 +62,7 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 #include <io.h>
 
 #include <string.h>
+#include <mbstring.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -3296,26 +3297,29 @@ _dbus_get_install_root(char *prefix, int len)
     char* p = 0;
     int i;
     DWORD pathLength;
-    int lastSlash;
+    char *lastSlash;
     SetLastError( 0 );
     pathLength = GetModuleFileName(NULL, prefix, len);
     if ( pathLength == 0 || GetLastError() != 0 ) {
         *prefix = '\0';
         return FALSE;
     }
-    lastSlash = -1;
-    for (i = 0; i < pathLength; ++i)
-        if (prefix[i] == '\\')
-            lastSlash = i;
-    if (lastSlash == -1) {
+    lastSlash = _mbsrchr(prefix, '\\');
+    if (lastSlash == NULL) {
         *prefix = '\0';
         return FALSE;
     }
     //cut off binary name
-    prefix[lastSlash+1] = 0;
+    lastSlash[1] = 0;
+
     //cut possible "\\bin"
-    if (lastSlash > 3 && strncmp(prefix + lastSlash - 4, "\\bin", 4) == 0)
-        prefix[lastSlash-3] = 0;
+
+    //this fails if we are in a double-byte system codepage and the
+    //folder's name happens to end with the *bytes*
+    //"\\bin"... (I.e. the second byte of some Han character and then
+    //the Latin "bin", but that is not likely I think...
+    if (lastSlash - prefix > 3 && strncmp(lastSlash - 4, "\\bin", 4) == 0)
+        lastSlash[-3] = 0;
     return TRUE;
 }
 
