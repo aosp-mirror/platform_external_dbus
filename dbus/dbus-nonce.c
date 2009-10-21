@@ -149,13 +149,16 @@ _dbus_accept_with_noncefile (int listen_fd, const DBusString *noncefile)
 }
 
 dbus_bool_t
-_dbus_generate_noncefilename (DBusString *buf)
+_dbus_generate_noncefilename (DBusString *buf, DBusError *error)
 {
   dbus_bool_t ret;
   DBusString randomStr;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
   ret = _dbus_string_init (&randomStr);
   if (!ret)
-    return FALSE;
+    goto oom;
   ret = _dbus_generate_random_ascii (&randomStr, 8);
   if (!ret)
     goto oom;
@@ -167,22 +170,29 @@ _dbus_generate_noncefilename (DBusString *buf)
   _dbus_string_free (&randomStr);
   return TRUE;
 oom:
+  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
   _dbus_string_free (&randomStr);
   return FALSE;
 }
 
-int
-_dbus_generate_and_write_nonce (const DBusString *filename)
+dbus_bool_t
+_dbus_generate_and_write_nonce (const DBusString *filename, DBusError *error)
 {
   DBusString nonce;
-  int ret;
+  dbus_bool_t ret;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   _dbus_string_init (&nonce);
 
   if (!_dbus_generate_random_bytes (&nonce, 16))
-    return -1;
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&nonce);
+      return FALSE;
+    }
 
-  ret = _dbus_write_to_file (_dbus_string_get_const_data (filename), _dbus_string_get_const_data (&nonce), 16);
+  ret = _dbus_string_save_to_file (filename, &nonce, error);
 
   _dbus_string_free (&nonce);
 

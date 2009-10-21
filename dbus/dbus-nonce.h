@@ -42,9 +42,11 @@ int _dbus_accept_with_nonce (int listen_fd,
 int _dbus_accept_with_noncefile (int listen_fd,
                                  const DBusString *noncefile);
 
-dbus_bool_t _dbus_generate_noncefilename (DBusString *buf);
+dbus_bool_t _dbus_generate_noncefilename (DBusString *buf,
+                                          DBusError *error);
 
-int _dbus_generate_and_write_nonce (const DBusString *filename);
+dbus_bool_t _dbus_generate_and_write_nonce (const DBusString *filename,
+                                            DBusError *error);
 
 dbus_bool_t _dbus_send_nonce (int fd,
                               const DBusString *noncefile,

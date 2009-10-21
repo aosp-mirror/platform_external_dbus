@@ -470,9 +470,8 @@ _dbus_server_new_for_tcp_socket (const char     *host,
           goto failed_2;
         }
 
-      if (_dbus_generate_and_write_nonce (&noncefile) != 0)
+      if (!_dbus_generate_and_write_nonce (&noncefile, error))
         {
-          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           goto failed_2;
         }
     }

@@ -542,24 +542,6 @@ dbus_pid_t    _dbus_getpid (void);
 
 void _dbus_flush_caches (void);
 
-dbus_bool_t _dbus_generate_noncefilename (DBusString *buf);
-
-int _dbus_generate_and_write_nonce (const DBusString *filename);
-
-int _dbus_generate_nonce (char *buffer, size_t nbytes);
-
-dbus_bool_t _dbus_check_nonce (int fd, const DBusString *nonce);
-
-dbus_bool_t dbus_read_nonce (const DBusString *noncefile, DBusString *nonce);
-
-int _dbus_accept_with_nonce (int listen_fd, const DBusString *nonce);
-
-int _dbus_accept_with_noncefile (int listen_fd, const DBusString *noncefile);
-
-dbus_bool_t _dbus_send_nonce (int fd, const DBusString *noncefile, DBusError* error);
-
-int _dbus_write_to_file (const char *filename, const char *buf, size_t len);
-
 /** @} */
 
 DBUS_END_DECLS

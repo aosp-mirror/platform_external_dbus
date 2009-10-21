@@ -3908,35 +3908,6 @@ _dbus_get_is_errno_eagain_or_ewouldblock (void)
   return errno == EAGAIN || errno == EWOULDBLOCK;
 }
 
-int
-_dbus_write_to_file (const char* filename, const char* buf, size_t len)
-{
-  int filefd;
-  FILE *fp;
-  size_t written;
-
-  filefd = open (filename,
-                 (O_WRONLY|O_CREAT|O_EXCL|O_BINARY),
-                 (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP));
-  if (filefd == -1)
-    {
-      return -1;
-    }
-  fp = fdopen (filefd, "wb");
-  if (!fp)
-    {
-      int save_e = errno;
-      close (filefd);
-      errno = save_e;
-      return -1;
-    }
-
-  written = fwrite (buf, len, 1, fp);
-  fclose (fp);
-
-  return written == 1 ? 0 : -1;
-}
-
 /**
  *  Checks whether file descriptors may be passed via the socket
  *
