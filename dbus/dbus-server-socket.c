@@ -51,6 +51,7 @@ struct DBusServerSocket
   int *fds;          /**< File descriptor or -1 if disconnected. */
   DBusWatch **watch; /**< File descriptor watch. */
   char *socket_name; /**< Name of domain socket, to unlink if appropriate */
+  DBusString noncefile; /**< Nonce file used to authenticate clients */
 };
 
 static void
@@ -71,6 +72,11 @@ socket_finalize (DBusServer *server)
   dbus_free (socket_server->fds);
   dbus_free (socket_server->watch);
   dbus_free (socket_server->socket_name);
+  if (_dbus_string_get_length(&socket_server->noncefile) > 0)
+  {
+    _dbus_delete_file(&socket_server->noncefile, NULL);
+  }
+  _dbus_string_free (&socket_server->noncefile);
   dbus_free (server);
 }
 
@@ -82,8 +88,10 @@ handle_new_client_fd_and_unlock (DBusServer *server,
   DBusConnection *connection;
   DBusTransport *transport;
   DBusNewConnectionFunction new_connection_function;
+  DBusServerSocket* socket_server;
   void *new_connection_data;
   
+  socket_server = (DBusServerSocket*)server;
   _dbus_verbose ("Creating new client connection with fd %d\n", client_fd);
 
   HAVE_LOCK_CHECK (server);
@@ -179,7 +187,7 @@ socket_handle_watch (DBusWatch    *watch,
       
       listen_fd = dbus_watch_get_socket (watch);
 
-      client_fd = _dbus_accept (listen_fd);
+      client_fd = _dbus_accept_with_noncefile (listen_fd, &socket_server->noncefile);
       
       if (client_fd < 0)
         {
@@ -257,13 +265,15 @@ static const DBusServerVTable socket_vtable = {
  * @param fds list of file descriptors.
  * @param n_fds number of file descriptors
  * @param address the server's address
+ * @param noncefile the noncefile to use, NULL if without nonce
  * @returns the new server, or #NULL if no memory.
  * 
  */
 DBusServer*
 _dbus_server_new_for_socket (int              *fds,
                              int               n_fds,
-                             const DBusString *address)
+                             const DBusString *address,
+                             const DBusString *noncefile)
 {
   DBusServerSocket *socket_server;
   DBusServer *server;
@@ -302,6 +312,12 @@ _dbus_server_new_for_socket (int              *fds,
                                &socket_vtable, address))
     goto failed_2;
 
+  if (!_dbus_string_init (&socket_server->noncefile))
+    goto failed_2;
+
+  if (noncefile && !_dbus_string_copy (noncefile, 0, &socket_server->noncefile, 0))
+    goto failed_3;
+
   server = (DBusServer*)socket_server;
 
   SERVER_LOCK (server);
@@ -326,6 +342,8 @@ _dbus_server_new_for_socket (int              *fds,
   
   return (DBusServer*) socket_server;
 
+ failed_3:
+  _dbus_string_free (&socket_server->noncefile);
  failed_2:
   for (i = 0 ; i < n_fds ; i++)
     {
@@ -368,7 +386,8 @@ _dbus_server_new_for_tcp_socket (const char     *host,
                                  const char     *bind,
                                  const char     *port,
                                  const char     *family,
-                                 DBusError      *error)
+                                 DBusError      *error,
+                                 dbus_bool_t    use_nonce)
 {
   DBusServer *server;
   int *listen_fds = NULL;
@@ -376,6 +395,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   DBusString address;
   DBusString host_str;
   DBusString port_str;
+  DBusString noncefile;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -412,7 +432,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
     }
 
   _dbus_string_init_const (&host_str, host);
-  if (!_dbus_string_append (&address, "tcp:host=") ||
+  if (!_dbus_string_append (&address, use_nonce ? "nonce-tcp:host=" : "tcp:host=") ||
       !_dbus_address_append_escaped (&address, &host_str) ||
       !_dbus_string_append (&address, ",port=") ||
       !_dbus_string_append (&address, _dbus_string_get_const_data(&port_str)))
@@ -428,7 +448,36 @@ _dbus_server_new_for_tcp_socket (const char     *host,
       goto failed_2;
     }
   
-  server = _dbus_server_new_for_socket (listen_fds, nlisten_fds, &address);
+  if (!_dbus_string_init (&noncefile))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      goto failed_2;
+    }
+
+  if (use_nonce)
+    {
+      if (!_dbus_generate_noncefilename (&noncefile))
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          goto failed_2;
+        }
+
+        if (_dbus_string_get_length(&noncefile) == 0 ||
+          !_dbus_string_append (&address, ",noncefile=") ||
+          !_dbus_address_append_escaped (&address, &noncefile))
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          goto failed_2;
+        }
+
+      if (_dbus_generate_and_write_nonce (&noncefile) != 0)
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          goto failed_2;
+        }
+    }
+
+  server = _dbus_server_new_for_socket (listen_fds, nlisten_fds, &address, &noncefile);
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -445,6 +494,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   for (i = 0 ; i < nlisten_fds ; i++)
     _dbus_close_socket (listen_fds[i], NULL);
   dbus_free(listen_fds);
+  _dbus_string_free (&noncefile);
 
  failed_1:
   _dbus_string_free (&port_str);
@@ -457,7 +507,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
 
 /**
  * Tries to interpret the address entry for various socket-related
- * addresses (well, currently only tcp).
+ * addresses (well, currently only tcp and nonce-tcp).
  * 
  * Sets error if the result is not OK.
  * 
@@ -478,7 +528,7 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
   
   method = dbus_address_entry_get_method (entry);
   
-  if (strcmp (method, "tcp") == 0)
+  if (strcmp (method, "tcp") == 0 || strcmp (method, "nonce-tcp") == 0)
     {
       const char *host;
       const char *port;
@@ -491,7 +541,7 @@ _dbus_server_listen_socket (DBusAddressEntry *entry,
       family = dbus_address_entry_get_value (entry, "family");
 
       *server_p = _dbus_server_new_for_tcp_socket (host, bind, port,
-                                                   family, error);
+                                                   family, error, strcmp (method, "nonce-tcp") == 0 ? TRUE : FALSE);
 
       if (*server_p)
         {

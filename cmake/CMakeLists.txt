@@ -459,8 +459,8 @@ set (DBUS_USER )
 
 
 if (WIN32)
-  set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=0")
-  set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=0")
+  set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "nonce-tcp:host=localhost,port=0")
+  set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "nonce-tcp:host=localhost,port=0")
   set (DBUS_SYSTEM_CONFIG_FILE "etc/system.conf")
   set (DBUS_SESSION_CONFIG_FILE "etc/session.conf")
   # bus-test expects a non empty string

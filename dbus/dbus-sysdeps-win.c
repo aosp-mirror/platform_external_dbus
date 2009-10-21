@@ -180,6 +180,7 @@ _dbus_pipe_close  (DBusPipe         *pipe,
  * @param count the amount of data to read
  * @returns the number of bytes read or -1
  */
+
 int
 _dbus_read_socket (int               fd,
                    DBusString       *buffer,
@@ -209,7 +210,7 @@ _dbus_read_socket (int               fd,
   if (bytes_read == SOCKET_ERROR)
 	{
 	  DBUS_SOCKET_SET_ERRNO();
-	  _dbus_verbose ("recv: failed: %s\n", _dbus_strerror (errno));
+	  _dbus_verbose ("recv: failed: %s (%d)\n", _dbus_strerror (errno), errno);
 	  bytes_read = -1;
 	}
 	else
@@ -464,6 +465,12 @@ _dbus_write_socket_two (int               fd,
     goto again;
       
   return bytes_written;
+}
+
+dbus_bool_t
+_dbus_socket_is_invalid (int fd)
+{
+    return fd == INVALID_SOCKET ? TRUE : FALSE;
 }
 
 #if 0
@@ -1344,6 +1351,16 @@ _dbus_connect_tcp_socket (const char     *host,
                           const char     *family,
                           DBusError      *error)
 {
+  return _dbus_connect_tcp_socket_with_nonce (host, port, family, (const char*)NULL, error);
+}
+
+int
+_dbus_connect_tcp_socket_with_nonce (const char     *host,
+                                     const char     *port,
+                                     const char     *family,
+                                     const char     *noncefile,
+                                     DBusError      *error)
+{
   int fd = -1, res;
   struct addrinfo hints;
   struct addrinfo *ai, *tmp;
@@ -1414,7 +1431,7 @@ _dbus_connect_tcp_socket (const char     *host,
         }
       _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
-      if (connect (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) < 0)
+      if (connect (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) != 0)
         {
           closesocket(fd);
       fd = -1;
@@ -1435,12 +1452,32 @@ _dbus_connect_tcp_socket (const char     *host,
       return -1;
     }
 
+  if ( noncefile != NULL )
+    {
+      DBusString noncefileStr;
+      dbus_bool_t ret;
+      if (!_dbus_string_init (&noncefileStr) ||
+          !_dbus_string_append(&noncefileStr, noncefile))
+        {
+          closesocket (fd);
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          return -1;
+       }
 
-  if (!_dbus_set_fd_nonblocking (fd, error))
+      ret = _dbus_send_nonce (fd, &noncefileStr, error);
+
+      _dbus_string_free (&noncefileStr);
+
+      if (!ret)
     {
       closesocket (fd);
-      fd = -1;
+          return -1;
+        }
+    }
 
+  if (!_dbus_set_fd_nonblocking (fd, error) )
+    {
+      closesocket (fd);
       return -1;
     }
 
@@ -3632,6 +3669,7 @@ _dbus_win_warn_win_error (const char *message,
   _dbus_warn ("%s: %s\n", message, error.message);
   dbus_error_free (&error);
 }
+
 /** @} end of sysdeps-win */
 /* tests in dbus-sysdeps-util.c */
 

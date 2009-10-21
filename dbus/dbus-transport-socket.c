@@ -1297,6 +1297,7 @@ _dbus_transport_new_for_socket (int               fd,
  * @param host the host to connect to
  * @param port the port to connect to
  * @param family the address family to connect to
+ * @param path to nonce file
  * @param error location to store reason for failure.
  * @returns a new transport, or #NULL on failure.
  */
@@ -1304,6 +1305,7 @@ DBusTransport*
 _dbus_transport_new_for_tcp_socket (const char     *host,
                                     const char     *port,
                                     const char     *family,
+                                    const char     *noncefile,
                                     DBusError      *error)
 {
   int fd;
@@ -1321,7 +1323,7 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
   if (host == NULL)
     host = "localhost";
 
-  if (!_dbus_string_append (&address, "tcp:"))
+  if (!_dbus_string_append (&address, noncefile ? "nonce-tcp:" : "tcp:"))
     goto error;
 
   if (!_dbus_string_append (&address, "host=") ||
@@ -1337,7 +1339,12 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
        !_dbus_string_append (&address, family)))
     goto error;
 
-  fd = _dbus_connect_tcp_socket (host, port, family, error);
+  if (noncefile != NULL &&
+      (!_dbus_string_append (&address, "noncefile=") ||
+       !_dbus_string_append (&address, noncefile)))
+    goto error;
+
+  fd = _dbus_connect_tcp_socket_with_nonce (host, port, family, noncefile, error);
   if (fd < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -1381,26 +1388,38 @@ _dbus_transport_open_socket(DBusAddressEntry  *entry,
                             DBusError         *error)
 {
   const char *method;
+  dbus_bool_t isTcp;
+  dbus_bool_t isNonceTcp;
   
   method = dbus_address_entry_get_method (entry);
   _dbus_assert (method != NULL);
 
-  if (strcmp (method, "tcp") == 0)
+  isTcp = strcmp (method, "tcp") == 0;
+  isNonceTcp = strcmp (method, "nonce-tcp") == 0;
+
+  if (isTcp || isNonceTcp)
     {
       const char *host = dbus_address_entry_get_value (entry, "host");
       const char *port = dbus_address_entry_get_value (entry, "port");
       const char *family = dbus_address_entry_get_value (entry, "family");
+      const char *noncefile = dbus_address_entry_get_value (entry, "noncefile");
+
+      if ((isNonceTcp == TRUE) != (noncefile != NULL)) {
+          _dbus_set_bad_address (error, method, "noncefile", NULL);
+          return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
+      }
 
       if (port == NULL)
         {
-          _dbus_set_bad_address (error, "tcp", "port", NULL);
+          _dbus_set_bad_address (error, method, "port", NULL);
           return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
         }
 
-      *transport_p = _dbus_transport_new_for_tcp_socket (host, port, family, error);
+      *transport_p = _dbus_transport_new_for_tcp_socket (host, port, family, noncefile, error);
       if (*transport_p == NULL)
         {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
+          //PENDING(kdab)
+          //_DBUS_ASSERT_ERROR_IS_SET (error);
           return DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT;
         }
       else

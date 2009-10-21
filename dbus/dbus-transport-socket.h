@@ -33,6 +33,7 @@ DBusTransport*          _dbus_transport_new_for_socket     (int                f
 DBusTransport*          _dbus_transport_new_for_tcp_socket (const char        *host,
                                                             const char        *port,
                                                             const char        *family,
+                                                            const char        *noncefile,
                                                             DBusError         *error);
 DBusTransportOpenResult _dbus_transport_open_socket        (DBusAddressEntry  *entry,
                                                             DBusTransport    **transport_p,

@@ -46,6 +46,7 @@ set (DBUS_LIB_SOURCES
 	${DBUS_DIR}/dbus-marshal-validate.c
 	${DBUS_DIR}/dbus-message.c
 	${DBUS_DIR}/dbus-misc.c
+	${DBUS_DIR}/dbus-nonce.c
 	${DBUS_DIR}/dbus-object-tree.c
 	${DBUS_DIR}/dbus-pending-call.c
 	${DBUS_DIR}/dbus-resources.c

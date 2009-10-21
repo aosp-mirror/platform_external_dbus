@@ -25,8 +25,6 @@
 #include "dbus-internals.h"
 #include "dbus-server-win.h"
 #include "dbus-server-socket.h"
-#include "dbus-connection-internal.h"
-#include "dbus-sysdeps-win.h"
 
 /**
  * @defgroup DBusServerWin DBusServer implementations for Windows
@@ -52,12 +50,43 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
                                        DBusServer      **server_p,
                                        DBusError        *error)
 {
-  /* don't handle any method yet, return NULL with the error unset, 
-   ** for a sample implementation see dbus-server-unix.c 
-   */
+  const char *method;
+
   *server_p  = NULL;
+
+  method = dbus_address_entry_get_method (entry);
+
+  if (strcmp (method, "nonce-tcp") == 0)
+    {
+      const char *host;
+      const char *port;
+      const char *bind;
+      const char *family;
+
+      host = dbus_address_entry_get_value (entry, "host");
+      bind = dbus_address_entry_get_value (entry, "bind");
+      port = dbus_address_entry_get_value (entry, "port");
+      family = dbus_address_entry_get_value (entry, "family");
+
+      *server_p = _dbus_server_new_for_tcp_socket (host, bind, port,
+                                                   family, error, TRUE);
+
+      if (*server_p)
+        {
+          _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+          return DBUS_SERVER_LISTEN_OK;
+        }
+      else
+        {
+          _DBUS_ASSERT_ERROR_IS_SET(error);
+          return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
+        }
+    }
+  else
+    {
   _DBUS_ASSERT_ERROR_IS_CLEAR(error);
   return DBUS_SERVER_LISTEN_NOT_HANDLED;
+}
 }
 
 /** @} */

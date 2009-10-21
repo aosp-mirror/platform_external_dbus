@@ -138,6 +138,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-message-internal.h			\
 	dbus-message-private.h			\
 	dbus-misc.c				\
+	dbus-nonce.c				\
 	dbus-object-tree.c			\
 	dbus-object-tree.h			\
 	dbus-pending-call.c			\

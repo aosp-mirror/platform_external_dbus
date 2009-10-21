@@ -91,10 +91,12 @@ dbus_bool_t _dbus_file_exists (const char *filename);
 dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 
                                        char *s);
 
-
+int _dbus_connect_tcp_socket_with_nonce  (const char     *host,
+                                          const char     *port,
+                                          const char     *family,
+                                          const char     *noncefile,
+                                          DBusError      *error);
 
 #endif
 
 /** @} end of sysdeps-win.h */
-
-

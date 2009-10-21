@@ -577,6 +577,11 @@ _dbus_write_socket_two (int               fd,
 #endif
 }
 
+dbus_bool_t
+_dbus_socket_is_invalid (int fd)
+{
+    return fd < 0 ? TRUE : FALSE;
+}
 
 /**
  * Thin wrapper around the read() system call that appends
@@ -1082,6 +1087,16 @@ _dbus_connect_tcp_socket (const char     *host,
                           const char     *family,
                           DBusError      *error)
 {
+    return _dbus_connect_tcp_socket_with_nonce (host, port, family, (const char*)NULL, error);
+}
+
+int
+_dbus_connect_tcp_socket_with_nonce (const char     *host,
+                                     const char     *port,
+                                     const char     *family,
+                                     const char     *noncefile,
+                                     DBusError      *error)
+{
   int saved_errno = 0;
   int fd = -1, res;
   struct addrinfo hints;
@@ -1159,12 +1174,24 @@ _dbus_connect_tcp_socket (const char     *host,
       return -1;
     }
 
+  if (noncefile != NULL)
+    {
+      DBusString noncefileStr;
+      dbus_bool_t ret;
+      _dbus_string_init_const (&noncefileStr, noncefile);
+      ret = _dbus_send_nonce (fd, &noncefileStr, error);
+      _dbus_string_free (&noncefileStr);
+
+      if (!ret)
+    {
+      _dbus_close (fd, NULL);
+          return -1;
+        }
+    }
 
   if (!_dbus_set_fd_nonblocking (fd, error))
     {
       _dbus_close (fd, NULL);
-      fd = -1;
-
       return -1;
     }
 
@@ -3879,6 +3906,35 @@ dbus_bool_t
 _dbus_get_is_errno_eagain_or_ewouldblock (void)
 {
   return errno == EAGAIN || errno == EWOULDBLOCK;
+}
+
+int
+_dbus_write_to_file (const char* filename, const char* buf, size_t len)
+{
+  int filefd;
+  FILE *fp;
+  size_t written;
+
+  filefd = open (filename,
+                 (O_WRONLY|O_CREAT|O_EXCL|O_BINARY),
+                 (S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP));
+  if (filefd == -1)
+    {
+      return -1;
+    }
+  fp = fdopen (filefd, "wb");
+  if (!fp)
+    {
+      int save_e = errno;
+      close (filefd);
+      errno = save_e;
+      return -1;
+    }
+
+  written = fwrite (buf, len, 1, fp);
+  fclose (fp);
+
+  return written == 1 ? 0 : -1;
 }
 
 /**
