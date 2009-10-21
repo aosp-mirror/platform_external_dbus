@@ -26,6 +26,7 @@ no_undefined = -no-undefined
 export_symbols = -export-symbols $(srcdir)/dbus-1.def
 
 install-def-file:
+	test -z "$(libdir)" || $(MKDIR_P) "$(DESTDIR)$(libdir)"
 	$(INSTALL) dbus-1.def $(DESTDIR)$(libdir)/dbus-1.def
 
 uninstall-def-file:
@@ -233,7 +234,7 @@ libdbus_convenience_la_SOURCES=			\
 
 
 BUILT_SOURCES=$(dbusarchinclude_HEADERS)
-EXTRA_DIST=dbus-arch-deps.h.in
+EXTRA_DIST=dbus-arch-deps.h.in dbus-1.def
 
 ## this library is the same as libdbus, but exports all the symbols
 ## and is only used for static linking within the dbus package.
@@ -263,6 +264,10 @@ dbus_test_SOURCES=				\
 
 dbus_test_LDADD=libdbus-convenience.la $(DBUS_TEST_LIBS)
 dbus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
+
+install-data-local: install-def-file
+
+uninstall-local: uninstall-def-file
 
 ## mop up the gcov files
 clean-local:
