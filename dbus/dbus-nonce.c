@@ -274,7 +274,7 @@ do_noncefile_create (DBusNonceFile *noncefile,
       }
     if (use_subdir)
       {
-        if (!_dbus_string_append (&noncefile->dir, DBUS_DIR_SEPARATOR "dbus_nonce-")
+        if (!_dbus_string_append (&noncefile->dir, "/dbus_nonce-")
             || !_dbus_string_append (&noncefile->dir, _dbus_string_get_const_data (&randomStr)) )
           {
             dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -282,7 +282,7 @@ do_noncefile_create (DBusNonceFile *noncefile,
           }
         if (!_dbus_string_init (&noncefile->path)
             || !_dbus_string_copy (&noncefile->dir, 0, &noncefile->path, 0)
-            || !_dbus_string_append (&noncefile->dir, DBUS_DIR_SEPARATOR "nonce"))
+            || !_dbus_string_append (&noncefile->dir, "/nonce"))
           {
             dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
             goto on_error;
@@ -297,7 +297,7 @@ do_noncefile_create (DBusNonceFile *noncefile,
       {
         if (!_dbus_string_init (&noncefile->path)
             || !_dbus_string_copy (&noncefile->dir, 0, &noncefile->path, 0)
-            || !_dbus_string_append (&noncefile->path, DBUS_DIR_SEPARATOR "dbus_nonce-")
+            || !_dbus_string_append (&noncefile->path, "/dbus_nonce-")
             || !_dbus_string_append (&noncefile->path, _dbus_string_get_const_data (&randomStr)))
           {
             dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
