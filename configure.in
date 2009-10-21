@@ -1023,7 +1023,8 @@ ld_supports_flag() {
   fi
 }
 
-if test x$USE_MAINTAINER_MODE = xyes; then
+# Don't bother with -Werror on Windows for now, too many warnings
+if test x$dbus_win != xyes -a x$USE_MAINTAINER_MODE = xyes; then
   if cc_supports_flag "-Werror"; then
     CFLAGS="$CFLAGS -Werror"
   fi
