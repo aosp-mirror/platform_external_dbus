@@ -14,7 +14,8 @@ EXTRA_DIST =			\
         ChangeLog.pre-1-0       \
         NEWS.pre-1-0            \
 	ChangeLog.pre-1-2       \
-        NEWS.pre-1-2
+        NEWS.pre-1-2		\
+	README.windbus
 
 all-local: Doxyfile
 
