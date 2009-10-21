@@ -52,19 +52,19 @@ _dbus_transport_open_platform_specific (DBusAddressEntry  *entry,
 {
   const char *method;
 
+  const char *host = dbus_address_entry_get_value (entry, "host");
+  const char *port = dbus_address_entry_get_value (entry, "port");
+  const char *family = dbus_address_entry_get_value (entry, "family");
+  const char *noncefile = dbus_address_entry_get_value (entry, "noncefile");
+
   method = dbus_address_entry_get_method (entry);
   _dbus_assert (method != NULL);
 
   if (strcmp (method, "nonce-tcp") != 0)
     {
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  return DBUS_TRANSPORT_OPEN_NOT_HANDLED;
-}
-
-  const char *host = dbus_address_entry_get_value (entry, "host");
-  const char *port = dbus_address_entry_get_value (entry, "port");
-  const char *family = dbus_address_entry_get_value (entry, "family");
-  const char *noncefile = dbus_address_entry_get_value (entry, "noncefile");
+      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+      return DBUS_TRANSPORT_OPEN_NOT_HANDLED;
+    }
 
   if (port == NULL)
     {

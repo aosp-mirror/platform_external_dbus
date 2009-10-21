@@ -73,7 +73,7 @@ socket_finalize (DBusServer *server)
   dbus_free (socket_server->fds);
   dbus_free (socket_server->watch);
   dbus_free (socket_server->socket_name);
-  _dbus_noncefile_delete (socket_server->noncefile, NULL); //PENDING(kdab) review error ignore
+  _dbus_noncefile_delete (socket_server->noncefile, NULL);
   dbus_free (socket_server->noncefile);
   dbus_free (server);
 }

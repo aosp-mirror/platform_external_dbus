@@ -44,6 +44,7 @@
 #include "dbus-hash.h"
 #include "dbus-sockets-win.h"
 #include "dbus-list.h"
+#include "dbus-nonce.h"
 #include "dbus-credentials.h"
 
 #include <windows.h>

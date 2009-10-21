@@ -92,11 +92,17 @@ do_check_nonce (int fd, const DBusString *nonce, DBusError *error)
   return result;
 }
 
-//PENDING(kdab) document
+/**
+ * reads the nonce from the nonce file and stores it in a string
+ *
+ * @param fname the file to read the nonce from
+ * @param nonce returns the nonce. Must be an initialized string, the nonce will be appended.
+ * @param error error object to report possible errors
+ * @return FALSE iff reading the nonce fails (error is set then)
+ */
 dbus_bool_t
 _dbus_read_nonce (const DBusString *fname, DBusString *nonce, DBusError* error)
 {
-  //PENDING(kdab) replace errno by DBusError
   FILE *fp;
   char buffer[17];
   buffer[sizeof buffer - 1] = '\0';
@@ -155,33 +161,6 @@ _dbus_accept_with_noncefile (int listen_fd, const DBusNonceFile *noncefile)
   return fd;
 }
 
-dbus_bool_t
-_dbus_generate_noncefilename (DBusString *buf, DBusError *error)
-{
-  dbus_bool_t ret;
-  DBusString randomStr;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  ret = _dbus_string_init (&randomStr);
-  if (!ret)
-    goto oom;
-  ret = _dbus_generate_random_ascii (&randomStr, 8);
-  if (!ret)
-    goto oom;
-  if (!_dbus_string_append (buf, _dbus_get_tmpdir())
-      || !_dbus_string_append (buf, DBUS_DIR_SEPARATOR "dbus_nonce-")
-      || !_dbus_string_append (buf, _dbus_string_get_const_data (&randomStr)) )
-    goto oom;
-
-  _dbus_string_free (&randomStr);
-  return TRUE;
-oom:
-  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-  _dbus_string_free (&randomStr);
-  return FALSE;
-}
-
 static dbus_bool_t
 generate_and_write_nonce (const DBusString *filename, DBusError *error)
 {
@@ -206,6 +185,15 @@ generate_and_write_nonce (const DBusString *filename, DBusError *error)
   return ret;
 }
 
+/**
+ * sends the nonce over a given socket. Blocks while doing so.
+ *
+ * @param fd the file descriptor to write the nonce data to (usually a socket)
+ * @param noncefile the noncefile location to read the nonce from
+ * @param error contains error details if FALSE is returned
+ * @return TRUE iff the nonce was successfully sent. Note that this does not
+ * indicate whether the server accepted the nonce.
+ */
 dbus_bool_t
 _dbus_send_nonce(int fd, const DBusString *noncefile, DBusError *error)
 {
@@ -337,6 +325,13 @@ do_noncefile_create (DBusNonceFile *noncefile,
 }
 
 #ifdef DBUS_WIN
+/**
+ * creates a nonce file in a user-readable location and writes a generated nonce to it
+ *
+ * @param noncefile returns the nonce file location
+ * @param error error details if creating the nonce file fails
+ * @return TRUE iff the nonce file was successfully created
+ */
 dbus_bool_t
 _dbus_noncefile_create (DBusNonceFile *noncefile,
                         DBusError *error)
@@ -344,6 +339,13 @@ _dbus_noncefile_create (DBusNonceFile *noncefile,
     return do_noncefile_create (noncefile, error, /*use_subdir=*/FALSE);
 }
 
+/**
+ * deletes the noncefile and frees the DBusNonceFile object.
+ *
+ * @param noncefile the nonce file to delete. Contents will be freed.
+ * @param error error details if the nonce file could not be deleted
+ * @return TRUE
+ */
 dbus_bool_t
 _dbus_noncefile_delete (DBusNonceFile *noncefile,
                         DBusError *error)
@@ -356,6 +358,14 @@ _dbus_noncefile_delete (DBusNonceFile *noncefile,
 }
 
 #else
+/**
+ * creates a nonce file in a user-readable location and writes a generated nonce to it.
+ * Initializes the noncefile object.
+ *
+ * @param noncefile returns the nonce file location
+ * @param error error details if creating the nonce file fails
+ * @return TRUE iff the nonce file was successfully created
+ */
 dbus_bool_t
 _dbus_noncefile_create (DBusNonceFile *noncefile,
                         DBusError *error)
@@ -363,6 +373,13 @@ _dbus_noncefile_create (DBusNonceFile *noncefile,
     return do_noncefile_create (noncefile, error, /*use_subdir=*/TRUE);
 }
 
+/**
+ * deletes the noncefile and frees the DBusNonceFile object.
+ *
+ * @param noncefile the nonce file to delete. Contents will be freed.
+ * @param error error details if the nonce file could not be deleted
+ * @return TRUE
+ */
 dbus_bool_t
 _dbus_noncefile_delete (DBusNonceFile *noncefile,
                         DBusError *error)
@@ -376,6 +393,12 @@ _dbus_noncefile_delete (DBusNonceFile *noncefile,
 #endif
 
 
+/**
+ * returns the absolute file path of the nonce file
+ *
+ * @param noncefile an initialized noncefile object
+ * @return the absolute path of the nonce file
+ */
 const DBusString*
 _dbus_noncefile_get_path (const DBusNonceFile *noncefile)
 {
@@ -383,6 +406,16 @@ _dbus_noncefile_get_path (const DBusNonceFile *noncefile)
     return &noncefile->path;
 }
 
+/**
+ * reads data from a file descriptor and checks if the received data matches
+ * the data in the given noncefile.
+ *
+ * @param fd the file descriptor to read the nonce from
+ * @param noncefile the nonce file to check the received data against
+ * @param error error details on fail
+ * @return TRUE iff a nonce could be successfully read from the file descriptor
+ * and matches the nonce from the given nonce file
+ */
 dbus_bool_t
 _dbus_noncefile_check_nonce (int fd,
                              const DBusNonceFile *noncefile,

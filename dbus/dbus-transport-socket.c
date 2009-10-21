@@ -1418,8 +1418,7 @@ _dbus_transport_open_socket(DBusAddressEntry  *entry,
       *transport_p = _dbus_transport_new_for_tcp_socket (host, port, family, noncefile, error);
       if (*transport_p == NULL)
         {
-          //PENDING(kdab)
-          //_DBUS_ASSERT_ERROR_IS_SET (error);
+          _DBUS_ASSERT_ERROR_IS_SET (error);
           return DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT;
         }
       else
