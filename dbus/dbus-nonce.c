@@ -33,12 +33,8 @@
 #include <errno.h>
 #endif
 
-#ifndef ENOFILE
-# define ENOFILE ENOENT
-#endif
-
 dbus_bool_t
-_dbus_check_nonce (int fd, const DBusString *nonce)
+_dbus_check_nonce (int fd, const DBusString *nonce, DBusError *error)
 {
   DBusString buffer;
   DBusString p;
@@ -46,11 +42,18 @@ _dbus_check_nonce (int fd, const DBusString *nonce)
   dbus_bool_t result;
   int n;
 
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
   nleft = 16;
 
-  _dbus_string_init (&buffer);
-  _dbus_string_init (&p);
-//PENDING(kdab) replace errno by DBusError
+  if (   !_dbus_string_init (&buffer)
+      || !_dbus_string_init (&p) ) {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+        _dbus_string_free (&p);
+        _dbus_string_free (&buffer);
+        return;
+      }
+
   while (nleft)
     {
       n = _dbus_read_socket (fd, &p, nleft);
@@ -60,15 +63,16 @@ _dbus_check_nonce (int fd, const DBusString *nonce)
         _dbus_sleep_milliseconds (100);
       else if (n==-1)
         {
+          dbus_set_error (error, DBUS_ERROR_IO_ERROR, "Could not read nonce from socket (fd=%d)", fd );
           _dbus_string_free (&p);
           _dbus_string_free (&buffer);
           return FALSE;
         }
       else if (!n)
         {
-        _dbus_string_free (&p);
-        _dbus_string_free (&buffer);
-          errno = EIO;
+          _dbus_string_free (&p);
+          _dbus_string_free (&buffer);
+          dbus_set_error (error, DBUS_ERROR_IO_ERROR, "Could not read nonce from socket (fd=%d)", fd );
           return FALSE;
         }
       else
@@ -80,7 +84,7 @@ _dbus_check_nonce (int fd, const DBusString *nonce)
 
   result =  _dbus_string_equal_len (&buffer, nonce, 16);
   if (!result)
-      errno = EACCES;
+    dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED, "Nonces do not match, access denied (fd=%d)", fd );
 
   _dbus_string_free (&p);
   _dbus_string_free (&buffer);
@@ -90,13 +94,16 @@ _dbus_check_nonce (int fd, const DBusString *nonce)
 
 //PENDING(kdab) document
 dbus_bool_t
-_dbus_read_nonce (const DBusString *fname, DBusString *nonce)
+_dbus_read_nonce (const DBusString *fname, DBusString *nonce, DBusError* error)
 {
   //PENDING(kdab) replace errno by DBusError
   FILE *fp;
   char buffer[17];
   buffer[sizeof buffer - 1] = '\0';
   size_t nread;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
   _dbus_verbose ("reading nonce from file: %s\n", _dbus_string_get_const_data (fname));
 
 
@@ -107,13 +114,13 @@ _dbus_read_nonce (const DBusString *fname, DBusString *nonce)
   fclose (fp);
   if (!nread)
     {
-      errno = ENOFILE;
+      dbus_set_error (error, DBUS_ERROR_FILE_NOT_FOUND, "Could not read nonce from file %s", _dbus_string_get_const_data (fname));
       return FALSE;
     }
 
   if (!_dbus_string_append_len (nonce, buffer, sizeof buffer - 1 ))
     {
-      errno = ENOMEM;
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
     }
   return TRUE;
@@ -127,7 +134,7 @@ _dbus_accept_with_nonce (int listen_fd, const DBusString *nonce)
   fd = _dbus_accept (listen_fd);
   if (_dbus_socket_is_invalid (fd))
     return fd;
-  if (_dbus_check_nonce(fd, nonce) != TRUE) {
+  if (_dbus_check_nonce(fd, nonce, NULL) != TRUE) {
     _dbus_verbose ("nonce check failed. Closing socket.\n");
     _dbus_close_socket(fd, NULL);
     return -1;
@@ -143,7 +150,7 @@ _dbus_accept_with_noncefile (int listen_fd, const DBusString *noncefile)
   DBusString nonce;
   _dbus_string_init (&nonce);
   //PENDING(kdab): set better errors
-  if (_dbus_read_nonce (noncefile, &nonce) != TRUE)
+  if (_dbus_read_nonce (noncefile, &nonce, NULL) != TRUE)
     return -1;
   return _dbus_accept_with_nonce (listen_fd, &nonce);
 }
@@ -218,7 +225,7 @@ _dbus_send_nonce(int fd, const DBusString *noncefile, DBusError *error)
       return FALSE;
   }
 
-  read_result = _dbus_read_nonce (noncefile, &nonce);
+  read_result = _dbus_read_nonce (noncefile, &nonce, NULL);
 
   if (!read_result)
     {

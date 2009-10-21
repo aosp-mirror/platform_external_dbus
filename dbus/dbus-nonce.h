@@ -31,10 +31,12 @@
 DBUS_BEGIN_DECLS
 
 dbus_bool_t _dbus_check_nonce (int fd,
-                               const DBusString *nonce);
+                               const DBusString *nonce,
+                               DBusError *error);
 
 dbus_bool_t _dbus_read_nonce (const DBusString *fname,
-                              DBusString *nonce);
+                              DBusString *nonce,
+                              DBusError *error);
 
 int _dbus_accept_with_nonce (int listen_fd,
                              const DBusString *nonce);
