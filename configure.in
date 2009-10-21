@@ -1093,7 +1093,7 @@ if test "x$GCC" = "xyes"; then
 
   case " $CFLAGS " in
   *[\ \	]-fPIC[\ \	]*) ;;
-  *) if cc_supports_flag -fPIC; then
+  *) if test x$dbus_win = xno && cc_supports_flag -fPIC; then
         PIC_CFLAGS="-fPIC"
         if ld_supports_flag -z,relro; then
            PIC_LDFLAGS="-Wl,-z,relro"
@@ -1104,7 +1104,7 @@ if test "x$GCC" = "xyes"; then
 
   case " $CFLAGS " in
   *[\ \	]-fPIE[\ \	]*) ;;
-  *) if cc_supports_flag -fPIE; then
+  *) if test x$dbus_win = xno && cc_supports_flag -fPIE; then
         PIE_CFLAGS="-fPIE"
         if ld_supports_flag -z,relro; then
            PIE_LDFLAGS="-pie -Wl,-z,relro"
