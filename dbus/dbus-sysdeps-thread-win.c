@@ -23,6 +23,7 @@
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
+#include "dbus-sysdeps-win.h"
 #include "dbus-threads.h"
 #include "dbus-list.h"
 

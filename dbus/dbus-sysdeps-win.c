@@ -742,15 +742,6 @@ out1:
 /** @} end of sysdeps-win */
 
 
-/** Gets our UID
- * @returns process UID
- */
-dbus_uid_t
-_dbus_getuid (void)
-{
-	return DBUS_UID_UNSET;
-}
-
 /**
  * The only reason this is separate from _dbus_getpid() is to allow it
  * on Windows for logging but not for other purposes.
@@ -767,7 +758,7 @@ _dbus_pid_for_log (void)
  * @param points to sid buffer, need to be freed with LocalFree()
  * @returns process sid
  */
-dbus_bool_t
+static dbus_bool_t
 _dbus_getsid(char **sid)
 {
   HANDLE process_token = NULL;
@@ -810,31 +801,6 @@ failed:
   _dbus_verbose("_dbus_getsid() returns %d\n",retval);
   return retval;
 }
-
-
-#ifdef DBUS_BUILD_TESTS
-/** Gets our GID
- * @returns process GID
- */
-dbus_gid_t
-_dbus_getgid (void)
-{
-	return DBUS_GID_UNSET;
-}
-
-#if 0
-dbus_bool_t
-_dbus_domain_test (const char *test_data_dir)
-{
-  if (!_dbus_test_oom_handling ("spawn_nonexistent",
-                                check_spawn_nonexistent,
-                                NULL))
-    return FALSE;
-}
-
-#endif
-
-#endif //DBUS_BUILD_TESTS
 
 /************************************************************************
  
@@ -1886,7 +1852,7 @@ _dbus_concat_dir_and_file (DBusString       *dir,
                             _dbus_string_get_length (dir));
 }
 
-/*---------------- DBusCredentials ----------------------------------
+/*---------------- DBusCredentials ----------------------------------*/
 
 /**
  * Adds the credentials corresponding to the given username.
@@ -2971,6 +2937,8 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
   _dbus_global_unlock( lock );
 }
 
+#if 0
+
 void
 _dbus_daemon_release()
 {
@@ -2991,6 +2959,8 @@ _dbus_daemon_release()
 
   _dbus_global_unlock( lock );
 }
+
+#endif
 
 static dbus_bool_t
 _dbus_get_autolaunch_shm(DBusString *adress)
@@ -3303,7 +3273,7 @@ _dbus_get_is_errno_eagain_or_ewouldblock (void)
  * @param len length of buffer
  * @returns #FALSE on failure
  */
-dbus_bool_t 
+static dbus_bool_t
 _dbus_get_install_root(char *prefix, int len)
 {
     //To find the prefix, we cut the filename and also \bin\ if present
@@ -3312,7 +3282,7 @@ _dbus_get_install_root(char *prefix, int len)
     DWORD pathLength;
     char *lastSlash;
     SetLastError( 0 );
-    pathLength = GetModuleFileName(NULL, prefix, len);
+    pathLength = GetModuleFileName(_dbus_win_get_dll_hmodule(), prefix, len);
     if ( pathLength == 0 || GetLastError() != 0 ) {
         *prefix = '\0';
         return FALSE;

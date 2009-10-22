@@ -70,7 +70,7 @@ _dbus_become_daemon (const DBusString *pidfile,
  * @param error return location for errors
  * @returns #FALSE on failure
  */
-dbus_bool_t
+static dbus_bool_t
 _dbus_write_pid_file (const DBusString *filename,
                       unsigned long     pid,
                       DBusError        *error)
@@ -220,22 +220,6 @@ _dbus_verify_daemon_user (const char *user)
 dbus_bool_t
 _dbus_change_to_daemon_user  (const char    *user,
                               DBusError     *error)
-{
-  return TRUE;
-}
-
-/**
- * Changes the user and group the bus is running as.
- *
- * @param uid the new user ID
- * @param gid the new group ID
- * @param error return location for errors
- * @returns #FALSE on failure
- */
-dbus_bool_t
-_dbus_change_identity  (dbus_uid_t     uid,
-                        dbus_gid_t     gid,
-                        DBusError     *error)
 {
   return TRUE;
 }
@@ -542,7 +526,7 @@ DIR;
 * The DIR typedef is not compatible with Unix.
 **********************************************************************/
 
-DIR * _dbus_opendir(const char *dir)
+static DIR * _dbus_opendir(const char *dir)
 {
   DIR *dp;
   char *filespec;
@@ -575,7 +559,7 @@ DIR * _dbus_opendir(const char *dir)
   return dp;
 }
 
-struct dirent * _dbus_readdir(DIR *dp)
+static struct dirent * _dbus_readdir(DIR *dp)
   {
     if (!dp || dp->finished)
       return NULL;
@@ -600,7 +584,7 @@ struct dirent * _dbus_readdir(DIR *dp)
   }
 
 
-int _dbus_closedir(DIR *dp)
+static int _dbus_closedir(DIR *dp)
 {
   if (!dp)
     return 0;

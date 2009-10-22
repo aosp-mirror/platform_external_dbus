@@ -133,12 +133,6 @@ _dbus_read_nonce (const DBusString *fname, DBusString *nonce, DBusError* error)
   return TRUE;
 }
 
-static int
-accept_with_nonce (int listen_fd, const DBusString *nonce)
-{
-
-}
-
 int
 _dbus_accept_with_noncefile (int listen_fd, const DBusNonceFile *noncefile)
 {
