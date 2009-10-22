@@ -2465,8 +2465,21 @@ _dbus_get_tmpdir(void)
 
   if (tmpdir == NULL)
     {
+      char *last_slash;
+
       if (!GetTempPath (sizeof (buf), buf))
-        strcpy (buf, "\\");
+        {
+          _dbus_warn ("GetTempPath failed\n");
+          _dbus_abort ();
+        }
+
+      /* Drop terminating backslash or slash */
+      last_slash = _mbsrchr (buf, '\\');
+      if (last_slash > buf && last_slash[1] == '\0')
+        last_slash[0] = '\0';
+      last_slash = _mbsrchr (buf, '/');
+      if (last_slash > buf && last_slash[1] == '\0')
+        last_slash[0] = '\0';
 
       tmpdir = buf;
     }
