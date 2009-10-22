@@ -940,8 +940,8 @@ _dbus_generate_random_ascii (DBusString *str,
 }
 
 /**
- * Converts a UNIX or Windows errno
- * into a #DBusError name.
+ * Converts a UNIX errno, or Windows errno or WinSock error value into
+ * a #DBusError name.
  *
  * @todo should cover more errnos, specifically those
  * from open().
@@ -961,8 +961,16 @@ _dbus_error_from_errno (int error_number)
     case EPROTONOSUPPORT:
       return DBUS_ERROR_NOT_SUPPORTED;
 #endif
+#ifdef WSAEPROTONOSUPPORT
+    case WSAEPROTONOSUPPORT:
+      return DBUS_ERROR_NOT_SUPPORTED;
+#endif
 #ifdef EAFNOSUPPORT
     case EAFNOSUPPORT:
+      return DBUS_ERROR_NOT_SUPPORTED;
+#endif
+#ifdef WSAEAFNOSUPPORT
+    case WSAEAFNOSUPPORT:
       return DBUS_ERROR_NOT_SUPPORTED;
 #endif
 #ifdef ENFILE
@@ -989,40 +997,36 @@ _dbus_error_from_errno (int error_number)
     case ENOMEM:
       return DBUS_ERROR_NO_MEMORY;
 #endif
-#ifdef EINVAL
-    case EINVAL:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EBADF
-    case EBADF:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EFAULT
-    case EFAULT:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef ENOTSOCK
-    case ENOTSOCK:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EISCONN
-    case EISCONN:
-      return DBUS_ERROR_FAILED;
-#endif
 #ifdef ECONNREFUSED
     case ECONNREFUSED:
+      return DBUS_ERROR_NO_SERVER;
+#endif
+#ifdef WSAECONNREFUSED
+    case WSAECONNREFUSED:
       return DBUS_ERROR_NO_SERVER;
 #endif
 #ifdef ETIMEDOUT
     case ETIMEDOUT:
       return DBUS_ERROR_TIMEOUT;
 #endif
+#ifdef WSAETIMEDOUT
+    case WSAETIMEDOUT:
+      return DBUS_ERROR_TIMEOUT;
+#endif
 #ifdef ENETUNREACH
     case ENETUNREACH:
       return DBUS_ERROR_NO_NETWORK;
 #endif
+#ifdef WSAENETUNREACH
+    case WSAENETUNREACH:
+      return DBUS_ERROR_NO_NETWORK;
+#endif
 #ifdef EADDRINUSE
     case EADDRINUSE:
+      return DBUS_ERROR_ADDRESS_IN_USE;
+#endif
+#ifdef WSAEADDRINUSE
+    case WSAEADDRINUSE:
       return DBUS_ERROR_ADDRESS_IN_USE;
 #endif
 #ifdef EEXIST
