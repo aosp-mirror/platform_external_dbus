@@ -1452,10 +1452,6 @@ _dbus_connect_tcp_socket_with_nonce (const char     *host,
   return fd;
 }
 
-
-void
-_dbus_daemon_init(const char *host, dbus_uint32_t port);
-
 /**
  * Creates a socket and binds it to the given path, then listens on
  * the socket. The socket is set to be nonblocking.  In case of port=0
@@ -1633,7 +1629,6 @@ _dbus_listen_tcp_socket (const char     *host,
     }
 
   sscanf(_dbus_string_get_const_data(retport), "%d", &port_num);
-  _dbus_daemon_init(host, port_num);
 
   for (i = 0 ; i < nlisten_fd ; i++)
     {
@@ -2873,7 +2868,7 @@ void _dbus_global_unlock (HANDLE mutex)
 // for proper cleanup in dbus-daemon
 static HANDLE hDBusDaemonMutex = NULL;
 static HANDLE hDBusSharedMem = NULL;
-// sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+// sync _dbus_daemon_publish_session_bus_address, _dbus_daemon_unpublish_session_bus_address and _dbus_daemon_already_runs
 static const char *cUniqueDBusInitMutex = "UniqueDBusInitMutex";
 // sync _dbus_get_autolaunch_address
 static const char *cDBusAutolaunchMutex = "DBusAutolaunchMutex";
@@ -2886,65 +2881,49 @@ static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfoDebug";
 static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
 #endif
 
+
 void
-_dbus_daemon_init(const char *host, dbus_uint32_t port)
+_dbus_daemon_publish_session_bus_address (const char* address)
 {
   HANDLE lock;
-  char *adr = NULL;
-  char szUserName[64];
-  DWORD dwUserNameSize = sizeof(szUserName);
-  char szDBusDaemonMutex[128];
-  char szDBusDaemonAddressInfo[128];
-  char szAddress[128];
+  char *shared_addr = NULL;
   DWORD ret;
 
-  _dbus_assert(host);
-  _dbus_assert(port);
-
-  _snprintf(szAddress, sizeof(szAddress) - 1, "tcp:host=%s,port=%d", host, port);
-  ret = GetUserName(szUserName, &dwUserNameSize);
-  _dbus_assert(ret != 0);
-  _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
-            cDBusDaemonMutex, szUserName);
-  _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
-            cDBusDaemonAddressInfo, szUserName);
-
+  _dbus_assert (address);
   // before _dbus_global_lock to keep correct lock/release order
-  hDBusDaemonMutex = CreateMutex( NULL, FALSE, szDBusDaemonMutex );
+  hDBusDaemonMutex = CreateMutex( NULL, FALSE, cDBusDaemonMutex );
   ret = WaitForSingleObject( hDBusDaemonMutex, 1000 );
   if ( ret != WAIT_OBJECT_0 ) {
-    _dbus_warn("Could not lock mutex %s (return code %d). daemon already running?\n", szDBusDaemonMutex, ret );
-    _dbus_assert( !"Could not lock mutex, daemon already running?" );
+    _dbus_warn("Could not lock mutex %s (return code %d). daemon already running? Bus address not published.\n", cDBusDaemonMutex, ret );
+    return;
   }
 
-  // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+  // sync _dbus_daemon_publish_session_bus_address, _dbus_daemon_unpublish_session_bus_address and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
   // create shm
   hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                      0, strlen( szAddress ) + 1, szDBusDaemonAddressInfo );
+                                      0, strlen( address ) + 1, cDBusDaemonAddressInfo );
   _dbus_assert( hDBusSharedMem );
 
-  adr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
+  shared_addr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
 
-  _dbus_assert( adr );
+  _dbus_assert (shared_addr);
 
-  strcpy( adr, szAddress);
+  strcpy( shared_addr, address);
 
   // cleanup
-  UnmapViewOfFile( adr );
+  UnmapViewOfFile( shared_addr );
 
   _dbus_global_unlock( lock );
 }
 
-#if 0
-
 void
-_dbus_daemon_release()
+_dbus_daemon_unpublish_session_bus_address (void)
 {
   HANDLE lock;
 
-  // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+  // sync _dbus_daemon_publish_session_bus_address, _dbus_daemon_unpublish_session_bus_address and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
   CloseHandle( hDBusSharedMem );
@@ -2960,27 +2939,17 @@ _dbus_daemon_release()
   _dbus_global_unlock( lock );
 }
 
-#endif
-
 static dbus_bool_t
-_dbus_get_autolaunch_shm(DBusString *adress)
+_dbus_get_autolaunch_shm (DBusString *address)
 {
   HANDLE sharedMem;
-  char *adr;
-  char szUserName[64];
-  DWORD dwUserNameSize = sizeof(szUserName);
-  char szDBusDaemonAddressInfo[128];
+  char *shared_addr;
   int i;
-
-  if( !GetUserName(szUserName, &dwUserNameSize) )
-      return FALSE;
-  _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
-            cDBusDaemonAddressInfo, szUserName);
 
   // read shm
   for(i=0;i<20;++i) {
       // we know that dbus-daemon is available, so we wait until shm is available
-      sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, szDBusDaemonAddressInfo );
+      sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
       if( sharedMem == 0 )
           Sleep( 100 );
       if ( sharedMem != 0)
@@ -2990,17 +2959,17 @@ _dbus_get_autolaunch_shm(DBusString *adress)
   if( sharedMem == 0 )
       return FALSE;
 
-  adr = MapViewOfFile( sharedMem, FILE_MAP_READ, 0, 0, 0 );
+  shared_addr = MapViewOfFile( sharedMem, FILE_MAP_READ, 0, 0, 0 );
 
-  if( adr == 0 )
+  if( !shared_addr )
       return FALSE;
 
-  _dbus_string_init( adress );
+  _dbus_string_init( address );
 
-  _dbus_string_append( adress, adr ); 
+  _dbus_string_append( address, shared_addr );
 
   // cleanup
-  UnmapViewOfFile( adr );
+  UnmapViewOfFile( shared_addr );
 
   CloseHandle( sharedMem );
 
@@ -3008,25 +2977,17 @@ _dbus_get_autolaunch_shm(DBusString *adress)
 }
 
 static dbus_bool_t
-_dbus_daemon_already_runs (DBusString *adress)
+_dbus_daemon_already_runs (DBusString *address)
 {
   HANDLE lock;
   HANDLE daemon;
   dbus_bool_t bRet = TRUE;
-  char szUserName[64];
-  DWORD dwUserNameSize = sizeof(szUserName);
-  char szDBusDaemonMutex[128];
 
-  // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+  // sync _dbus_daemon_publish_session_bus_address, _dbus_daemon_unpublish_session_bus_address and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
-  if( !GetUserName(szUserName, &dwUserNameSize) )
-      return FALSE;
-  _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
-            cDBusDaemonMutex, szUserName);
-
   // do checks
-  daemon = CreateMutex( NULL, FALSE, szDBusDaemonMutex );
+  daemon = CreateMutex( NULL, FALSE, cDBusDaemonMutex );
   if(WaitForSingleObject( daemon, 10 ) != WAIT_TIMEOUT)
     {
       ReleaseMutex (daemon);
@@ -3037,7 +2998,7 @@ _dbus_daemon_already_runs (DBusString *adress)
     }
 
   // read shm
-  bRet = _dbus_get_autolaunch_shm( adress );
+  bRet = _dbus_get_autolaunch_shm( address );
 
   // cleanup
   CloseHandle ( daemon );

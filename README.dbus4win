@@ -62,10 +62,6 @@ b0d14fed92d9f539cd3478e72dc2f3ea75f3941a
 configure.in: only check for wspiapi.h on Windows
 nah, no harm checking for it on UNIX too
 
-23945513e9a4da61d286ebfbce3897aa061ddbfe
-replace dbus_daemon_init by dbus_publish_session_bus_address, publishing the...
-doesn't apply, too complex, split into separate chunks
-
 1724fc10e516e2d570537d522d8608abba90be5e
 prototypes cleanup
 related to cd2cdb3457f72cf058d5b19796ee691ceca6b52c which was skipped above

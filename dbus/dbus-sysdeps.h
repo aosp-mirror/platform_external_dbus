@@ -221,6 +221,10 @@ dbus_bool_t _dbus_windows_user_is_process_owner (const char        *windows_sid)
 dbus_bool_t _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
                                                             DBusCredentials *credentials);
 
+void _dbus_daemon_publish_session_bus_address (const char* address);
+
+void _dbus_daemon_unpublish_session_bus_address (void);
+
 dbus_bool_t _dbus_socket_can_pass_unix_fd(int fd);
 
 /** Opaque type representing an atomically-modifiable integer

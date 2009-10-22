@@ -254,6 +254,7 @@ main (int argc, char **argv)
   int i;
   dbus_bool_t print_address;
   dbus_bool_t print_pid;
+  dbus_bool_t is_session_bus;
   int force_fork;
 
   if (!_dbus_string_init (&config_file))
@@ -267,6 +268,7 @@ main (int argc, char **argv)
 
   print_address = FALSE;
   print_pid = FALSE;
+  is_session_bus = FALSE;
   force_fork = FORK_FOLLOW_CONFIG_FILE;
 
   prev_arg = NULL;
@@ -296,6 +298,7 @@ main (int argc, char **argv)
         }
       else if (strcmp (arg, "--session") == 0)
         {
+          is_session_bus = TRUE;
           check_two_config_files (&config_file, "session");
 
           if (!_dbus_append_session_config_file (&config_file))
@@ -452,6 +455,9 @@ main (int argc, char **argv)
       exit (1);
     }
 
+  if (is_session_bus)
+    _dbus_daemon_publish_session_bus_address (bus_context_get_address (context));
+
   /* bus_context_new() closes the print_addr_pipe and
    * print_pid_pipe
    */
@@ -472,6 +478,9 @@ main (int argc, char **argv)
   bus_context_shutdown (context);
   bus_context_unref (context);
   bus_selinux_shutdown ();
+
+  if (is_session_bus)
+    _dbus_daemon_unpublish_session_bus_address ();
 
   return 0;
 }

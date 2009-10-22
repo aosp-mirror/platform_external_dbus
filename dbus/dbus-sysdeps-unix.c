@@ -3896,6 +3896,19 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
   return FALSE;
 }
 
+//PENDING(kdab) docs
+void
+_dbus_daemon_publish_session_bus_address (const char* addr)
+{
+
+}
+
+//PENDING(kdab) docs
+void
+_dbus_daemon_unpublish_session_bus_address (void)
+{
+
+}
 
 /**
  * See if errno is EAGAIN or EWOULDBLOCK (this has to be done differently
