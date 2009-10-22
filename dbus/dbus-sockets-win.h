@@ -49,10 +49,6 @@
 #error This does not look like Win32 and the Microsoft C library
 #endif
 
-#define EPROTONOSUPPORT WSAEPROTONOSUPPORT
-#define EAFNOSUPPORT WSAEAFNOSUPPORT
-#define EWOULDBLOCK WSAEWOULDBLOCK
-
 #define DBUS_SOCKET_IS_INVALID(s) ((SOCKET)(s) == INVALID_SOCKET)
 #define DBUS_SOCKET_API_RETURNS_ERROR(n) ((n) == SOCKET_ERROR)
 #define DBUS_SOCKET_SET_ERRNO() errno = WSAGetLastError()

@@ -1070,7 +1070,7 @@ _dbus_poll (DBusPollFD *fds,
   if (DBUS_SOCKET_API_RETURNS_ERROR (ready))
     {
       DBUS_SOCKET_SET_ERRNO ();
-      if (errno != EWOULDBLOCK)
+      if (errno != WSAEWOULDBLOCK)
         _dbus_verbose ("WSAWaitForMultipleEvents: failed: %s\n", strerror (errno));
       ret = -1;
     }
@@ -1208,7 +1208,7 @@ _dbus_poll (DBusPollFD *fds,
   if (DBUS_SOCKET_API_RETURNS_ERROR (ready))
     {
       DBUS_SOCKET_SET_ERRNO ();
-      if (errno != EWOULDBLOCK)
+      if (errno != WSAEWOULDBLOCK)
         _dbus_verbose ("select: failed: %s\n", _dbus_strerror (errno));
     }
   else if (ready == 0)
@@ -3224,7 +3224,7 @@ _dbus_flush_caches (void)
 dbus_bool_t
 _dbus_get_is_errno_eagain_or_ewouldblock (void)
 {
-  return errno == EAGAIN || errno == EWOULDBLOCK;
+  return errno == WSAEWOULDBLOCK;
 }
 
 /**
