@@ -12,7 +12,7 @@
        the behavior of child processes. -->
   <keep_umask/>
 
-  <listen>unix:tmpdir=@DBUS_SESSION_SOCKET_DIR@</listen>
+  <listen>@DBUS_SESSION_BUS_DEFAULT_ADDRESS@</listen>
 
   <standard_session_servicedirs />
 

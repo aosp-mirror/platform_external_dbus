@@ -1457,6 +1457,13 @@ fi
 AC_DEFINE_UNQUOTED(DBUS_SESSION_SOCKET_DIR, "$DBUS_SESSION_SOCKET_DIR", [Where per-session bus puts its sockets])
 AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 
+if test x$dbus_win = xyes; then
+        DBUS_SESSION_BUS_DEFAULT_ADDRESS="nonce-tcp:"
+else
+        DBUS_SESSION_BUS_DEFAULT_ADDRESS="unix:tmpdir=$DBUS_SESSION_SOCKET_DIR"
+fi
+AC_SUBST(DBUS_SESSION_BUS_DEFAULT_ADDRESS)
+
 # darwin needs this to initialize the environment
 AC_CHECK_HEADERS(crt_externs.h)
 AC_CHECK_FUNC(_NSGetEnviron, [AC_DEFINE(HAVE_NSGETENVIRON, 1, [Define if your system needs _NSGetEnviron to set up the environment])])
@@ -1550,7 +1557,7 @@ echo "
         System bus socket:        ${DBUS_SYSTEM_SOCKET}
         System bus address:       ${DBUS_SYSTEM_BUS_DEFAULT_ADDRESS}
         System bus PID file:      ${DBUS_SYSTEM_PID_FILE}
-        Session bus socket dir:   ${DBUS_SESSION_SOCKET_DIR}
+        Session bus address:      ${DBUS_SESSION_BUS_DEFAULT_ADDRESS}
         Console auth dir:         ${DBUS_CONSOLE_AUTH_DIR}
         Console owner file:       ${have_console_owner_file}
         Console owner file path:  ${DBUS_CONSOLE_OWNER_FILE}
