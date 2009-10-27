@@ -837,6 +837,8 @@ dbus_bool_t
 _dbus_unix_user_is_at_console (dbus_uid_t         uid,
                                DBusError         *error)
 {
+  dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
+                  "UNIX user IDs not supported on Windows\n");
   return FALSE;
 }
 
