@@ -21,6 +21,8 @@
  */
 #include "dbus-print-message.h"
 
+#include <stdlib.h>
+
 static const char*
 type_to_name (int message_type)
 {
@@ -49,11 +51,9 @@ indent (int depth)
 }
 
 static void
-print_ay (DBusMessageIter *iter, int depth)
+print_hex (unsigned char *bytes, unsigned int len, int depth)
 {
-  int current_type;
-  int n = 0;
-  int columns;
+  int i, columns;
 
   printf ("array of bytes [\n");
 
@@ -65,26 +65,19 @@ print_ay (DBusMessageIter *iter, int depth)
   if (columns < 8)
     columns = 8;
 
-  current_type = dbus_message_iter_get_arg_type (iter);
+  i = 0;
 
-  while (current_type != DBUS_TYPE_INVALID)
+  while (i < len)
     {
-      unsigned char val;
-      dbus_message_iter_get_basic (iter, &val);
-      printf ("%02x", val);
+      printf ("%02x", bytes[i]);
+      i++;
 
-      n++;
-
-      dbus_message_iter_next (iter);
-      current_type = dbus_message_iter_get_arg_type (iter);
-
-      if (current_type != DBUS_TYPE_INVALID)
+      if (i != len)
         {
-          if (n == columns)
+          if (i % columns == 0)
             {
               printf ("\n");
               indent (depth + 1);
-              n = 0;
             }
           else
             {
@@ -96,6 +89,54 @@ print_ay (DBusMessageIter *iter, int depth)
   printf ("\n");
   indent (depth);
   printf ("]\n");
+}
+
+#define DEFAULT_SIZE 100
+
+static void
+print_ay (DBusMessageIter *iter, int depth)
+{
+  /* Not using DBusString because it's not public API. It's 2009, and I'm
+   * manually growing a string chunk by chunk.
+   */
+  unsigned char *bytes = malloc (DEFAULT_SIZE + 1);
+  unsigned int len = 0;
+  unsigned int max = DEFAULT_SIZE;
+  dbus_bool_t all_ascii = TRUE;
+  int current_type;
+
+  while ((current_type = dbus_message_iter_get_arg_type (iter))
+          != DBUS_TYPE_INVALID)
+    {
+      unsigned char val;
+
+      dbus_message_iter_get_basic (iter, &val);
+      bytes[len] = val;
+      len++;
+
+      if (val < 32 || val > 126)
+        all_ascii = FALSE;
+
+      if (len == max)
+        {
+          max *= 2;
+          bytes = realloc (bytes, max + 1);
+        }
+
+      dbus_message_iter_next (iter);
+    }
+
+  if (all_ascii)
+    {
+      bytes[len] = '\0';
+      printf ("array of bytes \"%s\"\n", bytes);
+    }
+  else
+    {
+      print_hex (bytes, len, depth);
+    }
+
+  free (bytes);
 }
 
 static void
