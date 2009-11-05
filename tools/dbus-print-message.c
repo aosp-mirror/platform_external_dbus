@@ -21,6 +21,8 @@
  */
 #include "dbus-print-message.h"
 
+#include <stdlib.h>
+
 static const char*
 type_to_name (int message_type)
 {
@@ -39,12 +41,102 @@ type_to_name (int message_type)
     }
 }
 
+#define INDENT 3
 
 static void
 indent (int depth)
 {
   while (depth-- > 0)
-    printf ("   ");
+    printf ("   "); /* INDENT spaces. */
+}
+
+static void
+print_hex (unsigned char *bytes, unsigned int len, int depth)
+{
+  int i, columns;
+
+  printf ("array of bytes [\n");
+
+  indent (depth + 1);
+
+  /* Each byte takes 3 cells (two hexits, and a space), except the last one. */
+  columns = (80 - ((depth + 1) * INDENT)) / 3;
+
+  if (columns < 8)
+    columns = 8;
+
+  i = 0;
+
+  while (i < len)
+    {
+      printf ("%02x", bytes[i]);
+      i++;
+
+      if (i != len)
+        {
+          if (i % columns == 0)
+            {
+              printf ("\n");
+              indent (depth + 1);
+            }
+          else
+            {
+              printf (" ");
+            }
+        }
+    }
+
+  printf ("\n");
+  indent (depth);
+  printf ("]\n");
+}
+
+#define DEFAULT_SIZE 100
+
+static void
+print_ay (DBusMessageIter *iter, int depth)
+{
+  /* Not using DBusString because it's not public API. It's 2009, and I'm
+   * manually growing a string chunk by chunk.
+   */
+  unsigned char *bytes = malloc (DEFAULT_SIZE + 1);
+  unsigned int len = 0;
+  unsigned int max = DEFAULT_SIZE;
+  dbus_bool_t all_ascii = TRUE;
+  int current_type;
+
+  while ((current_type = dbus_message_iter_get_arg_type (iter))
+          != DBUS_TYPE_INVALID)
+    {
+      unsigned char val;
+
+      dbus_message_iter_get_basic (iter, &val);
+      bytes[len] = val;
+      len++;
+
+      if (val < 32 || val > 126)
+        all_ascii = FALSE;
+
+      if (len == max)
+        {
+          max *= 2;
+          bytes = realloc (bytes, max + 1);
+        }
+
+      dbus_message_iter_next (iter);
+    }
+
+  if (all_ascii)
+    {
+      bytes[len] = '\0';
+      printf ("array of bytes \"%s\"\n", bytes);
+    }
+  else
+    {
+      print_hex (bytes, len, depth);
+    }
+
+  free (bytes);
 }
 
 static void
@@ -186,12 +278,23 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 
 	    dbus_message_iter_recurse (iter, &subiter);
 
+	    current_type = dbus_message_iter_get_arg_type (&subiter);
+
+	    if (current_type == DBUS_TYPE_BYTE)
+	      {
+		print_ay (&subiter, depth);
+		break;
+	      }
+
 	    printf("array [\n");
-	    while ((current_type = dbus_message_iter_get_arg_type (&subiter)) != DBUS_TYPE_INVALID)
+	    while (current_type != DBUS_TYPE_INVALID)
 	      {
 		print_iter (&subiter, literal, depth+1);
+
 		dbus_message_iter_next (&subiter);
-		if (dbus_message_iter_get_arg_type (&subiter) != DBUS_TYPE_INVALID)
+		current_type = dbus_message_iter_get_arg_type (&subiter);
+
+		if (current_type != DBUS_TYPE_INVALID)
 		  printf (",");
 	      }
 	    indent(depth);
