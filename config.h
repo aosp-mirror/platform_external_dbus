@@ -32,10 +32,10 @@
 #define DBUS_DATADIR "/data"
 
 /* Disable assertion checking */
-#undef DBUS_DISABLE_ASSERT
+#define DBUS_DISABLE_ASSERT 1
 
 /* Disable public API sanity checking */
-#undef DBUS_DISABLE_CHECKS
+#define DBUS_DISABLE_CHECKS 1
 
 /* Support a verbose mode */
 #undef DBUS_ENABLE_VERBOSE_MODE
