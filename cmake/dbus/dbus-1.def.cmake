@@ -44,6 +44,7 @@ _dbus_bus_notify_shared_connection_disconnected_unlocked
 _dbus_change_identity
 _dbus_change_to_daemon_user
 _dbus_check_dir_is_private_to_user
+_dbus_check_fdleaks
 _dbus_check_is_valid_bus_name
 _dbus_check_is_valid_error_name
 _dbus_check_is_valid_interface
@@ -116,8 +117,6 @@ _dbus_credentials_same_user
 _dbus_credentials_test
 _dbus_credentials_unref
 _dbus_current_generation DATA
-_dbus_daemon_init
-_dbus_daemon_release
 _dbus_data_slot_allocator_alloc
 _dbus_data_slot_allocator_free
 _dbus_data_slot_allocator_init
@@ -140,6 +139,7 @@ _dbus_dup_string_array
 _dbus_error_from_errno
 _dbus_exit
 _dbus_fd_set_close_on_exec
+_dbus_file_get_contents
 _dbus_first_type_in_signature
 _dbus_first_type_in_signature_c_str
 _dbus_flush_caches
@@ -317,6 +317,7 @@ _dbus_mem_pool_new
 _dbus_mem_pool_test
 _dbus_memdup
 _dbus_memory_test
+_dbus_message_contains_unix_fds
 _dbus_message_data_free
 _dbus_message_data_iter_get_and_next
 _dbus_message_data_iter_init
@@ -667,6 +668,7 @@ dbus_bus_start_service_by_name
 dbus_connection_add_filter
 dbus_connection_allocate_data_slot
 dbus_connection_borrow_message
+dbus_connection_can_send_type
 dbus_connection_close
 dbus_connection_dispatch
 dbus_connection_flush
@@ -682,6 +684,7 @@ dbus_connection_get_max_message_size
 dbus_connection_get_max_received_size
 dbus_connection_get_object_path_data
 dbus_connection_get_outgoing_size
+dbus_connection_get_outgoing_unix_fds
 dbus_connection_get_server_id
 dbus_connection_get_socket
 dbus_connection_get_unix_fd
@@ -711,7 +714,9 @@ dbus_connection_set_data
 dbus_connection_set_dispatch_status_function
 dbus_connection_set_exit_on_disconnect
 dbus_connection_set_max_message_size
+dbus_connection_set_max_message_unix_fds
 dbus_connection_set_max_received_size
+dbus_connection_set_max_received_unix_fds
 dbus_connection_set_route_peer_messages
 dbus_connection_set_timeout_functions
 dbus_connection_set_unix_user_function
@@ -740,6 +745,7 @@ dbus_message_allocate_data_slot
 dbus_message_append_args
 dbus_message_append_args_valist
 dbus_message_copy
+dbus_message_contains_unix_fds
 dbus_message_demarshal
 dbus_message_free_data_slot
 dbus_message_get_args
