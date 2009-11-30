@@ -87,8 +87,6 @@ _dbus_connection_toggle_timeout_unlocked
 _dbus_connection_toggle_watch_unlocked
 _dbus_connection_unlock
 _dbus_connection_unref_unlocked
-_dbus_counter_adjust
-_dbus_counter_get_value
 _dbus_counter_new
 _dbus_counter_ref
 _dbus_counter_set_notify
@@ -142,16 +140,9 @@ _dbus_dup_string_array
 _dbus_error_from_errno
 _dbus_exit
 _dbus_fd_set_close_on_exec
-_dbus_file_close
-_dbus_file_exists
-_dbus_file_get_contents
-_dbus_file_open
-_dbus_file_read
-_dbus_file_write
 _dbus_first_type_in_signature
 _dbus_first_type_in_signature_c_str
 _dbus_flush_caches
-_dbus_fstat
 _dbus_full_duplex_pipe
 _dbus_generate_pseudorandom_bytes_buffer
 _dbus_generate_random_ascii
@@ -234,7 +225,6 @@ _dbus_header_set_serial
 _dbus_header_toggle_flag
 _dbus_header_update_lengths
 _dbus_init_system_log
-_dbus_is_valid_file
 _dbus_is_verbose_real
 _dbus_keyring_get_best_key
 _dbus_keyring_get_hex_key
@@ -327,8 +317,6 @@ _dbus_mem_pool_new
 _dbus_mem_pool_test
 _dbus_memdup
 _dbus_memory_test
-_dbus_message_add_size_counter
-_dbus_message_add_size_counter_link
 _dbus_message_data_free
 _dbus_message_data_iter_get_and_next
 _dbus_message_data_iter_init
@@ -347,12 +335,8 @@ _dbus_message_loader_ref
 _dbus_message_loader_return_buffer
 _dbus_message_loader_set_max_message_size
 _dbus_message_loader_unref
-_dbus_message_lock
-_dbus_message_remove_size_counter
-_dbus_message_set_serial
 _dbus_message_test
 _dbus_misc_test
-_dbus_mkdir
 _dbus_mutex_free
 _dbus_mutex_free_at_location
 _dbus_mutex_lock
