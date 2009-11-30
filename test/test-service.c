@@ -1,6 +1,8 @@
 
 #include "test-utils.h"
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 static DBusLoop *loop;
 static dbus_bool_t already_quit = FALSE;
@@ -234,7 +236,7 @@ handle_delay_echo (DBusConnection     *connection,
 
   _dbus_verbose ("sleeping for a short time\n");
 
-  usleep (50000);
+  _dbus_sleep_milliseconds (50);
 
   _dbus_verbose ("sending reply to DelayEcho method\n");
   
