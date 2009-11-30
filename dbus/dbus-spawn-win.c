@@ -268,22 +268,6 @@ _dbus_babysitter_get_child_exited (DBusBabysitter *sitter)
   return (sitter->child_handle == NULL);
 }
 
-dbus_bool_t
-_dbus_babysitter_get_child_exit_status (DBusBabysitter *sitter,
-                                        int            *status)
-{
-  PING();
-
-  if (!_dbus_babysitter_get_child_exited (sitter))
-    _dbus_assert_not_reached ("Child has not exited");
-  
-  if (!sitter->have_child_status)
-    return FALSE;
-
-  *status = sitter->child_status;
-  return TRUE;
-}
-
 /**
  * Gets the exit status of the child. We do this so implementation specific
  * detail is not cluttering up dbus, for example the system launcher code.
