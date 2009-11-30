@@ -52,6 +52,14 @@ find_package(X11)
 
 OPTION(DBUS_ENABLE_ABSTRACT_SOCKETS "enable support for abstract sockets" ON)
 
+if (MINGW)
+    set (DBUS_VA_COPY_AS_ARRAY 1)
+endif (MINGW)
+if (MSVC)
+    set (DBUS_HAVE_VA_COPY 1)
+    set (DBUS_VA_COPY_AS_ARRAY 0)
+endif (MSVC)
+
 # do config checks
 INCLUDE(ConfigureChecks.cmake)
 

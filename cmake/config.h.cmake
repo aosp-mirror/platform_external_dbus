@@ -87,7 +87,7 @@
 #undef DBUS_VA_COPY_FUNC
 #endif
 
-#cmakedefine DBUS_VA_COPY_AS_ARRAY 1
+#cmakedefine DBUS_VA_COPY_AS_ARRAY @DBUS_VA_COPY_AS_ARRAY@
 
 // headers
 /* Define to 1 if you have dirent.h */
