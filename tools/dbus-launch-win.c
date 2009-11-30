@@ -68,11 +68,12 @@ int main(int argc,char **argv)
       showConsole = 1; 
 #endif
   GetModuleFileName(NULL,dbusDaemonPath,sizeof(dbusDaemonPath));
-  /* check for debug version */
-  if (strstr(dbusDaemonPath,"dbus-launchd.exe"))
+
+#ifdef _DEBUG
       daemon_name = "dbus-daemond.exe";
-  else
+#else
       daemon_name = "dbus-daemon.exe";
+#endif
   if ((p = strrchr(dbusDaemonPath,'\\'))) 
     {
       *(p+1)= '\0';

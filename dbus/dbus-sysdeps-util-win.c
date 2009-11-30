@@ -38,6 +38,7 @@
 #include <io.h>
 #include <sys/stat.h>
 #include <aclapi.h>
+#include <winsock2.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -135,6 +136,84 @@ _dbus_write_pid_file (const DBusString *filename,
                       "Failed to close \"%s\": %s", cfilename,
                       _dbus_strerror (errno));
       return FALSE;
+    }
+
+  return TRUE;
+}
+
+/**
+ * Writes the given pid_to_write to a pidfile (if non-NULL) and/or to a
+ * pipe (if non-NULL). Does nothing if pidfile and print_pid_pipe are both
+ * NULL.
+ *
+ * @param pidfile the file to write to or #NULL
+ * @param print_pid_pipe the pipe to write to or #NULL
+ * @param pid_to_write the pid to write out
+ * @param error error on failure
+ * @returns FALSE if error is set
+ */
+dbus_bool_t
+_dbus_write_pid_to_file_and_pipe (const DBusString *pidfile,
+                                  DBusPipe         *print_pid_pipe,
+                                  dbus_pid_t        pid_to_write,
+                                  DBusError        *error)
+{
+  if (pidfile)
+    {
+      _dbus_verbose ("writing pid file %s\n", _dbus_string_get_const_data (pidfile));
+      if (!_dbus_write_pid_file (pidfile,
+                                 pid_to_write,
+                                 error))
+        {
+          _dbus_verbose ("pid file write failed\n");
+          _DBUS_ASSERT_ERROR_IS_SET(error);
+          return FALSE;
+        }
+    }
+  else
+    {
+      _dbus_verbose ("No pid file requested\n");
+    }
+
+  if (print_pid_pipe != NULL && _dbus_pipe_is_valid (print_pid_pipe))
+    {
+      DBusString pid;
+      int bytes;
+
+      _dbus_verbose ("writing our pid to pipe %d\n", print_pid_pipe->fd_or_handle);
+
+      if (!_dbus_string_init (&pid))
+        {
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      if (!_dbus_string_append_int (&pid, pid_to_write) ||
+          !_dbus_string_append (&pid, "\n"))
+        {
+          _dbus_string_free (&pid);
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      bytes = _dbus_string_get_length (&pid);
+      if (_dbus_pipe_write (print_pid_pipe, &pid, 0, bytes, error) != bytes)
+        {
+          /* _dbus_pipe_write sets error only on failure, not short write */
+          if (error != NULL && !dbus_error_is_set(error))
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Printing message bus PID: did not write enough bytes\n");
+            }
+          _dbus_string_free (&pid);
+          return FALSE;
+        }
+
+      _dbus_string_free (&pid);
+    }
+  else
+    {
+      _dbus_verbose ("No pid pipe to write to\n");
     }
 
   return TRUE;
@@ -294,6 +373,38 @@ _dbus_delete_directory (const DBusString *filename,
     }
 
   return TRUE;
+}
+
+void
+_dbus_init_system_log (void)
+{
+    // FIXME!
+}
+
+/**
+ * Log an informative message.  Intended for use primarily by
+ * the system bus.
+ *
+ * @param msg a printf-style format string
+ * @param args arguments for the format string
+ */
+void
+_dbus_log_info (const char *msg, va_list args)
+{
+    // FIXME!
+}
+
+/**
+ * Log a security-related message.  Intended for use primarily by
+ * the system bus.
+ *
+ * @param msg a printf-style format string
+ * @param args arguments for the format string
+ */
+void
+_dbus_log_security (const char *msg, va_list args)
+{
+    // FIXME!
 }
 
 /** Installs a signal handler
@@ -921,8 +1032,9 @@ void
 _dbus_win_warn_win_error (const char *message,
                           int         code)
 {
-  DBusError error = DBUS_ERROR_INIT;
+  DBusError error;
 
+  dbus_error_init (&error);
   _dbus_win_set_error_from_win_error (&error, code);
   _dbus_warn ("%s: %s\n", message, error.message);
   dbus_error_free (&error);
@@ -1712,4 +1824,28 @@ _dbus_lm_strerror(int error_number)
 
   return msg;
 #endif //DBUS_WINCE
+}
+
+/**
+ * Get a printable string describing the command used to execute
+ * the process with pid.  This string should only be used for
+ * informative purposes such as logging; it may not be trusted.
+ *
+ * The command is guaranteed to be printable ASCII and no longer
+ * than max_len.
+ *
+ * @param pid Process id
+ * @param str Append command to this string
+ * @param max_len Maximum length of returned command
+ * @param error return location for errors
+ * @returns #FALSE on error
+ */
+dbus_bool_t
+_dbus_command_for_pid (unsigned long  pid,
+                       DBusString    *str,
+                       int            max_len,
+                       DBusError     *error)
+{
+  // FIXME
+  return FALSE;
 }

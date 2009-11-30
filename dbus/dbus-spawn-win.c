@@ -269,6 +269,33 @@ _dbus_babysitter_get_child_exited (DBusBabysitter *sitter)
 }
 
 /**
+ * Gets the exit status of the child. We do this so implementation specific
+ * detail is not cluttering up dbus, for example the system launcher code.
+ * This can only be called if the child has exited, i.e. call
+ * _dbus_babysitter_get_child_exited(). It returns FALSE if the child
+ * did not return a status code, e.g. because the child was signaled
+ * or we failed to ever launch the child in the first place.
+ *
+ * @param sitter the babysitter
+ * @param status the returned status code
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_babysitter_get_child_exit_status (DBusBabysitter *sitter,
+                                        int            *status)
+{
+  if (!_dbus_babysitter_get_child_exited (sitter))
+    _dbus_assert_not_reached ("Child has not exited");
+
+  if (!sitter->have_child_status ||
+      sitter->child_status == STILL_ACTIVE)
+    return FALSE;
+
+  *status = sitter->child_status;
+  return TRUE;
+}
+
+/**
  * Sets the #DBusError with an explanation of why the spawned
  * child process exited (on a signal, or whatever). If
  * the child process has not exited, does nothing (error
@@ -621,8 +648,12 @@ static dbus_bool_t
 check_spawn_nonexistent (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter = NULL;
-  DBusError error = DBUS_ERROR_INIT;
+  DBusBabysitter *sitter;
+  DBusError error;
+
+  sitter = NULL;
+
+  dbus_error_init (&error);
 
   /*** Test launching nonexistent binary */
 
@@ -662,8 +693,12 @@ static dbus_bool_t
 check_spawn_segfault (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter = NULL;
-  DBusError error = DBUS_ERROR_INIT;
+  DBusBabysitter *sitter;
+  DBusError error;
+
+  sitter = NULL;
+
+  dbus_error_init (&error);
 
   /*** Test launching segfault binary */
 
@@ -703,8 +738,12 @@ static dbus_bool_t
 check_spawn_exit (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter = NULL;
-  DBusError error = DBUS_ERROR_INIT;
+  DBusBabysitter *sitter;
+  DBusError error;
+
+  sitter = NULL;
+
+  dbus_error_init (&error);
 
   /*** Test launching exit failure binary */
 
@@ -744,8 +783,12 @@ static dbus_bool_t
 check_spawn_and_kill (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter = NULL;
-  DBusError error = DBUS_ERROR_INIT;
+  DBusBabysitter *sitter;
+  DBusError error;
+
+  sitter = NULL;
+
+  dbus_error_init (&error);
 
   /*** Test launching sleeping binary then killing it */
 

@@ -47,6 +47,7 @@
 #include "dbus-credentials.h"
 
 #include <windows.h>
+#include <ws2tcpip.h>
 #include <fcntl.h>
 
 #include <process.h>
@@ -849,15 +850,6 @@ _dbus_getuid (void)
 	return DBUS_UID_UNSET;
 }
 
-/** Gets our effective UID
- * @returns process effective UID
- */
-dbus_uid_t
-_dbus_geteuid (void)
-{
-	return DBUS_UID_UNSET;
-}
-
 /**
  * The only reason this is separate from _dbus_getpid() is to allow it
  * on Windows for logging but not for other purposes.
@@ -1464,21 +1456,21 @@ _dbus_exit (int code)
  * and port. The connection fd is returned, and is set up as
  * nonblocking.
  *
- * @param host the host name to connect to, NULL for loopback
- * @param port the prot to connect to
+ * @param host the host name to connect to
+ * @param port the port to connect to
+ * @param family the address family to listen on, NULL for all
  * @param error return location for error code
  * @returns connection file descriptor or -1 on error
  */
 int
 _dbus_connect_tcp_socket (const char     *host,
-                          dbus_uint32_t   port,
+                          const char     *port,
+                          const char     *family,
                           DBusError      *error)
 {
-  int fd;
-  struct sockaddr_in addr;
-  struct hostent *he;
-  struct in_addr *haddr;
-  struct in_addr ina;
+  int fd = -1, res;
+  struct addrinfo hints;
+  struct addrinfo *ai, *tmp;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -1497,50 +1489,80 @@ _dbus_connect_tcp_socket (const char     *host,
       return -1;
     }
 
-  if (host == NULL)
-    {
-      host = "localhost";
-      ina.s_addr = htonl (INADDR_LOOPBACK);
-      haddr = &ina;
-    }
+  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
-  he = gethostbyname (host);
-  if (he == NULL)
+  _DBUS_ZERO (hints);
+
+  if (!family)
+    hints.ai_family = AF_UNSPEC;
+  else if (!strcmp(family, "ipv4"))
+    hints.ai_family = AF_INET;
+  else if (!strcmp(family, "ipv6"))
+    hints.ai_family = AF_INET6;
+  else
     {
-      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
-                      "Failed to lookup hostname: %s",
-                      host);
-      DBUS_CLOSE_SOCKET (fd);
+                      "Unknown address family %s", family);
+      return -1;
+    }
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_socktype = SOCK_STREAM;
+#ifdef AI_ADDRCONFIG
+  hints.ai_flags = AI_ADDRCONFIG;
+#else
+  hints.ai_flags = 0;
+#endif
+
+  if ((res = getaddrinfo(host, port, &hints, &ai)) != 0)
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to lookup host/port: \"%s:%s\": %s (%d)",
+                      host, port, gai_strerror(res), res);
+      closesocket (fd);
       return -1;
     }
 
-  haddr = ((struct in_addr *) (he->h_addr_list)[0]);
-
-  _DBUS_ZERO (addr);
-  memcpy (&addr.sin_addr, haddr, sizeof(struct in_addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons (port);
-
-  if (DBUS_SOCKET_API_RETURNS_ERROR
-      (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0))
+  tmp = ai;
+  while (tmp)
     {
-      DBUS_SOCKET_SET_ERRNO ();
+      if ((fd = socket (tmp->ai_family, SOCK_STREAM, 0)) < 0)
+        {
+          freeaddrinfo(ai);
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
-                      "Failed to connect to socket %s:%d %s",
-                      host, port, _dbus_strerror (errno));
+                         "Failed to open socket: %s",
+                         _dbus_strerror (errno));
+          return -1;
+        }
+      _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
-      DBUS_CLOSE_SOCKET (fd);
+      if (connect (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) < 0)
+        {
+          closesocket(fd);
       fd = -1;
+          tmp = tmp->ai_next;
+          continue;
+        }
 
+      break;
+    }
+  freeaddrinfo(ai);
+
+  if (fd == -1)
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to connect to socket \"%s:%s\" %s",
+                      host, port, _dbus_strerror(errno));
       return -1;
     }
+
 
   if (!_dbus_set_fd_nonblocking (fd, error))
     {
-      _dbus_close_socket (fd, NULL);
+      closesocket (fd);
       fd = -1;
 
       return -1;
@@ -1549,114 +1571,198 @@ _dbus_connect_tcp_socket (const char     *host,
   return fd;
 }
 
+
 void
 _dbus_daemon_init(const char *host, dbus_uint32_t port);
+
 /**
- * Creates a socket and binds it to the given port,
- * then listens on the socket. The socket is
- * set to be nonblocking. 
- * In case of port=0 a random free port is used and 
- * returned in the port parameter. 
+ * Creates a socket and binds it to the given path, then listens on
+ * the socket. The socket is set to be nonblocking.  In case of port=0
+ * a random free port is used and returned in the port parameter.
+ * If inaddr_any is specified, the hostname is ignored.
  *
- * @param host the interface to listen on, NULL for loopback, empty for any
+ * @param host the host name to listen on
  * @param port the port to listen on, if zero a free port will be used 
+ * @param family the address family to listen on, NULL for all
+ * @param retport string to return the actual port listened on
+ * @param fds_p location to store returned file descriptors
  * @param error return location for errors
- * @returns the listening file descriptor or -1 on error
+ * @returns the number of listening file descriptors or -1 on error
  */
 
 int
 _dbus_listen_tcp_socket (const char     *host,
-                         dbus_uint32_t  *port,
-                         dbus_bool_t     inaddr_any,
+                         const char     *port,
+                         const char     *family,
+                         DBusString     *retport,
+                         int           **fds_p,
                          DBusError      *error)
 {
-  int fd;
-  struct sockaddr_in addr;
-  struct hostent *he;
-  struct in_addr *haddr;
-  socklen_t len = (socklen_t) sizeof (struct sockaddr);
-  struct in_addr ina;
+  int nlisten_fd = 0, *listen_fd = NULL, res, i, port_num = -1;
+  struct addrinfo hints;
+  struct addrinfo *ai, *tmp;
 
-
+  *fds_p = NULL;
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   _dbus_win_startup_winsock ();
 
-  fd = socket (AF_INET, SOCK_STREAM, 0);
+  _DBUS_ZERO (hints);
 
-  if (DBUS_SOCKET_IS_INVALID (fd))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to create socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
-      return -1;
-    }
-  if (host == NULL)
-    {
-      host = "localhost";
-      ina.s_addr = htonl (INADDR_LOOPBACK);
-      haddr = &ina;
-    }
-  else if (!host[0])
-    {
-      ina.s_addr = htonl (INADDR_ANY);
-      haddr = &ina;
-    }
+  if (!family)
+    hints.ai_family = AF_UNSPEC;
+  else if (!strcmp(family, "ipv4"))
+    hints.ai_family = AF_INET;
+  else if (!strcmp(family, "ipv6"))
+    hints.ai_family = AF_INET6;
   else
     {
-      he = gethostbyname (host);
-      if (he == NULL)
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Unknown address family %s", family);
+      return -1;
+    }
+
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_socktype = SOCK_STREAM;
+#ifdef AI_ADDRCONFIG
+  hints.ai_flags = AI_ADDRCONFIG | AI_PASSIVE;
+#else
+  hints.ai_flags = AI_PASSIVE;
+#endif
+
+ redo_lookup_with_port:
+  if ((res = getaddrinfo(host, port, &hints, &ai)) != 0 || !ai)
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to lookup host/port: \"%s:%s\": %s (%d)",
+                      host ? host : "*", port, gai_strerror(res), res);
+      return -1;
+    }
+
+  tmp = ai;
+  while (tmp)
+    {
+      int fd = -1, *newlisten_fd;
+      if ((fd = socket (tmp->ai_family, SOCK_STREAM, 0)) < 0)
         {
-          DBUS_SOCKET_SET_ERRNO ();
           dbus_set_error (error,
                           _dbus_error_from_errno (errno),
-                          "Failed to lookup hostname: %s",
-                          host);
-          DBUS_CLOSE_SOCKET (fd);
-          return -1;
+                         "Failed to open socket: %s",
+                         _dbus_strerror (errno));
+          goto failed;
+        }
+      _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+
+      if (bind (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) == SOCKET_ERROR)
+        {
+          closesocket (fd);
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Failed to bind socket \"%s:%s\": %s",
+                          host ? host : "*", port, _dbus_strerror (errno));
+          goto failed;
+    }
+
+      if (listen (fd, 30 /* backlog */) == SOCKET_ERROR)
+        {
+          closesocket (fd);
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Failed to listen on socket \"%s:%s\": %s",
+                          host ? host : "*", port, _dbus_strerror (errno));
+          goto failed;
         }
 
-      haddr = ((struct in_addr *) (he->h_addr_list)[0]);
-    }
-
-  _DBUS_ZERO (addr);
-  memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons (*port);
-
-  if (bind (fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
+      newlisten_fd = dbus_realloc(listen_fd, sizeof(int)*(nlisten_fd+1));
+      if (!newlisten_fd)
     {
-      DBUS_SOCKET_SET_ERRNO ();
+          closesocket (fd);
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to bind socket \"%s:%d\": %s",
-                      host, *port, _dbus_strerror (errno));
-      DBUS_CLOSE_SOCKET (fd);
-      return -1;
+                          "Failed to allocate file handle array: %s",
+                          _dbus_strerror (errno));
+          goto failed;
     }
+      listen_fd = newlisten_fd;
+      listen_fd[nlisten_fd] = fd;
+      nlisten_fd++;
 
-  if (DBUS_SOCKET_API_RETURNS_ERROR (listen (fd, 30 /* backlog */)))
+      if (!_dbus_string_get_length(retport))
+        {
+          /* If the user didn't specify a port, or used 0, then
+             the kernel chooses a port. After the first address
+             is bound to, we need to force all remaining addresses
+             to use the same port */
+          if (!port || !strcmp(port, "0"))
+            {
+              sockaddr_gen addr;
+              socklen_t addrlen = sizeof(addr);
+              char portbuf[10];
+
+              if ((res = getsockname(fd, &addr.Address, &addrlen)) != 0)
     {
-      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to listen on socket \"%s:%d\": %s",
-                      host, *port, _dbus_strerror (errno));
-      DBUS_CLOSE_SOCKET (fd);
-      return -1;
+                                  "Failed to resolve port \"%s:%s\": %s (%d)",
+                                  host ? host : "*", port, gai_strerror(res), res);
+                  goto failed;
+                }
+              snprintf( portbuf, sizeof( portbuf ) - 1, "%d", addr.AddressIn.sin_port );
+              if (!_dbus_string_append(retport, portbuf))
+                {
+                  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+                  goto failed;
     }
 
-  getsockname(fd, (struct sockaddr*) &addr, &len);
-  *port = (dbus_uint32_t) ntohs(addr.sin_port);
+              /* Release current address list & redo lookup */
+              port = _dbus_string_get_const_data(retport);
+              freeaddrinfo(ai);
+              goto redo_lookup_with_port;
+            }
+          else
+            {
+              if (!_dbus_string_append(retport, port))
+                {
+                    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+                    goto failed;
+                }
+            }
+        }
   
-  _dbus_daemon_init(host, ntohs(addr.sin_port));
+      tmp = tmp->ai_next;
+    }
+  freeaddrinfo(ai);
+  ai = NULL;
 
-  if (!_dbus_set_fd_nonblocking (fd, error))
+  if (!nlisten_fd)
     {
-      _dbus_close_socket (fd, NULL);
+      errno = WSAEADDRINUSE;
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to bind socket \"%s:%s\": %s",
+                      host ? host : "*", port, _dbus_strerror (errno));
       return -1;
     }
 
-  return fd;
+  sscanf(_dbus_string_get_const_data(retport), "%d", &port_num);
+  _dbus_daemon_init(host, port_num);
+
+  for (i = 0 ; i < nlisten_fd ; i++)
+    {
+      if (!_dbus_set_fd_nonblocking (listen_fd[i], error))
+        {
+          goto failed;
+        }
+    }
+
+  *fds_p = listen_fd;
+
+  return nlisten_fd;
+
+ failed:
+  if (ai)
+    freeaddrinfo(ai);
+  for (i = 0 ; i < nlisten_fd ; i++)
+    closesocket (listen_fd[i]);
+  dbus_free(listen_fd);
+  return -1;
 }
 
 
@@ -1671,13 +1777,9 @@ int
 _dbus_accept  (int listen_fd)
 {
   int client_fd;
-  struct sockaddr addr;
-  socklen_t addrlen;
-
-  addrlen = sizeof (addr);
 
  retry:
-  client_fd = accept (listen_fd, &addr, &addrlen);
+  client_fd = accept (listen_fd, NULL, NULL);
 
   if (DBUS_SOCKET_IS_INVALID (client_fd))
     {
@@ -2843,7 +2945,11 @@ static const char *cDBusAutolaunchMutex = "DBusAutolaunchMutex";
 // mutex to determine if dbus-daemon is already started (per user)
 static const char *cDBusDaemonMutex = "DBusDaemonMutex";
 // named shm for dbus adress info (per user)
+#ifdef _DEBUG
+static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfoDebug";
+#else
 static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
+#endif
 
 void
 _dbus_daemon_init(const char *host, dbus_uint32_t port)
@@ -3006,6 +3112,11 @@ _dbus_get_autolaunch_address (DBusString *address,
   LPSTR lpFile;
   char dbus_exe_path[MAX_PATH];
   char dbus_args[MAX_PATH * 2];
+#ifdef _DEBUG
+  const char * daemon_name = "dbus-daemond.exe";
+#else
+  const char * daemon_name = "dbus-daemon.exe";
+#endif
 
   mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 
@@ -3013,14 +3124,16 @@ _dbus_get_autolaunch_address (DBusString *address,
 
   if (_dbus_daemon_already_runs(address))
     {
-        printf("dbus daemon already exists\n");
+        _dbus_verbose("found already running dbus daemon\n");
         retval = TRUE;
         goto out;
     }
 
-  if (!SearchPathA(NULL, "dbus-daemon.exe", NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
+  if (!SearchPathA(NULL, daemon_name, NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
     {
-      printf ("could not find dbus-daemon executable\n");
+      printf ("please add the path to %s to your PATH environment variable\n", daemon_name);
+      printf ("or start the daemon manually\n\n");
+      printf ("");
       goto out;
     }
 
@@ -3125,6 +3238,31 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
  oom:
   _dbus_string_free (&servicedir_path);
   return FALSE;
+}
+
+/**
+ * Returns the standard directories for a system bus to look for service
+ * activation files
+ *
+ * On UNIX this should be the standard xdg freedesktop.org data directories:
+ *
+ * XDG_DATA_DIRS=${XDG_DATA_DIRS-/usr/local/share:/usr/share}
+ *
+ * and
+ *
+ * DBUS_DATADIR
+ *
+ * On Windows there is no system bus and this function can return nothing.
+ *
+ * @param dirs the directory list we are returning
+ * @returns #FALSE on OOM
+ */
+
+dbus_bool_t
+_dbus_get_standard_system_servicedirs (DBusList **dirs)
+{
+  *dirs = NULL;
+  return TRUE;
 }
 
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
@@ -3237,12 +3375,15 @@ _dbus_get_config_file_name(DBusString *config_file, char *s)
 {
   char path[MAX_PATH*2];
   int path_size = sizeof(path);
+  int len = 4 + strlen(s);
 
   if (!_dbus_get_install_root(path,path_size))
     return FALSE;
 
-  strcat_s(path,path_size,"etc\\");
-  strcat_s(path,path_size,s);
+  if(len > sizeof(path)-2)
+    return FALSE;
+  strcat(path,"etc\\");
+  strcat(path,s);
   if (_dbus_file_exists(path)) 
     {
       // find path from executable 
@@ -3253,8 +3394,10 @@ _dbus_get_config_file_name(DBusString *config_file, char *s)
     {
       if (!_dbus_get_install_root(path,path_size))
         return FALSE;
-      strcat_s(path,path_size,"bus\\");
-      strcat_s(path,path_size,s);
+      if(len + strlen(path) > sizeof(path)-2)
+        return FALSE;
+      strcat(path,"bus\\");
+      strcat(path,s);
   
       if (_dbus_file_exists(path)) 
         {
