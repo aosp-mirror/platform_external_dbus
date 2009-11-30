@@ -48,16 +48,25 @@ errno_t strcpy_s(char *dest, size_t size, char *src)
 
 /* TODO: Use Unicode APIs */
 
-/* TODO: This Windows version of dbus-launch is curretly rather
+/* TODO (tl): This Windows version of dbus-launch is curretly rather
  * pointless as it doesn't take the same command-line options as the
  * UNIX dbus-launch does. A main point of the dbus-launch command is
  * to pass it for instance a --config-file option to make the started
  * dbus-daemon use that config file.
- *
+ * 
  * This version also doesn't print out any information, which is a
  * main point of the UNIX one. It should at least support the
  * --sh-syntax option, and maybe also a --cmd-syntax to print out the
  * variable settings in cmd.exe syntax?
+ * 
+ * NOTE (rh): The main task of dbus-launch is (from the man page) to start 
+ * a session bus and this is archieved by the current implemention. 
+ * 
+ * Additional on windows the session bus starting in not integrated 
+ * into the logon process, so there is no need for any --syntax option. 
+ * In fact (at least for kde on windows) the session bus is autostarted 
+ * with the first application requesting a session bus. 
+ *
  */
 
 #define AUTO_ACTIVATE_CONSOLE_WHEN_VERBOSE_MODE 1
