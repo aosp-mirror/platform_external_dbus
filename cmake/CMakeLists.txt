@@ -238,6 +238,11 @@ if(DBUS_BUILD_TESTS)
     add_definitions(-DDBUS_BUILD_TESTS)
 endif(DBUS_BUILD_TESTS)
 
+OPTION(DBUS_USE_OUTPUT_DEBUG_STRING "enable win32 debug port for message output" OFF)
+if(DBUS_USE_OUTPUT_DEBUG_STRING)
+    add_definitions(-DDBUS_USE_OUTPUT_DEBUG_STRING)
+endif(DBUS_USE_OUTPUT_DEBUG_STRING)
+
 # win32 dbus service support - this support is not complete
 OPTION(DBUS_SERVICE "enable dbus service installer" OFF)
 
