@@ -2,8 +2,8 @@ set (PACKAGE dbus)
 
 # the version major, minor and release number should be synchron to the dbus cvs - windows releases should only update the patch level
 set (VERSION_MAJOR "1")
-set (VERSION_MINOR "2")
-set (VERSION_RELEASE "14")
+set (VERSION_MINOR "3")
+set (VERSION_RELEASE "1")
 set (VERSION_PATCH "0")
 if (VERSION_PATCH)
     set (VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_RELEASE}-${VERSION_PATCH}" )
