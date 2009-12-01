@@ -172,6 +172,16 @@ FOREACH(FILE_TYPE *.conf.in *.service.in)
   ENDFOREACH(DIR)
 ENDFOREACH(FILE_TYPE)
 
+#
+# the following config files are required on windows because the related 
+# *.in files are not customized sufficiently. 
+# TODO merge test/data/valid-config-files/debug-allow-all*.conf.in and ....cmake
+#
+SET (CONFIG_FILES test/data/valid-config-files)
+set (TEST_LISTEN "tcp:host=localhost,port=1234")
+configure_file(${CMAKE_SOURCE_DIR}/../${CONFIG_FILES}/debug-allow-all-sha1.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf )
+configure_file(${CMAKE_SOURCE_DIR}/../${CONFIG_FILES}/debug-allow-all.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all.conf )  
+
 # todo: for installation the TEST_..._BINARY variables must reflect the 
 #       installation dir or has to be defined relative
 #
