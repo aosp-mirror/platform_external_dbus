@@ -40,7 +40,6 @@ _dbus_babysitter_set_watch_functions
 _dbus_babysitter_unref
 _dbus_become_daemon
 _dbus_bus_notify_shared_connection_disconnected_unlocked
-_dbus_change_identity
 _dbus_change_to_daemon_user
 _dbus_check_dir_is_private_to_user
 _dbus_check_fdleaks
@@ -154,7 +153,6 @@ _dbus_get_current_time
 _dbus_get_environment
 _dbus_get_fail_alloc_counter
 _dbus_get_fail_alloc_failures
-_dbus_get_install_root
 _dbus_get_is_errno_eagain_or_ewouldblock
 _dbus_get_is_errno_eintr
 _dbus_get_is_errno_enomem
@@ -166,10 +164,7 @@ _dbus_get_standard_session_servicedirs
 _dbus_get_standard_system_servicedirs
 _dbus_get_tmpdir
 _dbus_getenv
-_dbus_getgid
 _dbus_getpid
-_dbus_getsid
-_dbus_getuid
 _dbus_hash_iter_get_int_key
 _dbus_hash_iter_get_string_key
 _dbus_hash_iter_get_two_strings_key
@@ -606,7 +601,6 @@ _dbus_unix_user_is_at_console
 _dbus_unix_user_is_process_owner
 _dbus_unpack_uint16
 _dbus_unpack_uint32
-_dbus_user_at_console
 _dbus_uuid_encode
 _dbus_validate_body_with_reason
 _dbus_validate_bus_name
