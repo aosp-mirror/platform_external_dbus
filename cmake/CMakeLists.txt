@@ -459,8 +459,14 @@ set (DBUS_USER )
 
 
 if (WIN32)
-  set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "nonce-tcp:host=localhost,port=0")
-  set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "nonce-tcp:host=localhost,port=0")
+  OPTION(DBUS_USE_NONCE_TCP_DEFAULT_ADDRESS "Use nonce tcp default address" OFF)
+  if (DBUS_USE_NONCE_TCP_DEFAULT_ADDRESS)
+      set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "nonce-tcp:host=localhost,port=0")
+      set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "nonce-tcp:host=localhost,port=0")
+  else (DBUS_USE_NONCE_TCP_DEFAULT_ADDRESS)
+      set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
+      set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS  "tcp:host=localhost,port=12434")
+  endif (DBUS_USE_NONCE_TCP_DEFAULT_ADDRESS)
   set (DBUS_SYSTEM_CONFIG_FILE "etc/system.conf")
   set (DBUS_SESSION_CONFIG_FILE "etc/session.conf")
   # bus-test expects a non empty string
