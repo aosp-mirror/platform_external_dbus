@@ -188,7 +188,10 @@ socket_handle_watch (DBusWatch    *watch,
 
       listen_fd = dbus_watch_get_socket (watch);
 
-      client_fd = _dbus_accept_with_noncefile (listen_fd, socket_server->noncefile);
+      if (socket_server->noncefile)
+          client_fd = _dbus_accept_with_noncefile (listen_fd, socket_server->noncefile);
+      else 
+          client_fd = _dbus_accept (listen_fd);
 
       if (client_fd < 0)
         {
@@ -340,8 +343,11 @@ _dbus_server_new_for_socket (int              *fds,
   return (DBusServer*) socket_server;
 
  failed_3:
-  _dbus_noncefile_delete (socket_server->noncefile, NULL);
-  dbus_free (socket_server->noncefile );
+  if (socket_server->noncefile)
+    {
+      _dbus_noncefile_delete (socket_server->noncefile, NULL);
+      dbus_free (socket_server->noncefile );
+    }
  failed_2:
   for (i = 0 ; i < n_fds ; i++)
     {
