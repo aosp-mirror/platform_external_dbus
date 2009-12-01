@@ -3246,6 +3246,9 @@ static const char *test_session_service_dir_matches[] =
 #ifdef DBUS_UNIX
          "/testhome/foo/.testlocal/testshare/dbus-1/services",
 #endif
+#ifdef DBUS_WIN
+         NULL,
+#endif
          NULL
         };
 
@@ -3369,6 +3372,9 @@ static const char *test_system_service_dir_matches[] =
          "/testusr/testshare/dbus-1/system-services",
 #endif
          DBUS_DATADIR"/dbus-1/system-services",
+#ifdef DBUS_WIN
+         NULL,
+#endif
          NULL
         };
 
@@ -3498,8 +3504,12 @@ bus_config_parser_test (const DBusString *test_data_dir)
   if (!test_default_session_servicedirs())
     return FALSE;
 
+#ifdef DBUS_WIN
+  printf("default system service dir skipped\n");
+#else
   if (!test_default_system_servicedirs())
     return FALSE;
+#endif
 
   if (!process_test_valid_subdir (test_data_dir, "valid-config-files", VALID))
     return FALSE;
