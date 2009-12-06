@@ -228,6 +228,18 @@ set(libdbus_HEADERS
 	# for debugging
 	${DBUS_UTIL_HEADERS}
 )
+if (MSVC)
+    set (BUILD_FILEVERSION ${DBUS_MAJOR_VERSION},${DBUS_MINOR_VERSION},${DBUS_MICRO_VERSION},${DBUS_PATCH_VERSION})
+
+    # no idea how to create the current date as string
+    message(STATUS "FIXME create the current date as string in dbus/CMakeLists.txt")
+    set (BUILD_TIMESTAMP 20091205)
+
+    configure_file(${DBUS_DIR}/versioninfo.rc.in ${CMAKE_CURRENT_BINARY_DIR}/versioninfo.rc)
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/afxres.h "")
+    list(APPEND libdbus_SOURCES versioninfo.rc)
+    set_source_files_properties(versioninfo.rc COMPILE_FLAGS "-D__LINE__=1")
+endif (MSVC)
 
 if(MSVC AND splitlib)
 	set(DBUS_LIB_TYPE STATIC)

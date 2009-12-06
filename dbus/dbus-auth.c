@@ -1204,7 +1204,7 @@ handle_server_data_anonymous_mech (DBusAuth         *auth,
           {
             DBusString plaintext;
             DBusString encoded;
-            _dbus_string_init_const (&plaintext, "D-Bus " VERSION);
+            _dbus_string_init_const (&plaintext, "D-Bus " DBUS_VERSION_STRING);
             _dbus_string_init (&encoded);
             _dbus_string_hex_encode (&plaintext, 0,
                                      &encoded,
@@ -1262,7 +1262,7 @@ handle_client_initial_response_anonymous_mech (DBusAuth         *auth,
     return FALSE;
 
   if (!_dbus_string_append (&plaintext,
-                            "libdbus " VERSION))
+                            "libdbus " DBUS_VERSION_STRING))
     goto failed;
 
   if (!_dbus_string_hex_encode (&plaintext, 0,

@@ -18,12 +18,11 @@
 #cmakedefine DBUS_DAEMONDIR "@DBUS_DAEMONDIR@"
 #cmakedefine PACKAGE "@PACKAGE@"
 /* Version number of package */
-#cmakedefine VERSION "@VERSION@"
-#cmakedefine DBUS_MAJOR_VERSION ${VERSION_MAJOR}
-#cmakedefine DBUS_MINOR_VERSION ${VERSION_MINOR}
-#cmakedefine DBUS_MICRO_VERSION ${VERSION_RELEASE}
-#cmakedefine DBUS_VERSION ((@VERSION_MAJOR@ << 16) | (@VERSION_MINOR@ << 8) | (@VERSION_RELEASE@))
-#cmakedefine DBUS_VERSION_STRING "@VERSION@"
+#cmakedefine DBUS_MAJOR_VERSION @DBUS_MAJOR_VERSION@
+#cmakedefine DBUS_MINOR_VERSION @DBUS_MINOR_VERSION@
+#cmakedefine DBUS_MICRO_VERSION @DBUS_MICRO_VERSION@
+#cmakedefine DBUS_VERSION ((@DBUS_MAJOR_VERSION@ << 16) | (@DBUS_MINOR_VERSION@ << 8) | (@DBUS_MICRO_VERSION@))
+#cmakedefine DBUS_VERSION_STRING "@DBUS_VERSION_STRING@"
 
 // test binaries
 /* Full path to test file test/test-exit in builddir */

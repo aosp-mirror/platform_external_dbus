@@ -85,7 +85,7 @@ version (void)
           "Copyright (C) 2002, 2003 Red Hat, Inc., CodeFactory AB, and others\n"
           "This is free software; see the source for copying conditions.\n"
           "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",
-          VERSION);
+          DBUS_VERSION_STRING);
   exit (0);
 }
 
