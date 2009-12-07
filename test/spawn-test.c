@@ -36,6 +36,8 @@ main (int argc, char **argv)
       fprintf (stderr, "Could not launch application: \"%s\"\n",
 	       error.message);
     }
-  
+
+  dbus_free(argv_copy);
+ 
   return 0;
 }
