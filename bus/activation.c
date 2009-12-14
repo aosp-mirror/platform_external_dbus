@@ -1212,8 +1212,8 @@ pending_activation_failed (BusPendingActivation *pending_activation,
  * Depending on the exit code of the helper, set the error accordingly
  */
 static void
-handle_activation_exit_error (int        exit_code,
-                              DBusError *error)
+handle_servicehelper_exit_error (int        exit_code,
+                                 DBusError *error)
 {
   switch (exit_code)
     {
@@ -1268,12 +1268,23 @@ babysitter_watch_callback (DBusWatch     *watch,
   BusPendingActivation *pending_activation = data;
   dbus_bool_t retval;
   DBusBabysitter *babysitter;
+  dbus_bool_t uses_servicehelper;
 
   babysitter = pending_activation->babysitter;
-  
+
   _dbus_babysitter_ref (babysitter);
-  
+
   retval = dbus_watch_handle (watch, condition);
+
+  /* There are two major cases here; are we the system bus or the session?  Here this
+   * is distinguished by whether or not we use a setuid helper launcher.  With the launch helper,
+   * some process exit codes are meaningful, processed by handle_servicehelper_exit_error.
+   *
+   * In both cases though, just ignore when a process exits with status 0; it's possible for
+   * a program to (misguidedly) "daemonize", and that appears to us as an exit.  This closes a race
+   * condition between this code and the child process claiming the bus name.
+   */
+  uses_servicehelper = bus_context_get_servicehelper (pending_activation->activation->context) != NULL;
 
   /* FIXME this is broken in the same way that
    * connection watches used to be; there should be
@@ -1284,43 +1295,59 @@ babysitter_watch_callback (DBusWatch     *watch,
    * Fixing this lets us move dbus_watch_handle
    * calls into dbus-mainloop.c
    */
-  
   if (_dbus_babysitter_get_child_exited (babysitter))
     {
       DBusError error;
       DBusHashIter iter;
-      
+      dbus_bool_t activation_failed;
+      int exit_code = 0;
+
       dbus_error_init (&error);
+
       _dbus_babysitter_set_child_exit_error (babysitter, &error);
 
-      /* refine the error code if we got an exit code */
-      if (dbus_error_has_name (&error, DBUS_ERROR_SPAWN_CHILD_EXITED))
-      	{
-          int exit_code = 0;
-          if (_dbus_babysitter_get_child_exit_status (babysitter, &exit_code))
-            {
-              dbus_error_free (&error);
-              handle_activation_exit_error (exit_code, &error);
-            }
-      	}
-
-      /* Destroy all pending activations with the same exec */
-      _dbus_hash_iter_init (pending_activation->activation->pending_activations,
-                            &iter);
-      while (_dbus_hash_iter_next (&iter))
+      /* Explicitly check for SPAWN_CHILD_EXITED to avoid overwriting an
+       * exec error */
+      if (dbus_error_has_name (&error, DBUS_ERROR_SPAWN_CHILD_EXITED)
+          && _dbus_babysitter_get_child_exit_status (babysitter, &exit_code))
         {
-          BusPendingActivation *p = _dbus_hash_iter_get_value (&iter);
-         
-          if (p != pending_activation && strcmp (p->exec, pending_activation->exec) == 0)
-            pending_activation_failed (p, &error);
-        }
-      
-      /* Destroys the pending activation */
-      pending_activation_failed (pending_activation, &error);
+          activation_failed = exit_code != 0;
 
-      dbus_error_free (&error);
+          dbus_error_free(&error);
+
+          if (activation_failed)
+            {
+              if (uses_servicehelper)
+                handle_servicehelper_exit_error (exit_code, &error);
+              else
+                _dbus_babysitter_set_child_exit_error (babysitter, &error);
+            }
+        }
+      else
+        {
+          activation_failed = TRUE;
+        }
+
+      if (activation_failed)
+        {
+          /* Destroy all pending activations with the same exec */
+          _dbus_hash_iter_init (pending_activation->activation->pending_activations,
+                                &iter);
+          while (_dbus_hash_iter_next (&iter))
+            {
+              BusPendingActivation *p = _dbus_hash_iter_get_value (&iter);
+
+              if (p != pending_activation && strcmp (p->exec, pending_activation->exec) == 0)
+                pending_activation_failed (p, &error);
+            }
+
+          /* Destroys the pending activation */
+          pending_activation_failed (pending_activation, &error);
+
+          dbus_error_free (&error);
+        }
     }
-  
+
   _dbus_babysitter_unref (babysitter);
 
   return retval;
