@@ -398,7 +398,33 @@ main (int    argc,
   DBusError error;
   int result;
   DBusConnection *connection;
-  
+  const char *name;
+  dbus_bool_t do_fork;
+
+  if (argc != 3)
+    {
+      name = "org.freedesktop.DBus.TestSuiteEchoService";
+      do_fork = FALSE;
+    }
+  else
+    {
+      name = argv[1];
+      do_fork = strcmp (argv[2], "fork") == 0;
+    }
+
+  /* The bare minimum for simulating a program "daemonizing"; the intent
+   * is to test services which move from being legacy init scripts to
+   * activated services.
+   * https://bugzilla.redhat.com/show_bug.cgi?id=545267
+   */
+  if (do_fork)
+    {
+      pid_t pid = fork ();
+      if (pid != 0)
+        exit (0);
+      sleep (1);
+    }
+
   dbus_error_init (&error);
   connection = dbus_bus_get (DBUS_BUS_STARTER, &error);
   if (connection == NULL)
@@ -433,8 +459,8 @@ main (int    argc,
     if (d != (void*) 0xdeadbeef)
       die ("dbus_connection_get_object_path_data() doesn't seem to work right\n");
   }
-  
-  result = dbus_bus_request_name (connection, "org.freedesktop.DBus.TestSuiteEchoService",
+
+  result = dbus_bus_request_name (connection, name,
                                   0, &error);
   if (dbus_error_is_set (&error))
     {
