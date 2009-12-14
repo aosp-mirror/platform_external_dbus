@@ -10,6 +10,11 @@ endif (DBUS_PATCH_VERSION)
 
 set (DBUS_VERSION_STRING "${DBUS_VERSION}")
 
+if (NOT DBUS_BUILD_TIMESTAMP)
+    message(STATUS "FIXME set DBUS_BUILD_TIMESTAMP to current date or fix current time stamp generation for having actual build date in version file info")
+    set (DBUS_BUILD_TIMESTAMP 20091231)
+endif (NOT DBUS_BUILD_TIMESTAMP)
+
 # we need to be up to date
 CMAKE_MINIMUM_REQUIRED(VERSION 2.4.4 FATAL_ERROR)
 if(COMMAND cmake_policy)
@@ -593,6 +598,10 @@ message("        Console auth dir:         ${DBUS_CONSOLE_AUTH_DIR}            "
 message("        System bus user:          ${DBUS_USER}                        ")
 message("        'make check' socket dir:  ${TEST_SOCKET_DIR}                  ")
 endif (WIN32)
+if (MSVC)
+message("        build timestamp:          ${DBUS_BUILD_TIMESTAMP}             ")
+endif (MSVC)
+
 MESSAGE(" ")
 if (DBUS_BUILD_TESTS)
     message("NOTE: building with unit tests increases the size of the installed library and renders it insecure.")
