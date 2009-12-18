@@ -409,7 +409,9 @@ main (int    argc,
   else
     {
       name = argv[1];
+#ifndef DBUS_WIN
       do_fork = strcmp (argv[2], "fork") == 0;
+#endif      
     }
 
   /* The bare minimum for simulating a program "daemonizing"; the intent
@@ -417,14 +419,15 @@ main (int    argc,
    * activated services.
    * https://bugzilla.redhat.com/show_bug.cgi?id=545267
    */
-  if (do_fork)
+#ifndef DBUS_WIN
+   if (do_fork)
     {
       pid_t pid = fork ();
       if (pid != 0)
         exit (0);
       sleep (1);
     }
-
+#endif
   dbus_error_init (&error);
   connection = dbus_bus_get (DBUS_BUS_STARTER, &error);
   if (connection == NULL)
