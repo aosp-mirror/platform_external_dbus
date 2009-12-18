@@ -59,6 +59,7 @@ DBUS_LIB_arch_sources = 			\
 	dbus-server-win.h
 
 DBUS_SHARED_arch_sources = 			\
+	dbus-pipe-win.c 			\
 	dbus-sysdeps-win.c 			\
 	dbus-sysdeps-win.h			\
 	dbus-sysdeps-thread-win.c		\
@@ -76,6 +77,7 @@ DBUS_LIB_arch_sources = 			\
 	dbus-server-unix.h
 
 DBUS_SHARED_arch_sources = 			\
+	dbus-pipe-unix.c 			\
 	dbus-sysdeps-unix.c 			\
 	dbus-sysdeps-unix.h			\
 	dbus-sysdeps-pthread.c			\
@@ -191,6 +193,8 @@ DBUS_SHARED_SOURCES=				\
 	dbus-memory.c				\
 	dbus-mempool.c				\
 	dbus-mempool.h				\
+	dbus-pipe.c                 \
+	dbus-pipe.h                 \
 	dbus-string.c				\
 	dbus-string.h				\
 	dbus-string-private.h			\

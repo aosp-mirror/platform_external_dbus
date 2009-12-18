@@ -458,57 +458,6 @@ _dbus_write_socket_with_unix_fds_two(int               fd,
 }
 
 /**
- * write data to a pipe.
- *
- * @param pipe the pipe instance
- * @param buffer the buffer to write data from
- * @param start the first byte in the buffer to write
- * @param len the number of bytes to try to write
- * @param error error return
- * @returns the number of bytes written or -1 on error
- */
-int
-_dbus_pipe_write (DBusPipe         *pipe,
-                  const DBusString *buffer,
-                  int               start,
-                  int               len,
-                  DBusError        *error)
-{
-  int written;
-  
-  written = _dbus_write (pipe->fd_or_handle, buffer, start, len);
-  if (written < 0)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Writing to pipe: %s\n",
-                      _dbus_strerror (errno));
-    }
-  return written;
-}
-
-/**
- * close a pipe.
- *
- * @param pipe the pipe instance
- * @param error return location for an error
- * @returns #FALSE if error is set
- */
-int
-_dbus_pipe_close  (DBusPipe         *pipe,
-                   DBusError        *error)
-{
-  if (_dbus_close (pipe->fd_or_handle, error) < 0)
-    {
-      return -1;
-    }
-  else
-    {
-      _dbus_pipe_invalidate (pipe);
-      return 0;
-    }
-}
-
-/**
  * Like _dbus_write_two() but only works on sockets and is thus
  * available on Windows.
  * 
