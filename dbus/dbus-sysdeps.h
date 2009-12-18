@@ -27,40 +27,6 @@
 
 #include <config.h>
 
-/**
- * @addtogroup DBusSysdeps
- *
- * @{
- */
-
-/* The idea of this file is to encapsulate everywhere that we're
- * relying on external libc features, for ease of security
- * auditing. The idea is from vsftpd. This also gives us a chance to
- * make things more convenient to use, e.g.  by reading into a
- * DBusString. Operating system headers aren't intended to be used
- * outside of this file and a limited number of others (such as
- * dbus-memory.c)
- */
-
-#if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
-#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
-  __attribute__((__format__ (__printf__, format_idx, arg_idx)))
-#define _DBUS_GNUC_NORETURN                         \
-  __attribute__((__noreturn__))
-#else   /* !__GNUC__ */
-#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )
-#define _DBUS_GNUC_NORETURN
-#endif  /* !__GNUC__ */
-
-/** @def _DBUS_GNUC_PRINTF
- * used to tell gcc about printf format strings
- */
-/** @def _DBUS_GNUC_NORETURN
- * used to tell gcc about functions that never return, such as _dbus_abort()
- */
-
-/** @} */
-
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-pipe.h>
