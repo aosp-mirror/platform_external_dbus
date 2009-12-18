@@ -133,6 +133,7 @@ set (DBUS_SHARED_SOURCES
 	${DBUS_DIR}/dbus-mempool.c
 	${DBUS_DIR}/dbus-string.c
 	${DBUS_DIR}/dbus-sysdeps.c
+	${DBUS_DIR}/dbus-pipe.c
 )
 
 set (DBUS_SHARED_HEADERS
@@ -144,6 +145,7 @@ set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-mempool.h
 	${DBUS_DIR}/dbus-string.h
 	${DBUS_DIR}/dbus-string-private.h
+	${DBUS_DIR}/dbus-pipe.h
 	${DBUS_DIR}/dbus-sysdeps.h
 )
 
@@ -185,6 +187,7 @@ set (DBUS_UTIL_HEADERS
 if (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
 		${DBUS_DIR}/dbus-sysdeps-win.c
+		${DBUS_DIR}/dbus-pipe-win.c
 		${DBUS_DIR}/dbus-sysdeps-thread-win.c
 		${DBUS_DIR}/dbus-spawn-win.c
 	)
@@ -198,6 +201,7 @@ if (WIN32)
 	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
 else (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
+		${DBUS_DIR}/dbus-pipe-unix.c
 		${DBUS_DIR}/dbus-sysdeps-unix.c
 		${DBUS_DIR}/dbus-sysdeps-pthread.c
 		${DBUS_DIR}/dbus-spawn.c

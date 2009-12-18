@@ -242,65 +242,6 @@ _dbus_get_environment (void)
   return environment;
 }
 
-/*
- * init a pipe instance.
- *
- * @param pipe the pipe
- * @param fd the file descriptor to init from 
- */
-void
-_dbus_pipe_init (DBusPipe *pipe,
-                 int       fd)
-{
-  pipe->fd_or_handle = fd;
-}
-
-/**
- * init a pipe with stdout
- *
- * @param pipe the pipe
- */
-void
-_dbus_pipe_init_stdout (DBusPipe *pipe)
-{
-  _dbus_pipe_init (pipe, 1);
-}
-
-/**
- * check if a pipe is valid; pipes can be set invalid, similar to
- * a -1 file descriptor.
- *
- * @param pipe the pipe instance
- * @returns #FALSE if pipe is not valid
- */
-dbus_bool_t
-_dbus_pipe_is_valid(DBusPipe *pipe)
-{
-  return pipe->fd_or_handle >= 0;
-}
-
-/**
- * Check if a pipe is stdout or stderr.
- *
- * @param pipe the pipe instance
- * @returns #TRUE if pipe is one of the standard out/err channels
- */
-dbus_bool_t
-_dbus_pipe_is_stdout_or_stderr (DBusPipe *pipe)
-{
-  return pipe->fd_or_handle == 1 || pipe->fd_or_handle == 2;
-}
-
-/**
- * Initializes a pipe to an invalid value.
- * @param pipe the pipe
- */
-void
-_dbus_pipe_invalidate (DBusPipe *pipe)
-{
-  pipe->fd_or_handle = -1;
-}
-
 /**
  * Split paths into a list of char strings
  * 

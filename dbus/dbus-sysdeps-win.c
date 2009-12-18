@@ -109,62 +109,6 @@ _dbus_win_free_error_string (char *string)
 }
 
 /**
- * write data to a pipe.
- *
- * @param pipe the pipe instance
- * @param buffer the buffer to write data from
- * @param start the first byte in the buffer to write
- * @param len the number of bytes to try to write
- * @param error error return
- * @returns the number of bytes written or -1 on error
- */
-int
-_dbus_pipe_write (DBusPipe         *pipe,
-                  const DBusString *buffer,
-                  int               start,
-                  int               len,
-                  DBusError        *error)
-{
-  int written;
-  const char *buffer_c = _dbus_string_get_const_data (buffer);
-
-  written = _write (pipe->fd_or_handle, buffer_c + start, len);
-  if (written < 0)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Writing to pipe: %s\n",
-                      strerror (errno));
-    }
-  return written;
-}
-
-/**
- * close a pipe.
- *
- * @param pipe the pipe instance
- * @param error return location for an error
- * @returns #FALSE if error is set
- */
-int
-_dbus_pipe_close  (DBusPipe         *pipe,
-                   DBusError        *error)
-{
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  if (_close (pipe->fd_or_handle) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not close pipe %d: %s", pipe->fd_or_handle, strerror (errno));
-      return -1;
-    }
-  else
-    {
-      _dbus_pipe_invalidate (pipe);
-      return 0;
-    }
-}
-
-/**
  * Socket interface
  *
  */

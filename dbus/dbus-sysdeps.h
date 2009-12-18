@@ -27,7 +27,42 @@
 
 #include <config.h>
 
+/**
+ * @addtogroup DBusSysdeps
+ *
+ * @{
+ */
+
+/* The idea of this file is to encapsulate everywhere that we're
+ * relying on external libc features, for ease of security
+ * auditing. The idea is from vsftpd. This also gives us a chance to
+ * make things more convenient to use, e.g.  by reading into a
+ * DBusString. Operating system headers aren't intended to be used
+ * outside of this file and a limited number of others (such as
+ * dbus-memory.c)
+ */
+
+#if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
+#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
+  __attribute__((__format__ (__printf__, format_idx, arg_idx)))
+#define _DBUS_GNUC_NORETURN                         \
+  __attribute__((__noreturn__))
+#else   /* !__GNUC__ */
+#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )
+#define _DBUS_GNUC_NORETURN
+#endif  /* !__GNUC__ */
+
+/** @def _DBUS_GNUC_PRINTF
+ * used to tell gcc about printf format strings
+ */
+/** @def _DBUS_GNUC_NORETURN
+ * used to tell gcc about functions that never return, such as _dbus_abort()
+ */
+
+/** @} */
+
 #include <dbus/dbus-errors.h>
+#include <dbus/dbus-pipe.h>
 
 /* this is perhaps bogus, but strcmp() etc. are faster if we use the
  * stuff straight out of string.h, so have this here for now.
@@ -67,32 +102,6 @@ typedef struct DBusCredentials DBusCredentials;
  * @addtogroup DBusSysdeps
  *
  * @{
- */
-
-/* The idea of this file is to encapsulate everywhere that we're
- * relying on external libc features, for ease of security
- * auditing. The idea is from vsftpd. This also gives us a chance to
- * make things more convenient to use, e.g.  by reading into a
- * DBusString. Operating system headers aren't intended to be used
- * outside of this file and a limited number of others (such as
- * dbus-memory.c)
- */
-
-#if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
-#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
-  __attribute__((__format__ (__printf__, format_idx, arg_idx)))
-#define _DBUS_GNUC_NORETURN                         \
-  __attribute__((__noreturn__))
-#else   /* !__GNUC__ */
-#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )
-#define _DBUS_GNUC_NORETURN
-#endif  /* !__GNUC__ */
-
-/** @def _DBUS_GNUC_PRINTF
- * used to tell gcc about printf format strings
- */
-/** @def _DBUS_GNUC_NORETURN
- * used to tell gcc about functions that never return, such as _dbus_abort()
  */
 
 void _dbus_abort (void) _DBUS_GNUC_NORETURN;
@@ -354,25 +363,6 @@ dbus_bool_t _dbus_get_standard_system_servicedirs (DBusList **dirs);
 
 dbus_bool_t _dbus_append_system_config_file  (DBusString *str);
 dbus_bool_t _dbus_append_session_config_file (DBusString *str);
-
-typedef struct {
-  int fd_or_handle;
-} DBusPipe;
-
-void        _dbus_pipe_init                (DBusPipe         *pipe,
-                                            int               fd);
-void        _dbus_pipe_init_stdout         (DBusPipe         *pipe);
-int         _dbus_pipe_write               (DBusPipe         *pipe,
-                                            const DBusString *buffer,
-                                            int               start,
-                                            int               len,
-                                            DBusError        *error);
-int         _dbus_pipe_close               (DBusPipe         *pipe,
-                                            DBusError        *error);
-dbus_bool_t _dbus_pipe_is_valid            (DBusPipe         *pipe);
-void        _dbus_pipe_invalidate          (DBusPipe         *pipe);
-dbus_bool_t _dbus_pipe_is_stdout_or_stderr (DBusPipe         *pipe);
-
 
 /** Opaque type for reading a directory listing */
 typedef struct DBusDirIter DBusDirIter;
