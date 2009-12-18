@@ -433,6 +433,8 @@ process_config_every_time (BusContext      *context,
   /* get our limits and timeout lengths */
   bus_config_parser_get_limits (parser, &context->limits);
 
+  if (context->policy)
+    bus_policy_unref (context->policy);
   context->policy = bus_config_parser_steal_policy (parser);
   _dbus_assert (context->policy != NULL);
 
