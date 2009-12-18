@@ -27,9 +27,9 @@
 
 #include <config.h>
 
-#include <dbus/dbus-memory.h>
+#include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
-#include <dbus/dbus-sysdeps.h>
+#include <dbus/dbus-memory.h>
 
 #include <stdarg.h>
 
@@ -38,6 +38,9 @@ DBUS_BEGIN_DECLS
 /**
  * DBusString object
  */
+
+typedef struct DBusString DBusString;
+
 struct DBusString
 {
   const void *dummy1; /**< placeholder */

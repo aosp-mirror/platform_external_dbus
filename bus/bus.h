@@ -29,6 +29,7 @@
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-mainloop.h>
+#include <dbus/dbus-pipe.h>
 
 typedef struct BusActivation    BusActivation;
 typedef struct BusConnections   BusConnections;

@@ -62,6 +62,7 @@
 /** @} */
 
 #include <dbus/dbus-errors.h>
+#include <dbus/dbus-string.h>
 #include <dbus/dbus-pipe.h>
 
 /* this is perhaps bogus, but strcmp() etc. are faster if we use the
@@ -89,8 +90,6 @@ DBUS_BEGIN_DECLS
 
 /* Forward declarations */
 
-/** An opaque string type */
-typedef struct DBusString DBusString;
 
 /** An opaque list type */
 typedef struct DBusList DBusList;

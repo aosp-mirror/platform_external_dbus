@@ -26,8 +26,9 @@
 #include "dbus-string.h"
 #include "dbus-internals.h"
 #include "dbus-pipe.h"
+#include "dbus-sysdeps-unix.h"
 
-#include <io.h>
+#include <errno.h>
 
 /**
  * write data to a pipe.
