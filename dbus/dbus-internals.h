@@ -83,12 +83,27 @@ void _dbus_warn_check_failed  (const char *format,
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
 
+/*
+ at least gnu cc and msvc compiler are known to 
+ have support for variable macro argument lists
+ add other compilers is required
+*/
+#if defined(__GNUC__) || defined(_MSC_VER) 
+#define DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+#endif
+
+#ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+void _dbus_verbose_real       (const char *file, const int line, const char *function, 
+                               const char *format,...) _DBUS_GNUC_PRINTF (4, 5);
+#  define _dbus_verbose(fmt,...) _dbus_verbose_real( __FILE__,__LINE__,__FUNCTION__,fmt, ## __VA_ARGS__)
+#else
 void _dbus_verbose_real       (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
+#  define _dbus_verbose _dbus_verbose_real
+#endif
 void _dbus_verbose_reset_real (void);
 dbus_bool_t _dbus_is_verbose_real (void);
 
-#  define _dbus_verbose _dbus_verbose_real
 #  define _dbus_verbose_reset _dbus_verbose_reset_real
 #  define _dbus_is_verbose _dbus_is_verbose_real
 #else

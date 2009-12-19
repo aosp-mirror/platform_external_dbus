@@ -329,6 +329,46 @@ _dbus_verbose_init (void)
     }
 }
 
+/** @def DBUS_IS_DIR_SEPARATOR(c)
+ * macro for checking if character c is a patch separator
+ * 
+ * @todo move to a header file so that others can use this too
+ */
+#ifdef DBUS_WIN 
+#define DBUS_IS_DIR_SEPARATOR(c) (c == '\\' || c == '/')
+#else
+#define DBUS_IS_DIR_SEPARATOR(c) (c == '/')
+#endif
+
+/** 
+ remove source root from file path 
+ the source root is determined by 
+*/ 
+static char *_dbus_file_path_extract_elements_from_tail(const char *file,int level)
+{
+  static int prefix = -1;
+  char *p;
+
+  if (prefix == -1) 
+    {
+      char *p = (char *)file + strlen(file);
+      int i = 0;
+      prefix = 0;
+      for (;p >= file;p--)
+        {
+          if (DBUS_IS_DIR_SEPARATOR(*p))
+            {
+              if (++i >= level) 
+                {
+                  prefix = p-file+1;
+                  break;
+                }
+           }
+        }
+    }
+  return (char *)file+prefix;
+}
+
 /**
  * Implementation of dbus_is_verbose() macro if built with verbose logging
  * enabled.
@@ -350,7 +390,14 @@ _dbus_is_verbose_real (void)
  * @param format printf-style format string.
  */
 void
+#ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+_dbus_verbose_real (const char *file, 
+                    const int line, 
+                    const char *function, 
+                    const char *format,
+#else
 _dbus_verbose_real (const char *format,
+#endif
                     ...)
 {
   va_list args;
@@ -382,17 +429,24 @@ _dbus_verbose_real (const char *format,
     need_pid = TRUE;
   else
     need_pid = FALSE;
-  
+
   va_start (args, format);
 #ifdef DBUS_USE_OUTPUT_DEBUG_STRING
   {
   char buf[1024];
   strcpy(buf,module_name);
+#ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+  vsprintf (buf+strlen(buf), "[%s(%d):%s] ",_dbus_file_path_extract_elements_from_tail(file,2),line,function);
+#endif
   vsprintf (buf+strlen(buf),format, args);
   va_end (args);
   OutputDebugString(buf);
   }
 #else
+#ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+  fprintf (stderr, "[%s(%d):%s] ",_dbus_file_path_extract_elements_from_tail(file,2),line,function);
+#endif
+
   vfprintf (stderr, format, args);
   va_end (args);
 
