@@ -4536,11 +4536,16 @@ bus_dispatch_test_conf (const DBusString *test_data_dir,
   if (!check_add_match_all (context, baz))
     _dbus_assert_not_reached ("AddMatch message failed");
 
+#ifdef DBUS_WIN_FIXME
+  _dbus_warn("TODO: testing of GetConnectionUnixUser message skipped for now\n");
+  _dbus_warn("TODO: testing of GetConnectionUnixProcessID message skipped for now\n");
+#else
   if (!check_get_connection_unix_user (context, baz))
     _dbus_assert_not_reached ("GetConnectionUnixUser message failed");
 
   if (!check_get_connection_unix_process_id (context, baz))
     _dbus_assert_not_reached ("GetConnectionUnixProcessID message failed");
+#endif
 
   if (!check_list_services (context, baz))
     _dbus_assert_not_reached ("ListActivatableNames message failed");

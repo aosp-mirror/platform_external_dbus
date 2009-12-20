@@ -244,7 +244,11 @@ dbus_bool_t
 _dbus_decrement_fail_alloc_counter (void)
 {
   _dbus_initialize_malloc_debug ();
-  
+#ifdef DBUS_WIN_FIXME
+  _dbus_warn("disabled memory allocation errors for now, it makes testing much more complicated");
+  return FALSE;
+#endif
+
   if (fail_alloc_counter <= 0)
     {
       if (backtrace_on_fail_alloc)
