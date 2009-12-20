@@ -28,6 +28,7 @@
 #include <config.h>
 
 #include <dbus/dbus-errors.h>
+#include <dbus/dbus-file.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-pipe.h>
 
@@ -295,23 +296,8 @@ void _dbus_get_current_time (long *tv_sec,
                              long *tv_usec);
 
 /**
- * File/directory interface
+ * directory interface
  */
-dbus_bool_t _dbus_file_exists         (const char       *file);
-dbus_bool_t _dbus_file_get_contents   (DBusString       *str,
-                                       const DBusString *filename,
-                                       DBusError        *error);
-dbus_bool_t _dbus_string_save_to_file (const DBusString *str,
-                                       const DBusString *filename,
-                                       DBusError        *error);
-
-dbus_bool_t _dbus_make_file_world_readable   (const DBusString *filename,
-                                              DBusError *error);
-
-dbus_bool_t    _dbus_create_file_exclusively (const DBusString *filename,
-                                              DBusError        *error);
-dbus_bool_t    _dbus_delete_file             (const DBusString *filename,
-                                              DBusError        *error);
 dbus_bool_t    _dbus_create_directory        (const DBusString *filename,
                                               DBusError        *error);
 dbus_bool_t    _dbus_delete_directory        (const DBusString *filename,

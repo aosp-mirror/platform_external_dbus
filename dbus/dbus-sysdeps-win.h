@@ -57,6 +57,10 @@ extern void *_dbus_win_get_dll_hmodule (void);
 void _dbus_win_startup_winsock (void);
 void _dbus_win_warn_win_error  (const char *message,
                                 int         code);
+                                
+char * _dbus_win_error_string (int error_number);
+void _dbus_win_free_error_string (char *string);
+
 extern const char* _dbus_lm_strerror  (int error_number);
 
 

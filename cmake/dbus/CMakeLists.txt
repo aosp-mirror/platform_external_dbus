@@ -125,6 +125,7 @@ endif(UNIX)
 ### be underscore-prefixed)
 set (DBUS_SHARED_SOURCES
 	${DBUS_DIR}/dbus-dataslot.c
+	${DBUS_DIR}/dbus-file.c
 	${DBUS_DIR}/dbus-hash.c
 	${DBUS_DIR}/dbus-internals.c
 	${DBUS_DIR}/dbus-list.c
@@ -138,6 +139,7 @@ set (DBUS_SHARED_SOURCES
 
 set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-dataslot.h
+	${DBUS_DIR}/dbus-file.h
 	${DBUS_DIR}/dbus-hash.h
 	${DBUS_DIR}/dbus-internals.h
 	${DBUS_DIR}/dbus-list.h
@@ -186,6 +188,7 @@ set (DBUS_UTIL_HEADERS
 ### platform specific settings
 if (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
+		${DBUS_DIR}/dbus-file-win.c
 		${DBUS_DIR}/dbus-sysdeps-win.c
 		${DBUS_DIR}/dbus-pipe-win.c
 		${DBUS_DIR}/dbus-sysdeps-thread-win.c
@@ -201,6 +204,7 @@ if (WIN32)
 	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
 else (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
+		${DBUS_DIR}/dbus-file-unix.c
 		${DBUS_DIR}/dbus-pipe-unix.c
 		${DBUS_DIR}/dbus-sysdeps-unix.c
 		${DBUS_DIR}/dbus-sysdeps-pthread.c

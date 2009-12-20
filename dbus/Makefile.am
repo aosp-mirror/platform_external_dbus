@@ -59,6 +59,7 @@ DBUS_LIB_arch_sources = 			\
 	dbus-server-win.h
 
 DBUS_SHARED_arch_sources = 			\
+	dbus-file-win.c 			\
 	dbus-pipe-win.c 			\
 	dbus-sysdeps-win.c 			\
 	dbus-sysdeps-win.h			\
@@ -77,6 +78,7 @@ DBUS_LIB_arch_sources = 			\
 	dbus-server-unix.h
 
 DBUS_SHARED_arch_sources = 			\
+	dbus-file-unix.c 			\
 	dbus-pipe-unix.c 			\
 	dbus-sysdeps-unix.c 			\
 	dbus-sysdeps-unix.h			\
@@ -182,6 +184,8 @@ DBUS_LIB_SOURCES=				\
 DBUS_SHARED_SOURCES=				\
 	dbus-dataslot.c				\
 	dbus-dataslot.h				\
+	dbus-file.c                 \
+	dbus-file.h                 \
 	dbus-hash.c				\
 	dbus-hash.h				\
 	dbus-internals.c			\
