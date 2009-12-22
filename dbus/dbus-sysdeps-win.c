@@ -3208,6 +3208,8 @@ _dbus_get_install_root(char *prefix, int len)
     //the Latin "bin", but that is not likely I think...
     if (lastSlash - prefix > 3 && strncmp(lastSlash - 4, "\\bin", 4) == 0)
         lastSlash[-3] = 0;
+    else if (lastSlash - prefix > 3 && (strncmp(lastSlash - 10, "\\bin\\Debug", 10) == 0 || strncmp(lastSlash - 10, "\\bin\\Release", 10) == 0))
+        lastSlash[-9] = 0;
     return TRUE;
 }
 
