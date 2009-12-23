@@ -1,4 +1,4 @@
-<?xml version="1.0" standalone="no"?>
+<?xml version="1.0" standalone="no" ?>
 <!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd"
 [
@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-Bus Specification</title>
-    <releaseinfo>Version 0.12</releaseinfo>
-    <date>7 November 2006</date>
+    <releaseinfo>Version 0.13</releaseinfo>
+    <date>23 Dezember 2009</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -2425,22 +2425,98 @@
 	length path name.  Names which were shorter than the fixed length
 	would be padded by Nul bytes.
       </para>
+      <para>
+        Unix domain sockets are not available on windows. 
+      </para>
+      <sect3 id="transports-unix-domain-sockets-addresses">
+        <title>Server Address Format</title>
+        <para> 
+          Unix domain socket addresses are identified by the "unix:" prefix 
+          and support the following key/value pairs:
+        </para>
+        <informaltable>
+         <tgroup cols="3">
+          <thead>
+           <row>
+            <entry>Name</entry>
+            <entry>Values</entry>
+            <entry>Description</entry>
+           </row>
+          </thead>
+          <tbody>
+           <row>
+            <entry>path</entry>
+            <entry>(path)</entry>
+            <entry>path of the unix domain socket. If set, the "tmpdir" and "abstract" key must not be set.</entry>
+          </row>
+          <row>
+            <entry>tmpdir</entry>
+            <entry>(path)</entry>
+            <entry>temporary directory in which a socket file with a random file name starting with 'dbus-' will be created by the server. This key can only be used in server addresses, not in client addresses. If set, the "path" and "abstract" key must not be set.</entry>
+          </row>
+          <row>
+            <entry>abstract</entry>
+            <entry>(string)</entry>
+            <entry>unique string (path) in the abstract namespace. If set, the "path" or "tempdir" key must not be set.</entry>
+          </row>
+        </tbody>
+        </tgroup>
+       </informaltable>
+      </sect3>
     </sect2>
     <sect2 id="transports-tcp-sockets">
       <title>TCP Sockets</title>
       <para>
-        The tcp transport provides TCP/IP based connections between clients 
+        The tcp transport provides TCP/IP based connections between clients
         located on the same or different hosts. 
-      </para>
-      <para>  
-        Windows notes: Because the tcp stack on windows do not provide sending 
-        credentials over a tcp connection, the EXTERNAL authentification 
-        mechanismus do not work. 
       </para>
       <para>
         Using tcp transport without any additional secure authentification mechanismus 
         over a network is unsecure. 
       </para>
+      <para>  
+        Windows notes: Because of the tcp stack on windows does not provide sending 
+        credentials over a tcp connection, the EXTERNAL authentification 
+        mechanismus does not work. 
+      </para>
+      <sect3 id="transports-tcp-sockets-addresses">
+        <title>Server Address Format</title>
+        <para> 
+         TCP/IP socket addresses are identified by the "tcp:" prefix 
+         and support the following key/value pairs:
+        </para>
+        <informaltable>
+         <tgroup cols="3">
+          <thead>
+           <row>
+            <entry>Name</entry>
+            <entry>Values</entry>
+            <entry>Description</entry>
+           </row>
+          </thead>
+          <tbody>
+           <row>
+            <entry>host</entry>
+            <entry>(string)</entry>
+            <entry>dns name or ip address</entry>
+          </row>
+          <row>
+           <entry>port</entry>
+           <entry>(number)</entry>
+           <entry>The tcp port the server will open. A zero value let the server 
+            choose a free port provided from the underlaying operating system. 
+            libdbus is able to retrieve the real used port from the server.  
+           </entry>
+          </row>
+          <row>
+           <entry>family</entry>
+           <entry>(string)</entry>
+           <entry>If set, provide the type of socket family either "ipv4" or "ipv6". If unset, the family is unspecified.</entry>
+          </row>
+         </tbody>
+        </tgroup>
+       </informaltable>
+      </sect3>
     </sect2>
     <sect2 id="transports-nonce-tcp-sockets">
       <title>Nonce-secured TCP Sockets</title>
@@ -2473,6 +2549,49 @@
         key-value pair and send it over the socket. After that, the
         transport behaves like an unsecured tcp transport.
       </para>
+      <sect3 id="transports-nonce-tcp-sockets-addresses">
+        <title>Server Address Format</title>
+        <para> 
+         Nonce TCP/IP socket addresses uses the "nonce-tcp:" prefix 
+         and support the following key/value pairs:
+        </para>
+        <informaltable>
+         <tgroup cols="3">
+          <thead>
+           <row>
+            <entry>Name</entry>
+            <entry>Values</entry>
+            <entry>Description</entry>
+           </row>
+          </thead>
+          <tbody>
+           <row>
+            <entry>host</entry>
+            <entry>(string)</entry>
+            <entry>dns name or ip address</entry>
+          </row>
+          <row>
+           <entry>port</entry>
+           <entry>(number)</entry>
+           <entry>The tcp port the server will open. A zero value let the server 
+            choose a free port provided from the underlaying operating system. 
+            libdbus is able to retrieve the real used port from the server.  
+           </entry>
+          </row>
+          <row>
+           <entry>family</entry>
+           <entry>(string)</entry>
+           <entry>If set, provide the type of socket family either "ipv4" or "ipv6". If unset, the family is unspecified.</entry>
+          </row>
+          <row>
+           <entry>noncefile</entry>
+           <entry>(path)</entry>
+           <entry>file location containing the secret</entry>
+          </row>
+         </tbody>
+        </tgroup>
+       </informaltable>
+      </sect3>
     </sect2>
 
   </sect1>
