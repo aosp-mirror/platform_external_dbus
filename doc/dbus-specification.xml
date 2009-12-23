@@ -2426,6 +2426,22 @@
 	would be padded by Nul bytes.
       </para>
     </sect2>
+    <sect2 id="transports-tcp-sockets">
+      <title>TCP Sockets</title>
+      <para>
+        The tcp transport provides TCP/IP based connections between clients 
+        located on the same or different hosts. 
+      </para>
+      <para>  
+        Windows notes: Because the tcp stack on windows do not provide sending 
+        credentials over a tcp connection, the EXTERNAL authentification 
+        mechanismus do not work. 
+      </para>
+      <para>
+        Using tcp transport without any additional secure authentification mechanismus 
+        over a network is unsecure. 
+      </para>
+    </sect2>
     <sect2 id="transports-nonce-tcp-sockets">
       <title>Nonce-secured TCP Sockets</title>
       <para>
