@@ -3394,7 +3394,63 @@
 	    </tgroup>
 	  </informaltable>
         </para>
-      </sect3>
+       </sect3>
+
+       <sect3 id="bus-messages-list-queued-owners">
+        <title><literal>org.freedesktop.DBus.ListQueuedOwners</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            ARRAY of STRING ListQueuedOwners (in STRING name)
+          </programlisting>
+          Message arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>STRING</entry>
+                  <entry>The well-known bus name to query, such as
+                    <literal>com.example.cappuccino</literal></entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+          Reply arguments:
+          <informaltable>
+            <tgroup cols="3">
+              <thead>
+                <row>
+                  <entry>Argument</entry>
+                  <entry>Type</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>0</entry>
+                  <entry>ARRAY of STRING</entry>
+                  <entry>The unique bus names of connections currently queued
+                    for the name</entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </informaltable>
+        </para>
+        <para>
+          This method call should be sent to
+          <literal>org.freedesktop.DBus</literal> and lists the connections
+          currently queued for a bus name (see
+          <xref linkend="term-queued-owner"/>).
+        </para>
+       </sect3>
     </sect2>
 
     <sect2 id="message-bus-routing">
