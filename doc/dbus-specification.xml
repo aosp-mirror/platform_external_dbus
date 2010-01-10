@@ -3416,7 +3416,7 @@
         </para>
         <para>
           Match rules are added using the AddMatch bus method 
-          (see xref linkend="bus-messages-add-match"/>).  Rules are 
+          (see <xref linkend="bus-messages-add-match"/>).  Rules are
           specified as a string of comma separated key/value pairs. 
           Excluding a key from the rule indicates a wildcard match.  
           For instance excluding the the member from a match rule but 
