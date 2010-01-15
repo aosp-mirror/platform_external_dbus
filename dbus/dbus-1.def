@@ -29,20 +29,9 @@ _dbus_auth_server_new
 _dbus_auth_set_context
 _dbus_auth_set_credentials
 _dbus_auth_set_mechanisms
-_dbus_auth_test
 _dbus_auth_unref
-_dbus_babysitter_get_child_exited
-_dbus_babysitter_get_child_exit_status
-_dbus_babysitter_kill_child
-_dbus_babysitter_ref
-_dbus_babysitter_set_child_exit_error
-_dbus_babysitter_set_watch_functions
-_dbus_babysitter_unref
-_dbus_become_daemon
 _dbus_bus_notify_shared_connection_disconnected_unlocked
-_dbus_change_to_daemon_user
 _dbus_check_dir_is_private_to_user
-_dbus_check_fdleaks
 _dbus_check_is_valid_bus_name
 _dbus_check_is_valid_error_name
 _dbus_check_is_valid_interface
@@ -50,7 +39,6 @@ _dbus_check_is_valid_member
 _dbus_check_is_valid_path
 _dbus_check_is_valid_signature
 _dbus_close_socket
-_dbus_command_for_pid
 _dbus_concat_dir_and_file
 _dbus_condvar_free
 _dbus_condvar_free_at_location
@@ -112,7 +100,6 @@ _dbus_credentials_new
 _dbus_credentials_new_from_current_process
 _dbus_credentials_ref
 _dbus_credentials_same_user
-_dbus_credentials_test
 _dbus_credentials_unref
 _dbus_current_generation DATA
 _dbus_daemon_publish_session_bus_address
@@ -130,9 +117,6 @@ _dbus_decompose_path
 _dbus_decrement_fail_alloc_counter
 _dbus_delete_directory
 _dbus_delete_file
-_dbus_directory_close
-_dbus_directory_get_next_file
-_dbus_directory_open
 _dbus_disable_mem_pools
 _dbus_disable_sigpipe
 _dbus_dup_string_array
@@ -161,7 +145,6 @@ _dbus_get_is_errno_enomem
 _dbus_get_is_errno_nonzero
 _dbus_get_local_machine_uuid_encoded
 _dbus_get_malloc_blocks_outstanding
-_dbus_get_oom_wait
 _dbus_get_standard_session_servicedirs
 _dbus_get_standard_system_servicedirs
 _dbus_get_tmpdir
@@ -220,7 +203,6 @@ _dbus_header_set_field_basic
 _dbus_header_set_serial
 _dbus_header_toggle_flag
 _dbus_header_update_lengths
-_dbus_init_system_log
 _dbus_is_verbose_real
 _dbus_keyring_get_best_key
 _dbus_keyring_get_hex_key
@@ -260,7 +242,6 @@ _dbus_list_remove_link
 _dbus_list_test
 _dbus_list_unlink
 _dbus_listen_tcp_socket
-_dbus_lm_strerror
 _dbus_lock_atomic DATA
 _dbus_lock_bus DATA
 _dbus_lock_bus_datas DATA
@@ -276,34 +257,17 @@ _dbus_lock_shutdown_funcs DATA
 _dbus_lock_sid_atom_cache DATA
 _dbus_lock_system_users DATA
 _dbus_lock_win_fds DATA
-_dbus_log_info
-_dbus_log_security
-_dbus_loop_add_timeout
-_dbus_loop_add_watch
-_dbus_loop_dispatch
-_dbus_loop_iterate
-_dbus_loop_new
-_dbus_loop_queue_dispatch
-_dbus_loop_quit
-_dbus_loop_ref
-_dbus_loop_remove_timeout
-_dbus_loop_remove_watch
-_dbus_loop_run
-_dbus_loop_unref
 _dbus_make_file_world_readable
 _dbus_marshal_byteswap
-_dbus_marshal_byteswap_test
 _dbus_marshal_header_test
 _dbus_marshal_read_basic
 _dbus_marshal_read_fixed_multi
 _dbus_marshal_read_uint32
-_dbus_marshal_recursive_test
 _dbus_marshal_set_basic
 _dbus_marshal_set_uint32
 _dbus_marshal_skip_array
 _dbus_marshal_skip_basic
 _dbus_marshal_test
-_dbus_marshal_validate_test
 _dbus_marshal_write_basic
 _dbus_marshal_write_fixed_multi
 _dbus_mem_pool_alloc
@@ -313,10 +277,6 @@ _dbus_mem_pool_new
 _dbus_mem_pool_test
 _dbus_memdup
 _dbus_memory_test
-_dbus_message_contains_unix_fds
-_dbus_message_data_free
-_dbus_message_data_iter_get_and_next
-_dbus_message_data_iter_init
 _dbus_message_get_network_data
 _dbus_message_iter_get_args_valist
 _dbus_message_loader_get_buffer
@@ -332,7 +292,6 @@ _dbus_message_loader_ref
 _dbus_message_loader_return_buffer
 _dbus_message_loader_set_max_message_size
 _dbus_message_loader_unref
-_dbus_message_test
 _dbus_misc_test
 _dbus_mutex_free
 _dbus_mutex_free_at_location
@@ -352,9 +311,6 @@ _dbus_object_tree_test
 _dbus_object_tree_unref
 _dbus_object_tree_unregister_and_unlock
 _dbus_pack_uint32
-_dbus_parse_unix_group_from_config
-_dbus_parse_unix_user_from_config
-_dbus_path_is_absolute
 _dbus_pending_call_complete
 _dbus_pending_call_get_completed_unlocked
 _dbus_pending_call_get_connection_and_lock
@@ -415,21 +371,15 @@ _dbus_set_errno_to_zero
 _dbus_set_fail_alloc_counter
 _dbus_set_fail_alloc_failures
 _dbus_set_fd_nonblocking
-_dbus_set_signal_handler
 _dbus_setenv
 _dbus_sha_compute
 _dbus_sha_final
 _dbus_sha_init
 _dbus_sha_test
 _dbus_sha_update
-_dbus_shell_parse_argv
-_dbus_shell_unquote
 _dbus_signature_test
 _dbus_sleep_milliseconds
-_dbus_spawn_async_with_babysitter
-_dbus_spawn_test
 _dbus_split_paths_and_append
-_dbus_stat
 _dbus_strdup
 _dbus_strerror
 _dbus_strerror_from_errno
@@ -457,14 +407,12 @@ _dbus_string_copy_to_buffer
 _dbus_string_delete
 _dbus_string_delete_first_word
 _dbus_string_delete_leading_blanks
-_dbus_string_ends_with_c_str
 _dbus_string_equal
 _dbus_string_equal_c_str
 _dbus_string_equal_len
 _dbus_string_equal_substring
 _dbus_string_find
 _dbus_string_find_blank
-_dbus_string_find_byte_backward
 _dbus_string_find_eol
 _dbus_string_find_to
 _dbus_string_free
@@ -473,7 +421,6 @@ _dbus_string_get_const_data
 _dbus_string_get_const_data_len
 _dbus_string_get_data
 _dbus_string_get_data_len
-_dbus_string_get_dirname
 _dbus_string_get_length
 _dbus_string_get_unichar
 _dbus_string_hex_decode
@@ -508,13 +455,11 @@ _dbus_string_split_on_byte
 _dbus_string_starts_with_c_str
 _dbus_string_steal_data
 _dbus_string_steal_data_len
-_dbus_string_test
 _dbus_string_validate_ascii
 _dbus_string_validate_nul
 _dbus_string_validate_utf8
 _dbus_string_zero
 _dbus_swap_array
-_dbus_sysdeps_test
 _dbus_test_oom_handling
 _dbus_threads_init_debug
 _dbus_threads_init_platform_specific
@@ -567,7 +512,6 @@ _dbus_transport_unref
 _dbus_type_get_alignment
 _dbus_type_is_valid
 _dbus_type_reader_delete
-_dbus_type_reader_equal_values
 _dbus_type_reader_get_array_length
 _dbus_type_reader_get_current_type
 _dbus_type_reader_get_element_type
@@ -598,9 +542,6 @@ _dbus_type_writer_write_basic
 _dbus_type_writer_write_fixed_multi
 _dbus_type_writer_write_reader
 _dbus_type_writer_write_reader_partial
-_dbus_unix_groups_from_uid
-_dbus_unix_user_is_at_console
-_dbus_unix_user_is_process_owner
 _dbus_unpack_uint16
 _dbus_unpack_uint32
 _dbus_uuid_encode
@@ -616,8 +557,6 @@ _dbus_verbose_bytes
 _dbus_verbose_bytes_of_string
 _dbus_verbose_real
 _dbus_verbose_reset_real
-_dbus_verify_daemon_user
-_dbus_wait_for_memory
 _dbus_warn
 _dbus_warn_check_failed
 _dbus_watch_invalidate
@@ -638,8 +577,6 @@ _dbus_win_startup_winsock
 _dbus_win_utf16_to_utf8
 _dbus_win_utf8_to_utf16
 _dbus_win_warn_win_error
-_dbus_windows_user_is_process_owner
-_dbus_write_pid_to_file_and_pipe
 _dbus_write_socket
 _dbus_write_socket_two
 dbus_address_entries_free
@@ -728,19 +665,13 @@ dbus_error_is_set
 dbus_free
 dbus_free_string_array
 dbus_get_local_machine_id
-dbus_internal_do_not_use_foreach_message_file
-dbus_internal_do_not_use_generate_bodies
-dbus_internal_do_not_use_load_message_file
-dbus_internal_do_not_use_run_tests
-dbus_internal_do_not_use_try_message_data
-dbus_internal_do_not_use_try_message_file
 dbus_malloc
 dbus_malloc0
 dbus_message_allocate_data_slot
 dbus_message_append_args
 dbus_message_append_args_valist
-dbus_message_copy
 dbus_message_contains_unix_fds
+dbus_message_copy
 dbus_message_demarshal
 dbus_message_free_data_slot
 dbus_message_get_args
