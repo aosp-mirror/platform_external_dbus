@@ -320,8 +320,22 @@ rules are:
    No reviewer should approve a patch without these attributes, and
    failure on these points is grounds for reverting the patch.
 
-The reviewer group that can approve patches: Havoc Pennington, Michael
-Meeks, Alex Larsson, Zack Rusin, Joe Shaw, Mikael Hallendal, Richard
-Hult, Owen Fraser-Green, Olivier Andrieu, Colin Walters, Thiago
-Macieira, John Palmieri, Scott James Remnant.
+The reviewer group that can approve patches:
+
+Havoc Pennington <hp@pobox.net>
+Michael Meeks <michael.meeks@novell.com>
+Alexander Larsson  <alexl@redhat.com>
+Zack Rusin <zack@kde.org>
+Joe Shaw <joe@assbarn.com>
+Mikael Hallendal <micke@imendio.com>
+Richard Hult <richard@imendio.com>
+Owen Fraser-Green <owen@discobabe.net>
+Olivier Andrieu <oliv__a@users.sourceforge.net>
+Colin Walters <walters@verbum.org>
+Thiago Macieira <thiago@kde.org>
+John Palmieri <johnp@redhat.com>
+Scott James Remnant <scott@netsplit.com>
+Will Thompson <will.thompson@collabora.co.uk>
+Simon McVittie <simon.mcvittie@collabora.co.uk>
+
 
