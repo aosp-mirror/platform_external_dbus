@@ -411,7 +411,9 @@ main (int    argc,
       name = argv[1];
 #ifndef DBUS_WIN
       do_fork = strcmp (argv[2], "fork") == 0;
-#endif      
+#else
+      do_fork = FALSE;
+#endif
     }
 
   /* The bare minimum for simulating a program "daemonizing"; the intent
@@ -428,6 +430,7 @@ main (int    argc,
       sleep (1);
     }
 #endif
+
   dbus_error_init (&error);
   connection = dbus_bus_get (DBUS_BUS_STARTER, &error);
   if (connection == NULL)

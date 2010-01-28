@@ -444,6 +444,8 @@ process_config_every_time (BusContext      *context,
   /* get our limits and timeout lengths */
   bus_config_parser_get_limits (parser, &context->limits);
 
+  if (context->policy)
+    bus_policy_unref (context->policy);
   context->policy = bus_config_parser_steal_policy (parser);
   _dbus_assert (context->policy != NULL);
 
@@ -507,20 +509,23 @@ process_config_every_time (BusContext      *context,
       dbus_free(context->servicehelper);
       context->servicehelper = s;
     }
-  
+
   /* Create activation subsystem */
-  new_activation = bus_activation_new (context, &full_address,
-                                       dirs, error);
-  if (new_activation == NULL)
+  if (context->activation)
+    {
+      if (!bus_activation_reload (context->activation, &full_address, dirs, error))
+        goto failed;
+    }
+  else
+    {
+      context->activation = bus_activation_new (context, &full_address, dirs, error);
+    }
+
+  if (context->activation == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
     }
-
-  if (is_reload)
-    bus_activation_unref (context->activation);
-
-  context->activation = new_activation;
 
   /* Drop existing conf-dir watches (if applicable) */
 

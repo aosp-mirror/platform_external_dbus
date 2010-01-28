@@ -877,7 +877,7 @@ else
     AC_CHECK_LIB(audit, audit_log_user_avc_message, 
                  have_libaudit=yes, have_libaudit=no)
     if test x$have_libaudit = xyes ; then
-        AC_CHECK_LIB(cap, cap_set_proc, 
+        AC_CHECK_LIB(cap-ng, capng_clear,
                  have_libaudit=yes, have_libaudit=no)
     fi
 fi
@@ -885,8 +885,7 @@ fi
 AM_CONDITIONAL(HAVE_LIBAUDIT, test x$have_libaudit = xyes)
 
 if test x$have_libaudit = xyes ; then
-    SELINUX_LIBS="$SELINUX_LIBS -laudit"
-    LIBS="-lcap $LIBS"
+    SELINUX_LIBS="$SELINUX_LIBS -laudit -lcap-ng"
     AC_DEFINE(HAVE_LIBAUDIT,1,[audit daemon SELinux support])
 fi
 

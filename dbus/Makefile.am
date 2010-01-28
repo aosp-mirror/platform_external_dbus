@@ -247,6 +247,7 @@ noinst_LTLIBRARIES=libdbus-convenience.la
 libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 libdbus_1_la_LDFLAGS= $(export_symbols) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
 
+libdbus_convenience_la_LIBADD=$(DBUS_CLIENT_LIBS)
 libdbus_convenience_la_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 ## note that TESTS has special meaning (stuff to use in make check)
