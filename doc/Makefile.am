@@ -1,5 +1,7 @@
 EXTRA_DIST= 					\
 	busconfig.dtd				\
+	diagram.png				\
+	diagram.svg				\
 	introspect.dtd				\
 	dbus-faq.xml				\
 	dbus-specification.xml			\
