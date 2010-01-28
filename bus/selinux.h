@@ -68,5 +68,7 @@ BusSELinuxID* bus_selinux_init_connection_id (DBusConnection *connection,
 
 
 void bus_selinux_audit_init(void);
+dbus_bool_t _dbus_change_to_daemon_user (const char *user,
+                                         DBusError  *error);
 
 #endif /* BUS_SELINUX_H */
