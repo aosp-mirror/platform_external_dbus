@@ -34,6 +34,7 @@
 #include <errno.h>
 
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-list.h>
 #include <dbus/dbus-watch.h>
 #include "dir-watch.h"
 
@@ -43,6 +44,7 @@
 
 /* use a static array to avoid handling OOM */
 static int wds[MAX_DIRS_TO_WATCH];
+static char *dirs[MAX_DIRS_TO_WATCH];
 static int num_wds = 0;
 static int inotify_fd = -1;
 static DBusWatch *watch = NULL;
@@ -90,12 +92,10 @@ _handle_inotify_watch (DBusWatch *passed_watch, unsigned int flags, void *data)
   return TRUE;
 }
 
-void
-bus_watch_directory (const char *dir, BusContext *context)
+static int
+_init_inotify (BusContext *context)
 {
-  int wd;
-
-  _dbus_assert (dir != NULL);
+  int ret = 0;
 
   if (inotify_fd == -1) {
 #ifdef HAVE_INOTIFY_INIT1
@@ -112,59 +112,117 @@ bus_watch_directory (const char *dir, BusContext *context)
      watch = _dbus_watch_new (inotify_fd, DBUS_WATCH_READABLE, TRUE,
                               _handle_inotify_watch, NULL, NULL);
 
-	if (watch == NULL)
-          {
-            _dbus_warn ("Unable to create inotify watch\n");
-	    goto out;
-	  }
+     if (watch == NULL)
+       {
+         _dbus_warn ("Unable to create inotify watch\n");
+         goto out;
+       }
 
-	if (!_dbus_loop_add_watch (loop, watch, _inotify_watch_callback,
-                                   NULL, NULL))
-          {
-            _dbus_warn ("Unable to add reload watch to main loop");
-	    _dbus_watch_unref (watch);
-	    watch = NULL;
-            goto out;
-	  }
+     if (!_dbus_loop_add_watch (loop, watch, _inotify_watch_callback,
+                                NULL, NULL))
+       {
+         _dbus_warn ("Unable to add reload watch to main loop");
+	 _dbus_watch_unref (watch);
+	 watch = NULL;
+         goto out;
+       }
   }
 
-  if (num_wds >= MAX_DIRS_TO_WATCH )
-    {
-      _dbus_warn ("Cannot watch config directory '%s'. Already watching %d directories\n", dir, MAX_DIRS_TO_WATCH);
-      goto out;
-    }
+  ret = 1;
 
-  wd = inotify_add_watch (inotify_fd, dir, IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
-  if (wd < 0)
-    {
-      _dbus_warn ("Cannot setup inotify for '%s'; error '%s'\n", dir, _dbus_strerror (errno));
-      goto out;
-    }
-
-  wds[num_wds++] = wd;
-  _dbus_verbose ("Added watch on config directory '%s'\n", dir);
-
- out:
-  ;
+out:
+  return ret;
 }
 
-void 
-bus_drop_all_directory_watches (void)
+void
+bus_set_watched_dirs (BusContext *context, DBusList **directories)
 {
-  int ret;
+  int new_wds[MAX_DIRS_TO_WATCH];
+  char *new_dirs[MAX_DIRS_TO_WATCH];
+  DBusList *link;
+  int i, j, wd;
 
-  if (watch != NULL)
+  if (!_init_inotify (context))
+    goto out;
+
+  for (i = 0; i < MAX_DIRS_TO_WATCH; i++)
     {
-      _dbus_loop_remove_watch (loop, watch, _inotify_watch_callback, NULL);
-      _dbus_watch_unref (watch);
-      watch = NULL;
+      new_wds[i] = -1;
+      new_dirs[i] = NULL;
     }
 
-  _dbus_verbose ("Dropping all watches on config directories\n");
-  ret = close (inotify_fd);
-  if (ret)
-    _dbus_verbose ("Error dropping watches: '%s'\n",  _dbus_strerror(errno));
+  i = 0;
+  link = _dbus_list_get_first_link (directories);
+  while (link != NULL)
+    {
+      new_dirs[i++] = (char *)link->data;
+      link = _dbus_list_get_next_link (directories, link);
+    }
 
-  num_wds = 0;
-  inotify_fd = -1;
+  /* Look for directories in both the old and new sets, if
+   * we find one, move its data into the new set.
+   */
+  for (i = 0; new_dirs[i]; i++)
+    {
+      for (j = 0; j < num_wds; j++)
+        {
+          if (dirs[j] && strcmp (new_dirs[i], dirs[j]) == 0)
+            {
+              new_wds[i] = wds[j];
+              new_dirs[i] = dirs[j];
+              wds[j] = -1;
+              dirs[j] = NULL;
+              break;
+            }
+        }
+    }
+
+  /* Any directories we find in "wds" with a nonzero fd must
+   * not be in the new set, so perform cleanup now.
+   */
+  for (j = 0; j < num_wds; j++)
+    {
+      if (wds[j] != -1)
+        {
+          inotify_rm_watch (inotify_fd, wds[j]);
+          dbus_free (dirs[j]);
+          wds[j] = -1;
+          dirs[j] = NULL;
+        }
+    }
+
+  for (i = 0; new_dirs[i]; i++)
+    {
+      if (new_wds[i] == -1)
+        {
+          /* FIXME - less lame error handling for failing to add a watch; we may need to sleep. */
+          wd = inotify_add_watch (inotify_fd, new_dirs[i], IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
+          if (wd < 0)
+            {
+              _dbus_warn ("Cannot setup inotify for '%s'; error '%s'\n", new_dirs[i], _dbus_strerror (errno));
+              goto out;
+            }
+          new_wds[i] = wd;
+          new_dirs[i] = _dbus_strdup (new_dirs[i]);
+          if (!new_dirs[i])
+            {
+              /* FIXME have less lame handling for OOM, we just silently fail to
+               * watch.  (In reality though, the whole OOM handling in dbus is stupid
+               * but we won't go into that in this comment =) )
+               */
+              inotify_rm_watch (inotify_fd, wd);
+              new_wds[i] = -1;
+            }
+        }
+    }
+
+  num_wds = i;
+
+  for (i = 0; i < MAX_DIRS_TO_WATCH; i++)
+    {
+      wds[i] = new_wds[i];
+      dirs[i] = new_dirs[i];
+    }
+
+ out:;
 }

@@ -516,11 +516,6 @@ process_config_every_time (BusContext      *context,
       goto failed;
     }
 
-  /* Drop existing conf-dir watches (if applicable) */
-
-  if (is_reload)
-    bus_drop_all_directory_watches ();
-
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
 
@@ -551,11 +546,15 @@ process_config_postinit (BusContext      *context,
   _dbus_hash_table_unref (service_context_table);
 
   /* Watch all conf directories */
-  _dbus_list_foreach (bus_config_parser_get_conf_dirs (parser),
-		      (DBusForeachFunction) bus_watch_directory,
-		      context);
+  bus_set_watched_dirs (context, bus_config_parser_get_conf_dirs (parser));
 
   return TRUE;
+}
+
+static void
+bus_shutdown_all_directory_watches (void *data)
+{
+  bus_set_watched_dirs ((BusContext *) data, NULL);
 }
 
 BusContext*
@@ -588,7 +587,9 @@ bus_context_new (const DBusString *config_file,
   context->refcount = 1;
 
   _dbus_generate_uuid (&context->uuid);
-  
+
+  _dbus_register_shutdown_func (bus_shutdown_all_directory_watches, context);
+
   if (!_dbus_string_copy_data (config_file, &context->config_file))
     {
       BUS_SET_OOM (error);

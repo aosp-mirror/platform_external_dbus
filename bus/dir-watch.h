@@ -26,10 +26,15 @@
 #ifndef DIR_WATCH_H
 #define DIR_WATCH_H
 
-/* setup a watch on a directory (OS dependent, may be a NOP) */
-void bus_watch_directory (const char *directory, BusContext *context);
-
-/* drop all the watches previously set up by bus_config_watch_directory (OS dependent, may be a NOP) */
-void bus_drop_all_directory_watches (void);
+/**
+ * Update the set of directories to monitor for changes.  The
+ * operating-system-specific implementation of this function should
+ * avoid creating a window where a directory in both the
+ * old and new set isn't monitored.
+ *
+ * @param context The bus context
+ * @param dirs List of strings which are directory paths
+ */
+void bus_set_watched_dirs (BusContext *context, DBusList **dirs);
 
 #endif /* DIR_WATCH_H */
