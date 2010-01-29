@@ -22,7 +22,9 @@
  */
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-string.h>
+#ifndef DBUS_WIN
 #include <dbus/dbus-userdb.h>
+#endif
 #include "selinux.h"
 #include "services.h"
 #include "policy.h"
@@ -1017,6 +1019,7 @@ bus_selinux_shutdown (void)
 #endif /* HAVE_SELINUX */
 }
 
+#ifndef DBUS_WIN
 /**
  * Changes the user and group the bus is running as.
  *
@@ -1117,4 +1120,6 @@ _dbus_change_to_daemon_user  (const char    *user,
 
  return TRUE;
 }
+
+#endif
 
