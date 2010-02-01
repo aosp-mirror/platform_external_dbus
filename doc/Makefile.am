@@ -9,7 +9,8 @@ EXTRA_DIST= 					\
 	dbus-tutorial.xml			\
 	dcop-howto.txt				\
 	file-boilerplate.c			\
-	introspect.xsl
+	introspect.xsl				\
+	system-activation.txt
 
 HTML_FILES=					\
 	dbus-faq.html				\
@@ -20,7 +21,7 @@ HTML_FILES=					\
 if DBUS_XML_DOCS_ENABLED
 all-local: $(HTML_FILES)
 
-EXTRA_DIST += $(HTML_FILES) system-activation.txt
+EXTRA_DIST += $(HTML_FILES)
 
 dbus-specification.html: dbus-specification.xml
 	$(XMLTO) html-nochunks $<
