@@ -303,6 +303,68 @@ _dbus_verify_daemon_user (const char *user)
   return _dbus_get_user_id_and_primary_group (&u, NULL, NULL);
 }
 
+
+/* The HAVE_LIBAUDIT case lives in selinux.c */
+#ifndef HAVE_LIBAUDIT
+/**
+ * Changes the user and group the bus is running as.
+ *
+ * @param user the user to become
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_change_to_daemon_user  (const char    *user,
+                              DBusError     *error)
+{
+  dbus_uid_t uid;
+  dbus_gid_t gid;
+  DBusString u;
+
+  _dbus_string_init_const (&u, user);
+
+  if (!_dbus_get_user_id_and_primary_group (&u, &uid, &gid))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "User '%s' does not appear to exist?",
+                      user);
+      return FALSE;
+    }
+
+  /* setgroups() only works if we are a privileged process,
+   * so we don't return error on failure; the only possible
+   * failure is that we don't have perms to do it.
+   *
+   * not sure this is right, maybe if setuid()
+   * is going to work then setgroups() should also work.
+   */
+  if (setgroups (0, NULL) < 0)
+    _dbus_warn ("Failed to drop supplementary groups: %s\n",
+                _dbus_strerror (errno));
+
+  /* Set GID first, or the setuid may remove our permission
+   * to change the GID
+   */
+  if (setgid (gid) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to set GID to %lu: %s", gid,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if (setuid (uid) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to set UID to %lu: %s", uid,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  return TRUE;
+}
+#endif /* !HAVE_LIBAUDIT */
+
 void 
 _dbus_init_system_log (void)
 {

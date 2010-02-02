@@ -512,6 +512,9 @@ unsigned long _dbus_pid_for_log (void);
  */
 dbus_pid_t    _dbus_getpid (void);
 
+dbus_bool_t _dbus_change_to_daemon_user (const char *user,
+                                         DBusError  *error);
+
 void _dbus_flush_caches (void);
 
 /** @} */
