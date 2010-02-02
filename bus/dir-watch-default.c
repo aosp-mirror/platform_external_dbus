@@ -38,3 +38,7 @@ void
 bus_watch_directory (const char *dir, BusContext *context)
 {
 }
+
+void bus_set_watched_dirs(BusContext *context, DBusList **dirs)
+{
+}
