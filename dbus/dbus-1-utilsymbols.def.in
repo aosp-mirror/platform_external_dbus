@@ -46,4 +46,3 @@ _dbus_verify_daemon_user
 _dbus_wait_for_memory
 _dbus_windows_user_is_process_owner
 _dbus_write_pid_to_file_and_pipe
-dbus_connection_get_unix_fd
