@@ -1,5 +1,7 @@
 project(tools)
 
+set(DBUS_LIBRARIES dbus-1 dbus-internal)
+
 set (dbus_send_SOURCES
 	../../tools/dbus-print-message.c			
 	../../tools/dbus-print-message.h			
@@ -42,7 +44,7 @@ set (dbus_viewer_SOURCES
 )
 
 add_executable(dbus-send ${dbus_send_SOURCES})
-target_link_libraries(dbus-send ${DBUS_1})
+target_link_libraries(dbus-send ${DBUS_LIBRARIES})
 install_targets(/bin dbus-send )
 
 add_executable(dbus-launch ${dbus_launch_SOURCES})
@@ -53,7 +55,7 @@ endif (DBUS_BUILD_X11)
 install_targets(/bin dbus-launch )
 
 add_executable(dbus-monitor ${dbus_monitor_SOURCES})
-target_link_libraries(dbus-monitor ${DBUS_1})
+target_link_libraries(dbus-monitor ${DBUS_LIBRARIES})
 install_targets(/bin dbus-monitor )
 
 if(WIN32)

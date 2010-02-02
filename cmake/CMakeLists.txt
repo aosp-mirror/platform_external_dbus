@@ -499,24 +499,6 @@ add_definitions(-DHAVE_CONFIG_H=1)
 add_definitions(${DBUS_BUS_CFLAGS} -DDBUS_API_SUBJECT_TO_CHANGE)
 
 
-option(splitlib "split library into dbus-lib-client, dbus-lib-generic, and dbus-lib-util, no installing possible" OFF)
-if(splitlib AND MSVC)
-	# does not work with GCC/ld
-	set(DBUS_1 dbus-lib-client dbus-lib-generic dbus-lib-util)
-	message(STATUS "")
-	message(STATUS "dbus library is splitted into dbus-lib-client, dbus-lib-generic, and dbus-lib-util")
-	message(STATUS "installing is not possible")
-	message(STATUS "disable splitting: -Dsplitlib=0")
-	message(STATUS "")
-else(splitlib AND MSVC)
-	message(STATUS "")
-	message(STATUS "for better code reading the dbus library could be splitted into three libraries:")
-	message(STATUS "dbus-lib-client, dbus-lib-generic, and dbus-lib-util (installing is then not possible)")
-	message(STATUS "enable splitting: -Dsplitlib=1")
-	message(STATUS "")
-	set(DBUS_1 dbus-1)
-endif(splitlib AND MSVC)
-
 if (DBUS_BUILD_TESTS)
     # set variables used for the .in files (substituted by configure_file) in test/data:
     set(TEST_VALID_SERVICE_DIR ${CMAKE_BINARY_DIR}/test/data/valid-service-files)
