@@ -314,7 +314,7 @@ _dbus_read_uuid_file
 _dbus_real_assert
 _dbus_real_assert_not_reached
 _dbus_register_shutdown_func
-_dbus_return_if_fail_warning_format DATA
+_dbus_return_if_fail_warning_format
 _dbus_send_credentials_socket
 _dbus_server_add_timeout
 _dbus_server_add_watch
@@ -613,6 +613,7 @@ dbus_message_append_args
 dbus_message_append_args_valist
 dbus_message_copy
 dbus_message_demarshal
+dbus_message_demarshal_bytes_needed
 dbus_message_free_data_slot
 dbus_message_get_args
 dbus_message_get_args_valist
@@ -654,6 +655,7 @@ dbus_message_iter_init_append
 dbus_message_iter_next
 dbus_message_iter_open_container
 dbus_message_iter_recurse
+dbus_message_lock
 dbus_message_marshal
 dbus_message_new
 dbus_message_new_error
@@ -672,6 +674,7 @@ dbus_message_set_no_reply
 dbus_message_set_path
 dbus_message_set_reply_serial
 dbus_message_set_sender
+dbus_message_set_serial
 dbus_message_type_from_string
 dbus_message_type_to_string
 dbus_message_unref
