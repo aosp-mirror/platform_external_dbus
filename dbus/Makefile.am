@@ -23,6 +23,10 @@ SUFFIXES = rc
 dbus_res = versioninfo.o
 dbus_res_ldflag = -Wl,$(dbus_res)
 no_undefined = -no-undefined
+
+
+### FIXME use the .def.in files depending on the current config 
+### or combine them in a single .def file as done in the cmake build
 export_symbols = -export-symbols $(srcdir)/dbus-1.def
 
 install-def-file:
@@ -107,7 +111,6 @@ dbusinclude_HEADERS=				\
 	dbus-server.h				\
 	dbus-shared.h				\
 	dbus-signature.h			\
-	dbus-spawn.h				\
 	dbus-threads.h				\
 	dbus-types.h
 

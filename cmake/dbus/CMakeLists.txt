@@ -23,7 +23,6 @@ set (dbusinclude_HEADERS
 	${DBUS_DIR}/dbus-server.h
 	${DBUS_DIR}/dbus-shared.h
 	${DBUS_DIR}/dbus-signature.h
-	${DBUS_DIR}/dbus-spawn.h
 	${DBUS_DIR}/dbus-threads.h
 	${DBUS_DIR}/dbus-types.h
 	dbus-arch-deps.h
