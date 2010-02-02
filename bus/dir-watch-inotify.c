@@ -91,58 +91,15 @@ _handle_inotify_watch (DBusWatch *passed_watch, unsigned int flags, void *data)
   return TRUE;
 }
 
-static int
-_init_inotify (BusContext *context)
-{
-  int ret = 0;
+#include <stdio.h>
 
-  if (inotify_fd == -1) {
-#ifdef HAVE_INOTIFY_INIT1
-     inotify_fd = inotify_init1 (IN_CLOEXEC);
-#else
-     inotify_fd = inotify_init ();
-#endif
-     if (inotify_fd <= 0) {
-      _dbus_warn ("Cannot initialize inotify\n");
-      goto out;
-     } 
-     loop = bus_context_get_loop (context);
-
-     watch = _dbus_watch_new (inotify_fd, DBUS_WATCH_READABLE, TRUE,
-                              _handle_inotify_watch, NULL, NULL);
-
-     if (watch == NULL)
-       {
-         _dbus_warn ("Unable to create inotify watch\n");
-         goto out;
-       }
-
-     if (!_dbus_loop_add_watch (loop, watch, _inotify_watch_callback,
-                                NULL, NULL))
-       {
-         _dbus_warn ("Unable to add reload watch to main loop");
-	 _dbus_watch_unref (watch);
-	 watch = NULL;
-         goto out;
-       }
-  }
-
-  ret = 1;
-
-out:
-  return ret;
-}
-
-void
-bus_set_watched_dirs (BusContext *context, DBusList **directories)
+static void
+_set_watched_dirs_internal (DBusList **directories)
 {
   int new_wds[MAX_DIRS_TO_WATCH];
   char *new_dirs[MAX_DIRS_TO_WATCH];
   DBusList *link;
   int i, j, wd;
-
-  if (!_init_inotify (context))
-    goto out;
 
   for (i = 0; i < MAX_DIRS_TO_WATCH; i++)
     {
@@ -224,4 +181,83 @@ bus_set_watched_dirs (BusContext *context, DBusList **directories)
     }
 
  out:;
+}
+
+#include <stdio.h>
+static void
+_shutdown_inotify (void *data)
+{
+  DBusList *empty = NULL;
+
+  if (inotify_fd == -1)
+    return;
+
+  _set_watched_dirs_internal (&empty);
+
+  close (inotify_fd);
+  inotify_fd = -1;
+  if (watch != NULL)
+    {
+      _dbus_loop_remove_watch (loop, watch, _inotify_watch_callback, NULL);
+      _dbus_watch_unref (watch);
+      _dbus_loop_unref (loop);
+    }
+  watch = NULL;
+  loop = NULL;
+}
+
+static int
+_init_inotify (BusContext *context)
+{
+  int ret = 0;
+
+  if (inotify_fd == -1)
+    {
+#ifdef HAVE_INOTIFY_INIT1
+      inotify_fd = inotify_init1 (IN_CLOEXEC);
+#else
+      inotify_fd = inotify_init ();
+#endif
+      if (inotify_fd <= 0)
+        {
+          _dbus_warn ("Cannot initialize inotify\n");
+          goto out;
+        }
+      loop = bus_context_get_loop (context);
+      _dbus_loop_ref (loop);
+
+      watch = _dbus_watch_new (inotify_fd, DBUS_WATCH_READABLE, TRUE,
+                               _handle_inotify_watch, NULL, NULL);
+
+      if (watch == NULL)
+        {
+          _dbus_warn ("Unable to create inotify watch\n");
+          goto out;
+        }
+
+      if (!_dbus_loop_add_watch (loop, watch, _inotify_watch_callback,
+                                 NULL, NULL))
+        {
+          _dbus_warn ("Unable to add reload watch to main loop");
+          _dbus_watch_unref (watch);
+          watch = NULL;
+          goto out;
+        }
+
+      _dbus_register_shutdown_func (_shutdown_inotify, NULL);
+    }
+
+  ret = 1;
+
+out:
+  return ret;
+}
+
+void
+bus_set_watched_dirs (BusContext *context, DBusList **directories)
+{
+  if (!_init_inotify (context))
+    return;
+
+  _set_watched_dirs_internal (directories);
 }
