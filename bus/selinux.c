@@ -1019,7 +1019,8 @@ bus_selinux_shutdown (void)
 #endif /* HAVE_SELINUX */
 }
 
-#ifndef DBUS_WIN
+/* The !HAVE_LIBAUDIT case lives in dbus-sysdeps-util-unix.c */
+#ifdef HAVE_LIBAUDIT
 /**
  * Changes the user and group the bus is running as.
  *
@@ -1045,7 +1046,6 @@ _dbus_change_to_daemon_user  (const char    *user,
       return FALSE;
     }
 
-#ifdef HAVE_LIBAUDIT
   /* If we were root */
   if (_dbus_geteuid () == 0)
     {
@@ -1086,40 +1086,7 @@ _dbus_change_to_daemon_user  (const char    *user,
           return FALSE;
         }
     }
-#else
-  /* setgroups() only works if we are a privileged process,
-   * so we don't return error on failure; the only possible
-   * failure is that we don't have perms to do it.
-   *
-   * not sure this is right, maybe if setuid()
-   * is going to work then setgroups() should also work.
-   */
-  if (setgroups (0, NULL) < 0)
-    _dbus_warn ("Failed to drop supplementary groups: %s\n",
-                _dbus_strerror (errno));
-
-  /* Set GID first, or the setuid may remove our permission
-   * to change the GID
-   */
-  if (setgid (gid) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to set GID to %lu: %s", gid,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  if (setuid (uid) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to set UID to %lu: %s", uid,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-#endif /* !HAVE_LIBAUDIT */
 
  return TRUE;
 }
-
 #endif
-
