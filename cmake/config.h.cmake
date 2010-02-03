@@ -24,6 +24,8 @@
 #cmakedefine DBUS_VERSION ((@DBUS_MAJOR_VERSION@ << 16) | (@DBUS_MINOR_VERSION@ << 8) | (@DBUS_MICRO_VERSION@))
 #cmakedefine DBUS_VERSION_STRING "@DBUS_VERSION_STRING@"
 
+#define VERSION DBUS_VERSION_STRING
+
 // test binaries
 /* Full path to test file test/test-exit in builddir */
 #define TEST_BUS_BINARY          "@TEST_BUS_BINARY@"
