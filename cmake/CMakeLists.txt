@@ -45,8 +45,9 @@ find_package(LibXml2)
 find_package(LibExpat)
 find_package(X11)
 
-
-OPTION(DBUS_ENABLE_ABSTRACT_SOCKETS "enable support for abstract sockets" ON)
+if(NOT WIN32)
+	OPTION(DBUS_ENABLE_ABSTRACT_SOCKETS "enable support for abstract sockets" ON)
+endif(NOT WIN32)
 
 if (MINGW)
     set (DBUS_VA_COPY_AS_ARRAY 1)
@@ -238,8 +239,10 @@ if(DBUS_USE_OUTPUT_DEBUG_STRING)
     add_definitions(-DDBUS_USE_OUTPUT_DEBUG_STRING)
 endif(DBUS_USE_OUTPUT_DEBUG_STRING)
 
-# win32 dbus service support - this support is not complete
-OPTION(DBUS_SERVICE "enable dbus service installer" OFF)
+if(WIN32)
+	# win32 dbus service support - this support is not complete
+	OPTION(DBUS_SERVICE "enable dbus service installer" OFF)
+endif(WIN32)
 
 #AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
 OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)
@@ -260,19 +263,19 @@ OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
 #AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
 OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 
-#AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
-OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
-if(DBUS_GCOV_ENABLED)
-   if(NOT MSVC)
-        add_definitions(-fprofile-arcs -ftest-coverage)
-        # FIXME!!!!
-        ## remove optimization
-#        CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
-   endif(NOT MSVC)
-endif(DBUS_GCOV_ENABLED)
+if(NOT MSVC)
+    #AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
+    OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
+    if(DBUS_GCOV_ENABLED)
+            add_definitions(-fprofile-arcs -ftest-coverage)
+            # FIXME!!!!
+            ## remove optimization
+    #        CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
+    endif(DBUS_GCOV_ENABLED)
+endif(NOT MSVC)
 
 #AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
-#abstract sockets missing
+# -> moved before include(ConfigureChecks.cmake)
 
 #AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
 #selinux missing
