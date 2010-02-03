@@ -183,7 +183,6 @@ _dbus_header_set_field_basic
 _dbus_header_set_serial
 _dbus_header_toggle_flag
 _dbus_header_update_lengths
-_dbus_is_verbose_real
 _dbus_keyring_get_best_key
 _dbus_keyring_get_hex_key
 _dbus_keyring_is_for_credentials
@@ -500,8 +499,6 @@ _dbus_validate_signature
 _dbus_validate_signature_with_reason
 _dbus_verbose_bytes
 _dbus_verbose_bytes_of_string
-_dbus_verbose_real
-_dbus_verbose_reset_real
 _dbus_warn
 _dbus_warn_check_failed
 _dbus_watch_invalidate
