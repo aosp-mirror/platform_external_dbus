@@ -104,20 +104,6 @@ if (DBUS_SERVICE)
     endif(WIN32)
 endif (DBUS_SERVICE)
 
-## note that TESTS has special meaning (stuff to use in make check)
-## so if adding tests not to be run in make check, don't add them to 
-## TESTS
-#if DBUS_BUILD_TESTS
-#TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
-#TESTS=bus-test 
-#else
-#TESTS=
-#endif
-
-## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
-## even when not doing "make check"
-#noinst_PROGRAMS=$(TESTS) 
-
 if (DBUS_BUILD_TESTS)	
 	add_executable(bus-test ${BUS_SOURCES} ${BUS_DIR}/test-main.c)
 	target_link_libraries(bus-test ${DBUS_LIBRARIES} ${XML_LIBRARY})

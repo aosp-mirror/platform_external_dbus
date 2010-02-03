@@ -1,40 +1,8 @@
 project(test)
 
-#if HAVE_GLIB
-#    GLIB_SUBDIR=glib
-#endif
-#if HAVE_PYTHON
-#    PYTHON_SUBDIR=python
-#endif
-#if HAVE_QTESTLIB
-#    QT_SUBDIR=qt
-#endif
-
 set(DBUS_LIBRARIES dbus-1 dbus-internal)
 
 add_subdirectory( name-test )
-
-#SUBDIRS=name-test $(GLIB_SUBDIR) $(PYTHON_SUBDIR) $(QT_SUBDIR)
-#DIST_SUBDIRS=glib python qt name-test
-
-#INCLUDES=-I$(top_srcdir) $(DBUS_test-CFLAGS) 
-
-#if (DBUS_BUILD_TESTS)
-## break-loader removed for now
-#test-BINARIES=test-service test-names test-shell-service shell-test spawn-test test-segfault test-exit test-sleep-forever
-
-#enable stand alone make check test
-#TESTS=shell-test
-#else
-#test-BINARIES=
-#TESTS=
-#endif
-
-#if DBUS_GCOV_ENABLED
-#GCOV_BINARIES=decode-gcov
-#else
-#GCOV_BINARIES=
-#endif
 
 set (test-service_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-service.c				
@@ -110,8 +78,6 @@ target_link_libraries(test-sleep-forever ${DBUS_LIBRARIES})
 #add_executable(decode-gcov ${decode_gcov_SOURCES})
 #target_link_libraries(decode-gcov ${DBUS_LIBRARIES})
 
-#EXTRA_DIST=
-#
 ### keep these in creation order, i.e. uppermost dirs first 
 set (TESTDIRS
 	test/data					

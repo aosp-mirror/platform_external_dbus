@@ -1,7 +1,5 @@
 project(dbus-lib)
 
-#INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
-
 SET(DBUS_DIR ${CMAKE_SOURCE_DIR}/../dbus)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-arch-deps.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/dbus-arch-deps.h )
@@ -164,7 +162,7 @@ set (DBUS_UTIL_SOURCES
 	${DBUS_DIR}/dbus-message-util.c
 	${DBUS_DIR}/dbus-shell.c
 	${DBUS_DIR}/dbus-string-util.c
-        ${DBUS_DIR}/dbus-sysdeps-util.c
+	${DBUS_DIR}/dbus-sysdeps-util.c
 )
 
 if (DBUS_BUILD_TESTS)
@@ -298,26 +296,11 @@ add_library(dbus-internal STATIC
 			${DBUS_UTIL_HEADERS})
 target_link_libraries(dbus-internal dbus-1)
 
-#ADD_EXECUTABLE(dbus-example dbus-example.c)
-#target_link_libraries(${CMAKE_SOURCE_DIR}/../dbus/dbus-example dbus-1)
-#install_targets(/bin dbus-example )
-
-## note that TESTS has special meaning (stuff to use in make check)
-## so if adding tests not to be run in make check, don't add them to 
-## TESTS
-#if DBUS_BUILD_TESTS
-#TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
-#TESTS=dbus-test
-#else
-#TESTS=
-#endif
-
 if (DBUS_BUILD_TESTS)
 	set (TESTS_ENVIRONMENT "DBUS_TEST_DATA=${CMAKE_SOURCE_DIR}/test/data DBUS_TEST_HOMEDIR=${CMAKE_BUILD_DIR}/dbus")
 	ADD_EXECUTABLE(dbus-test ${CMAKE_SOURCE_DIR}/../dbus/dbus-test-main.c)
 	target_link_libraries(dbus-test dbus-1 dbus-internal)
 	add_test(dbus-test ${EXECUTABLE_OUTPUT_PATH}/dbus-test ${CMAKE_SOURCE_DIR}/../test/data)
-	#install_targets(/bin dbus-test)
 ENDIF (DBUS_BUILD_TESTS)
 
 if (UNIX)
