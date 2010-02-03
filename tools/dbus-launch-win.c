@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include <config.h>
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -90,12 +91,9 @@ int main(int argc,char **argv)
       showConsole = 1; 
 #endif
   GetModuleFileName(NULL,dbusDaemonPath,sizeof(dbusDaemonPath));
-
-#ifdef _DEBUG
-      daemon_name = "dbus-daemond.exe";
-#else
-      daemon_name = "dbus-daemon.exe";
-#endif
+  
+  daemon_name = DBUS_DAEMON_NAME ".exe";
+  
   if ((p = _mbsrchr (dbusDaemonPath, '\\'))) 
     {
       *(p+1)= '\0';
@@ -134,7 +132,7 @@ int main(int argc,char **argv)
   if (result == 0) 
     {
       if (verbose)
-          fprintf(stderr, "Could not start dbus-daemon error=%d",GetLastError());
+          fprintf(stderr, "Could not start " DBUS_DAEMON_NAME ". error=%d",GetLastError());
       return 4;
     }
    

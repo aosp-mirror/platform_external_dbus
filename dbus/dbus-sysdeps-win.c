@@ -2944,11 +2944,7 @@ _dbus_get_autolaunch_address (DBusString *address,
   LPSTR lpFile;
   char dbus_exe_path[MAX_PATH];
   char dbus_args[MAX_PATH * 2];
-#ifdef _DEBUG
-  const char * daemon_name = "dbus-daemond.exe";
-#else
-  const char * daemon_name = "dbus-daemon.exe";
-#endif
+  const char * daemon_name = DBUS_DAEMON_NAME ".exe";
 
   mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 

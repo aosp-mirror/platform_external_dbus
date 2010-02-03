@@ -25,6 +25,8 @@ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE",[The name of the gettext d
  ## must come before we use the $USE_MAINTAINER_MODE variable later
 AM_MAINTAINER_MODE
 
+AC_DEFINE_UNQUOTED(DBUS_DAEMON_NAME,"dbus-daemon",[Name of executable])
+
 # libtool versioning - this applies to libdbus
 #
 # See http://sources.redhat.com/autobook/autobook/autobook_91.html#SEC91 for details

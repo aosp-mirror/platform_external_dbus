@@ -3,7 +3,7 @@ configdir=$(sysconfdir)/dbus-1
 
 INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS) @PIE_CFLAGS@		\
 	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"	\
-	-DDAEMON_NAME=\"dbus-daemon\"  -DDBUS_COMPILATION
+	-DDBUS_COMPILATION
 
 EFENCE=
 

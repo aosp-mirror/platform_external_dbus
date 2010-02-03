@@ -81,6 +81,7 @@ set(DBUS_LIBRARIES dbus-1 dbus-internal)
 
 add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_DIR}/main.c)
 target_link_libraries(dbus-daemon ${DBUS_LIBRARIES} ${XML_LIBRARY})
+set_target_properties(dbus-daemon PROPERTIES OUTPUT_NAME ${DBUS_DAEMON_NAME})
 
 install_targets(/bin dbus-daemon)
 install_files(/etc FILES ${config_DATA})

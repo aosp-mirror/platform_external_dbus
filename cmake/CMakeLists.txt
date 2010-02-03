@@ -467,9 +467,7 @@ else (WIN32)
   set (DBUS_DATADIR ${EXPANDED_DATADIR})
 endif (WIN32)
 
-set (DAEMON_NAME dbus-daemon)
-add_definitions( -DDBUS_DAEMON_EXECUTABLE_NAME=\\"dbus-daemon\\" )
-
+set(DBUS_DAEMON_NAME dbus-daemon CACHE STRING "The name of the dbus daemon executable")
 
 ########### create config.h ###############
 
@@ -557,6 +555,7 @@ message("        Building Doxygen docs:    ${DBUS_ENABLE_DOXYGEN_DOCS}         "
 #message("        Building XML docs:        ${enable_xml_docs}                  ")
 #message("        Gettext libs (empty OK):  ${INTLLIBS}                         ")
 message("        Using XML parser:         ${XML_LIB}                          ")
+message("        Daemon executable name:   ${DBUS_DAEMON_NAME}")
 if (WIN32)
 message("        System bus address:       ${DBUS_SYSTEM_BUS_DEFAULT_ADDRESS}  ")
 message("        Session bus address:      ${DBUS_SESSION_BUS_DEFAULT_ADDRESS} ")
