@@ -71,48 +71,44 @@ if(VCS)
 	set(DBUS_VERBOSE_C_S 1)
 endif(VCS)
 
-if(MSVC)
-	# controll folders in msvc projects
-	include(ProjectSourceGroup)
-	if(NOT GROUP_CODE)
-		#set(GROUP_CODE split) #cmake default
-		set(GROUP_CODE flat)
-	endif(NOT GROUP_CODE)
-	ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
-
-
-	# Use the highest warning level
-	if (WALL)
-		set(WALL 1 CACHE TYPE STRING FORCE)
-		set(CMAKE_CXX_WARNING_LEVEL 4 CACHE TYPE STRING FORCE)
-
-		if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-			STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-		else(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-			SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-		endif(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-
-		if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-			STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-		else(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-			SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
-		endif(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-	else (WALL)
-		set(CMAKE_CXX_WARNING_LEVEL 3 CACHE TYPE STRING FORCE)
-	endif (WALL)
-
-	SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114")
-	SET(MSVC_W_DISABLE " /wd4127 /wd4090 /wd4101 /wd4244")
-
-	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
-	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
-
-   # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
-   #set (CMAKE_EXE_POSTFIX "d")
-
-endif(MSVC)
 if(WIN32)
-  set (CMAKE_DEBUG_POSTFIX "d")
+	set(CMAKE_DEBUG_POSTFIX "d")
+	if(MSVC)
+		# controll folders in msvc projects
+		include(ProjectSourceGroup)
+		if(NOT GROUP_CODE)
+			#set(GROUP_CODE split) #cmake default
+			set(GROUP_CODE flat)
+		endif(NOT GROUP_CODE)
+		ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
+
+
+		# Use the highest warning level
+		if (WALL)
+			set(WALL 1 CACHE TYPE STRING FORCE)
+			set(CMAKE_CXX_WARNING_LEVEL 4 CACHE TYPE STRING FORCE)
+
+			if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+				STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+			else(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+				SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+			endif(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+
+			if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
+				STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+			else(CMAKE_C_FLAGS MATCHES "/W[0-4]")
+				SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
+			endif(CMAKE_C_FLAGS MATCHES "/W[0-4]")
+		else (WALL)
+			set(CMAKE_CXX_WARNING_LEVEL 3 CACHE TYPE STRING FORCE)
+		endif (WALL)
+
+		SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114")
+		SET(MSVC_W_DISABLE " /wd4127 /wd4090 /wd4101 /wd4244")
+
+		SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
+		SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
+	endif(MSVC)
 endif(WIN32)
 
 SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}  -D_DEBUG")
@@ -472,6 +468,8 @@ else (WIN32)
 endif (WIN32)
 
 set (DAEMON_NAME dbus-daemon)
+add_definitions( -DDBUS_DAEMON_EXECUTABLE_NAME=\\"dbus-daemon\\" )
+
 
 ########### create config.h ###############
 
