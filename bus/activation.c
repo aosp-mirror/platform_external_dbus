@@ -25,6 +25,7 @@
 #include "activation.h"
 #include "activation-exit-codes.h"
 #include "desktop-file.h"
+#include "dispatch.h"
 #include "services.h"
 #include "test.h"
 #include "utils.h"
@@ -1132,21 +1133,12 @@ bus_activation_send_pending_auto_activation_messages (BusActivation  *activation
           
           addressed_recipient = bus_service_get_primary_owners_connection (service);
 
-          /* Check the security policy, which has the side-effect of adding an
-           * expected pending reply.
-           */
-          if (!bus_context_check_security_policy (activation->context, transaction,
-                                                  entry->connection,
-                                                  addressed_recipient,
-                                                  addressed_recipient,
-                                                  entry->activation_message, error))
+          /* Resume dispatching where we left off in bus_dispatch() */
+          if (!bus_dispatch_matches (transaction,
+                                     entry->connection,
+                                     addressed_recipient,
+                                     entry->activation_message, error))
             goto error;
-
-          if (!bus_transaction_send (transaction, addressed_recipient, entry->activation_message))
-            {
-              BUS_SET_OOM (error);
-              goto error;
-            }
         }
 
       link = next;
