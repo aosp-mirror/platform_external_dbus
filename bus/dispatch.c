@@ -101,10 +101,39 @@ bus_dispatch_matches (BusTransaction *transaction,
   _dbus_assert (sender == NULL || bus_connection_is_active (sender));
   _dbus_assert (dbus_message_get_sender (message) != NULL);
 
-  connections = bus_transaction_get_connections (transaction);
-  
-  dbus_error_init (&tmp_error);
   context = bus_transaction_get_context (transaction);
+
+  /* First, send the message to the addressed_recipient, if there is one. */
+  if (addressed_recipient != NULL)
+    {
+      if (!bus_context_check_security_policy (context, transaction,
+                                              sender, addressed_recipient,
+                                              addressed_recipient,
+                                              message, error))
+        return FALSE;
+
+      if (dbus_message_contains_unix_fds (message) &&
+          !dbus_connection_can_send_type (addressed_recipient,
+                                          DBUS_TYPE_UNIX_FD))
+        {
+          dbus_set_error (error,
+                          DBUS_ERROR_NOT_SUPPORTED,
+                          "Tried to send message with Unix file descriptors"
+                          "to a client that doesn't support that.");
+          return FALSE;
+      }
+
+      /* Dispatch the message */
+      if (!bus_transaction_send (transaction, addressed_recipient, message))
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+    }
+
+  /* Now dispatch to others who look interested in this message */
+  connections = bus_transaction_get_connections (transaction);
+  dbus_error_init (&tmp_error);
   matchmaker = bus_context_get_matchmaker (context);
 
   recipients = NULL;
@@ -304,34 +333,12 @@ bus_dispatch (DBusConnection *connection,
         {
           addressed_recipient = bus_service_get_primary_owners_connection (service);
           _dbus_assert (addressed_recipient != NULL);
-          
-          if (!bus_context_check_security_policy (context, transaction,
-                                                  connection, addressed_recipient,
-                                                  addressed_recipient,
-                                                  message, &error))
-            goto out;
-
-          if (dbus_message_contains_unix_fds(message) &&
-              !dbus_connection_can_send_type(addressed_recipient, DBUS_TYPE_UNIX_FD))
-            {
-              dbus_set_error(&error,
-                             DBUS_ERROR_NOT_SUPPORTED,
-                             "Tried to send message with Unix file descriptors"
-                             "to a client that doesn't support that.");
-              goto out;
-          }
-          
-          /* Dispatch the message */
-          if (!bus_transaction_send (transaction, addressed_recipient, message))
-            {
-              BUS_SET_OOM (&error);
-              goto out;
-            }
         }
     }
 
-  /* Now match the messages against any match rules, which will send
-   * out signals and such. addressed_recipient may == NULL.
+  /* Now send the message to its destination (or not, if
+   * addressed_recipient == NULL), and match it against other connections'
+   * match rules.
    */
   if (!bus_dispatch_matches (transaction, connection, addressed_recipient, message, &error))
     goto out;
