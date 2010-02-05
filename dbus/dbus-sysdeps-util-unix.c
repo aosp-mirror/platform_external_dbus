@@ -1020,7 +1020,7 @@ _dbus_string_get_dirname  (const DBusString *filename,
 static void
 string_squash_nonprintable (DBusString *str)
 {
-  char *buf;
+  unsigned char *buf;
   int i, len; 
   
   buf = _dbus_string_get_data (str);
