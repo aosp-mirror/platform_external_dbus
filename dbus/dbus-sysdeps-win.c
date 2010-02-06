@@ -3187,7 +3187,7 @@ _dbus_get_install_root(char *prefix, int len)
     //folder's name happens to end with the *bytes*
     //"\\bin"... (I.e. the second byte of some Han character and then
     //the Latin "bin", but that is not likely I think...
-    if (lastSlash - prefix >= 4 && strncmp(lastSlash - 4, "\\bin", 4) == 0)
+    if (lastSlash - prefix >= 4 && strnicmp(lastSlash - 4, "\\bin", 4) == 0)
         lastSlash[-3] = 0;
     else if (lastSlash - prefix >= 10 && strnicmp(lastSlash - 10, "\\bin\\debug", 10) == 0)
         lastSlash[-9] = 0;
