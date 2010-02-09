@@ -2,7 +2,7 @@
 #
 # messagebus:   The D-BUS systemwide message bus
 #
-# chkconfig: 345 97 03
+# chkconfig: 345 22 85
 # description:  This is a daemon which broadcasts notifications of system events \
 #               and other messages. See http://www.freedesktop.org/software/dbus/
 #

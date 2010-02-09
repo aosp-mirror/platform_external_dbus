@@ -276,31 +276,12 @@ _dbus_close_socket (int        fd,
 void
 _dbus_fd_set_close_on_exec (int handle)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *s;
-  if (handle < 0)
-    return;
-
-  _dbus_lock_sockets();
-
-  _dbus_handle_to_socket_unlocked (handle, &s);
-  s->close_on_exec = TRUE;
-
-  _dbus_unlock_sockets();
-#else
-  /* TODO unic code.
-  int val;
-  
-  val = fcntl (fd, F_GETFD, 0);
-  
-  if (val < 0)
-    return;
-
-  val |= FD_CLOEXEC;
-  
-  fcntl (fd, F_SETFD, val);
-  */
-#endif
+  if ( !SetHandleInformation( (HANDLE) handle,
+                        HANDLE_FLAG_INHERIT | HANDLE_FLAG_PROTECT_FROM_CLOSE,
+                        0 /*disable both flags*/ ) )
+    {
+      _dbus_win_warn_win_error ("Disabling socket handle inheritance failed:", GetLastError());
+    }
 }
 
 /**
@@ -2616,11 +2597,7 @@ _dbus_get_autolaunch_address (DBusString *address,
   LPSTR lpFile;
   char dbus_exe_path[MAX_PATH];
   char dbus_args[MAX_PATH * 2];
-#ifdef _DEBUG
-  const char * daemon_name = "dbus-daemond.exe";
-#else
-  const char * daemon_name = "dbus-daemon.exe";
-#endif
+  const char * daemon_name = DBUS_DAEMON_NAME ".exe";
 
   mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 
@@ -2859,8 +2836,13 @@ _dbus_get_install_root(char *prefix, int len)
     //folder's name happens to end with the *bytes*
     //"\\bin"... (I.e. the second byte of some Han character and then
     //the Latin "bin", but that is not likely I think...
-    if (lastSlash - prefix > 3 && strncmp(lastSlash - 4, "\\bin", 4) == 0)
+    if (lastSlash - prefix >= 4 && strnicmp(lastSlash - 4, "\\bin", 4) == 0)
         lastSlash[-3] = 0;
+    else if (lastSlash - prefix >= 10 && strnicmp(lastSlash - 10, "\\bin\\debug", 10) == 0)
+        lastSlash[-9] = 0;
+    else if (lastSlash - prefix >= 12 && strnicmp(lastSlash - 12, "\\bin\\release", 12) == 0)
+        lastSlash[-11] = 0;
+
     return TRUE;
 }
 

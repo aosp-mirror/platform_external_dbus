@@ -49,6 +49,9 @@ _DBUS_DEFINE_GLOBAL_LOCK (system_users);
 
 #ifdef DBUS_WIN
   #include <stdlib.h>
+#elif (defined __APPLE__)
+# include <crt_externs.h>
+# define environ (*_NSGetEnviron())
 #else
 extern char **environ;
 #endif

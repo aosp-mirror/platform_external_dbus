@@ -25,6 +25,8 @@ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE",[The name of the gettext d
  ## must come before we use the $USE_MAINTAINER_MODE variable later
 AM_MAINTAINER_MODE
 
+AC_DEFINE_UNQUOTED(DBUS_DAEMON_NAME,"dbus-daemon",[Name of executable])
+
 # libtool versioning - this applies to libdbus
 #
 # See http://sources.redhat.com/autobook/autobook/autobook_91.html#SEC91 for details
@@ -64,6 +66,7 @@ AC_ISC_POSIX
 AC_HEADER_STDC
 AC_C_INLINE
 AM_PROG_LIBTOOL
+AC_PROG_MKDIR_P
 
 # Set some internal variables depending on the platform for later use.
 dbus_win=no
@@ -876,7 +879,7 @@ else
     AC_CHECK_LIB(audit, audit_log_user_avc_message, 
                  have_libaudit=yes, have_libaudit=no)
     if test x$have_libaudit = xyes ; then
-        AC_CHECK_LIB(cap, cap_set_proc, 
+        AC_CHECK_LIB(cap-ng, capng_clear,
                  have_libaudit=yes, have_libaudit=no)
     fi
 fi
@@ -884,8 +887,7 @@ fi
 AM_CONDITIONAL(HAVE_LIBAUDIT, test x$have_libaudit = xyes)
 
 if test x$have_libaudit = xyes ; then
-    SELINUX_LIBS="$SELINUX_LIBS -laudit"
-    LIBS="-lcap $LIBS"
+    SELINUX_LIBS="$SELINUX_LIBS -laudit -lcap-ng"
     AC_DEFINE(HAVE_LIBAUDIT,1,[audit daemon SELinux support])
 fi
 
@@ -1402,9 +1404,18 @@ AC_DEFINE_UNQUOTED(DBUS_LIBEXECDIR,"$DBUS_LIBEXECDIR", [Directory for installing
 #### Tell tests where to find certain stuff in builddir
 
 DBUS_PWD=`pwd`
+# Useful in a cross-compilation environment, where the tests are run on the host system.
+AC_ARG_WITH(dbus-test-dir, AS_HELP_STRING([--with-dbus-test-dir=[dirname]],[path where the tests tools are available]),
+			   DBUS_PWD=$withval)
 AC_DEFUN([TEST_PATH], [
 TEST_$1=${DBUS_PWD}/test/$2
 AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1",
+                   [Full path to test file test/$2 in builddir])
+AC_SUBST(TEST_$1)
+])
+AC_DEFUN([TEST_PROG], [
+TEST_$1=${DBUS_PWD}/test/$2
+AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1$EXEEXT",
                    [Full path to test file test/$2 in builddir])
 AC_SUBST(TEST_$1)
 ])
@@ -1413,19 +1424,19 @@ TEST_PATH(VALID_SERVICE_DIR, data/valid-service-files)
 TEST_PATH(INVALID_SERVICE_DIR, data/invalid-service-files)
 TEST_PATH(VALID_SERVICE_SYSTEM_DIR, data/valid-service-files-system)
 TEST_PATH(INVALID_SERVICE_SYSTEM_DIR, data/invalid-service-files-system)
-TEST_PATH(SERVICE_BINARY, test-service)
-TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
-TEST_PATH(EXIT_BINARY, test-exit)
-TEST_PATH(SEGFAULT_BINARY, test-segfault)
-TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
-TEST_PATH(PRIVSERVER_BINARY, name-test/test-privserver)
+TEST_PROG(SERVICE_BINARY, test-service)
+TEST_PROG(SHELL_SERVICE_BINARY, test-shell-service)
+TEST_PROG(EXIT_BINARY, test-exit)
+TEST_PROG(SEGFAULT_BINARY, test-segfault)
+TEST_PROG(SLEEP_FOREVER_BINARY, test-sleep-forever)
+TEST_PROG(PRIVSERVER_BINARY, name-test/test-privserver)
 
-AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon",
+AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon$EXEEXT",
                    [Full path to the daemon in the builddir])
 AC_SUBST(TEST_BUS_BINARY)
 
 ## Export the non-setuid external helper
-TEST_LAUNCH_HELPER_BINARY="$DBUS_PWD/bus/dbus-daemon-launch-helper-test"
+TEST_LAUNCH_HELPER_BINARY="$DBUS_PWD/bus/dbus-daemon-launch-helper-test$EXEEXT"
 AC_SUBST(TEST_LAUNCH_HELPER_BINARY)
 AC_DEFINE_UNQUOTED(DBUS_TEST_LAUNCH_HELPER_BINARY, "$TEST_LAUNCH_HELPER_BINARY",
                    [Full path to the launch helper test program in the builddir])

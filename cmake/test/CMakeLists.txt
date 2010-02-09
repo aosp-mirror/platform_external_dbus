@@ -1,38 +1,8 @@
 project(test)
 
-#if HAVE_GLIB
-#    GLIB_SUBDIR=glib
-#endif
-#if HAVE_PYTHON
-#    PYTHON_SUBDIR=python
-#endif
-#if HAVE_QTESTLIB
-#    QT_SUBDIR=qt
-#endif
+set(DBUS_LIBRARIES dbus-1 dbus-internal)
 
 add_subdirectory( name-test )
-
-#SUBDIRS=name-test $(GLIB_SUBDIR) $(PYTHON_SUBDIR) $(QT_SUBDIR)
-#DIST_SUBDIRS=glib python qt name-test
-
-#INCLUDES=-I$(top_srcdir) $(DBUS_test-CFLAGS) 
-
-#if (DBUS_BUILD_TESTS)
-## break-loader removed for now
-#test-BINARIES=test-service test-names test-shell-service shell-test spawn-test test-segfault test-exit test-sleep-forever
-
-#enable stand alone make check test
-#TESTS=shell-test
-#else
-#test-BINARIES=
-#TESTS=
-#endif
-
-#if DBUS_GCOV_ENABLED
-#GCOV_BINARIES=decode-gcov
-#else
-#GCOV_BINARIES=
-#endif
 
 set (test-service_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-service.c				
@@ -81,35 +51,33 @@ set (decode_gcov_SOURCES
 )
 
 add_executable(test-service ${test-service_SOURCES})
-target_link_libraries(test-service ${DBUS_1})
+target_link_libraries(test-service ${DBUS_LIBRARIES})
 
 add_executable(test-names ${test-names_SOURCES})
-target_link_libraries(test-names ${DBUS_1})
+target_link_libraries(test-names ${DBUS_LIBRARIES})
 
 add_executable(shell-test ${shell-test_SOURCES})
-target_link_libraries(shell-test ${DBUS_1})
+target_link_libraries(shell-test ${DBUS_LIBRARIES})
 ADD_TEST(shell-test ${EXECUTABLE_OUTPUT_PATH}/shell-test${EXT})
 
 add_executable(test-shell-service ${test-shell-service_SOURCES})
-target_link_libraries(test-shell-service ${DBUS_1})
+target_link_libraries(test-shell-service ${DBUS_LIBRARIES})
 
 add_executable(spawn-test ${spawn-test_SOURCES})
-target_link_libraries(spawn-test ${DBUS_1})
+target_link_libraries(spawn-test ${DBUS_LIBRARIES})
 
 add_executable(test-exit ${test-exit_SOURCES})
-target_link_libraries(test-exit ${DBUS_1})
+target_link_libraries(test-exit ${DBUS_LIBRARIES})
 
 add_executable(test-segfault ${test-segfault_SOURCES})
-target_link_libraries(test-segfault ${DBUS_1})
+target_link_libraries(test-segfault ${DBUS_LIBRARIES})
 
 add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
-target_link_libraries(test-sleep-forever ${DBUS_1})
+target_link_libraries(test-sleep-forever ${DBUS_LIBRARIES})
 
 #add_executable(decode-gcov ${decode_gcov_SOURCES})
-#target_link_libraries(decode-gcov ${DBUS_1})
+#target_link_libraries(decode-gcov ${DBUS_LIBRARIES})
 
-#EXTRA_DIST=
-#
 ### keep these in creation order, i.e. uppermost dirs first 
 set (TESTDIRS
 	test/data					

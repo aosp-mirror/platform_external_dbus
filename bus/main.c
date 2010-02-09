@@ -74,7 +74,7 @@ signal_handler (int sig)
 static void
 usage (void)
 {
-  fprintf (stderr, DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect]\n");
+  fprintf (stderr, DBUS_DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect]\n");
   exit (1);
 }
 
@@ -298,7 +298,6 @@ main (int argc, char **argv)
         }
       else if (strcmp (arg, "--session") == 0)
         {
-          is_session_bus = TRUE;
           check_two_config_files (&config_file, "session");
 
           if (!_dbus_append_session_config_file (&config_file))
@@ -454,6 +453,9 @@ main (int argc, char **argv)
       dbus_error_free (&error);
       exit (1);
     }
+
+  is_session_bus = bus_context_get_type(context) != NULL
+      && strcmp(bus_context_get_type(context),"session") == 0;
 
   if (is_session_bus)
     _dbus_daemon_publish_session_bus_address (bus_context_get_address (context));

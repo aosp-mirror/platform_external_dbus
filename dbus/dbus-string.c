@@ -2311,7 +2311,6 @@ _dbus_string_equal (const DBusString *a,
   return TRUE;
 }
 
-#ifdef DBUS_BUILD_TESTS
 /**
  * Tests two DBusString for equality up to the given length.
  * The strings may be shorter than the given length.
@@ -2356,7 +2355,6 @@ _dbus_string_equal_len (const DBusString *a,
 
   return TRUE;
 }
-#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Tests two sub-parts of two DBusString for equality.  The specified

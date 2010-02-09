@@ -3,7 +3,7 @@ configdir=$(sysconfdir)/dbus-1
 
 INCLUDES=-I$(top_srcdir) $(DBUS_BUS_CFLAGS) @PIE_CFLAGS@		\
 	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"	\
-	-DDAEMON_NAME=\"dbus-daemon\"  -DDBUS_COMPILATION
+	-DDBUS_COMPILATION
 
 EFENCE=
 
@@ -103,8 +103,8 @@ dbus_daemon_launch_helper_SOURCES=		\
 	$(LAUNCH_HELPER_SOURCES)
 
 dbus_daemon_launch_helper_LDADD=		\
-	$(DBUS_LAUNCHER_LIBS)			\
-	$(top_builddir)/dbus/libdbus-convenience.la
+	$(top_builddir)/dbus/libdbus-convenience.la \
+	$(DBUS_LAUNCHER_LIBS)
 
 dbus_daemon_launch_helper_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
 
@@ -115,8 +115,8 @@ dbus_daemon_launch_helper_test_SOURCES=		\
 	$(LAUNCH_HELPER_SOURCES)
 
 dbus_daemon_launch_helper_test_LDADD=		\
-	$(DBUS_LAUNCHER_LIBS)			\
-	$(top_builddir)/dbus/libdbus-convenience.la
+	$(top_builddir)/dbus/libdbus-convenience.la \
+	$(DBUS_LAUNCHER_LIBS)
 
 dbus_daemon_launch_helper_test_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
 dbus_daemon_launch_helper_test_CPPFLAGS=	\
@@ -129,8 +129,8 @@ bus_test_launch_helper_SOURCES=		\
 	$(LAUNCH_HELPER_SOURCES)
 
 bus_test_launch_helper_LDADD=		\
-	$(DBUS_LAUNCHER_LIBS)			\
-	$(top_builddir)/dbus/libdbus-convenience.la
+	$(top_builddir)/dbus/libdbus-convenience.la \
+	$(DBUS_LAUNCHER_LIBS)
 
 bus_test_launch_helper_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
 bus_test_launch_helper_CPPFLAGS=	\

@@ -45,16 +45,9 @@ find_package(LibXml2)
 find_package(LibExpat)
 find_package(X11)
 
-
-OPTION(DBUS_ENABLE_ABSTRACT_SOCKETS "enable support for abstract sockets" ON)
-
-if (MINGW)
-    set (DBUS_VA_COPY_AS_ARRAY 1)
-endif (MINGW)
-if (MSVC)
-    set (DBUS_HAVE_VA_COPY 1)
-    set (DBUS_VA_COPY_AS_ARRAY 0)
-endif (MSVC)
+if(NOT WIN32)
+	OPTION(DBUS_ENABLE_ABSTRACT_SOCKETS "enable support for abstract sockets" ON)
+endif(NOT WIN32)
 
 # do config checks
 INCLUDE(ConfigureChecks.cmake)
@@ -70,48 +63,44 @@ if(VCS)
 	set(DBUS_VERBOSE_C_S 1)
 endif(VCS)
 
-if(MSVC)
-	# controll folders in msvc projects
-	include(ProjectSourceGroup)
-	if(NOT GROUP_CODE)
-		#set(GROUP_CODE split) #cmake default
-		set(GROUP_CODE flat)
-	endif(NOT GROUP_CODE)
-	ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
-
-
-	# Use the highest warning level
-	if (WALL)
-		set(WALL 1 CACHE TYPE STRING FORCE)
-		set(CMAKE_CXX_WARNING_LEVEL 4 CACHE TYPE STRING FORCE)
-
-		if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-			STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-		else(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-			SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-		endif(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-
-		if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-			STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-		else(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-			SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
-		endif(CMAKE_C_FLAGS MATCHES "/W[0-4]")
-	else (WALL)
-		set(CMAKE_CXX_WARNING_LEVEL 3 CACHE TYPE STRING FORCE)
-	endif (WALL)
-
-	SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114")
-	SET(MSVC_W_DISABLE " /wd4127 /wd4090 /wd4101 /wd4244")
-
-	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
-	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
-
-   # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
-   #set (CMAKE_EXE_POSTFIX "d")
-
-endif(MSVC)
 if(WIN32)
-  set (CMAKE_DEBUG_POSTFIX "d")
+	set(CMAKE_DEBUG_POSTFIX "d")
+	if(MSVC)
+		# controll folders in msvc projects
+		include(ProjectSourceGroup)
+		if(NOT GROUP_CODE)
+			#set(GROUP_CODE split) #cmake default
+			set(GROUP_CODE flat)
+		endif(NOT GROUP_CODE)
+		ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
+
+
+		# Use the highest warning level
+		if (WALL)
+			set(WALL 1 CACHE TYPE STRING FORCE)
+			set(CMAKE_CXX_WARNING_LEVEL 4 CACHE TYPE STRING FORCE)
+
+			if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+				STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+			else(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+				SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
+			endif(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
+
+			if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
+				STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+			else(CMAKE_C_FLAGS MATCHES "/W[0-4]")
+				SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4")
+			endif(CMAKE_C_FLAGS MATCHES "/W[0-4]")
+		else (WALL)
+			set(CMAKE_CXX_WARNING_LEVEL 3 CACHE TYPE STRING FORCE)
+		endif (WALL)
+
+		SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114")
+		SET(MSVC_W_DISABLE " /wd4127 /wd4090 /wd4101 /wd4244")
+
+		SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
+		SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
+	endif(MSVC)
 endif(WIN32)
 
 SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}  -D_DEBUG")
@@ -200,39 +189,28 @@ ENABLE_TESTING()
 ########### basic vars ###############
 
 if (DBUSDIR)
-	set(DBUS_INSTALL_DIR "${DBUSDIR}" CACHE TYPE STRING)
-else (DBUSDIR)
-	set(DBUS_INSTALL_DIR "$ENV{DBUSDIR}" CACHE TYPE STRING)
+	set(DBUS_INSTALL_DIR "${DBUSDIR}")
 endif (DBUSDIR)
+if ($ENV{DBUSDIR})
+	set(DBUS_INSTALL_DIR "$ENV{DBUSDIR}")
+endif ($ENV{DBUSDIR})
 
-if (NOT DBUS_INSTALL_DIR)
-	set(DBUS_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}" CACHE TYPE STRING)
-endif (NOT DBUS_INSTALL_DIR)
+if (DBUS_INSTALL_DIR)
+	set(CMAKE_INSTALL_PREFIX "${DBUS_INSTALL_DIR}" CACHE TYPE PATH FORCE)
+else (DBUS_INSTALL_DIR)
+	set(DBUS_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}")
+endif (DBUS_INSTALL_DIR)
 
-# TODO: setting EXPANDED_... has nothing to do with DBUS_INSTALL_SYSTEM_LIBS
-if (DBUS_INSTALL_SYSTEM_LIBS)
-	set(prefix                   ${DBUS_INSTALL_DIR})
-	set(exec_prefix              ${prefix})
-	set(EXPANDED_LIBDIR          ${DBUS_INSTALL_DIR}/lib)
-	set(EXPANDED_INCLUDEDIR      ${DBUS_INSTALL_DIR}/include)
-	set(EXPANDED_BINDIR          ${DBUS_INSTALL_DIR}/bin)
-	set(EXPANDED_SYSCONFDIR      ${DBUS_INSTALL_DIR}/etc)
-	set(EXPANDED_DATADIR         ${DBUS_INSTALL_DIR}/data)
-	set(DBUS_BINDIR              ${EXPANDED_BINDIR})
-	set(DBUS_MACHINE_UUID_FILE   ${DBUS_INSTALL_DIR}/lib/dbus/machine-id)
-else (DBUS_INSTALL_SYSTEM_LIBS)
-	set(EXPANDED_INCLUDEDIR      ${CMAKE_SOURCE_DIR}/include)
-	set(EXPANDED_DATADIR         ${CMAKE_BINARY_DIR}/test/data)
-	if (MSVC_IDE)
-		set(EXPANDED_BINDIR      ${CMAKE_BINARY_DIR}/bin/debug)
-	else (MSVC_IDE)
-		set(EXPANDED_BINDIR      ${CMAKE_BINARY_DIR}/bin)
-	endif (MSVC_IDE)
-	set(DBUS_BINDIR              ${EXPANDED_BINDIR})
-	set(DBUS_MACHINE_UUID_FILE   ${CMAKE_BINARY_DIR}/lib/dbus/machine-id)
-endif (DBUS_INSTALL_SYSTEM_LIBS)
-
-set (DBUS_DAEMONDIR ${EXPANDED_BINDIR})
+set(prefix                   ${DBUS_INSTALL_DIR})
+set(exec_prefix              ${prefix})
+set(EXPANDED_LIBDIR          ${DBUS_INSTALL_DIR}/lib)
+set(EXPANDED_INCLUDEDIR      ${DBUS_INSTALL_DIR}/include)
+set(EXPANDED_BINDIR          ${DBUS_INSTALL_DIR}/bin)
+set(EXPANDED_SYSCONFDIR      ${DBUS_INSTALL_DIR}/etc)
+set(EXPANDED_DATADIR         ${DBUS_INSTALL_DIR}/data)
+set(DBUS_MACHINE_UUID_FILE   ${DBUS_INSTALL_DIR}/lib/dbus/machine-id)
+set(DBUS_BINDIR              ${EXPANDED_BINDIR})
+set(DBUS_DAEMONDIR 			 ${EXPANDED_BINDIR})
 
 ########### command line options ###############
 # TODO: take check from configure.in
@@ -249,8 +227,10 @@ if(DBUS_USE_OUTPUT_DEBUG_STRING)
     add_definitions(-DDBUS_USE_OUTPUT_DEBUG_STRING)
 endif(DBUS_USE_OUTPUT_DEBUG_STRING)
 
-# win32 dbus service support - this support is not complete
-OPTION(DBUS_SERVICE "enable dbus service installer" OFF)
+if(WIN32)
+	# win32 dbus service support - this support is not complete
+	OPTION(DBUS_SERVICE "enable dbus service installer" OFF)
+endif(WIN32)
 
 #AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
 OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)
@@ -271,19 +251,19 @@ OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
 #AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
 OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 
-#AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
-OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
-if(DBUS_GCOV_ENABLED)
-   if(NOT MSVC)
-        add_definitions(-fprofile-arcs -ftest-coverage)
-        # FIXME!!!!
-        ## remove optimization
-#        CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
-   endif(NOT MSVC)
-endif(DBUS_GCOV_ENABLED)
+if(NOT MSVC)
+    #AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
+    OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
+    if(DBUS_GCOV_ENABLED)
+            add_definitions(-fprofile-arcs -ftest-coverage)
+            # FIXME!!!!
+            ## remove optimization
+    #        CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
+    endif(DBUS_GCOV_ENABLED)
+endif(NOT MSVC)
 
 #AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
-#abstract sockets missing
+# -> moved before include(ConfigureChecks.cmake)
 
 #AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
 #selinux missing
@@ -479,7 +459,7 @@ else (WIN32)
   set (DBUS_DATADIR ${EXPANDED_DATADIR})
 endif (WIN32)
 
-set (DAEMON_NAME dbus-daemon)
+set(DBUS_DAEMON_NAME dbus-daemon CACHE STRING "The name of the dbus daemon executable")
 
 ########### create config.h ###############
 
@@ -498,24 +478,6 @@ install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)
 add_definitions(-DHAVE_CONFIG_H=1)
 add_definitions(${DBUS_BUS_CFLAGS} -DDBUS_API_SUBJECT_TO_CHANGE)
 
-
-option(splitlib "split library into dbus-lib-client, dbus-lib-generic, and dbus-lib-util, no installing possible" OFF)
-if(splitlib AND MSVC)
-	# does not work with GCC/ld
-	set(DBUS_1 dbus-lib-client dbus-lib-generic dbus-lib-util)
-	message(STATUS "")
-	message(STATUS "dbus library is splitted into dbus-lib-client, dbus-lib-generic, and dbus-lib-util")
-	message(STATUS "installing is not possible")
-	message(STATUS "disable splitting: -Dsplitlib=0")
-	message(STATUS "")
-else(splitlib AND MSVC)
-	message(STATUS "")
-	message(STATUS "for better code reading the dbus library could be splitted into three libraries:")
-	message(STATUS "dbus-lib-client, dbus-lib-generic, and dbus-lib-util (installing is then not possible)")
-	message(STATUS "enable splitting: -Dsplitlib=1")
-	message(STATUS "")
-	set(DBUS_1 dbus-1)
-endif(splitlib AND MSVC)
 
 if (DBUS_BUILD_TESTS)
     # set variables used for the .in files (substituted by configure_file) in test/data:
@@ -548,14 +510,15 @@ GET_FILENAME_COMPONENT(CXX_COMPILER ${CMAKE_CXX_COMPILER} NAME)
 message("                  D-BUS ${DBUS_VERSION}                               ")
 message("                  ===========                                         ")
 message("                                                                      ")
-message("        prefix:                   ${prefix}                           ")
-message("        exec_prefix:              ${exec_prefix}                      ")
-message("        libdir:                   ${EXPANDED_LIBDIR}                  ")
-message("        bindir:                   ${EXPANDED_BINDIR}                  ")
-message("        sysconfdir:               ${EXPANDED_SYSCONFDIR}              ")
-message("        localstatedir:            ${EXPANDED_LOCALSTATEDIR}           ")
-message("        datadir:                  ${EXPANDED_DATADIR}                 ")
+message("        install prefix:           ${prefix}                           ")
+message("        install exec_prefix:      ${exec_prefix}                      ")
+message("        install libdir:           ${EXPANDED_LIBDIR}                  ")
+message("        install bindir:           ${EXPANDED_BINDIR}                  ")
+message("        install sysconfdir:       ${EXPANDED_SYSCONFDIR}              ")
+#message("        install localstatedir:    ${EXPANDED_LOCALSTATEDIR}           ")
+message("        install datadir:          ${EXPANDED_DATADIR}                 ")
 message("        source code location:     ${DBUS_SOURCE_DIR}                  ")
+message("        build dir:                ${CMAKE_BINARY_DIR}                 ")
 message("        c compiler:               ${C_COMPILER}                       ")
 message("        cflags:                   ${CMAKE_C_FLAGS}                    ")
 message("        cflags debug:             ${CMAKE_C_FLAGS_DEBUG}              ")
@@ -584,6 +547,7 @@ message("        Building Doxygen docs:    ${DBUS_ENABLE_DOXYGEN_DOCS}         "
 #message("        Building XML docs:        ${enable_xml_docs}                  ")
 #message("        Gettext libs (empty OK):  ${INTLLIBS}                         ")
 message("        Using XML parser:         ${XML_LIB}                          ")
+message("        Daemon executable name:   ${DBUS_DAEMON_NAME}")
 if (WIN32)
 message("        System bus address:       ${DBUS_SYSTEM_BUS_DEFAULT_ADDRESS}  ")
 message("        Session bus address:      ${DBUS_SESSION_BUS_DEFAULT_ADDRESS} ")

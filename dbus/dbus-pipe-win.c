@@ -28,6 +28,7 @@
 #include "dbus-pipe.h"
 
 #include <io.h>
+#include <errno.h>
 
 /**
  * write data to a pipe.

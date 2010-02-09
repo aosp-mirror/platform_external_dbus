@@ -226,7 +226,8 @@ static DBusString process_homedir;
 static void
 shutdown_system_db (void *data)
 {
-  _dbus_user_database_unref (system_db);
+  if (system_db != NULL)
+    _dbus_user_database_unref (system_db);
   system_db = NULL;
   _dbus_string_free (&process_username);
   _dbus_string_free (&process_homedir);
@@ -345,7 +346,8 @@ _dbus_user_database_flush_system (void)
 {
   _dbus_user_database_lock_system ();
    
-  _dbus_user_database_flush (system_db);
+   if (system_db != NULL)
+    _dbus_user_database_flush (system_db);
 
   _dbus_user_database_unlock_system ();
 }
