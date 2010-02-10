@@ -92,11 +92,10 @@ DOCBOOK(${CMAKE_SOURCE_DIR}/../doc/dbus-test-plan.xml html-nochunks)
 DOCBOOK(${CMAKE_SOURCE_DIR}/../doc/dbus-tutorial.xml html-nochunks)
 DOCBOOK(${CMAKE_SOURCE_DIR}/../doc/dbus-specification.xml html-nochunks)
 DOCBOOK(${CMAKE_SOURCE_DIR}/../doc/dbus-faq.xml html-nochunks)
-# optional: we do not like to have troff installed on windows too and therefore need files converted from troff to docbook by doclifter
-DOCBOOK(${CMAKE_SOURCE_DIR}/../bus/dbus-daemon.xml html-nochunks)
-DOCBOOK(${CMAKE_SOURCE_DIR}/../tools/dbus-monitor.xml html-nochunks)
-DOCBOOK(${CMAKE_SOURCE_DIR}/../tools/dbus-send.xml html-nochunks)
-DOCBOOK(${CMAKE_SOURCE_DIR}/../tools/dbus-launch.xml html-nochunks)
+DOCBOOK(${CMAKE_SOURCE_DIR}/bus/dbus-daemon.xml html-nochunks)
+DOCBOOK(${CMAKE_SOURCE_DIR}/tools/dbus-monitor.xml html-nochunks)
+DOCBOOK(${CMAKE_SOURCE_DIR}/tools/dbus-send.xml html-nochunks)
+DOCBOOK(${CMAKE_SOURCE_DIR}/tools/dbus-launch.xml html-nochunks)
 
 #
 # handle html index file
