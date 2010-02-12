@@ -531,7 +531,7 @@ message("        64-bit int:               ${DBUS_INT64_TYPE}                  "
 message("        32-bit int:               ${DBUS_INT32_TYPE}                  ")
 message("        16-bit int:               ${DBUS_INT16_TYPE}                  ")
 message("        Doxygen:                  ${DOXYGEN}                          ")
-message("        xmlto:                    ${XMLTO}                            ")
+message("        Docbook Generator:        ${DOCBOOK_GENERATOR_NAME}           ")
 
 
 #message("        Maintainer mode:          ${USE_MAINTAINER_MODE}              ")
@@ -544,7 +544,7 @@ message("        installing system libs:   ${DBUS_INSTALL_SYSTEM_LIBS}         "
 #message("        Building SELinux support: ${have_selinux}                     ")
 #message("        Building dnotify support: ${have_dnotify}                     ")
 message("        Building Doxygen docs:    ${DBUS_ENABLE_DOXYGEN_DOCS}         ")
-#message("        Building XML docs:        ${enable_xml_docs}                  ")
+message("        Building XML docs:        ${DBUS_ENABLE_XML_DOCS}             ")
 #message("        Gettext libs (empty OK):  ${INTLLIBS}                         ")
 message("        Using XML parser:         ${XML_LIB}                          ")
 message("        Daemon executable name:   ${DBUS_DAEMON_NAME}")
