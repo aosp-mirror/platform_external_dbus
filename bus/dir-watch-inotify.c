@@ -156,8 +156,18 @@ _set_watched_dirs_internal (DBusList **directories)
           wd = inotify_add_watch (inotify_fd, new_dirs[i], IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM);
           if (wd < 0)
             {
-              _dbus_warn ("Cannot setup inotify for '%s'; error '%s'\n", new_dirs[i], _dbus_strerror (errno));
-              goto out;
+              /* Not all service directories need to exist. */
+              if (errno != ENOENT)
+                {
+                  _dbus_warn ("Cannot setup inotify for '%s'; error '%s'\n", new_dirs[i], _dbus_strerror (errno));
+                  goto out;
+                }
+              else
+                {
+                  new_wds[i] = -1;
+                  new_dirs[i] = NULL;
+                  continue;
+                }
             }
           new_wds[i] = wd;
           new_dirs[i] = _dbus_strdup (new_dirs[i]);
