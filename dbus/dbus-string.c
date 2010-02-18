@@ -26,8 +26,6 @@
 #include "dbus-string.h"
 /* we allow a system header here, for speed/convenience */
 #include <string.h>
-#include <ctype.h>
-
 /* for vsnprintf */
 #include <stdio.h>
 #define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
@@ -2744,41 +2742,6 @@ _dbus_string_validate_ascii (const DBusString *str,
       if (_DBUS_UNLIKELY (!_DBUS_ISASCII (*s)))
         return FALSE;
         
-      ++s;
-    }
-  
-  return TRUE;
-}
-
-/**
- * converts the given range of the string to lower case 
- *
- * @param str the string
- * @param start first byte index to convert
- * @param len number of bytes to convert
- * @returns #TRUE if the byte range exists
- */
-dbus_bool_t
-_dbus_string_to_lower (const DBusString *str,
-                       int               start,
-                       int               len)
-{
-  unsigned char *s;
-  unsigned char *end;
-  DBUS_CONST_STRING_PREAMBLE (str);
-  _dbus_assert (start >= 0);
-  _dbus_assert (start <= real->len);
-  _dbus_assert (len >= 0);
-  
-  if (len > real->len - start)
-    return FALSE;
-  
-  s = real->str + start;
-  end = s + len;
-  while (s != end)
-    {
-      if (isupper(*s))
-        *s = tolower(*s);
       ++s;
     }
   

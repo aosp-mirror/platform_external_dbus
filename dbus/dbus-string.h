@@ -43,11 +43,7 @@ typedef struct DBusString DBusString;
 
 struct DBusString
 {
-#ifdef _DEBUG
-  char *dummy1; /**< placeholder */
-#else
   const void *dummy1; /**< placeholder */
-#endif
   int   dummy2;       /**< placeholder */
   int   dummy3;       /**< placeholder */
   int   dummy4;       /**< placeholder */
@@ -288,9 +284,6 @@ dbus_bool_t   _dbus_string_hex_decode            (const DBusString  *source,
 						  int               *end_return,
                                                   DBusString        *dest,
                                                   int                insert_at);
-dbus_bool_t   _dbus_string_to_lower              (const DBusString *str,
-                                                  int               start,
-                                                  int               len);
 dbus_bool_t   _dbus_string_validate_ascii        (const DBusString  *str,
                                                   int                start,
                                                   int                len);
