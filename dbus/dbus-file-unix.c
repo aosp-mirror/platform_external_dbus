@@ -23,7 +23,23 @@
  */
 
 #include <config.h>
+
+#include "dbus-protocol.h"
+#include "dbus-errors.h"
 #include "dbus-file.h"
+#include "dbus-internals.h"
+#include "dbus-sysdeps.h"
+#include "dbus-sysdeps-unix.h"
+
+#include <sys/stat.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 /**
  * Appends the contents of the given file to the string,
