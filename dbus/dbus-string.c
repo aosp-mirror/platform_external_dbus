@@ -1799,7 +1799,18 @@ _dbus_string_split_on_byte (DBusString        *source,
     }
 
 /**
- * Check whether a unicode char is in a valid range.
+ * Check whether a Unicode (5.2) char is in a valid range.
+ *
+ * The first check comes from the Unicode guarantee to never encode
+ * a point above 0x0010ffff, since UTF-16 couldn't represent it.
+ *
+ * The second check covers surrogate pairs (category Cs).
+ *
+ * The last two checks cover "Noncharacter": defined as:
+ *   "A code point that is permanently reserved for
+ *    internal use, and that should never be interchanged. In
+ *    Unicode 3.1, these consist of the values U+nFFFE and U+nFFFF
+ *    (where n is from 0 to 10_16) and the values U+FDD0..U+FDEF."
  *
  * @param Char the character
  */
@@ -1807,7 +1818,7 @@ _dbus_string_split_on_byte (DBusString        *source,
     ((Char) < 0x110000 &&                     \
      (((Char) & 0xFFFFF800) != 0xD800) &&     \
      ((Char) < 0xFDD0 || (Char) > 0xFDEF) &&  \
-     ((Char) & 0xFFFF) != 0xFFFF)
+     ((Char) & 0xFFFE) != 0xFFFE)
 
 #ifdef DBUS_BUILD_TESTS
 /**
