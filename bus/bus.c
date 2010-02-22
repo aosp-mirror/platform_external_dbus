@@ -540,11 +540,39 @@ process_config_every_time (BusContext      *context,
 }
 
 static dbus_bool_t
+list_concat_new (DBusList **a,
+                 DBusList **b,
+                 DBusList **result)
+{
+  DBusList *link;
+
+  *result = NULL;
+
+  link = _dbus_list_get_first_link (a);
+  for (link = _dbus_list_get_first_link (a); link; link = _dbus_list_get_next_link (a, link))
+    {
+      if (!_dbus_list_append (result, link->data))
+        goto oom;
+    }
+  for (link = _dbus_list_get_first_link (b); link; link = _dbus_list_get_next_link (b, link))
+    {
+      if (!_dbus_list_append (result, link->data))
+        goto oom;
+    }
+
+  return TRUE;
+oom:
+  _dbus_list_clear (result);
+  return FALSE;
+}
+
+static dbus_bool_t
 process_config_postinit (BusContext      *context,
 			 BusConfigParser *parser,
 			 DBusError       *error)
 {
   DBusHashTable *service_context_table;
+  DBusList *watched_dirs = NULL;
 
   service_context_table = bus_config_parser_steal_service_context_table (parser);
   if (!bus_registry_set_service_context_table (context->registry,
@@ -556,8 +584,20 @@ process_config_postinit (BusContext      *context,
 
   _dbus_hash_table_unref (service_context_table);
 
-  /* Watch all conf directories */
-  bus_set_watched_dirs (context, bus_config_parser_get_conf_dirs (parser));
+  /* We need to monitor both the configuration directories and directories
+   * containing .service files.
+   */
+  if (!list_concat_new (bus_config_parser_get_conf_dirs (parser),
+                        bus_config_parser_get_service_dirs (parser),
+                        &watched_dirs))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  bus_set_watched_dirs (context, &watched_dirs);
+
+  _dbus_list_clear (&watched_dirs);
 
   return TRUE;
 }
