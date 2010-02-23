@@ -96,7 +96,6 @@ _dbus_credentials_new_from_current_process
 _dbus_credentials_ref
 _dbus_credentials_same_user
 _dbus_credentials_unref
-_dbus_current_generation DATA
 _dbus_daemon_publish_session_bus_address
 _dbus_daemon_unpublish_session_bus_address
 _dbus_data_slot_allocator_alloc
@@ -217,21 +216,6 @@ _dbus_list_remove_last
 _dbus_list_remove_link
 _dbus_list_unlink
 _dbus_listen_tcp_socket
-_dbus_lock_atomic DATA
-_dbus_lock_bus DATA
-_dbus_lock_bus_datas DATA
-_dbus_lock_connection_slots DATA
-_dbus_lock_list DATA
-_dbus_lock_machine_uuid DATA
-_dbus_lock_message_cache DATA
-_dbus_lock_message_slots DATA
-_dbus_lock_pending_call_slots DATA
-_dbus_lock_server_slots DATA
-_dbus_lock_shared_connections DATA
-_dbus_lock_shutdown_funcs DATA
-_dbus_lock_sid_atom_cache DATA
-_dbus_lock_system_users DATA
-_dbus_lock_win_fds DATA
 _dbus_make_file_world_readable
 _dbus_marshal_byteswap
 _dbus_marshal_read_basic
@@ -268,7 +252,7 @@ _dbus_mutex_lock
 _dbus_mutex_new
 _dbus_mutex_new_at_location
 _dbus_mutex_unlock
-_dbus_no_memory_message
+_dbus_no_memory_message DATA
 _dbus_object_tree_dispatch_and_unlock
 _dbus_object_tree_free_all_unlocked
 _dbus_object_tree_get_user_data_unlocked
@@ -313,7 +297,7 @@ _dbus_read_uuid_file
 _dbus_real_assert
 _dbus_real_assert_not_reached
 _dbus_register_shutdown_func
-_dbus_return_if_fail_warning_format
+_dbus_return_if_fail_warning_format DATA
 _dbus_send_credentials_socket
 _dbus_server_add_timeout
 _dbus_server_add_watch
