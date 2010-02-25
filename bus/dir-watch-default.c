@@ -38,7 +38,3 @@ void
 bus_set_watched_dirs (BusContext *context, DBusList **directories)
 {
 }
-
-void bus_set_watched_dirs(BusContext *context, DBusList **dirs)
-{
-}
