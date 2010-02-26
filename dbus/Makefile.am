@@ -15,7 +15,18 @@ lib_LTLIBRARIES=libdbus-1.la
 # Deal with W32 .def and version-info.rc stuff
 #
 if DBUS_WIN
-SUFFIXES = rc
+
+built_sources_sys = dbus-1.def dbus-convenience.def
+
+# Note that -P suppresses line markers.
+PREPROCESS = $(CPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) -P
+dbus-1.def: $(srcdir)/dbus-1.def.pre
+	$(PREPROCESS) - < $< > $@
+
+dbus-convenience.def: $(srcdir)/dbus-convenience.def.pre
+	$(PREPROCESS) - < $< > $@
+
+SUFFIXES = rc pre
 
 .rc.o:
 	$(WINDRES) $< -o $@
@@ -27,7 +38,8 @@ no_undefined = -no-undefined
 
 ### FIXME use the .def.in files depending on the current config 
 ### or combine them in a single .def file as done in the cmake build
-export_symbols = -export-symbols $(srcdir)/dbus-1.def
+export_symbols = -export-symbols dbus-1.def
+export_symbols_convenience = -export-symbols dbus-convenience.def
 
 install-def-file:
 	test -z "$(libdir)" || $(MKDIR_P) "$(DESTDIR)$(libdir)"
@@ -40,12 +52,14 @@ libdbus_1_la_DEPENDENCIES = $(dbus_res) dbus-1.def
 intllibs =
 
 else
+built_sources_sys =
 dbus_res =
 dbus_res_ldflag =
 no_undefined =
 ## don't export symbols that start with "_" (we use this
 ## convention for internal symbols)
 export_symbols = -export-symbols-regex "^[^_].*"
+export_symbols_convenience =
 install-def-file:
 uninstall-def-file:
 
@@ -244,8 +258,9 @@ libdbus_convenience_la_SOURCES=			\
 	$(DBUS_UTIL_SOURCES)
 
 
-BUILT_SOURCES=$(dbusarchinclude_HEADERS)
-EXTRA_DIST=dbus-arch-deps.h.in dbus-1.def
+BUILT_SOURCES=$(dbusarchinclude_HEADERS) $(built_sources_sys)
+EXTRA_DIST=dbus-arch-deps.h.in
+
 
 ## this library is the same as libdbus, but exports all the symbols
 ## and is only used for static linking within the dbus package.
@@ -255,7 +270,7 @@ libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 libdbus_1_la_LDFLAGS= $(export_symbols) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
 
 libdbus_convenience_la_LIBADD=$(DBUS_CLIENT_LIBS)
-libdbus_convenience_la_LDFLAGS=@R_DYNAMIC_LDFLAG@
+libdbus_convenience_la_LDFLAGS=$(export_symbols_convenience) @R_DYNAMIC_LDFLAG@
 
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
