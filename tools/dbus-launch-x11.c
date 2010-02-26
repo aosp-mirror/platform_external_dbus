@@ -459,5 +459,7 @@ x11_handle_event (void)
 }  
 
 #else
+void dummy_dbus_launch_x11 (void);
+
 void dummy_dbus_launch_x11 (void) { }
 #endif
