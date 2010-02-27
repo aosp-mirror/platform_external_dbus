@@ -43,7 +43,11 @@ typedef struct DBusString DBusString;
 
 struct DBusString
 {
+#if defined(DBUS_WIN) && defined(_DEBUG)
+  const char *dummy1; /**< placeholder */
+#else
   const void *dummy1; /**< placeholder */
+#endif
   int   dummy2;       /**< placeholder */
   int   dummy3;       /**< placeholder */
   int   dummy4;       /**< placeholder */
