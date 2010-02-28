@@ -904,6 +904,38 @@ _dbus_string_test (void)
     _dbus_string_free (&str);
   }
 
+  {
+    const char lower_string[] = "toupperstring";
+    const char upper_string[] = "TOUPPERSTRING";
+    const char upper2_string[] = "TOUPPERstring";
+
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, lower_string))
+      _dbus_assert_not_reached ("no memory");
+
+    _dbus_string_toupper_ascii (&str, 0, _dbus_string_get_length(&str));
+
+    if (!_dbus_string_equal_c_str (&str, upper_string))
+      _dbus_assert_not_reached ("_dbus_string_toupper_ascii failed");
+
+    _dbus_string_free (&str);
+
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, lower_string))
+      _dbus_assert_not_reached ("no memory");
+
+    _dbus_string_toupper_ascii (&str, 0, 7);
+
+    if (!_dbus_string_equal_c_str (&str, upper2_string))
+      _dbus_assert_not_reached ("_dbus_string_toupper_ascii failed in partial conversion");
+
+    _dbus_string_free (&str);
+  }
+
   return TRUE;
 }
 

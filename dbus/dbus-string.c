@@ -2791,6 +2791,37 @@ _dbus_string_tolower_ascii (const DBusString *str,
 }
 
 /**
+ * Converts the given range of the string to upper case.
+ *
+ * @param str the string
+ * @param start first byte index to convert
+ * @param len number of bytes to convert
+ */
+void
+_dbus_string_toupper_ascii (const DBusString *str,
+                            int               start,
+                            int               len)
+{
+  unsigned char *s;
+  unsigned char *end;
+  DBUS_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len >= 0);
+  _dbus_assert (len <= real->len - start);
+
+  s = real->str + start;
+  end = s + len;
+
+  while (s != end)
+    {
+      if (*s >= 'a' && *s <= 'z')
+          *s += 'A' - 'a';
+      ++s;
+    }
+}
+
+/**
  * Checks that the given range of the string is valid UTF-8. If the
  * given range is not entirely contained in the string, returns
  * #FALSE. If the string contains any nul bytes in the given range,
