@@ -284,6 +284,9 @@ dbus_bool_t   _dbus_string_hex_decode            (const DBusString  *source,
 						  int               *end_return,
                                                   DBusString        *dest,
                                                   int                insert_at);
+void          _dbus_string_tolower_ascii         (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
 dbus_bool_t   _dbus_string_validate_ascii        (const DBusString  *str,
                                                   int                start,
                                                   int                len);

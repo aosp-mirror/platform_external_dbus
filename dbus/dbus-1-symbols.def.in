@@ -387,6 +387,7 @@ _dbus_string_skip_white
 _dbus_string_skip_white_reverse
 _dbus_string_split_on_byte
 _dbus_string_steal_data
+_dbus_string_tolower_ascii
 _dbus_string_validate_ascii
 _dbus_string_validate_nul
 _dbus_string_validate_utf8
