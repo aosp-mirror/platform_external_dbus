@@ -150,6 +150,23 @@
  * this macro in your own code; please consider it to be internal to libdbus.
  */
 
+/*
+ * @def DBUS_EXPORT
+ *
+ * Declare the following symbol as public.  This is currently a noop on
+ * platforms other than Windows.
+ */
+
+#if defined(DBUS_WIN)
+#  if defined(dbus_1_EXPORTS)
+#  define DBUS_EXPORT __declspec(dllexport)
+#  else
+#  define DBUS_EXPORT __declspec(dllimport)
+#  endif
+#else
+#define DBUS_EXPORT
+#endif
+
 /** @} */
 
 #endif /* DBUS_MACROS_H */
