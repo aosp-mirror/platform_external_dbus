@@ -146,7 +146,12 @@ ENDFOREACH(FILE_TYPE)
 # TODO merge test/data/valid-config-files/debug-allow-all*.conf.in and ....cmake
 #
 SET (CONFIG_FILES test/data/valid-config-files)
-set (TEST_LISTEN "tcp:host=localhost,port=1234")
+if (UNIX)
+    set (TEST_LISTEN "debug-pipe:name=test-server")
+endif (UNIX)
+if (WIN32)
+    set (TEST_LISTEN "tcp:host=localhost,port=1234")
+endif (WIN32)
 configure_file(${CMAKE_SOURCE_DIR}/../${CONFIG_FILES}/debug-allow-all-sha1.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf )
 configure_file(${CMAKE_SOURCE_DIR}/../${CONFIG_FILES}/debug-allow-all.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all.conf )  
 
