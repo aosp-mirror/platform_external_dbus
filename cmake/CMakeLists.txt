@@ -49,6 +49,9 @@ if(NOT WIN32)
 	OPTION(DBUS_ENABLE_ABSTRACT_SOCKETS "enable support for abstract sockets" ON)
 endif(NOT WIN32)
 
+#AC_ARG_ENABLE(asserts, AS_HELP_STRING([--enable-asserts],[include assertion checks]),enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
+OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
+
 # do config checks
 INCLUDE(ConfigureChecks.cmake)
 
@@ -102,6 +105,13 @@ if(WIN32)
 		SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 	endif(MSVC)
 endif(WIN32)
+
+if (UNIX AND NOT DBUS_DISABLE_ASSERTS)
+	# required for backtrace
+	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   -Wl,--export-dynamic")
+	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Wl,--export-dynamic")
+	add_definitions(-DDBUS_BUILT_R_DYNAMIC)
+endif (UNIX AND NOT DBUS_DISABLE_ASSERTS)
 
 SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}  -D_DEBUG")
 
@@ -244,9 +254,6 @@ endif(DBUS_ENABLE_ANSI)
 
 #AC_ARG_ENABLE(verbose-mode, AS_HELP_STRING([--enable-verbose-mode],[support verbose debug mode]),enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
 OPTION(DBUS_ENABLE_VERBOSE_MODE "support verbose debug mode" ON)
-
-#AC_ARG_ENABLE(asserts, AS_HELP_STRING([--enable-asserts],[include assertion checks]),enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
-OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
 
 #AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
 OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
