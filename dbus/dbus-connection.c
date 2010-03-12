@@ -1435,7 +1435,14 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
   _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
   
   CONNECTION_LOCK (connection);
-  _dbus_connection_acquire_io_path (connection, -1);
+
+  if (!_dbus_connection_acquire_io_path (connection, 1))
+    {
+      /* another thread is handling the message */
+      CONNECTION_UNLOCK (connection);
+      return TRUE;
+    }
+
   HAVE_LOCK_CHECK (connection);
   retval = _dbus_transport_handle_watch (connection->transport,
                                          watch, condition);
