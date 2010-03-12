@@ -23,6 +23,8 @@ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE",[The name of the gettext d
  ## must come before we use the $USE_MAINTAINER_MODE variable later
 AM_MAINTAINER_MODE
 
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
+
 # libtool versioning - this applies to libdbus
 #
 # See http://sources.redhat.com/autobook/autobook/autobook_91.html#SEC91 for details
