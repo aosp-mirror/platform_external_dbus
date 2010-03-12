@@ -442,7 +442,8 @@ void _dbus_init_system_log (void);
 
 typedef enum {
   DBUS_SYSTEM_LOG_INFO,
-  DBUS_SYSTEM_LOG_SECURITY
+  DBUS_SYSTEM_LOG_SECURITY,
+  DBUS_SYSTEM_LOG_FATAL
 } DBusSystemLogSeverity;
 
 void _dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...);

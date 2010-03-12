@@ -397,6 +397,8 @@ _dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...)
  * @param msg a printf-style format string
  * @param args arguments for the format string
  *
+ * If the FATAL severity is given, this function will terminate the program
+ * with an error code.
  */
 void
 _dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args)
@@ -410,10 +412,16 @@ _dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args
       case DBUS_SYSTEM_LOG_SECURITY:
         flags = LOG_AUTH | LOG_NOTICE;
         break;
+      case DBUS_SYSTEM_LOG_FATAL:
+        flags = LOG_DAEMON|LOG_CRIT;
       default:
         return;
     }
+
   vsyslog (flags, msg, args);
+  
+  if (severity == DBUS_SYSTEM_LOG_FATAL)
+    exit (1);
 }
 
 /** Installs a UNIX signal handler
