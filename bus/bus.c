@@ -869,10 +869,10 @@ bus_context_reload_config (BusContext *context,
     }
   ret = TRUE;
 
-  bus_context_log_info (context, "Reloaded configuration");
- failed:  
+  bus_context_log (context, DBUS_SYSTEM_LOG_INFO, "Reloaded configuration");
+ failed:
   if (!ret)
-    bus_context_log_info (context, "Unable to reload configuration: %s", error->message);
+    bus_context_log (context, DBUS_SYSTEM_LOG_INFO, "Unable to reload configuration: %s", error->message);
   if (parser != NULL)
     bus_config_parser_unref (parser);
   return ret;
@@ -1154,27 +1154,14 @@ bus_context_get_reply_timeout (BusContext *context)
 }
 
 void
-bus_context_log_info (BusContext *context, const char *msg, ...)
+bus_context_log (BusContext *context, DBusSystemLogSeverity severity, const char *msg, ...)
 {
   va_list args;
 
   va_start (args, msg);
-  
+
   if (context->syslog)
-    _dbus_log_info (msg, args);
-
-  va_end (args);
-}
-
-void
-bus_context_log_security (BusContext *context, const char *msg, ...)
-{
-  va_list args;
-
-  va_start (args, msg);
-  
-  if (context->syslog)
-    _dbus_log_security (msg, args);
+    _dbus_system_log (severity, msg, args);
 
   va_end (args);
 }
@@ -1418,8 +1405,8 @@ bus_context_check_security_policy (BusContext     *context,
                       dest ? dest : DBUS_SERVICE_DBUS,
                       proposed_recipient_loginfo);
       /* Needs to be duplicated to avoid calling malloc and having to handle OOM */
-      if (addressed_recipient == proposed_recipient)      
-        bus_context_log_security (context, msg,
+      if (addressed_recipient == proposed_recipient)
+        bus_context_log (context, DBUS_SYSTEM_LOG_SECURITY, msg,
                                   toggles,
                                   dbus_message_type_to_string (dbus_message_get_type (message)),
                                   sender_name ? sender_name : "(unset)",
@@ -1438,7 +1425,7 @@ bus_context_check_security_policy (BusContext     *context,
     }
 
   if (log)
-    bus_context_log_security (context, 
+    bus_context_log (context, DBUS_SYSTEM_LOG_SECURITY,
                               "Would reject message, %d matched rules; "
                               "type=\"%s\", sender=\"%s\" (%s) interface=\"%s\" member=\"%s\" error name=\"%s\" requested_reply=%d destination=\"%s\" (%s))",
                               toggles,
@@ -1482,8 +1469,8 @@ bus_context_check_security_policy (BusContext     *context,
                       dest ? dest : DBUS_SERVICE_DBUS,
                       proposed_recipient_loginfo);
       /* Needs to be duplicated to avoid calling malloc and having to handle OOM */
-      if (addressed_recipient == proposed_recipient)      
-        bus_context_log_security (context, msg,
+      if (addressed_recipient == proposed_recipient)
+        bus_context_log (context, DBUS_SYSTEM_LOG_SECURITY, msg,
                                   toggles,
                                   dbus_message_type_to_string (dbus_message_get_type (message)),
                                   sender_name ? sender_name : "(unset)",
