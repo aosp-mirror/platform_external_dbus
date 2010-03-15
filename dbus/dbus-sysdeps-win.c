@@ -687,7 +687,7 @@ _dbus_pid_for_log (void)
 static dbus_bool_t
 _dbus_getsid(char **sid)
 {
-  HANDLE process_token = NULL;
+  HANDLE process_token = INVALID_HANDLE_VALUE;
   TOKEN_USER *token_user = NULL;
   DWORD n;
   PSID psid;
@@ -721,7 +721,7 @@ _dbus_getsid(char **sid)
   retval = TRUE;
 
 failed:
-  if (process_token != NULL)
+  if (process_token != INVALID_HANDLE_VALUE)
     CloseHandle (process_token);
 
   _dbus_verbose("_dbus_getsid() returns %d\n",retval);
