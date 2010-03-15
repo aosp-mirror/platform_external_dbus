@@ -2631,7 +2631,8 @@ _dbus_get_autolaunch_address (DBusString *address,
 //  printf("create process \"%s\" %s\n", dbus_exe_path, dbus_args);
   if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
     {
-
+      CloseHandle (pi.hThread);
+      CloseHandle (pi.hProcess);
       retval = _dbus_get_autolaunch_shm( address );
     }
   
