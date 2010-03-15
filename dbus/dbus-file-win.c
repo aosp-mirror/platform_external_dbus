@@ -249,7 +249,7 @@ _dbus_string_save_to_file (const DBusString *str,
   fd = -1;
 
   /* Unlike rename(), MoveFileEx() can replace existing files */
-  if (MoveFileExA (tmp_filename_c, filename_c, MOVEFILE_REPLACE_EXISTING) < 0)
+  if (!MoveFileExA (tmp_filename_c, filename_c, MOVEFILE_REPLACE_EXISTING))
     {
       char *emsg = _dbus_win_error_string (GetLastError ());
       dbus_set_error (error, DBUS_ERROR_FAILED,
