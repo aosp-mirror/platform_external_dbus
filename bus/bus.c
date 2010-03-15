@@ -803,9 +803,9 @@ bus_context_new (const DBusString *config_file,
 
   if (!bus_selinux_full_init ())
     {
-      _dbus_warn ("SELinux initialization failed\n");
+      bus_context_log (context, DBUS_SYSTEM_LOG_FATAL, "SELinux enabled but AVC initialization failed; check system log\n");
     }
-  
+
   if (!process_config_postinit (context, parser, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
