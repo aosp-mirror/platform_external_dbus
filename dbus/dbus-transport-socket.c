@@ -1288,16 +1288,14 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
                  host, port);
   
   transport = _dbus_transport_new_for_socket (fd, NULL, &address);
+  _dbus_string_free (&address);
   if (transport == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       _dbus_close_socket (fd, NULL);
-      _dbus_string_free (&address);
       fd = -1;
     }
 
-  _dbus_string_free (&address);
-  
   return transport;
 
 error:
