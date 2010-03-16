@@ -26,6 +26,12 @@
 
 #include <dbus/dbus.h>
 
+#ifdef DBUS_WINCE
+#ifndef strdup
+#define strdup _strdup
+#endif
+#endif
+
 #include "dbus-print-message.h"
 
 static const char *appname;

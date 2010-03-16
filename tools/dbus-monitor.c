@@ -41,6 +41,21 @@
 #define DBUS_SECONDS_SINCE_1601 11644473600LL
 #define DBUS_USEC_IN_SEC        1000000LL
 
+#ifdef DBUS_WINCE
+
+#ifndef _IOLBF
+#define _IOLBF 1
+#endif
+
+void
+GetSystemTimeAsFileTime (LPFILETIME ftp)
+{
+  SYSTEMTIME st;
+  GetSystemTime (&st);
+  SystemTimeToFileTime (&st, ftp);
+}
+#endif
+
 static int
 gettimeofday (struct timeval *__p,
 	      void *__t)

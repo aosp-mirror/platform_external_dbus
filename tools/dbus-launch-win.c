@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
-/* dbus-launch.c  dbus-launch utility
+/* dbus-launch-win.c  dbus-launch utility
  *
  * Copyright (C) 2007 Ralf Habacker <ralf.habacker@freenet.de>
  *
@@ -20,34 +20,39 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
 #include <config.h>
+#ifndef UNICODE
+#define UNICODE 1
+#endif
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
-#include <mbstring.h>
 #include <assert.h>
 
-#if defined __MINGW32__ || (defined _MSC_VER && _MSC_VER <= 1310)
-/* save string functions version
-*/ 
+/* Save string functions.  Instead of figuring out the exact _MSC_VER
+   that work, override for everybody.  */
+
 #define errno_t int
+#define wcscat_s my_wcscat_s
+#define wcscpy_s my_wcscpy_s
 
-errno_t strcat_s(char *dest, size_t size, char *src) 
+static errno_t
+wcscat_s (wchar_t *dest, size_t size, wchar_t *src) 
 {
-  assert(strlen(dest) + strlen(src) +1 <= size);
-  strcat(dest,src);
+  assert (sizeof (wchar_t) * (wcslen (dest) + wcslen (src) + 1) <= size);
+  wcscat (dest, src);
   return 0;
 }
 
-errno_t strcpy_s(char *dest, size_t size, char *src)
+
+static errno_t
+wcscpy_s (wchar_t *dest, size_t size, wchar_t *src)
 {
-  assert(strlen(src) +1 <= size);
-  strcpy(dest,src);  
+  assert (sizeof (wchar_t) * (wcslen (src) + 1) <= size);
+  wcscpy (dest, src);
   return 0;
 }
-#endif
-
-/* TODO: Use Unicode APIs */
 
 /* TODO (tl): This Windows version of dbus-launch is curretly rather
  * pointless as it doesn't take the same command-line options as the
@@ -72,69 +77,100 @@ errno_t strcpy_s(char *dest, size_t size, char *src)
 
 #define AUTO_ACTIVATE_CONSOLE_WHEN_VERBOSE_MODE 1
 
-int main(int argc,char **argv)
+#define DIM(x) (sizeof(x) / sizeof(x[0]))
+#define WCSTRINGIFY_(x) L ## x
+#define WCSTRINGIFY(x) WCSTRINGIFY_(x)
+
+int
+main (int argc, char **argv)
 {
-  char dbusDaemonPath[MAX_PATH*2+1];
-  char command[MAX_PATH*2+1];
-  char *p;
-  char *daemon_name;
+  wchar_t dbusDaemonPath[MAX_PATH * 2 + 1];
+  wchar_t command[MAX_PATH * 2 + 1];
+  wchar_t *p;
+  wchar_t *daemon_name;
   int result;
   int showConsole = 0;
+#ifdef DBUS_WINCE
+  char *s = NULL;
+#else
   char *s = getenv("DBUS_VERBOSE");
+#endif
   int verbose = s && *s != '\0' ? 1 : 0;
+
   PROCESS_INFORMATION pi;
-  STARTUPINFO si;
-  HANDLE h; 
-  
+  STARTUPINFOW si;
+  BOOL inherit = TRUE;
+  DWORD flags = 0;
+
 #ifdef AUTO_ACTIVATE_CONSOLE_WHEN_VERBOSE_MODE
   if (verbose)
       showConsole = 1; 
 #endif
-  GetModuleFileName(NULL,dbusDaemonPath,sizeof(dbusDaemonPath));
+  GetModuleFileNameW (NULL, dbusDaemonPath, DIM (dbusDaemonPath));
   
-  daemon_name = DBUS_DAEMON_NAME ".exe";
+  daemon_name = WCSTRINGIFY(DBUS_DAEMON_NAME) L".exe";
   
-  if ((p = _mbsrchr (dbusDaemonPath, '\\'))) 
+  if ((p = wcsrchr (dbusDaemonPath, L'\\'))) 
     {
-      *(p+1)= '\0';
-      strcat_s(dbusDaemonPath,sizeof(dbusDaemonPath),daemon_name);
+      p[1] = L'\0';
+      wcscat_s (dbusDaemonPath, sizeof (dbusDaemonPath), daemon_name);
     }
   else 
     {
       if (verbose)
-          fprintf(stderr,"error: could not extract path from current applications module filename\n");
+          fprintf (stderr, "error: could not extract path from current "
+                   "applications module filename\n");
       return 1;
     } 
+
+#ifdef DBUS_WINCE
+   /* Windows CE has a different interpretation of cmdline: Start with argv[1].  */
+   wcscpy_s (command, sizeof (command), L"--session");
+   if (verbose)
+     fprintf (stderr, "%ls %ls\n", dbusDaemonPath, command);
+#else
+   command[0] = L'\0';
+   /* Windows CE has a different interpretation of cmdline: Start with argv[1].  */
+   wcscpy_s (command, sizeof (command), dbusDaemonPath);
+   wcscat_s (command, sizeof (command), L" --session");
+   if (verbose)
+     fprintf (stderr, "%ls\n", command);
+#endif
   
-  strcpy_s(command,sizeof(command),dbusDaemonPath);
-  strcat_s(command,sizeof(command)," --session");
+  memset (&si, 0, sizeof (si));
+  memset (&pi, 0, sizeof (pi));
+  si.cb = sizeof (si);
+  
   if (verbose)
-      fprintf(stderr,"%s\n",command);
-  
-  memset(&si, 0, sizeof(si));
-  memset(&pi, 0, sizeof(pi));
-  si.cb = sizeof(si);
+    flags |= CREATE_NEW_CONSOLE;
 
-  result = CreateProcess(NULL, 
-                  command,
-                  0,
-                  0,
-                  TRUE,
-                  (showConsole ? CREATE_NEW_CONSOLE : 0) | NORMAL_PRIORITY_CLASS,
-                  0,
-                  0,
-                  &si,
-                  &pi);
+#ifdef DBUS_WINCE
+  inherit = FALSE;
+#else
+  flags |= NORMAL_PRIORITY_CLASS;
+  if (!verbose)
+    flags |= DETACHED_PROCESS;
+  fprintf (stderr, "0b: %i\n", flags);
+#endif
 
-  CloseHandle(pi.hProcess);
-  CloseHandle(pi.hThread);
+  fprintf (stderr, "1 %ls\n", dbusDaemonPath);
+  fprintf (stderr, "2 %ls\n", command);
+  fprintf (stderr, "3 %i\n", inherit);
+  fprintf (stderr, "4 %i\n", flags);
+
+  result = CreateProcessW (dbusDaemonPath, command, 0, 0,
+                           inherit, flags, 0, 0, &si, &pi);
 
   if (result == 0) 
     {
       if (verbose)
-          fprintf(stderr, "Could not start " DBUS_DAEMON_NAME ". error=%d",GetLastError());
+        fprintf (stderr, "Could not start " DBUS_DAEMON_NAME ". error=%d\n",
+                 GetLastError ());
       return 4;
     }
    
+  CloseHandle (pi.hProcess);
+  CloseHandle (pi.hThread);
+
   return 0;
 }
