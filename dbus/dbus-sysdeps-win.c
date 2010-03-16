@@ -57,19 +57,17 @@
 extern BOOL WINAPI ConvertStringSidToSidA (LPCSTR  StringSid, PSID *Sid);
 extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 
-#include <fcntl.h>
-
-#include <process.h>
 #include <stdio.h>
-#include <io.h>
 
 #include <string.h>
-#include <mbstring.h>
 #if HAVE_ERRNO_H
 #include <errno.h>
 #endif
+#ifndef DBUS_WINCE
+#include <mbstring.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#endif
 
 #ifdef HAVE_WSPIAPI_H
 // needed for w2k compatibility (getaddrinfo/freeaddrinfo/getnameinfo)
@@ -91,7 +89,11 @@ typedef int socklen_t;
 void
 _dbus_win_set_errno (int err)
 {
+#ifdef DBUS_WINCE
+  SetLastError (err);
+#else
   errno = err;
+#endif
 }
 
 
@@ -724,6 +726,8 @@ _dbus_pid_for_log (void)
   return _dbus_getpid ();
 }
 
+
+#ifndef DBUS_WINCE
 /** Gets our SID
  * @param points to sid buffer, need to be freed with LocalFree()
  * @returns process sid
@@ -771,6 +775,7 @@ failed:
   _dbus_verbose("_dbus_getsid() returns %d\n",retval);
   return retval;
 }
+#endif
 
 /************************************************************************
  
@@ -1714,11 +1719,8 @@ _dbus_read_credentials_socket  (int              handle,
 dbus_bool_t
 _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
 {
-  const char *directory;
-  struct stat sb;
-
+  /* TODO */
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
   return TRUE;
 }
 
@@ -2042,7 +2044,7 @@ _dbus_delete_file (const DBusString *filename,
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  if (_unlink (filename_c) < 0)
+  if (DeleteFileA (filename_c) == 0)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Failed to delete file %s: %s\n",
@@ -2055,7 +2057,7 @@ _dbus_delete_file (const DBusString *filename,
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(DBUS_WINCE)
 # ifdef BACKTRACES
 #  undef BACKTRACES
 # endif
@@ -2705,8 +2707,24 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
   if (!_dbus_string_init (&servicedir_path))
     return FALSE;
 
+#ifdef DBUS_WINCE
+  {
+    /* On Windows CE, we adjust datadir dynamically to installation location.  */
+    const char *data_dir = _dbus_getenv ("DBUS_DATADIR");
+
+    if (data_dir != NULL)
+      {
+        if (!_dbus_string_append (&servicedir_path, data_dir))
+          goto oom;
+        
+        if (!_dbus_string_append (&servicedir_path, _DBUS_PATH_SEPARATOR))
+          goto oom;
+      }
+  }
+#else
   if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR _DBUS_PATH_SEPARATOR))
         goto oom;
+#endif
 
   common_progs = _dbus_getenv ("CommonProgramFiles");
 
@@ -3029,7 +3047,15 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
   }
 #endif
 
-  _dbus_string_init_const (&dotdir, ".dbus-keyrings");
+#ifdef DBUS_WINCE
+  /* It's not possible to create a .something directory in Windows CE
+     using the file explorer.  */
+#define KEYRING_DIR "dbus-keyrings"
+#else
+#define KEYRING_DIR ".dbus-keyrings"
+#endif
+
+  _dbus_string_init_const (&dotdir, KEYRING_DIR);
   if (!_dbus_concat_dir_and_file (&homedir,
                                   &dotdir))
     goto failed;

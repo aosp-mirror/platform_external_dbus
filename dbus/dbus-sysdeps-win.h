@@ -36,12 +36,6 @@ extern void *_dbus_win_get_dll_hmodule (void);
 #include <windows.h>
 #undef interface
 
-#include <aclapi.h>
-#include <lm.h>
-#include <io.h>
-#include <share.h>
-
-
 #define DBUS_CONSOLE_DIR "/var/run/console/"
 
 

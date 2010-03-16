@@ -46,13 +46,17 @@ _dbus_win_get_dll_hmodule (void)
   return dbus_dll_hmodule;
 }
 
-BOOL WINAPI DllMain (HINSTANCE hinstDLL,
-		     DWORD     fdwReason,
-		     LPVOID    lpvReserved);
+#ifdef DBUS_WINCE
+#define hinst_t HANDLE
+#else
+#define hinst_t HINSTANCE
+#endif
+
+BOOL WINAPI DllMain (hinst_t, DWORD, LPVOID);
 
 /* We need this to free the TLS events on thread exit */
 BOOL WINAPI
-DllMain (HINSTANCE hinstDLL,
+DllMain (hinst_t hinstDLL,
 	 DWORD     fdwReason,
 	 LPVOID    lpvReserved)
 {

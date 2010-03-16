@@ -52,7 +52,14 @@ DBUS_LIB_arch_sources = 			\
 	dbus-server-win.c 			\
 	dbus-server-win.h
 
+if DBUS_WINCE
+wince_source = dbus-sysdeps-wince-glue.h dbus-sysdeps-wince-glue.c
+else
+wince_source = 
+endif
+
 DBUS_SHARED_arch_sources = 			\
+	$(wince_source)				\
 	dbus-file-win.c 			\
 	dbus-pipe-win.c 			\
 	dbus-sockets-win.h			\

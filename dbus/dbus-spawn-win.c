@@ -9,9 +9,6 @@
 #endif
 
 #include <stdio.h>
-#ifdef DBUS_WINCE
-#include <process.h>
-#endif
 
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-spawn-win32.c Wrapper around g_spawn
@@ -53,7 +50,9 @@
 
 #include <stdlib.h>
 
+#ifndef DBUS_WINCE
 #include <process.h>
+#endif
 
 /**
  * Babysitter implementation details

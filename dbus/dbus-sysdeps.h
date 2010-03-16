@@ -45,6 +45,12 @@
 #include <sys/poll.h>
 #endif
 
+#ifdef DBUS_WINCE
+/* Windows CE lacks some system functions (such as errno and clock).
+   We bring them in here.  */
+#include "dbus-sysdeps-wince-glue.h"
+#endif
+
 DBUS_BEGIN_DECLS
 
 #ifdef DBUS_WIN

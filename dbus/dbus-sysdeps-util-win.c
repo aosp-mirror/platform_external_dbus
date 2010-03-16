@@ -35,18 +35,19 @@
 #include "dbus-sockets-win.h"
 #include "dbus-memory.h"
 
-#include <io.h>
-#include <sys/stat.h>
-#include <aclapi.h>
-#include <winsock2.h>
-
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #if HAVE_ERRNO_H
 #include <errno.h>
 #endif
 #include <winsock2.h>   // WSA error codes
+
+#ifndef DBUS_WINCE
+#include <io.h>
+#include <lm.h>
+#include <sys/stat.h>
+#endif
+
 
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.

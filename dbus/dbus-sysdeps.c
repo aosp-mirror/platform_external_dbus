@@ -625,7 +625,7 @@ ascii_strtod (const char *nptr,
 
   fail_pos = NULL;
 
-#if HAVE_LOCALE_H
+#if HAVE_LOCALECONV
   locale_data = localeconv ();
   decimal_point = locale_data->decimal_point;
 #else
@@ -1010,7 +1010,11 @@ _dbus_error_from_system_errno (void)
 void
 _dbus_set_errno_to_zero (void)
 {
+#ifdef DBUS_WINCE
+  SetLastError (0);
+#else
   errno = 0;
+#endif
 }
 
 /**

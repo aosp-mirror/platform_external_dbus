@@ -38,7 +38,7 @@ main (int    argc,
   const char *test_data_dir;
   const char *specific_test;
 
-#if HAVE_LOCALE_H
+#if HAVE_SETLOCALE
   setlocale(LC_ALL, "");
 #endif
   
