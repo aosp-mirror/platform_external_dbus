@@ -226,6 +226,11 @@ _init_inotify (BusContext *context)
     {
 #ifdef HAVE_INOTIFY_INIT1
       inotify_fd = inotify_init1 (IN_CLOEXEC);
+      /* This ensures we still run on older Linux kernels.
+       * https://bugs.freedesktop.org/show_bug.cgi?id=23957
+       */
+      if (inotify_fd < 0)
+        inotify_fd = inotify_init ();
 #else
       inotify_fd = inotify_init ();
 #endif
