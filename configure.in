@@ -477,6 +477,10 @@ AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 
 AC_CHECK_HEADERS(errno.h)
 
+AC_CHECK_HEADERS(signal.h)
+
+AC_CHECK_HEADERS(locale.h)
+
 AC_CHECK_HEADERS(byteswap.h)
 
 AC_CHECK_HEADERS(unistd.h)

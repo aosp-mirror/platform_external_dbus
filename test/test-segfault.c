@@ -1,7 +1,9 @@
 /* This is simply a process that segfaults */
 #include <config.h>
 #include <stdlib.h>
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
+#endif
 
 #ifdef HAVE_SETRLIMIT
 #include <sys/resource.h>

@@ -35,7 +35,9 @@
  *
  * These are the standard ANSI C headers...
  */
+#if HAVE_LOCALE_H
 #include <locale.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -623,10 +625,14 @@ ascii_strtod (const char *nptr,
 
   fail_pos = NULL;
 
+#if HAVE_LOCALE_H
   locale_data = localeconv ();
   decimal_point = locale_data->decimal_point;
-  decimal_point_len = strlen (decimal_point);
+#else
+  decimal_point = ".";
+#endif
 
+  decimal_point_len = strlen (decimal_point);
   _dbus_assert (decimal_point_len != 0);
   
   decimal_point_pos = NULL;

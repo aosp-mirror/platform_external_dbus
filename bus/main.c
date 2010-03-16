@@ -29,7 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
+#endif
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
@@ -67,9 +69,11 @@ signal_handler (int sig)
       }
       break;
 #endif
+#ifdef SIGTERM
     case SIGTERM:
       _dbus_loop_quit (bus_context_get_loop (context));
       break;
+#endif
     }
 }
 
@@ -474,7 +478,9 @@ main (int argc, char **argv)
 #ifdef SIGHUP
   _dbus_set_signal_handler (SIGHUP, signal_handler);
 #endif
+#ifdef SIGTERM
   _dbus_set_signal_handler (SIGTERM, signal_handler);
+#endif
 #ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
   _dbus_set_signal_handler (SIGIO, signal_handler);
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX */
