@@ -31,12 +31,12 @@
 #include "utils.h"
 #include "config-parser.h"
 
-#ifdef HAVE_SELINUX
-#include <sys/types.h>
-#include <unistd.h>
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
+#ifdef HAVE_SELINUX
+#include <sys/types.h>
+#include <unistd.h>
 #include <limits.h>
 #include <pthread.h>
 #include <syslog.h>
@@ -48,11 +48,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <grp.h>
+#endif /* HAVE_SELINUX */
 #ifdef HAVE_LIBAUDIT
 #include <cap-ng.h>
 #include <libaudit.h>
 #endif /* HAVE_LIBAUDIT */
-#endif /* HAVE_SELINUX */
 
 #define BUS_SID_FROM_SELINUX(sid)  ((BusSELinuxID*) (sid))
 #define SELINUX_SID_FROM_BUS(sid)  ((security_id_t) (sid))

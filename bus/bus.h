@@ -30,6 +30,7 @@
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-mainloop.h>
 #include <dbus/dbus-pipe.h>
+#include <dbus/dbus-sysdeps.h>
 
 typedef struct BusActivation    BusActivation;
 typedef struct BusConnections   BusConnections;
@@ -111,11 +112,9 @@ int               bus_context_get_max_services_per_connection    (BusContext    
 int               bus_context_get_max_match_rules_per_connection (BusContext       *context);
 int               bus_context_get_max_replies_per_connection     (BusContext       *context);
 int               bus_context_get_reply_timeout                  (BusContext       *context);
-void              bus_context_log_info                           (BusContext       *context, 
-                                                                  const char       *msg, 
-                                                                  ...);
-void              bus_context_log_security                       (BusContext       *context,
-                                                                  const char       *msg, 
+void              bus_context_log                                (BusContext       *context,
+                                                                  DBusSystemLogSeverity severity,
+                                                                  const char       *msg,
                                                                   ...);
 dbus_bool_t       bus_context_check_security_policy              (BusContext       *context,
                                                                   BusTransaction   *transaction,

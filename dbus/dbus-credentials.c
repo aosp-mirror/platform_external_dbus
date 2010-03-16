@@ -502,6 +502,49 @@ _dbus_credentials_same_user (DBusCredentials    *credentials,
       strcmp (credentials->windows_sid, other_credentials->windows_sid) == 0));
 }
 
+/**
+ * Convert the credentials in this object to a human-readable
+ * string format, and append to the given string.
+ *
+ * @param credentials the object
+ * @param string append to this string
+ * @returns #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_credentials_to_string_append (DBusCredentials    *credentials,
+                                    DBusString         *string)
+{
+  dbus_bool_t join;
+
+  join = FALSE;
+  if (credentials->unix_uid != DBUS_UID_UNSET)
+    {
+      if (!_dbus_string_append_printf (string, "uid=%d", credentials->unix_uid))
+        goto oom;
+      join = TRUE;
+    }
+  if (credentials->unix_pid != DBUS_PID_UNSET)
+    {
+      if (!_dbus_string_append_printf (string, "%spid=%d", join ? " " : "", credentials->unix_pid))
+        goto oom;
+      join = TRUE;
+    }
+  else
+    join = FALSE;
+  if (credentials->windows_sid != NULL)
+    {
+      if (!_dbus_string_append_printf (string, "%ssid=%s", join ? " " : "", credentials->windows_sid))
+        goto oom;
+      join = TRUE;
+    }
+  else
+    join = FALSE;
+
+  return TRUE;
+oom:
+  return FALSE;
+}
+
 /** @} */
 
 /* tests in dbus-credentials-util.c */

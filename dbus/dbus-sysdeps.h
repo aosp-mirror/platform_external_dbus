@@ -417,11 +417,18 @@ dbus_bool_t _dbus_user_at_console (const char *username,
                                    DBusError  *error);
 
 void _dbus_init_system_log (void);
-void _dbus_log_info (const char *msg, va_list args);
-void _dbus_log_security (const char *msg, va_list args);
 
-/* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
- * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 
+typedef enum {
+  DBUS_SYSTEM_LOG_INFO,
+  DBUS_SYSTEM_LOG_SECURITY,
+  DBUS_SYSTEM_LOG_FATAL
+} DBusSystemLogSeverity;
+
+void _dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...);
+void _dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args);
+
+/* Define DBUS_VA_COPY() to do the right thing for copying va_list variables.
+ * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy.
  */
 #if !defined (DBUS_VA_COPY)
 #  if defined (__GNUC__) && defined (__PPC__) && (defined (_CALL_SYSV) || defined (_WIN32))

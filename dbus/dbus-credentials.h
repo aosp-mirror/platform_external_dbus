@@ -71,7 +71,8 @@ void             _dbus_credentials_clear                    (DBusCredentials    
 DBusCredentials* _dbus_credentials_copy                     (DBusCredentials    *credentials);
 dbus_bool_t      _dbus_credentials_same_user                (DBusCredentials    *credentials,
                                                              DBusCredentials    *other_credentials);
-
+dbus_bool_t      _dbus_credentials_to_string_append         (DBusCredentials    *credentials,
+                                                             DBusString         *string);
 
 DBUS_END_DECLS
 
