@@ -509,7 +509,11 @@ spawn_program (const char* name, char** argv, char** envp)
   char *arg_string;
   BOOL result;
 
+#ifdef DBUS_WINCE
+  arg_string = build_commandline (argv + 1);
+#else
   arg_string = build_commandline (argv);
+#endif
   if (!arg_string)
     return INVALID_HANDLE_VALUE;
 
