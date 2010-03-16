@@ -2079,6 +2079,11 @@
           directory.
         </para>
         <para>
+          Throughout this description, "hex encoding" must output the digits
+          from a to f in lower-case; the digits A to F must not be used
+          in the DBUS_COOKIE_SHA1 mechanism.
+        </para>
+        <para>
           Authentication proceeds as follows:
           <itemizedlist>
             <listitem>
