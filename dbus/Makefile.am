@@ -79,6 +79,7 @@ DBUS_LIB_arch_sources = 			\
 DBUS_SHARED_arch_sources = 			\
 	dbus-file-win.c 			\
 	dbus-pipe-win.c 			\
+	dbus-sockets-win.h			\
 	dbus-sysdeps-win.c 			\
 	dbus-sysdeps-win.h			\
 	dbus-sysdeps-thread-win.c		\
@@ -162,6 +163,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-message-internal.h			\
 	dbus-message-private.h			\
 	dbus-misc.c				\
+	dbus-nonce.h				\
 	dbus-nonce.c				\
 	dbus-object-tree.c			\
 	dbus-object-tree.h			\
@@ -257,9 +259,11 @@ libdbus_convenience_la_SOURCES=			\
 	$(DBUS_SHARED_SOURCES)			\
 	$(DBUS_UTIL_SOURCES)
 
+symbol_defs = dbus-1.def.pre dbus-1-symbols.def.in dbus-1-testsymbols.def.in dbus-1-verbosesymbols.def.in \
+	dbus-convenience.def.pre dbus-internal-symbols.def.in dbus-internal-testsymbols.def.in
 
 BUILT_SOURCES=$(dbusarchinclude_HEADERS) $(built_sources_sys)
-EXTRA_DIST=dbus-arch-deps.h.in
+EXTRA_DIST=dbus-arch-deps.h.in $(symbol_defs)
 
 
 ## this library is the same as libdbus, but exports all the symbols
