@@ -231,27 +231,37 @@ _dbus_init_system_log (void)
 }
 
 /**
- * Log an informative message.  Intended for use primarily by
- * the system bus.
+ * Log a message to the system log file (e.g. syslog on Unix).
  *
+ * @param severity a severity value
  * @param msg a printf-style format string
  * @param args arguments for the format string
+ *
  */
 void
-_dbus_log_info (const char *msg, va_list args)
+_dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...)
 {
-    // FIXME!
+  va_list args;
+
+  va_start (args, msg);
+
+  _dbus_system_logv (severity, msg, args);
+
+  va_end (args);
 }
 
 /**
- * Log a security-related message.  Intended for use primarily by
- * the system bus.
+ * Log a message to the system log file (e.g. syslog on Unix).
  *
+ * @param severity a severity value
  * @param msg a printf-style format string
  * @param args arguments for the format string
+ *
+ * If the FATAL severity is given, this function will terminate the program
+ * with an error code.
  */
 void
-_dbus_log_security (const char *msg, va_list args)
+_dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args)
 {
     // FIXME!
 }
