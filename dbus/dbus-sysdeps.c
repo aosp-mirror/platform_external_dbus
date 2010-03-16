@@ -518,7 +518,7 @@ _dbus_string_parse_int (const DBusString *str,
                                        _dbus_string_get_length (str) - start);
 
   end = NULL;
-  errno = 0;
+  _dbus_set_errno_to_zero ();
   v = strtol (p, &end, 0);
   if (end == NULL || end == p || errno != 0)
     return FALSE;
@@ -557,7 +557,7 @@ _dbus_string_parse_uint (const DBusString *str,
                                        _dbus_string_get_length (str) - start);
 
   end = NULL;
-  errno = 0;
+  _dbus_set_errno_to_zero ();
   v = strtoul (p, &end, 0);
   if (end == NULL || end == p || errno != 0)
     return FALSE;
@@ -699,7 +699,7 @@ ascii_strtod (const char *nptr,
 
   /* Set errno to zero, so that we can distinguish zero results
      and underflows */
-  errno = 0;
+  _dbus_set_errno_to_zero ();
   
   if (decimal_point_pos)
     {
@@ -773,7 +773,7 @@ _dbus_string_parse_double (const DBusString *str,
     return FALSE;
   
   end = NULL;
-  errno = 0;
+  _dbus_set_errno_to_zero ();
   v = ascii_strtod (p, &end);
   if (end == NULL || end == p || errno != 0)
     return FALSE;
@@ -991,6 +991,17 @@ _dbus_error_from_errno (int error_number)
     }
 
   return DBUS_ERROR_FAILED;
+}
+
+/**
+ * Converts the current system errno value into a #DBusError name.
+ *
+ * @returns an error name
+ */
+const char*
+_dbus_error_from_system_errno (void)
+{
+  return _dbus_error_from_errno (errno);
 }
 
 /**

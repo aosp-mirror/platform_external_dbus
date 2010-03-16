@@ -65,7 +65,9 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 
 #include <string.h>
 #include <mbstring.h>
+#if HAVE_ERRNO_H
 #include <errno.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -85,16 +87,56 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 
 typedef int socklen_t;
 
+
+void
+_dbus_win_set_errno (int err)
+{
+  errno = err;
+}
+
+
+/* Convert GetLastError() to a dbus error.  */
+const char*
+_dbus_win_error_from_last_error (void)
+{
+  switch (GetLastError())
+    {
+    case 0:
+      return DBUS_ERROR_FAILED;
+    
+    case ERROR_NO_MORE_FILES:
+    case ERROR_TOO_MANY_OPEN_FILES:
+      return DBUS_ERROR_LIMITS_EXCEEDED; /* kernel out of memory */
+
+    case ERROR_ACCESS_DENIED:
+    case ERROR_CANNOT_MAKE:
+      return DBUS_ERROR_ACCESS_DENIED;
+
+    case ERROR_NOT_ENOUGH_MEMORY:
+      return DBUS_ERROR_NO_MEMORY;
+
+    case ERROR_FILE_EXISTS:
+      return DBUS_ERROR_FILE_EXISTS;
+
+    case ERROR_FILE_NOT_FOUND:
+    case ERROR_PATH_NOT_FOUND:
+      return DBUS_ERROR_FILE_NOT_FOUND;
+    }
+  
+  return DBUS_ERROR_FAILED;
+}
+
+
 char*
 _dbus_win_error_string (int error_number)
 {
   char *msg;
 
-  FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                 FORMAT_MESSAGE_IGNORE_INSERTS |
-                 FORMAT_MESSAGE_FROM_SYSTEM,
-                 NULL, error_number, 0,
-                 (LPSTR) &msg, 0, NULL);
+  FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                  FORMAT_MESSAGE_IGNORE_INSERTS |
+                  FORMAT_MESSAGE_FROM_SYSTEM,
+                  NULL, error_number, 0,
+                  (LPSTR) &msg, 0, NULL);
 
   if (msg[strlen (msg) - 1] == '\n')
     msg[strlen (msg) - 1] = '\0';
@@ -145,7 +187,7 @@ _dbus_read_socket (int               fd,
 
   if (!_dbus_string_lengthen (buffer, count))
     {
-      errno = ENOMEM;
+      _dbus_win_set_errno (ENOMEM);
       return -1;
     }
 
@@ -219,7 +261,7 @@ _dbus_write_socket (int               fd,
   if (bytes_written == SOCKET_ERROR)
     {
       DBUS_SOCKET_SET_ERRNO();
-      _dbus_verbose ("send: failed: %s\n", _dbus_strerror (errno));
+      _dbus_verbose ("send: failed: %s\n", _dbus_strerror_from_errno ());
       bytes_written = -1;
     }
     else
@@ -260,7 +302,7 @@ _dbus_close_socket (int        fd,
         
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not close socket: socket=%d, , %s",
-                      fd, _dbus_strerror (errno));
+                      fd, _dbus_strerror_from_errno ());
       return FALSE;
     }
   _dbus_verbose ("_dbus_close_socket: socket=%d, \n", fd);
@@ -385,7 +427,7 @@ _dbus_write_socket_two (int               fd,
   if (rc < 0)
     {
       DBUS_SOCKET_SET_ERRNO ();
-      _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
+      _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror_from_errno ());
       bytes_written = -1;
     }
   else
@@ -763,18 +805,12 @@ _dbus_full_duplex_pipe (int        *fd1,
   u_long arg;
   fd_set read_set, write_set;
   struct timeval tv;
+  int res;
 
   _dbus_win_startup_winsock ();
 
   temp = socket (AF_INET, SOCK_STREAM, 0);
   if (temp == INVALID_SOCKET)
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      goto out0;
-    }
-
-  arg = 1;
-  if (ioctlsocket (temp, FIONBIO, &arg) == SOCKET_ERROR)
     {
       DBUS_SOCKET_SET_ERRNO ();
       goto out0;
@@ -811,33 +847,11 @@ _dbus_full_duplex_pipe (int        *fd1,
       goto out0;
     }
 
-  arg = 1;
-  if (ioctlsocket (socket1, FIONBIO, &arg) == SOCKET_ERROR)
+  if (connect (socket1, (struct sockaddr  *)&saddr, len) == SOCKET_ERROR)
     {
       DBUS_SOCKET_SET_ERRNO ();
       goto out1;
     }
-
-  if (connect (socket1, (struct sockaddr  *)&saddr, len) != SOCKET_ERROR ||
-      WSAGetLastError () != WSAEWOULDBLOCK)
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      goto out1;
-    }
-
-  FD_ZERO (&read_set);
-  FD_SET (temp, &read_set);
-
-  tv.tv_sec = 0;
-  tv.tv_usec = 0;
-
-  if (select (0, &read_set, NULL, NULL, NULL) == SOCKET_ERROR)
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      goto out1;
-    }
-
-  _dbus_assert (FD_ISSET (temp, &read_set));
 
   socket2 = accept (temp, (struct sockaddr *) &saddr, &len);
   if (socket2 == INVALID_SOCKET)
@@ -846,38 +860,15 @@ _dbus_full_duplex_pipe (int        *fd1,
       goto out1;
     }
 
-  FD_ZERO (&write_set);
-  FD_SET (socket1, &write_set);
-
-  tv.tv_sec = 0;
-  tv.tv_usec = 0;
-
-  if (select (0, NULL, &write_set, NULL, NULL) == SOCKET_ERROR)
+  if (!blocking)
     {
-      DBUS_SOCKET_SET_ERRNO ();
-      goto out2;
-    }
-
-  _dbus_assert (FD_ISSET (socket1, &write_set));
-
-  if (blocking)
-    {
-      arg = 0;
+      arg = 1;
       if (ioctlsocket (socket1, FIONBIO, &arg) == SOCKET_ERROR)
         {
           DBUS_SOCKET_SET_ERRNO ();
           goto out2;
         }
 
-      arg = 0;
-      if (ioctlsocket (socket2, FIONBIO, &arg) == SOCKET_ERROR)
-        {
-          DBUS_SOCKET_SET_ERRNO ();
-          goto out2;
-        }
-    }
-  else
-    {
       arg = 1;
       if (ioctlsocket (socket2, FIONBIO, &arg) == SOCKET_ERROR)
         {
@@ -905,7 +896,7 @@ out0:
 
   dbus_set_error (error, _dbus_error_from_errno (errno),
                   "Could not setup socket pair: %s",
-                  _dbus_strerror (errno));
+                  _dbus_strerror_from_errno ());
 
   return FALSE;
 }
@@ -999,7 +990,7 @@ _dbus_poll (DBusPollFD *fds,
     {
       DBUS_SOCKET_SET_ERRNO ();
       if (errno != WSAEWOULDBLOCK)
-        _dbus_verbose ("WSAWaitForMultipleEvents: failed: %s\n", strerror (errno));
+        _dbus_verbose ("WSAWaitForMultipleEvents: failed: %s\n", _dbus_strerror_from_errno ());
       ret = -1;
     }
   else if (ready == WSA_WAIT_TIMEOUT)
@@ -1137,7 +1128,7 @@ _dbus_poll (DBusPollFD *fds,
     {
       DBUS_SOCKET_SET_ERRNO ();
       if (errno != WSAEWOULDBLOCK)
-        _dbus_verbose ("select: failed: %s\n", _dbus_strerror (errno));
+        _dbus_verbose ("select: failed: %s\n", _dbus_strerror_from_errno ());
     }
   else if (ready == 0)
     _dbus_verbose ("select: = 0\n");
@@ -1273,7 +1264,7 @@ _dbus_connect_tcp_socket_with_nonce (const char     *host,
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
                       "Failed to create socket: %s",
-                      _dbus_strerror (errno));
+                      _dbus_strerror_from_errno ());
 
       return -1;
     }
@@ -1322,7 +1313,7 @@ _dbus_connect_tcp_socket_with_nonce (const char     *host,
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
                          "Failed to open socket: %s",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           return -1;
         }
       _DBUS_ASSERT_ERROR_IS_CLEAR(error);
@@ -1465,7 +1456,7 @@ _dbus_listen_tcp_socket (const char     *host,
           dbus_set_error (error,
                           _dbus_error_from_errno (errno),
                          "Failed to open socket: %s",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           goto failed;
         }
       _DBUS_ASSERT_ERROR_IS_CLEAR(error);
@@ -1475,7 +1466,7 @@ _dbus_listen_tcp_socket (const char     *host,
           closesocket (fd);
           dbus_set_error (error, _dbus_error_from_errno (errno),
                           "Failed to bind socket \"%s:%s\": %s",
-                          host ? host : "*", port, _dbus_strerror (errno));
+                          host ? host : "*", port, _dbus_strerror_from_errno ());
           goto failed;
     }
 
@@ -1484,7 +1475,7 @@ _dbus_listen_tcp_socket (const char     *host,
           closesocket (fd);
           dbus_set_error (error, _dbus_error_from_errno (errno),
                           "Failed to listen on socket \"%s:%s\": %s",
-                          host ? host : "*", port, _dbus_strerror (errno));
+                          host ? host : "*", port, _dbus_strerror_from_errno ());
           goto failed;
         }
 
@@ -1494,7 +1485,7 @@ _dbus_listen_tcp_socket (const char     *host,
           closesocket (fd);
       dbus_set_error (error, _dbus_error_from_errno (errno),
                           "Failed to allocate file handle array: %s",
-                          _dbus_strerror (errno));
+                          _dbus_strerror_from_errno ());
           goto failed;
     }
       listen_fd = newlisten_fd;
@@ -1549,10 +1540,10 @@ _dbus_listen_tcp_socket (const char     *host,
 
   if (!nlisten_fd)
     {
-      errno = WSAEADDRINUSE;
+      _dbus_win_set_errno (WSAEADDRINUSE);
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s:%s\": %s",
-                      host ? host : "*", port, _dbus_strerror (errno));
+                      host ? host : "*", port, _dbus_strerror_from_errno ());
       return -1;
     }
 
@@ -1651,7 +1642,7 @@ again:
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to write credentials byte: %s",
-                     _dbus_strerror (errno));
+                     _dbus_strerror_from_errno ());
       return FALSE;
     }
   else if (bytes_written == 0)
@@ -1942,14 +1933,14 @@ _dbus_create_directory (const DBusString *filename,
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  if (!CreateDirectory (filename_c, NULL))
+  if (!CreateDirectoryA (filename_c, NULL))
     {
       if (GetLastError () == ERROR_ALREADY_EXISTS)
         return TRUE;
 
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Failed to create directory %s: %s\n",
-                      filename_c, strerror (errno));
+                      filename_c, _dbus_strerror_from_errno ());
       return FALSE;
     }
   else
@@ -2010,7 +2001,7 @@ _dbus_get_tmpdir(void)
     {
       char *last_slash;
 
-      if (!GetTempPath (sizeof (buf), buf))
+      if (!GetTempPathA (sizeof (buf), buf))
         {
           _dbus_warn ("GetTempPath failed\n");
           _dbus_abort ();
@@ -2055,7 +2046,7 @@ _dbus_delete_file (const DBusString *filename,
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Failed to delete file %s: %s\n",
-                      filename_c, strerror (errno));
+                      filename_c, _dbus_strerror_from_errno ());
       return FALSE;
     }
   else
@@ -2437,7 +2428,7 @@ HANDLE _dbus_global_lock (const char *mutexname)
   HANDLE mutex;
   DWORD gotMutex;
 
-  mutex = CreateMutex( NULL, FALSE, mutexname );
+  mutex = CreateMutexA( NULL, FALSE, mutexname );
   if( !mutex )
     {
       return FALSE;
@@ -2491,7 +2482,7 @@ _dbus_daemon_publish_session_bus_address (const char* address)
 
   _dbus_assert (address);
   // before _dbus_global_lock to keep correct lock/release order
-  hDBusDaemonMutex = CreateMutex( NULL, FALSE, cDBusDaemonMutex );
+  hDBusDaemonMutex = CreateMutexA( NULL, FALSE, cDBusDaemonMutex );
   ret = WaitForSingleObject( hDBusDaemonMutex, 1000 );
   if ( ret != WAIT_OBJECT_0 ) {
     _dbus_warn("Could not lock mutex %s (return code %d). daemon already running? Bus address not published.\n", cDBusDaemonMutex, ret );
@@ -2502,7 +2493,7 @@ _dbus_daemon_publish_session_bus_address (const char* address)
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
   // create shm
-  hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+  hDBusSharedMem = CreateFileMappingA( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
                                       0, strlen( address ) + 1, cDBusDaemonAddressInfo );
   _dbus_assert( hDBusSharedMem );
 
@@ -2549,7 +2540,7 @@ _dbus_get_autolaunch_shm (DBusString *address)
   // read shm
   for(i=0;i<20;++i) {
       // we know that dbus-daemon is available, so we wait until shm is available
-      sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
+      sharedMem = OpenFileMappingA( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
       if( sharedMem == 0 )
           Sleep( 100 );
       if ( sharedMem != 0)
@@ -2587,7 +2578,7 @@ _dbus_daemon_already_runs (DBusString *address)
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
   // do checks
-  daemon = CreateMutex( NULL, FALSE, cDBusDaemonMutex );
+  daemon = CreateMutexA( NULL, FALSE, cDBusDaemonMutex );
   if(WaitForSingleObject( daemon, 10 ) != WAIT_TIMEOUT)
     {
       ReleaseMutex (daemon);
@@ -2840,7 +2831,7 @@ _dbus_get_install_root(char *prefix, int len)
     DWORD pathLength;
     char *lastSlash;
     SetLastError( 0 );
-    pathLength = GetModuleFileName(_dbus_win_get_dll_hmodule(), prefix, len);
+    pathLength = GetModuleFileNameA(_dbus_win_get_dll_hmodule(), prefix, len);
     if ( pathLength == 0 || GetLastError() != 0 ) {
         *prefix = '\0';
         return FALSE;
@@ -3064,7 +3055,7 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
 dbus_bool_t 
 _dbus_file_exists (const char *file)
 {
-  DWORD attributes = GetFileAttributes (file);
+  DWORD attributes = GetFileAttributesA (file);
 
   if (attributes != INVALID_FILE_ATTRIBUTES && GetLastError() != ERROR_PATH_NOT_FOUND)
     return TRUE;
@@ -3227,7 +3218,7 @@ _dbus_win_set_error_from_win_error (DBusError *error,
                   FORMAT_MESSAGE_IGNORE_INSERTS |
                   FORMAT_MESSAGE_FROM_SYSTEM,
                   NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
-                  (LPTSTR) &msg, 0, NULL);
+                  (LPSTR) &msg, 0, NULL);
   if (msg)
     {
       char *msg_copy;
@@ -3271,11 +3262,13 @@ _dbus_delete_directory (const DBusString *filename,
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  if (_rmdir (filename_c) != 0)
+  if (RemoveDirectoryA (filename_c) == 0)
     {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Failed to remove directory %s: %s\n",
-                      filename_c, strerror (errno));
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                      "Failed to remove directory %s: %s",
+                      filename_c, emsg);
+      _dbus_win_free_error_string (emsg);
       return FALSE;
     }
 
