@@ -33,6 +33,7 @@
 #include "dir-watch.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
+#include <dbus/dbus-credentials.h>
 #include <dbus/dbus-internals.h>
 
 struct BusContext
@@ -45,6 +46,7 @@ struct BusContext
   char *address;
   char *pidfile;
   char *user;
+  char *log_prefix;
   DBusLoop *loop;
   DBusList *servers;
   BusConnections *connections;
@@ -264,6 +266,7 @@ process_config_first_time_only (BusContext      *context,
 				BusConfigParser *parser,
 				DBusError       *error)
 {
+  DBusString log_prefix;
   DBusList *link;
   DBusList **addresses;
   const char *user, *pidfile;
@@ -289,21 +292,61 @@ process_config_first_time_only (BusContext      *context,
       DBusStat stbuf;
       
       _dbus_string_init_const (&u, pidfile);
-      
+
       if (_dbus_stat (&u, &stbuf, NULL))
-	{
-	  dbus_set_error (error, DBUS_ERROR_FAILED,
-			  "The pid file \"%s\" exists, if the message bus is not running, remove this file",
-			  pidfile);
-	  goto failed;
-	}
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+		                  "The pid file \"%s\" exists, if the message bus is not running, remove this file",
+                          pidfile);
+	      goto failed;
+        }
     }
-  
+
   /* keep around the pid filename so we can delete it later */
   context->pidfile = _dbus_strdup (pidfile);
 
+  /* note that type may be NULL */
+  context->type = _dbus_strdup (bus_config_parser_get_type (parser));
+  if (bus_config_parser_get_type (parser) != NULL && context->type == NULL)
+    goto oom;
+
+  user = bus_config_parser_get_user (parser);
+  if (user != NULL)
+    {
+      context->user = _dbus_strdup (user);
+      if (context->user == NULL)
+        goto oom;
+    }
+
+  /* Set up the prefix for syslog messages */
+  if (!_dbus_string_init (&log_prefix))
+    goto oom;
+  if (context->type && !strcmp (context->type, "system"))
+    {
+      if (!_dbus_string_append (&log_prefix, "[system] "))
+        goto oom;
+    }
+  else if (context->type && !strcmp (context->type, "session"))
+    {
+      DBusCredentials *credentials;
+
+      credentials = _dbus_credentials_new_from_current_process ();
+      if (!credentials)
+        goto oom;
+      if (!_dbus_string_append (&log_prefix, "[session "))
+        goto oom;
+      if (!_dbus_credentials_to_string_append (credentials, &log_prefix))
+        goto oom;
+      if (!_dbus_string_append (&log_prefix, "] "))
+        goto oom;
+      _dbus_credentials_unref (credentials);
+    }
+  if (!_dbus_string_steal_data (&log_prefix, &context->log_prefix))
+    goto oom;
+  _dbus_string_free (&log_prefix);
+
   /* Build an array of auth mechanisms */
-  
+
   auth_mechanisms_list = bus_config_parser_get_mechanisms (parser);
   len = _dbus_list_get_length (auth_mechanisms_list);
 
@@ -313,21 +356,15 @@ process_config_first_time_only (BusContext      *context,
 
       auth_mechanisms = dbus_new0 (char*, len + 1);
       if (auth_mechanisms == NULL)
-	{
-	  BUS_SET_OOM (error);
-	  goto failed;
-	}
-      
+        goto oom;
+
       i = 0;
       link = _dbus_list_get_first_link (auth_mechanisms_list);
       while (link != NULL)
         {
           auth_mechanisms[i] = _dbus_strdup (link->data);
           if (auth_mechanisms[i] == NULL)
-	    {
-	      BUS_SET_OOM (error);
-	      goto failed;
-	    }
+            goto oom;
           link = _dbus_list_get_next_link (auth_mechanisms_list, link);
         }
     }
@@ -358,43 +395,26 @@ process_config_first_time_only (BusContext      *context,
 	}
 
       if (!_dbus_list_append (&context->servers, server))
-        {
-          BUS_SET_OOM (error);
-          goto failed;
-        }          
-      
+        goto oom;
+
       link = _dbus_list_get_next_link (addresses, link);
-    }
-
-  /* note that type may be NULL */
-  context->type = _dbus_strdup (bus_config_parser_get_type (parser));
-  if (bus_config_parser_get_type (parser) != NULL && context->type == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-
-  user = bus_config_parser_get_user (parser);
-  if (user != NULL)
-    {
-      context->user = _dbus_strdup (user);
-      if (context->user == NULL)
-	{
-	  BUS_SET_OOM (error);
-	  goto failed;
-	}
     }
 
   context->fork = bus_config_parser_get_fork (parser);
   context->syslog = bus_config_parser_get_syslog (parser);
   context->keep_umask = bus_config_parser_get_keep_umask (parser);
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
 
  failed:
   dbus_free_string_array (auth_mechanisms);
   return retval;
+
+ oom:
+  BUS_SET_OOM (error);
+  dbus_free_string_array (auth_mechanisms);
+  return FALSE;
 }
 
 /* This code gets executed every time the config files
@@ -598,6 +618,7 @@ bus_context_new (const DBusString *config_file,
                  DBusPipe         *print_pid_pipe,
                  DBusError        *error)
 {
+  DBusString log_prefix;
   BusContext *context;
   BusConfigParser *parser;
 
@@ -982,8 +1003,9 @@ bus_context_unref (BusContext *context)
           bus_matchmaker_unref (context->matchmaker);
           context->matchmaker = NULL;
         }
-      
+
       dbus_free (context->config_file);
+      dbus_free (context->log_prefix);
       dbus_free (context->type);
       dbus_free (context->address);
       dbus_free (context->user);
@@ -1158,11 +1180,30 @@ bus_context_log (BusContext *context, DBusSystemLogSeverity severity, const char
 {
   va_list args;
 
+  if (!context->syslog)
+    return;
+
   va_start (args, msg);
 
-  if (context->syslog)
-    _dbus_system_log (severity, msg, args);
+  if (context->log_prefix)
+    {
+      DBusString full_msg;
 
+      if (!_dbus_string_init (&full_msg))
+        goto out;
+      if (!_dbus_string_append (&full_msg, context->log_prefix))
+        goto oom_out;
+      if (!_dbus_string_append_printf_valist (&full_msg, msg, args))
+        goto oom_out;
+
+      _dbus_system_log (severity, "%s", full_msg);
+    oom_out:
+      _dbus_string_free (&full_msg);
+    }
+  else
+    _dbus_system_logv (severity, msg, args);
+
+out:
   va_end (args);
 }
 
