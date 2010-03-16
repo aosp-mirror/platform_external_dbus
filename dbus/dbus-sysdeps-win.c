@@ -2972,12 +2972,19 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
   DBusString dotdir;
   dbus_uid_t uid;
   const char *homepath;
+  const char *homedrive;
 
   _dbus_assert (credentials != NULL);
   _dbus_assert (!_dbus_credentials_are_anonymous (credentials));
   
   if (!_dbus_string_init (&homedir))
     return FALSE;
+
+  homedrive = _dbus_getenv("HOMEDRIVE");
+  if (homedrive != NULL && *homedrive != '\0')
+    {
+      _dbus_string_append(&homedir,homedrive);
+    }
 
   homepath = _dbus_getenv("HOMEPATH");
   if (homepath != NULL && *homepath != '\0')
