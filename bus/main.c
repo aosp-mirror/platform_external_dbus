@@ -156,7 +156,10 @@ handle_reload_watch (DBusWatch    *watch,
 {
   DBusError error;
   DBusString str;
-  _dbus_string_init (&str);
+
+  while (!_dbus_string_init (&str))
+    _dbus_wait_for_memory ();
+
   if ((reload_pipe[RELOAD_READ_END] > 0) &&
       _dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
     {
