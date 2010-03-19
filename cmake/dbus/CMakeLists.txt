@@ -285,6 +285,9 @@ add_library(dbus-1 SHARED
 			${DBUS_LIB_HEADERS}
 			${DBUS_SHARED_HEADERS})
 if(WIN32)
+	if (MINGW)
+		set_target_properties(dbus-1 PROPERTIES LINK_FLAGS "${DBUS_LIB_DEF}")
+	endif (MINGW)
 	target_link_libraries(dbus-1 ws2_32 advapi32 netapi32)
 endif(WIN32)
 
