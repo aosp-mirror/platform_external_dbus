@@ -246,8 +246,15 @@ _dbus_decrement_fail_alloc_counter (void)
 {
   _dbus_initialize_malloc_debug ();
 #ifdef DBUS_WIN_FIXME
-  _dbus_warn("disabled memory allocation errors for now, it makes testing much more complicated");
-  return FALSE;
+  {
+    static dbus_bool_t called = 0;
+    if (!called)
+      {
+        _dbus_warn("TODO: memory allocation testing errors disabled for now\n");
+        called = 1;
+      }
+    return FALSE;
+  }
 #endif
 
   if (fail_alloc_counter <= 0)
