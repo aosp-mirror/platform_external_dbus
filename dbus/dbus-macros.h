@@ -157,7 +157,7 @@
  * platforms other than Windows.
  */
 
-#if defined(DBUS_WIN)
+#if defined(_WIN32)
 #  if defined(dbus_1_EXPORTS)
 #  define DBUS_EXPORT __declspec(dllexport)
 #  else
