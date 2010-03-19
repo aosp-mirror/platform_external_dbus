@@ -270,6 +270,7 @@ EXTRA_DIST=dbus-arch-deps.h.in $(symbol_defs)
 ## and is only used for static linking within the dbus package.
 noinst_LTLIBRARIES=libdbus-convenience.la
 
+libdbus_1_la_CPPFLAGS= -Ddbus_1_EXPORTS
 libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 libdbus_1_la_LDFLAGS= $(export_symbols) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
 
