@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-marshal-basic.h"
 #include "dbus-signature.h"

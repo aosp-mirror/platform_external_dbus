@@ -23,8 +23,6 @@
 #ifndef DBUS_MESSAGE_PRIVATE_H
 #define DBUS_MESSAGE_PRIVATE_H
 
-#include <config.h>
-
 #include <dbus/dbus-message.h>
 #include <dbus/dbus-message-internal.h>
 #include <dbus/dbus-string.h>

@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "expirelist.h"
 #include "test.h"
 #include <dbus/dbus-internals.h>

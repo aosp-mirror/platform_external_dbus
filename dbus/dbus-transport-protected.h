@@ -23,8 +23,6 @@
 #ifndef DBUS_TRANSPORT_PROTECTED_H
 #define DBUS_TRANSPORT_PROTECTED_H
 
-#include <config.h>
-
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-transport.h>

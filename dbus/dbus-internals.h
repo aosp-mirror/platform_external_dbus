@@ -27,8 +27,6 @@
 #ifndef DBUS_INTERNALS_H
 #define DBUS_INTERNALS_H
 
-#include <config.h>
-
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>

@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-connection-internal.h"
 #include "dbus-nonce.h"

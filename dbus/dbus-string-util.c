@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-string.h"
 #define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1

@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-connection-internal.h"
 #include "dbus-transport-socket.h"

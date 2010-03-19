@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-object-tree.h"
 #include "dbus-connection-internal.h"
 #include "dbus-internals.h"

@@ -24,7 +24,6 @@
 #ifndef DBUS_MARSHAL_RECURSIVE_H
 #define DBUS_MARSHAL_RECURSIVE_H
 
-#include <config.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-list.h>
 

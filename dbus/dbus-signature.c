@@ -21,6 +21,8 @@
  *
  */
 
+#include <config.h>
+
 #include "dbus-signature.h"
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-basic.h"

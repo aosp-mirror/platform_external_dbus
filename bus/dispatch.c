@@ -23,6 +23,7 @@
  *
  */
 
+#include <config.h>
 #include "dispatch.h"
 #include "connection.h"
 #include "driver.h"

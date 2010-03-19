@@ -24,7 +24,6 @@
 #ifndef DBUS_LAUNCH_H
 #define DBUS_LAUNCH_H
 
-#include <config.h>
 #include <sys/types.h>
 
 #ifndef TRUE

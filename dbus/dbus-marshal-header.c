@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus/dbus-shared.h"
 #include "dbus-marshal-header.h"
 #include "dbus-marshal-recursive.h"

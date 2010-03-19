@@ -22,6 +22,7 @@
  */
 
 
+#include <config.h>
 #include "dbus-types.h"
 #include "dbus-test.h"
 #include <stdio.h>

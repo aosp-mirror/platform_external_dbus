@@ -34,6 +34,7 @@
  * <ghost@aladdin.com>.
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-md5.h"
 #include <string.h>

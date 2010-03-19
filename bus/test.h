@@ -24,8 +24,6 @@
 #ifndef BUS_TEST_H
 #define BUS_TEST_H
 
-#include <config.h>
-
 #ifdef DBUS_BUILD_TESTS
 
 #include <dbus/dbus.h>

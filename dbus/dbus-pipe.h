@@ -25,8 +25,6 @@
 #ifndef DBUS_PIPE_H
 #define DBUS_PIPE_H
 
-#include <config.h>
-
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-string.h>

@@ -23,7 +23,6 @@
 #ifndef DBUS_SERVER_PROTECTED_H
 #define DBUS_SERVER_PROTECTED_H
 
-#include <config.h>
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-threads-internal.h>
 #include <dbus/dbus-server.h>

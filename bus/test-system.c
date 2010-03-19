@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "test.h"
 #include <stdio.h>
 #include <stdlib.h>

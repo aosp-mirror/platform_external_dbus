@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "bus.h"
 #include "activation.h"
 #include "connection.h"

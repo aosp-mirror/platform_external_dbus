@@ -24,8 +24,6 @@
 #ifndef DBUS_AUTH_SCRIPT_H
 #define DBUS_AUTH_SCRIPT_H
 
-#include <config.h>
-
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-string.h>

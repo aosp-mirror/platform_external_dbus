@@ -1,3 +1,4 @@
+#include <config.h>
 
 #include "test-utils.h"
 #ifdef HAVE_UNISTD_H

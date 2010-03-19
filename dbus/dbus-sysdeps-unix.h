@@ -25,7 +25,6 @@
 #ifndef DBUS_SYSDEPS_UNIX_H
 #define DBUS_SYSDEPS_UNIX_H
 
-#include <config.h>
 #include <dbus/dbus-sysdeps.h>
 
 #ifdef DBUS_WIN

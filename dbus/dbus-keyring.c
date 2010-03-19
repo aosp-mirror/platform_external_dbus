@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-keyring.h"
 #include "dbus-protocol.h"
 #include <dbus/dbus-string.h>

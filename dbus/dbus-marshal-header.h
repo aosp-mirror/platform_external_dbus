@@ -24,7 +24,6 @@
 #ifndef DBUS_MARSHAL_HEADER_H
 #define DBUS_MARSHAL_HEADER_H
 
-#include <config.h>
 #include <dbus/dbus-marshal-basic.h>
 #include <dbus/dbus-marshal-validate.h>
 

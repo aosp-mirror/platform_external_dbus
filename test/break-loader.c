@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include <dbus/dbus.h>
 #include <sys/stat.h>
 #include <sys/types.h>

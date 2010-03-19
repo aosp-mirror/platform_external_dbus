@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "test.h"
 #include "activation-helper.h"
 

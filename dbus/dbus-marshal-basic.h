@@ -25,8 +25,6 @@
 #ifndef DBUS_MARSHAL_BASIC_H
 #define DBUS_MARSHAL_BASIC_H
 
-#include <config.h>
-
 #ifdef HAVE_BYTESWAP_H
 #include <byteswap.h>
 #endif

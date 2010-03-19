@@ -25,8 +25,6 @@
 #ifndef DBUS_STRING_H
 #define DBUS_STRING_H
 
-#include <config.h>
-
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-memory.h>

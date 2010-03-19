@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "activation.h"
 #include "connection.h"
 #include "driver.h"

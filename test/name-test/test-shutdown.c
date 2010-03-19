@@ -1,4 +1,5 @@
 
+#include <config.h>
 #include "../test-utils.h"
 
 static DBusLoop *loop;

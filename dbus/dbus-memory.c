@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-memory.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"

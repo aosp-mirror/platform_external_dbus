@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-transport-protected.h"
 #include "dbus-transport-unix.h"
 #include "dbus-transport-socket.h"

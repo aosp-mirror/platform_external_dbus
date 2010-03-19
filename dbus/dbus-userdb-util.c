@@ -20,6 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include <config.h>
 #define DBUS_USERDB_INCLUDES_PRIVATE 1
 #include "dbus-userdb.h"
 #include "dbus-test.h"
