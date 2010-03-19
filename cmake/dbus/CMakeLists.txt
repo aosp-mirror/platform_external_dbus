@@ -250,68 +250,19 @@ endif(MSVC_IDE)
 
 ### Client library
 
-if(WIN32)
-	file(READ "${DBUS_DIR}/dbus-1-symbols.def.in" DBUS_CLIENT_EXPORTS)
-	if (DBUS_BUILD_TESTS)
-		file(READ "${DBUS_DIR}/dbus-1-testsymbols.def.in" DBUS_CLIENT_TEST_EXPORTS)
-	else(DBUS_BUILD_TESTS)
-		set(DBUS_CLIENT_TEST_EXPORTS )
-	endif(DBUS_BUILD_TESTS)
-	if (DBUS_ENABLE_VERBOSE_MODE)
-		file(READ "${DBUS_DIR}/dbus-1-verbosesymbols.def.in" DBUS_VERBOSE_EXPORTS)
-	else(DBUS_ENABLE_VERBOSE_MODE)
-		set(DBUS_VERBOSE_EXPORTS )
-	endif(DBUS_ENABLE_VERBOSE_MODE)
-	if(MSVC)
-		set(DBUS_LIB_DEF "${CMAKE_BINARY_DIR}/dbus-1.def")
-		configure_file("${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def.cmake" ${DBUS_LIB_DEF})
-		list(APPEND DBUS_LIB_SOURCES ${DBUS_LIB_DEF})
-	else(MSVC)
-		# Doesn't cmake support recursive expansion ? Would make the code below simpler...
-		if(CMAKE_BUILD_TYPE STREQUAL Debug)
-			set(LIBDBUS_1_NAME "libdbus-1${CMAKE_DEBUG_POSTFIX}")
-		else(CMAKE_BUILD_TYPE STREQUAL Debug)
-			set(LIBDBUS_1_NAME "libdbus-1${CMAKE_RELEASE_POSTFIX}")
-		endif(CMAKE_BUILD_TYPE STREQUAL Debug)
-		set(DBUS_LIBRARY_HEADER "LIBRARY ${LIBDBUS_1_NAME}.dll")
-		set(DBUS_LIB_DEF "${CMAKE_BINARY_DIR}/${LIBDBUS_1_NAME}.def")
-		configure_file("${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def.cmake" ${DBUS_LIB_DEF})
-	endif(MSVC)
-endif(WIN32)
-
 add_library(dbus-1 SHARED
 			${DBUS_LIB_SOURCES}
 			${DBUS_SHARED_SOURCES}
 			${DBUS_LIB_HEADERS}
 			${DBUS_SHARED_HEADERS})
 if(WIN32)
-	if (MINGW)
-		set_target_properties(dbus-1 PROPERTIES LINK_FLAGS "${DBUS_LIB_DEF}")
-	endif (MINGW)
 	target_link_libraries(dbus-1 ws2_32 advapi32 netapi32)
 endif(WIN32)
 
 install_targets(/lib dbus-1 )
 install_files(/include/dbus FILES ${dbusinclude_HEADERS})
-if(WIN32 AND NOT MSVC)
-	install_files(/lib FILES ${DBUS_LIB_DEF})
-endif(WIN32 AND NOT MSVC)
 
 ### Internal library, used for the daemon, tools and tests, compiled statically.
-
-if(WIN32)
-	file(READ "${DBUS_DIR}/dbus-internal-symbols.def.in" DBUS_INTERNAL_EXPORTS)
-	if (DBUS_BUILD_TESTS)
-		file(READ "${DBUS_DIR}/dbus-internal-testsymbols.def.in" DBUS_INTERNAL_TEST_EXPORTS)
-	else(DBUS_BUILD_TESTS)
-		set(DBUS_INTERNAL_TEST_EXPORTS )
-	endif(DBUS_BUILD_TESTS)
-	set(DBUS_INTERNAL_DEF "${CMAKE_BINARY_DIR}/dbus-internal.def")
-	configure_file("${CMAKE_CURRENT_SOURCE_DIR}/dbus-internal.def.cmake" ${DBUS_INTERNAL_DEF})
-	if(MSVC)
-		list(APPEND DBUS_UTIL_SOURCES ${DBUS_INTERNAL_DEF})
-	endif(MSVC)
-endif(WIN32)
 
 add_library(dbus-internal STATIC
 			${DBUS_UTIL_SOURCES}
