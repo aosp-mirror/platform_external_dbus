@@ -77,10 +77,8 @@ set (BUS_SOURCES
 
 include_directories(${XML_INCLUDE_DIR})
 
-set(DBUS_LIBRARIES dbus-1 dbus-internal)
-
 add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_DIR}/main.c)
-target_link_libraries(dbus-daemon ${DBUS_LIBRARIES} ${XML_LIBRARY})
+target_link_libraries(dbus-daemon ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
 set_target_properties(dbus-daemon PROPERTIES OUTPUT_NAME ${DBUS_DAEMON_NAME})
 
 install_targets(/bin dbus-daemon)
@@ -95,13 +93,13 @@ if (DBUS_SERVICE)
 	)
 
 	add_executable(dbus-service ${dbus_service_SOURCES} )
-	target_link_libraries(dbus-service ${DBUS_LIBRARIES} ${XML_LIBRARY})
+	target_link_libraries(dbus-service ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
 	install_targets(/bin dbus-service )
 endif (DBUS_SERVICE)
 
 if (DBUS_BUILD_TESTS)	
 	add_executable(bus-test ${BUS_SOURCES} ${BUS_DIR}/test-main.c)
-	target_link_libraries(bus-test ${DBUS_LIBRARIES} ${XML_LIBRARY})
+	target_link_libraries(bus-test ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
 	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_BINARY_DIR}/test/data)
 endif (DBUS_BUILD_TESTS)
 
@@ -133,15 +131,15 @@ set(LAUNCH_HELPER_SOURCES ${XML_SOURCES}
 if(NOT WIN32)
 # TODO PENDING(kdab) fix build on windows (activation-helper.c)
    add_executable(dbus-daemon-launch-helper ${LAUNCH_HELPER_SOURCES} ${BUS_DIR}/activation-helper-bin.c )
-   target_link_libraries(dbus-daemon-launch-helper ${DBUS_LIBRARIES} ${XML_LIBRARY} )
+   target_link_libraries(dbus-daemon-launch-helper ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY} )
    
    add_executable(dbus-daemon-launch-helper-test ${LAUNCH_HELPER_SOURCES}     ${BUS_DIR}/activation-helper-bin.c)
    set_target_properties(dbus-daemon-launch-helper-test PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST")
-   target_link_libraries(dbus-daemon-launch-helper-test ${DBUS_LIBRARIES} ${XML_LIBRARY} )
+   target_link_libraries(dbus-daemon-launch-helper-test ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY} )
    
    add_executable(bus-test-launch-helper ${LAUNCH_HELPER_SOURCES}  ${BUS_DIR}/test-launch-helper.c)
    set_target_properties(bus-test-launch-helper PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST -DACTIVATION_LAUNCHER_DO_OOM")
-   target_link_libraries(bus-test-launch-helper ${DBUS_LIBRARIES} ${XML_LIBRARY} )
+   target_link_libraries(bus-test-launch-helper ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY} )
    add_test(bus-test-launch-helper ${EXECUTABLE_OUTPUT_PATH}/bus-test-launch-helper )
 
 endif(NOT WIN32)

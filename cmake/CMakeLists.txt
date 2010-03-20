@@ -494,6 +494,9 @@ if (DBUS_BUILD_TESTS)
     set(TEST_LAUNCH_HELPER_BINARY ${EXECUTABLE_OUTPUT_PATH}/dbus-daemon-launch-helper-test)
 endif  (DBUS_BUILD_TESTS)
 
+set(DBUS_LIBRARIES dbus-1)
+set(DBUS_INTERNAL_LIBRARIES dbus-1 dbus-internal)
+
 ########### subdirs ###############
 
 add_subdirectory( dbus )

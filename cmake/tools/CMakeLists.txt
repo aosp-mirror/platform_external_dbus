@@ -1,7 +1,5 @@
 project(tools)
 
-set(DBUS_LIBRARIES dbus-1 dbus-internal)
-
 set (dbus_send_SOURCES
 	../../tools/dbus-print-message.c			
 	../../tools/dbus-print-message.h			

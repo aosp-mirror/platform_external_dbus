@@ -1,7 +1,5 @@
 project(test)
 
-set(DBUS_LIBRARIES dbus-1 dbus-internal)
-
 add_subdirectory( name-test )
 
 set (test-service_SOURCES
@@ -51,32 +49,32 @@ set (decode_gcov_SOURCES
 )
 
 add_executable(test-service ${test-service_SOURCES})
-target_link_libraries(test-service ${DBUS_LIBRARIES})
+target_link_libraries(test-service ${DBUS_INTERNAL_LIBRARIES})
 
 add_executable(test-names ${test-names_SOURCES})
-target_link_libraries(test-names ${DBUS_LIBRARIES})
+target_link_libraries(test-names ${DBUS_INTERNAL_LIBRARIES})
 
 add_executable(shell-test ${shell-test_SOURCES})
-target_link_libraries(shell-test ${DBUS_LIBRARIES})
+target_link_libraries(shell-test ${DBUS_INTERNAL_LIBRARIES})
 ADD_TEST(shell-test ${EXECUTABLE_OUTPUT_PATH}/shell-test${EXT})
 
 add_executable(test-shell-service ${test-shell-service_SOURCES})
-target_link_libraries(test-shell-service ${DBUS_LIBRARIES})
+target_link_libraries(test-shell-service ${DBUS_INTERNAL_LIBRARIES})
 
 add_executable(spawn-test ${spawn-test_SOURCES})
-target_link_libraries(spawn-test ${DBUS_LIBRARIES})
+target_link_libraries(spawn-test ${DBUS_INTERNAL_LIBRARIES})
 
 add_executable(test-exit ${test-exit_SOURCES})
-target_link_libraries(test-exit ${DBUS_LIBRARIES})
+target_link_libraries(test-exit ${DBUS_INTERNAL_LIBRARIES})
 
 add_executable(test-segfault ${test-segfault_SOURCES})
-target_link_libraries(test-segfault ${DBUS_LIBRARIES})
+target_link_libraries(test-segfault ${DBUS_INTERNAL_LIBRARIES})
 
 add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
-target_link_libraries(test-sleep-forever ${DBUS_LIBRARIES})
+target_link_libraries(test-sleep-forever ${DBUS_INTERNAL_LIBRARIES})
 
 #add_executable(decode-gcov ${decode_gcov_SOURCES})
-#target_link_libraries(decode-gcov ${DBUS_LIBRARIES})
+#target_link_libraries(decode-gcov ${DBUS_INTERNAL_LIBRARIES})
 
 ### keep these in creation order, i.e. uppermost dirs first 
 set (TESTDIRS
