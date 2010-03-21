@@ -1196,7 +1196,7 @@ bus_context_log (BusContext *context, DBusSystemLogSeverity severity, const char
       if (!_dbus_string_append_printf_valist (&full_msg, msg, args))
         goto oom_out;
 
-      _dbus_system_log (severity, "%s", full_msg);
+      _dbus_system_log (severity, "%s", _dbus_string_get_const_data (&full_msg));
     oom_out:
       _dbus_string_free (&full_msg);
     }
