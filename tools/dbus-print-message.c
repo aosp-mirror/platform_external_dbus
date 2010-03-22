@@ -227,7 +227,9 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 	    dbus_int64_t val;
 	    dbus_message_iter_get_basic (iter, &val);
 #ifdef DBUS_INT64_PRINTF_MODIFIER
-	    printf ("int64 %" DBUS_INT64_PRINTF_MODIFIER "d\n", val);
+        printf ("int64 %" DBUS_INT64_PRINTF_MODIFIER "d\n", val);
+#else
+        printf ("int64 (omitted)\n");
 #endif
 	    break;
 	  }
@@ -237,7 +239,9 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 	    dbus_uint64_t val;
 	    dbus_message_iter_get_basic (iter, &val);
 #ifdef DBUS_INT64_PRINTF_MODIFIER
-	    printf ("uint64 %" DBUS_INT64_PRINTF_MODIFIER "u\n", val);
+        printf ("uint64 %" DBUS_INT64_PRINTF_MODIFIER "u\n", val);
+#else
+        printf ("uint64 (omitted)\n");
 #endif
 	    break;
 	  }
