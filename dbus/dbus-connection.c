@@ -2440,7 +2440,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
       goto recheck_status;
     }
 
-  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %ld milliseconds and got no reply\n",
+  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %d milliseconds and got no reply\n",
                  elapsed_milliseconds);
 
   _dbus_assert (!_dbus_pending_call_get_completed_unlocked (pending));

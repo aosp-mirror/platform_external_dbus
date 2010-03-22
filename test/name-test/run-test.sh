@@ -33,9 +33,6 @@ fi
 echo "running test-ids"
 ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-ids || die "test-ids failed"
 
-echo "running test-names"
-${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-names || die "test-names failed"
-
 echo "running test-pending-call-dispatch"
 ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-pending-call-dispatch || die "test-pending-call-dispatch failed"
 

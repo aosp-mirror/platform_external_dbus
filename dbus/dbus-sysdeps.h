@@ -422,7 +422,7 @@ typedef enum {
   DBUS_SYSTEM_LOG_FATAL
 } DBusSystemLogSeverity;
 
-void _dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...);
+void _dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...) _DBUS_GNUC_PRINTF (2, 3);
 void _dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args);
 
 /* Define DBUS_VA_COPY() to do the right thing for copying va_list variables.

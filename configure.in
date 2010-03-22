@@ -181,6 +181,31 @@ if test x$enable_gcov = xyes; then
 fi
 AM_CONDITIONAL(DBUS_GCOV_ENABLED, test x$enable_gcov = xyes)
 
+# glibc21.m4 serial 3
+dnl Copyright (C) 2000-2002, 2004 Free Software Foundation, Inc.
+dnl This file is free software; the Free Software Foundation
+dnl gives unlimited permission to copy and/or distribute it,
+dnl with or without modifications, as long as this notice is preserved.
+
+# Test for the GNU C Library, version 2.1 or newer.
+# From Bruno Haible.
+
+AC_CACHE_CHECK(whether we are using the GNU C Library 2.1 or newer,
+  ac_cv_gnu_library_2_1,
+  [AC_EGREP_CPP([Lucky GNU user],
+    [
+#include <features.h>
+#ifdef __GNU_LIBRARY__
+ #if (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1) || (__GLIBC__ > 2)
+  Lucky GNU user
+ #endif
+#endif
+    ],
+    ac_cv_gnu_library_2_1=yes,
+    ac_cv_gnu_library_2_1=no)
+  ]
+)
+
 #### Integer sizes 
 
 AC_CHECK_SIZEOF(char)
@@ -199,21 +224,32 @@ $ac_cv_sizeof_int)
   dbusint64=int
   dbusint64_constant='(val)'
   dbusuint64_constant='(val)'
+  dbusint64_printf_modifier='""'
   ;;
 $ac_cv_sizeof_long)
   dbusint64=long
   dbusint64_constant='(val##L)'
   dbusuint64_constant='(val##UL)'
+  dbusint64_printf_modifier='"l"'
   ;;
 $ac_cv_sizeof_long_long)
   dbusint64='long long'
   dbusint64_constant='(val##LL)'
   dbusuint64_constant='(val##ULL)'
+  # Ideally we discover what the format is, but this is
+  # only used in verbose mode, so eh...
+  if test x"$ac_cv_gnu_library_2_1" = xyes; then
+    dbusint64_printf_modifier='"ll"'
+  fi
   ;;
 $ac_cv_sizeof___int64)
   dbusint64=__int64
   dbusint64_constant='(val##i64)'
   dbusuint64_constant='(val##ui64)'
+  # See above case
+  if test x"$ac_cv_gnu_library_2_1" = xyes; then
+    dbusint64_printf_modifier='"ll"'
+  fi
   ;;
 esac
 
@@ -228,6 +264,9 @@ else
         DBUS_HAVE_INT64=1
         DBUS_INT64_CONSTANT="$dbusint64_constant"
         DBUS_UINT64_CONSTANT="$dbusuint64_constant"
+	if test x"$dbusint64_printf_modifier" != x; then
+		AC_DEFINE_UNQUOTED(DBUS_INT64_PRINTF_MODIFIER, [$dbusint64_printf_modifier], [Define to printf modifier for 64 bit integer type])
+	fi
         AC_MSG_RESULT($DBUS_INT64_TYPE)
 fi
 
@@ -1141,12 +1180,6 @@ if test "x$GCC" = "xyes"; then
         CFLAGS="$CFLAGS -Wno-pointer-sign"
      fi
      ;;
-  esac  
-  
-  # http://bugs.freedesktop.org/show_bug.cgi?id=19195
-  case " $CFLAGS " in
-  *[\ \	]-Wno-format[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wno-format" ;;
   esac
   
   # This one is special - it's not a warning override.
