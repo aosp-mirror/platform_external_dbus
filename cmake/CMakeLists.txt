@@ -35,8 +35,6 @@ endif (CYGWIN)
 if (WIN32)
     # include local header first to avoid using old installed header
     set (CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${CMAKE_SOURCE_DIR}/..)
-    find_package(KDEWIN)
-    find_package(KDEWIN_Packager)
 	find_package(LibIconv)
     include(Win32Macros)
     addExplorerWrapper(${CMAKE_PROJECT_NAME})
@@ -609,7 +607,3 @@ endif(DBUS_DISABLE_CHECKS)
 MESSAGE(" ")
 
 INCLUDE(modules/CPackInstallConfig.cmake)
-
-if (KDEWIN_PACKAGER_FOUND)
-    KDEWIN_PACKAGER(${CMAKE_PROJECT_NAME} ${DBUS_VERSION} "ipc library" "")
-endif (KDEWIN_PACKAGER_FOUND)
