@@ -495,7 +495,13 @@ if (DBUS_BUILD_TESTS)
 endif  (DBUS_BUILD_TESTS)
 
 set(DBUS_LIBRARIES dbus-1)
-set(DBUS_INTERNAL_LIBRARIES dbus-1 dbus-internal)
+set(DBUS_INTERNAL_LIBRARIES dbus-internal)
+
+# settings for building and using static internal lib
+# important note: DBUS_INTERNAL_xxxxx_DEFINITIONS must *not* be set when building dbus-1 library
+set (DBUS_INTERNAL_ADD_LIBRARY_OPTIONS STATIC)
+set (DBUS_INTERNAL_LIBRARY_DEFINITIONS "-DDBUS_STATIC_BUILD")
+set (DBUS_INTERNAL_CLIENT_DEFINITIONS "-DDBUS_STATIC_BUILD")
 
 ########### subdirs ###############
 

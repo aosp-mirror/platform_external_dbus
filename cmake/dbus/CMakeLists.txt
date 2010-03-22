@@ -264,16 +264,26 @@ install_files(/include/dbus FILES ${dbusinclude_HEADERS})
 
 ### Internal library, used for the daemon, tools and tests, compiled statically.
 
-add_library(dbus-internal STATIC
+add_library(dbus-internal ${DBUS_INTERNAL_ADD_LIBRARY_OPTIONS}
+			${DBUS_LIB_SOURCES}
+			${DBUS_LIB_HEADERS}
+			${DBUS_SHARED_SOURCES}
+			${DBUS_SHARED_HEADERS}
 			${DBUS_UTIL_SOURCES}
-			${DBUS_UTIL_HEADERS})
-target_link_libraries(dbus-internal dbus-1)
+			${DBUS_UTIL_HEADERS}
+)
+target_link_libraries(dbus-internal)
+set_target_properties(dbus-internal PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_LIBRARY_DEFINITIONS})
+if(WIN32)
+	target_link_libraries(dbus-internal ws2_32 advapi32 netapi32)
+endif(WIN32)
 
 if (DBUS_BUILD_TESTS)
 	set (TESTS_ENVIRONMENT "DBUS_TEST_DATA=${CMAKE_SOURCE_DIR}/test/data DBUS_TEST_HOMEDIR=${CMAKE_BUILD_DIR}/dbus")
 	ADD_EXECUTABLE(dbus-test ${CMAKE_SOURCE_DIR}/../dbus/dbus-test-main.c)
-	target_link_libraries(dbus-test dbus-1 dbus-internal)
+	target_link_libraries(dbus-test ${DBUS_INTERNAL_LIBRARIES})
 	add_test(dbus-test ${EXECUTABLE_OUTPUT_PATH}/dbus-test ${CMAKE_SOURCE_DIR}/../test/data)
+	set_target_properties(dbus-test PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 ENDIF (DBUS_BUILD_TESTS)
 
 if (UNIX)

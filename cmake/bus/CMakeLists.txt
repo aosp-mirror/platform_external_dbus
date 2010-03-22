@@ -80,6 +80,7 @@ include_directories(${XML_INCLUDE_DIR})
 add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_DIR}/main.c)
 target_link_libraries(dbus-daemon ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
 set_target_properties(dbus-daemon PROPERTIES OUTPUT_NAME ${DBUS_DAEMON_NAME})
+set_target_properties(dbus-daemon PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 
 install_targets(/bin dbus-daemon)
 install_files(/etc FILES ${config_DATA})
@@ -94,12 +95,14 @@ if (DBUS_SERVICE)
 
 	add_executable(dbus-service ${dbus_service_SOURCES} )
 	target_link_libraries(dbus-service ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
+	set_target_properties(dbus-service PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 	install_targets(/bin dbus-service )
 endif (DBUS_SERVICE)
 
 if (DBUS_BUILD_TESTS)	
 	add_executable(bus-test ${BUS_SOURCES} ${BUS_DIR}/test-main.c)
 	target_link_libraries(bus-test ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
+	set_target_properties(bus-test PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_BINARY_DIR}/test/data)
 endif (DBUS_BUILD_TESTS)
 

@@ -158,7 +158,9 @@
  */
 
 #if defined(_WIN32)
-#  if defined(dbus_1_EXPORTS)
+#  if defined(DBUS_STATIC_BUILD)
+#  define DBUS_EXPORT
+#  elif defined(dbus_1_EXPORTS)
 #  define DBUS_EXPORT __declspec(dllexport)
 #  else
 #  define DBUS_EXPORT __declspec(dllimport)
