@@ -519,13 +519,13 @@ _dbus_credentials_to_string_append (DBusCredentials    *credentials,
   join = FALSE;
   if (credentials->unix_uid != DBUS_UID_UNSET)
     {
-      if (!_dbus_string_append_printf (string, "uid=%d", credentials->unix_uid))
+      if (!_dbus_string_append_printf (string, "uid=%d", (int) credentials->unix_uid))
         goto oom;
       join = TRUE;
     }
   if (credentials->unix_pid != DBUS_PID_UNSET)
     {
-      if (!_dbus_string_append_printf (string, "%spid=%d", join ? " " : "", credentials->unix_pid))
+      if (!_dbus_string_append_printf (string, "%spid=%d", join ? " " : "", (int) credentials->unix_pid))
         goto oom;
       join = TRUE;
     }

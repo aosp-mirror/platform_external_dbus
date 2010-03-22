@@ -1386,15 +1386,9 @@ _dbus_verbose_bytes (const unsigned char *data,
           if (i > 7 &&
               _DBUS_ALIGN_ADDRESS (&data[i], 8) == &data[i])
             {
-#ifdef DBUS_HAVE_INT64
-              /* I think I probably mean "GNU libc printf" and not "GNUC"
-               * but we'll wait until someone complains. If you hit this,
-               * just turn off verbose mode as a workaround.
-               */
-#if __GNUC__
-              _dbus_verbose (" u64: 0x%llx",
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+              _dbus_verbose (" u64: 0x%" DBUS_INT64_PRINTF_MODIFIER "x",
                              *(dbus_uint64_t*)&data[i-8]);
-#endif
 #endif
               _dbus_verbose (" dbl: %g",
                              *(double*)&data[i-8]);

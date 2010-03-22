@@ -2651,8 +2651,8 @@ double_read_value (TestTypeNode   *node,
 
   if (!_DBUS_DOUBLES_BITWISE_EQUAL (v, expected))
     {
-#ifdef DBUS_HAVE_INT64
-      _dbus_warn ("Expected double %g got %g\n bits = 0x%llx vs.\n bits = 0x%llx)\n",
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+      _dbus_warn ("Expected double %g got %g\n bits = 0x%" DBUS_INT64_PRINTF_MODIFIER "x vs.\n bits = 0x%" DBUS_INT64_PRINTF_MODIFIER "x)\n",
                   expected, v,
                   *(dbus_uint64_t*)(char*)&expected,
                   *(dbus_uint64_t*)(char*)&v);

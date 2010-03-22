@@ -22,6 +22,7 @@
 #include "dbus-print-message.h"
 
 #include <stdlib.h>
+#include "config.h"
 
 static const char*
 type_to_name (int message_type)
@@ -225,7 +226,9 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 	  {
 	    dbus_int64_t val;
 	    dbus_message_iter_get_basic (iter, &val);
-	    printf ("int64 %lld\n", val);
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+	    printf ("int64 %" DBUS_INT64_PRINTF_MODIFIER "d\n", val);
+#endif
 	    break;
 	  }
 
@@ -233,7 +236,9 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 	  {
 	    dbus_uint64_t val;
 	    dbus_message_iter_get_basic (iter, &val);
-	    printf ("uint64 %llu\n", val);
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+	    printf ("uint64 %" DBUS_INT64_PRINTF_MODIFIER "u\n", val);
+#endif
 	    break;
 	  }
 
