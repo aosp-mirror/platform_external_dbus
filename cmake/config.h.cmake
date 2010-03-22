@@ -120,14 +120,20 @@
 /* Define to 1 if you have unistd.h */
 #cmakedefine   HAVE_UNISTD_H 1
 
-/* Define to 1 if you have errno.h */
-#cmakedefine   HAVE_ERRNO_H 1
-
 /* Define to 1 if you have stdio.h */
 #cmakedefine   HAVE_STDIO_H 1
 
 /* Define to 1 if you have sys/syslimits.h */
 #cmakedefine   HAVE_SYS_SYSLIMITS_H 1
+
+/* Define to 1 if you have errno.h */
+#cmakedefine   HAVE_ERRNO_H 1
+
+/* Define to 1 if you have signal.h */
+#cmakedefine   HAVE_SIGNAL_H 1
+
+/* Define to 1 if you have locale.h */
+#cmakedefine   HAVE_LOCALE_H 1
 
 // symbols
 /* Define to 1 if you have backtrace */
