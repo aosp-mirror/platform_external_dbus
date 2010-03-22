@@ -53,21 +53,6 @@ void _dbus_warn_check_failed  (const char *format,
 #endif
 
 /*
- * This is necessary to access global variables outside the DLL with MSVC,
- * just exporting them in the .def file still leads to linker errors
- * note: dbus_1_EXPORTS is set automatically by CMake when the DLL is built
- */
-#if defined(_MSC_VER)
-#  if defined(dbus_1_EXPORTS)
-#  define DBUS_EXTERN __declspec(dllexport)
-#  else
-#  define DBUS_EXTERN __declspec(dllimport)
-#  endif
-#else
-#define DBUS_EXTERN extern
-#endif
-
-/*
  * (code from GLib)
  * 
  * The _DBUS_LIKELY and _DBUS_UNLIKELY macros let the programmer give hints to 
@@ -160,7 +145,7 @@ void _dbus_real_assert_not_reached (const char *explanation,
 #define _dbus_return_val_if_fail(condition, val)
 #else
 
-DBUS_EXTERN const char *_dbus_return_if_fail_warning_format;
+extern const char *_dbus_return_if_fail_warning_format;
 
 #define _dbus_return_if_fail(condition) do {                                       \
    _dbus_assert ((*(const char*)_DBUS_FUNCTION_NAME) != '_');                      \
@@ -274,7 +259,7 @@ void _dbus_verbose_bytes_of_string (const DBusString    *str,
 
 const char* _dbus_header_field_to_string (int header_field);
 
-DBUS_EXTERN const char *_dbus_no_memory_message;
+extern const char *_dbus_no_memory_message;
 #define _DBUS_SET_OOM(error) dbus_set_error_const ((error), DBUS_ERROR_NO_MEMORY, _dbus_no_memory_message)
 
 #ifdef DBUS_BUILD_TESTS
