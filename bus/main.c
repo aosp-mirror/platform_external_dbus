@@ -65,9 +65,6 @@ signal_handler (int sig)
       }
       break;
 #endif
-    case SIGTERM:
-      _dbus_loop_quit (bus_context_get_loop (context));
-      break;
     }
 }
 
@@ -467,7 +464,6 @@ main (int argc, char **argv)
 #ifdef SIGHUP
   _dbus_set_signal_handler (SIGHUP, signal_handler);
 #endif
-  _dbus_set_signal_handler (SIGTERM, signal_handler);
 #ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
   _dbus_set_signal_handler (SIGIO, signal_handler);
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX */
