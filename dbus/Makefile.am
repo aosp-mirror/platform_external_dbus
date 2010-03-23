@@ -25,7 +25,7 @@ dbus_res = versioninfo.o
 dbus_res_ldflag = -Wl,$(dbus_res)
 no_undefined = -no-undefined
 export_symbols =
-export_symvols_convenience =
+export_symvols_internal =
 
 libdbus_1_la_DEPENDENCIES = $(dbus_res)
 intllibs =
@@ -37,7 +37,7 @@ no_undefined =
 ## don't export symbols that start with "_" (we use this
 ## convention for internal symbols)
 export_symbols = -export-symbols-regex "^[^_].*"
-export_symbols_convenience =
+export_symbols_internal =
 install-def-file:
 uninstall-def-file:
 
@@ -232,7 +232,7 @@ libdbus_1_la_SOURCES=				\
 	$(DBUS_LIB_SOURCES)			\
 	$(DBUS_SHARED_SOURCES)
 
-libdbus_convenience_la_SOURCES=			\
+libdbus_internal_la_SOURCES=			\
 	$(DBUS_LIB_SOURCES)			\
 	$(DBUS_SHARED_SOURCES)			\
 	$(DBUS_UTIL_SOURCES)
@@ -243,15 +243,15 @@ EXTRA_DIST=dbus-arch-deps.h.in
 
 ## this library is the same as libdbus, but exports all the symbols
 ## and is only used for static linking within the dbus package.
-noinst_LTLIBRARIES=libdbus-convenience.la
+noinst_LTLIBRARIES=libdbus-internal.la
 
 libdbus_1_la_CPPFLAGS= -Ddbus_1_EXPORTS
 libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 libdbus_1_la_LDFLAGS= $(export_symbols) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
 
-libdbus_convenience_la_CPPFLAGS = -DDBUS_STATIC_BUILD
-libdbus_convenience_la_LIBADD=$(DBUS_CLIENT_LIBS)
-libdbus_convenience_la_LDFLAGS=$(export_symbols_convenience) @R_DYNAMIC_LDFLAG@
+libdbus_internal_la_CPPFLAGS = -DDBUS_STATIC_BUILD
+libdbus_internal_la_LIBADD=$(DBUS_CLIENT_LIBS)
+libdbus_internal_la_LDFLAGS=$(export_symbols_internal) @R_DYNAMIC_LDFLAG@
 
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
@@ -270,7 +270,7 @@ noinst_PROGRAMS=$(TESTS)
 dbus_test_SOURCES=				\
 	dbus-test-main.c
 
-dbus_test_LDADD=libdbus-convenience.la $(DBUS_TEST_LIBS)
+dbus_test_LDADD=libdbus-internal.la $(DBUS_TEST_LIBS)
 dbus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 install-data-local: install-def-file

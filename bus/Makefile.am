@@ -78,7 +78,7 @@ dbus_daemon_SOURCES=				\
 
 dbus_daemon_CPPFLAGS = -DDBUS_STATIC_BUILD
 dbus_daemon_LDADD=					\
-	$(top_builddir)/dbus/libdbus-convenience.la	\
+	$(top_builddir)/dbus/libdbus-internal.la	\
 	$(EFENCE)					\
 	$(DBUS_BUS_LIBS)
 
@@ -105,7 +105,7 @@ dbus_daemon_launch_helper_SOURCES=		\
 
 dbus_daemon_launch_helper_CPPFLAGS = -DDBUS_STATIC_BUILD
 dbus_daemon_launch_helper_LDADD=		\
-	$(top_builddir)/dbus/libdbus-convenience.la \
+	$(top_builddir)/dbus/libdbus-internal.la \
 	$(DBUS_LAUNCHER_LIBS)
 
 dbus_daemon_launch_helper_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
@@ -117,7 +117,7 @@ dbus_daemon_launch_helper_test_SOURCES=		\
 	$(LAUNCH_HELPER_SOURCES)
 
 dbus_daemon_launch_helper_test_LDADD=		\
-	$(top_builddir)/dbus/libdbus-convenience.la \
+	$(top_builddir)/dbus/libdbus-internal.la \
 	$(DBUS_LAUNCHER_LIBS)
 
 dbus_daemon_launch_helper_test_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
@@ -131,7 +131,7 @@ bus_test_launch_helper_SOURCES=		\
 	$(LAUNCH_HELPER_SOURCES)
 
 bus_test_launch_helper_LDADD=		\
-	$(top_builddir)/dbus/libdbus-convenience.la \
+	$(top_builddir)/dbus/libdbus-internal.la \
 	$(DBUS_LAUNCHER_LIBS)
 
 bus_test_launch_helper_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
@@ -176,7 +176,7 @@ bus_test_system_SOURCES=			\
 	test-system.c
 
 bus_test_system_CPPFLAGS = -DDBUS_STATIC_BUILD
-bus_test_system_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
+bus_test_system_LDADD=$(top_builddir)/dbus/libdbus-internal.la $(DBUS_BUS_LIBS)
 bus_test_system_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 bus_test_SOURCES=				\
@@ -184,7 +184,7 @@ bus_test_SOURCES=				\
 	test-main.c
 
 bus_test_CPPFLAGS = -DDBUS_STATIC_BUILD
-bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
+bus_test_LDADD=$(top_builddir)/dbus/libdbus-internal.la $(DBUS_BUS_LIBS)
 bus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 ## mop up the gcov files
