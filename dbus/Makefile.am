@@ -16,17 +16,7 @@ lib_LTLIBRARIES=libdbus-1.la
 #
 if DBUS_WIN
 
-built_sources_sys = dbus-1.def dbus-convenience.def
-
-# Note that -P suppresses line markers.
-PREPROCESS = $(CPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) -P
-dbus-1.def: $(srcdir)/dbus-1.def.pre
-	$(PREPROCESS) - < $< > $@
-
-dbus-convenience.def: $(srcdir)/dbus-convenience.def.pre
-	$(PREPROCESS) - < $< > $@
-
-SUFFIXES = rc pre
+SUFFIXES = rc
 
 .rc.o:
 	$(WINDRES) $< -o $@
@@ -34,25 +24,13 @@ SUFFIXES = rc pre
 dbus_res = versioninfo.o
 dbus_res_ldflag = -Wl,$(dbus_res)
 no_undefined = -no-undefined
+export_symbols =
+export_symvols_convenience =
 
-
-### FIXME use the .def.in files depending on the current config 
-### or combine them in a single .def file as done in the cmake build
-export_symbols = -export-symbols dbus-1.def
-export_symbols_convenience = -export-symbols dbus-convenience.def
-
-install-def-file:
-	test -z "$(libdir)" || $(MKDIR_P) "$(DESTDIR)$(libdir)"
-	$(INSTALL) dbus-1.def $(DESTDIR)$(libdir)/dbus-1.def
-
-uninstall-def-file:
-	-rm $(DESTDIR)$(libdir)/dbus-1.def
-
-libdbus_1_la_DEPENDENCIES = $(dbus_res) dbus-1.def
+libdbus_1_la_DEPENDENCIES = $(dbus_res)
 intllibs =
 
 else
-built_sources_sys =
 dbus_res =
 dbus_res_ldflag =
 no_undefined =
@@ -259,11 +237,8 @@ libdbus_convenience_la_SOURCES=			\
 	$(DBUS_SHARED_SOURCES)			\
 	$(DBUS_UTIL_SOURCES)
 
-symbol_defs = dbus-1.def.pre dbus-1-symbols.def.in dbus-1-testsymbols.def.in dbus-1-verbosesymbols.def.in \
-	dbus-convenience.def.pre dbus-internal-symbols.def.in dbus-internal-testsymbols.def.in
-
-BUILT_SOURCES=$(dbusarchinclude_HEADERS) $(built_sources_sys)
-EXTRA_DIST=dbus-arch-deps.h.in $(symbol_defs)
+BUILT_SOURCES=$(dbusarchinclude_HEADERS)
+EXTRA_DIST=dbus-arch-deps.h.in
 
 
 ## this library is the same as libdbus, but exports all the symbols
@@ -274,6 +249,7 @@ libdbus_1_la_CPPFLAGS= -Ddbus_1_EXPORTS
 libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 libdbus_1_la_LDFLAGS= $(export_symbols) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
 
+libdbus_convenience_la_CPPFLAGS = -DDBUS_STATIC_BUILD
 libdbus_convenience_la_LIBADD=$(DBUS_CLIENT_LIBS)
 libdbus_convenience_la_LDFLAGS=$(export_symbols_convenience) @R_DYNAMIC_LDFLAG@
 

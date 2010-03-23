@@ -61,6 +61,8 @@ test_sleep_forever_SOURCES =			\
 decode_gcov_SOURCES=				\
 	decode-gcov.c
 
+# When any programs are not linked to libdbus-convenience, fix this.
+AM_CPPFLAGS=-DDBUS_STATIC_BUILD
 TEST_LIBS=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_TEST_LIBS)
 
 test_service_LDADD=libdbus-testutils.la $(TEST_LIBS)

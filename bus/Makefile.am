@@ -76,6 +76,7 @@ dbus_daemon_SOURCES=				\
 	$(BUS_SOURCES)				\
 	main.c					
 
+dbus_daemon_CPPFLAGS = -DDBUS_STATIC_BUILD
 dbus_daemon_LDADD=					\
 	$(top_builddir)/dbus/libdbus-convenience.la	\
 	$(EFENCE)					\
@@ -102,6 +103,7 @@ dbus_daemon_launch_helper_SOURCES=		\
 	activation-helper-bin.c			\
 	$(LAUNCH_HELPER_SOURCES)
 
+dbus_daemon_launch_helper_CPPFLAGS = -DDBUS_STATIC_BUILD
 dbus_daemon_launch_helper_LDADD=		\
 	$(top_builddir)/dbus/libdbus-convenience.la \
 	$(DBUS_LAUNCHER_LIBS)
@@ -119,7 +121,7 @@ dbus_daemon_launch_helper_test_LDADD=		\
 	$(DBUS_LAUNCHER_LIBS)
 
 dbus_daemon_launch_helper_test_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
-dbus_daemon_launch_helper_test_CPPFLAGS=	\
+dbus_daemon_launch_helper_test_CPPFLAGS= -DDBUS_STATIC_BUILD	\
 	-DACTIVATION_LAUNCHER_TEST
 
 ## we build yet another binary so we can do the OOM tests
@@ -133,7 +135,7 @@ bus_test_launch_helper_LDADD=		\
 	$(DBUS_LAUNCHER_LIBS)
 
 bus_test_launch_helper_LDFLAGS=@R_DYNAMIC_LDFLAG@ @SECTION_LDFLAGS@
-bus_test_launch_helper_CPPFLAGS=	\
+bus_test_launch_helper_CPPFLAGS= -DDBUS_STATIC_BUILD	\
 	-DACTIVATION_LAUNCHER_TEST	\
 	-DACTIVATION_LAUNCHER_DO_OOM
 
@@ -173,6 +175,7 @@ bus_test_system_SOURCES=			\
 	utils.h					\
 	test-system.c
 
+bus_test_system_CPPFLAGS = -DDBUS_STATIC_BUILD
 bus_test_system_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
 bus_test_system_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
@@ -180,6 +183,7 @@ bus_test_SOURCES=				\
 	$(BUS_SOURCES)				\
 	test-main.c
 
+bus_test_CPPFLAGS = -DDBUS_STATIC_BUILD
 bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
 bus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
