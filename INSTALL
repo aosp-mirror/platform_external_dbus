@@ -4,8 +4,10 @@
 Quick start
 ===========
 
-DBus uses GNU AutoTools for its build system, thus the basic install
-procedure can be summarized as:
+DBus could be build with GNU AutoTools or with cmake for its build system,
+thus the basic install procedure can be summarized as:
+
+with autotools:
 
     ./configure --prefix=/usr
     make
@@ -13,12 +15,28 @@ procedure can be summarized as:
 
 The configure script will automatically determine whether to try and
 build bindings for GLib, Qt, Qt3, Python and Mono based on what tools
-are installed on the host system. The default build behaviour can be 
+are installed on the host system. The default build behaviour can be
 overridden using the --enable-XXX/--disable-XXX arguments to configure.
 A typical scenario in which it is desirable to override automatic
-detection, is during packaging of binary builds, where a predictable 
-dependancy chain is required. For more details on GNU AutoTools 
+detection, is during packaging of binary builds, where a predictable
+dependancy chain is required. For more details on GNU AutoTools
 installation, consult the generic instructions later in this document
+
+with cmake:
+    mkdir dbus-build-dir
+    cd dbus-build-dir
+    cmake -G <makefile-generator-name> [-D<option>] <dbus-src-root>/cmake
+    make
+    make install
+
+cmake will automatically determine whether to build some features
+based on what tools and/or libraries are installed on the host system. 
+The default build behaviour can be overridden using the 
+-DENABLE_<XXX> arguments to cmake.
+A typical scenario in which it is desirable to override automatic
+detection, is during packaging of binary builds, where a predictable
+dependancy chain is required. For more details on cmake installation, 
+consult http://www.cmake.org/cmake/help/help.html. 
 
 External software dependancies
 ==============================
@@ -40,10 +58,10 @@ Core library
 
  Optional:
 
-  - libselinux  (for SELinux integration)
-  - dnotify     (for automatic service file reload)
-  - doxygen     (for API documentation)
-  - xmlto       (for Spec & other XML documentation)
+  - libselinux           (for SELinux integration)
+  - dnotify              (for automatic service file reload)
+  - doxygen              (for API documentation)
+  - xmlto or meinproc4   (for Spec & other XML documentation)
 
 ====================================================================
 
