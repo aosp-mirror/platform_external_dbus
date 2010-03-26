@@ -73,7 +73,7 @@ free_watches (DBusTransport *transport)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
 
-  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("start\n");
   
   if (socket_transport->read_watch)
     {
@@ -95,7 +95,7 @@ free_watches (DBusTransport *transport)
       socket_transport->write_watch = NULL;
     }
 
-  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("end\n");
 }
 
 static void
@@ -103,7 +103,7 @@ socket_finalize (DBusTransport *transport)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
   
   free_watches (transport);
 
@@ -177,8 +177,7 @@ check_read_watch (DBusTransport *transport)
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
   dbus_bool_t need_read_watch;
 
-  _dbus_verbose ("%s: fd = %d\n",
-                 _DBUS_FUNCTION_NAME, socket_transport->fd);
+  _dbus_verbose ("fd = %d\n",socket_transport->fd);
   
   if (transport->connection == NULL)
     return;
@@ -701,8 +700,7 @@ do_reading (DBusTransport *transport)
   int total;
   dbus_bool_t oom;
 
-  _dbus_verbose ("%s: fd = %d\n", _DBUS_FUNCTION_NAME,
-                 socket_transport->fd);
+  _dbus_verbose ("fd = %d\n",socket_transport->fd);
   
   /* No messages without authentication! */
   if (!_dbus_transport_get_is_authenticated (transport))
@@ -984,7 +982,7 @@ socket_disconnect (DBusTransport *transport)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
   
   free_watches (transport);
   
@@ -1119,7 +1117,7 @@ socket_do_iteration (DBusTransport *transport,
        */
       if (flags & DBUS_ITERATION_BLOCK)
         {
-          _dbus_verbose ("unlock %s pre poll\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("unlock pre poll\n");
           _dbus_connection_unlock (transport->connection);
         }
       
@@ -1131,7 +1129,7 @@ socket_do_iteration (DBusTransport *transport,
 
       if (flags & DBUS_ITERATION_BLOCK)
         {
-          _dbus_verbose ("lock %s post poll\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("lock post poll\n");
           _dbus_connection_lock (transport->connection);
         }
       

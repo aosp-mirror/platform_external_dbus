@@ -839,7 +839,7 @@ expire_incomplete_timeout (void *data)
 {
   BusConnections *connections = data;
 
-  _dbus_verbose ("Running %s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("Running\n");
   
   /* note that this may remove the timeout */
   bus_connections_expire_incomplete (connections);
@@ -1632,7 +1632,7 @@ cancel_pending_reply (void *data)
 {
   CancelPendingReplyData *d = data;
 
-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  _dbus_verbose ("d = %p\n", d);
   
   if (!bus_expire_list_remove (d->connections->pending_replies,
                                &d->pending->expire_item))
@@ -1646,7 +1646,7 @@ cancel_pending_reply_data_free (void *data)
 {
   CancelPendingReplyData *d = data;
 
-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  _dbus_verbose ("d = %p\n", d);
   
   /* d->pending should be either freed or still
    * in the list of pending replies (owned by someone
@@ -1783,7 +1783,7 @@ cancel_check_pending_reply (void *data)
 {
   CheckPendingReplyData *d = data;
 
-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  _dbus_verbose ("d = %p\n",d);
 
   bus_expire_list_add_link (d->connections->pending_replies,
                             d->link);
@@ -1795,7 +1795,7 @@ check_pending_reply_data_free (void *data)
 {
   CheckPendingReplyData *d = data;
 
-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  _dbus_verbose ("d = %p\n",d);
   
   if (d->link != NULL)
     {

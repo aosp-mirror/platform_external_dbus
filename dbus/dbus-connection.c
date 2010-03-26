@@ -64,13 +64,13 @@
 #define TRACE_LOCKS 1
 
 #define CONNECTION_LOCK(connection)   do {                                      \
-    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
+    if (TRACE_LOCKS) { _dbus_verbose ("LOCK\n"); }   \
     _dbus_mutex_lock ((connection)->mutex);                                      \
     TOOK_LOCK_CHECK (connection);                                               \
   } while (0)
 
 #define CONNECTION_UNLOCK(connection) do {                                              \
-    if (TRACE_LOCKS) { _dbus_verbose ("  UNLOCK: %s\n", _DBUS_FUNCTION_NAME);  }        \
+    if (TRACE_LOCKS) { _dbus_verbose ("UNLOCK\n");  }        \
     RELEASING_LOCK_CHECK (connection);                                                  \
     _dbus_mutex_unlock ((connection)->mutex);                                            \
   } while (0)
@@ -1033,11 +1033,11 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
   /* We will only touch io_path_acquired which is protected by our mutex */
   CONNECTION_UNLOCK (connection);
   
-  _dbus_verbose ("%s locking io_path_mutex\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("locking io_path_mutex\n");
   _dbus_mutex_lock (connection->io_path_mutex);
 
-  _dbus_verbose ("%s start connection->io_path_acquired = %d timeout = %d\n",
-                 _DBUS_FUNCTION_NAME, connection->io_path_acquired, timeout_milliseconds);
+  _dbus_verbose ("start connection->io_path_acquired = %d timeout = %d\n",
+                 connection->io_path_acquired, timeout_milliseconds);
 
   we_acquired = FALSE;
   
@@ -1045,8 +1045,8 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
     {
       if (timeout_milliseconds != -1)
         {
-          _dbus_verbose ("%s waiting %d for IO path to be acquirable\n",
-                         _DBUS_FUNCTION_NAME, timeout_milliseconds);
+          _dbus_verbose ("waiting %d for IO path to be acquirable\n",
+                         timeout_milliseconds);
 
           if (!_dbus_condvar_wait_timeout (connection->io_path_cond,
                                            connection->io_path_mutex,
@@ -1066,7 +1066,7 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
         {
           while (connection->io_path_acquired)
             {
-              _dbus_verbose ("%s waiting for IO path to be acquirable\n", _DBUS_FUNCTION_NAME);
+              _dbus_verbose ("waiting for IO path to be acquirable\n");
               _dbus_condvar_wait (connection->io_path_cond, 
                                   connection->io_path_mutex);
             }
@@ -1079,10 +1079,10 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
       connection->io_path_acquired = TRUE;
     }
   
-  _dbus_verbose ("%s end connection->io_path_acquired = %d we_acquired = %d\n",
-                 _DBUS_FUNCTION_NAME, connection->io_path_acquired, we_acquired);
+  _dbus_verbose ("end connection->io_path_acquired = %d we_acquired = %d\n",
+                 connection->io_path_acquired, we_acquired);
 
-  _dbus_verbose ("%s unlocking io_path_mutex\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("unlocking io_path_mutex\n");
   _dbus_mutex_unlock (connection->io_path_mutex);
 
   CONNECTION_LOCK (connection);
@@ -1106,18 +1106,18 @@ _dbus_connection_release_io_path (DBusConnection *connection)
 {
   HAVE_LOCK_CHECK (connection);
   
-  _dbus_verbose ("%s locking io_path_mutex\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("locking io_path_mutex\n");
   _dbus_mutex_lock (connection->io_path_mutex);
   
   _dbus_assert (connection->io_path_acquired);
 
-  _dbus_verbose ("%s start connection->io_path_acquired = %d\n",
-                 _DBUS_FUNCTION_NAME, connection->io_path_acquired);
+  _dbus_verbose ("start connection->io_path_acquired = %d\n",
+                 connection->io_path_acquired);
   
   connection->io_path_acquired = FALSE;
   _dbus_condvar_wake_one (connection->io_path_cond);
 
-  _dbus_verbose ("%s unlocking io_path_mutex\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("unlocking io_path_mutex\n");
   _dbus_mutex_unlock (connection->io_path_mutex);
 }
 
@@ -1154,7 +1154,7 @@ _dbus_connection_do_iteration_unlocked (DBusConnection *connection,
                                         unsigned int    flags,
                                         int             timeout_milliseconds)
 {
-  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("start\n");
   
   HAVE_LOCK_CHECK (connection);
   
@@ -1173,7 +1173,7 @@ _dbus_connection_do_iteration_unlocked (DBusConnection *connection,
 
   HAVE_LOCK_CHECK (connection);
 
-  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("end\n");
 }
 
 /**
@@ -1438,7 +1438,7 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
 
   connection = data;
 
-  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("start\n");
   
   CONNECTION_LOCK (connection);
 
@@ -1457,14 +1457,14 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
 
   HAVE_LOCK_CHECK (connection);
 
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("middle\n");
   
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
   /* this calls out to user code */
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 
-  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("end\n");
   
   return retval;
 }
@@ -2017,7 +2017,7 @@ _dbus_connection_send_preallocated_and_unlock (DBusConnection       *connection,
                                                          preallocated,
                                                          message, client_serial);
 
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("middle\n");
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
   /* this calls out to user code */
@@ -2252,7 +2252,7 @@ check_for_reply_and_update_dispatch_unlocked (DBusConnection  *connection,
                                     _dbus_pending_call_get_reply_serial_unlocked (pending));
   if (reply != NULL)
     {
-      _dbus_verbose ("%s checked for reply\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("checked for reply\n");
 
       _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply\n");
 
@@ -2345,7 +2345,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
 
  recheck_status:
 
-  _dbus_verbose ("%s top of recheck\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("top of recheck\n");
   
   HAVE_LOCK_CHECK (connection);
   
@@ -2358,7 +2358,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
    */
   if (_dbus_pending_call_get_completed_unlocked (pending))
     {
-      _dbus_verbose ("Pending call completed by dispatch in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("Pending call completed by dispatch\n");
       _dbus_connection_update_dispatch_status_and_unlock (connection, status);
       dbus_pending_call_unref (pending);
       return;
@@ -3247,7 +3247,7 @@ reply_handler_timeout (void *data)
 				            _dbus_pending_call_get_timeout_unlocked (pending));
   _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
 
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("middle\n");
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
   /* Unlocks, and calls out to user code */
@@ -3512,7 +3512,7 @@ _dbus_connection_flush_unlocked (DBusConnection *connection)
   while (connection->n_outgoing > 0 &&
          _dbus_connection_get_is_connected_unlocked (connection))
     {
-      _dbus_verbose ("doing iteration in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("doing iteration in\n");
       HAVE_LOCK_CHECK (connection);
       _dbus_connection_do_iteration_unlocked (connection,
                                               DBUS_ITERATION_DO_READING |
@@ -3522,7 +3522,7 @@ _dbus_connection_flush_unlocked (DBusConnection *connection)
     }
 
   HAVE_LOCK_CHECK (connection);
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("middle\n");
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
   HAVE_LOCK_CHECK (connection);
@@ -3554,7 +3554,7 @@ dbus_connection_flush (DBusConnection *connection)
   /* Unlocks and calls out to user code */
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 
-  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("end\n");
 }
 
 /**
@@ -3584,13 +3584,13 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
 
   if (dispatch && dstatus == DBUS_DISPATCH_DATA_REMAINS)
     {
-      _dbus_verbose ("doing dispatch in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("doing dispatch\n");
       dbus_connection_dispatch (connection);
       CONNECTION_LOCK (connection);
     }
   else if (dstatus == DBUS_DISPATCH_NEED_MEMORY)
     {
-      _dbus_verbose ("pausing for memory in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("pausing for memory\n");
       _dbus_memory_pause_based_on_timeout (timeout_milliseconds);
       CONNECTION_LOCK (connection);
     }
@@ -3599,7 +3599,7 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
       CONNECTION_LOCK (connection);
       if (_dbus_connection_get_is_connected_unlocked (connection))
         {
-          _dbus_verbose ("doing iteration in %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("doing iteration\n");
           _dbus_connection_do_iteration_unlocked (connection,
                                                   DBUS_ITERATION_DO_READING |
                                                   DBUS_ITERATION_DO_WRITING |
@@ -3750,7 +3750,7 @@ dbus_connection_borrow_message (DBusConnection *connection)
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
 
-  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("start\n");
   
   /* this is called for the side effect that it queues
    * up any messages from the transport
@@ -3975,7 +3975,7 @@ dbus_connection_pop_message (DBusConnection *connection)
   DBusMessage *message;
   DBusDispatchStatus status;
 
-  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("start\n");
   
   /* this is called for the side effect that it queues
    * up any messages from the transport
@@ -4015,12 +4015,12 @@ _dbus_connection_acquire_dispatch (DBusConnection *connection)
   _dbus_connection_ref_unlocked (connection);
   CONNECTION_UNLOCK (connection);
   
-  _dbus_verbose ("%s locking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("locking dispatch_mutex\n");
   _dbus_mutex_lock (connection->dispatch_mutex);
 
   while (connection->dispatch_acquired)
     {
-      _dbus_verbose ("%s waiting for dispatch to be acquirable\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("waiting for dispatch to be acquirable\n");
       _dbus_condvar_wait (connection->dispatch_cond, 
                           connection->dispatch_mutex);
     }
@@ -4029,7 +4029,7 @@ _dbus_connection_acquire_dispatch (DBusConnection *connection)
 
   connection->dispatch_acquired = TRUE;
 
-  _dbus_verbose ("%s unlocking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("unlocking dispatch_mutex\n");
   _dbus_mutex_unlock (connection->dispatch_mutex);
   
   CONNECTION_LOCK (connection);
@@ -4048,7 +4048,7 @@ _dbus_connection_release_dispatch (DBusConnection *connection)
 {
   HAVE_LOCK_CHECK (connection);
   
-  _dbus_verbose ("%s locking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("locking dispatch_mutex\n");
   _dbus_mutex_lock (connection->dispatch_mutex);
   
   _dbus_assert (connection->dispatch_acquired);
@@ -4056,7 +4056,7 @@ _dbus_connection_release_dispatch (DBusConnection *connection)
   connection->dispatch_acquired = FALSE;
   _dbus_condvar_wake_one (connection->dispatch_cond);
 
-  _dbus_verbose ("%s unlocking dispatch_mutex\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("unlocking dispatch_mutex\n");
   _dbus_mutex_unlock (connection->dispatch_mutex);
 }
 
@@ -4109,8 +4109,7 @@ notify_disconnected_and_dispatch_complete_unlocked (DBusConnection *connection)
   
   if (connection->disconnect_message_link != NULL)
     {
-      _dbus_verbose ("Sending disconnect message from %s\n",
-                     _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("Sending disconnect message\n");
       
       /* If we have pending calls, queue their timeouts - we want the Disconnected
        * to be the last message, after these timeouts.
@@ -4264,7 +4263,7 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
 
   _dbus_return_val_if_fail (connection != NULL, DBUS_DISPATCH_COMPLETE);
 
-  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("start\n");
   
   CONNECTION_LOCK (connection);
 
@@ -4441,7 +4440,7 @@ dbus_connection_dispatch (DBusConnection *connection)
 
   _dbus_return_val_if_fail (connection != NULL, DBUS_DISPATCH_COMPLETE);
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
   
   CONNECTION_LOCK (connection);
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
@@ -4577,7 +4576,7 @@ dbus_connection_dispatch (DBusConnection *connection)
 
   if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
     {
-      _dbus_verbose ("No memory in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("No memory\n");
       goto out;
     }
   else if (result == DBUS_HANDLER_RESULT_HANDLED)
@@ -4684,7 +4683,7 @@ dbus_connection_dispatch (DBusConnection *connection)
  out:
   if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
     {
-      _dbus_verbose ("out of memory in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("out of memory\n");
       
       /* Put message back, and we'll start over.
        * Yes this means handlers must be idempotent if they
@@ -4695,7 +4694,7 @@ dbus_connection_dispatch (DBusConnection *connection)
     }
   else
     {
-      _dbus_verbose (" ... done dispatching in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose (" ... done dispatching\n");
       
       _dbus_list_free_link (message_link);
       dbus_message_unref (message); /* don't want the message to count in max message limits
@@ -4706,7 +4705,7 @@ dbus_connection_dispatch (DBusConnection *connection)
   _dbus_connection_release_dispatch (connection);
   HAVE_LOCK_CHECK (connection);
 
-  _dbus_verbose ("%s before final status update\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("before final status update\n");
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
   /* unlocks and calls user code */
@@ -4794,8 +4793,7 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
 #ifndef DBUS_DISABLE_CHECKS
   if (connection->watches == NULL)
     {
-      _dbus_warn_check_failed ("Re-entrant call to %s is not allowed\n",
-                               _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call is not allowed\n");
       return FALSE;
     }
 #endif
@@ -4876,8 +4874,7 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 #ifndef DBUS_DISABLE_CHECKS
   if (connection->timeouts == NULL)
     {
-      _dbus_warn_check_failed ("Re-entrant call to %s is not allowed\n",
-                               _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call is not allowed\n");
       return FALSE;
     }
 #endif

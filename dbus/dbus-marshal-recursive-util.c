@@ -1090,7 +1090,7 @@ run_test_copy (NodeIterationData *nid)
   DBusTypeReader reader;
   DBusTypeWriter writer;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   src = nid->block;
 
@@ -1153,7 +1153,7 @@ run_test_values_only_write (NodeIterationData *nid)
   dbus_bool_t retval;
   int sig_len;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 
@@ -1221,7 +1221,7 @@ run_test_set_values (NodeIterationData *nid)
   dbus_bool_t retval;
   int i;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 
@@ -1278,7 +1278,7 @@ run_test_delete_values (NodeIterationData *nid)
   dbus_bool_t retval;
   int t;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 

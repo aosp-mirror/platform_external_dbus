@@ -508,7 +508,7 @@ unlock:
 #endif
     {
       _dbus_connection_ref_unlocked (connection);
-      _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("unlock\n");
       _dbus_connection_unlock (connection);
     }
 
@@ -642,7 +642,7 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
       
@@ -657,7 +657,7 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
 
@@ -717,7 +717,7 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
     {
       if (!already_unlocked)
         {
-          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
     }
@@ -765,7 +765,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
       
@@ -780,7 +780,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
       
@@ -846,7 +846,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
           if (tree->connection)
 #endif
             {
-              _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+              _dbus_verbose ("unlock\n");
               _dbus_connection_unlock (tree->connection);
             }
 
@@ -886,7 +886,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
     }
@@ -926,8 +926,7 @@ _dbus_object_tree_get_user_data_unlocked (DBusObjectTree *tree,
 
   if ((subtree == NULL) || !exact_match)
     {
-      _dbus_verbose ("%s: No object at specified path found\n",
-                     _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("No object at specified path found\n");
       return NULL;
     }
 
@@ -1049,7 +1048,7 @@ _dbus_object_tree_list_registered_and_unlock (DBusObjectTree *tree,
   if (tree->connection)
 #endif
     {
-      _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("unlock\n");
       _dbus_connection_unlock (tree->connection);
     }
 
