@@ -2260,6 +2260,24 @@ static void dump_backtrace_for_thread(HANDLE hThread)
     sf.AddrPC.Offset = context.Eip;
     sf.AddrPC.Mode = AddrModeFlat;
     dwImageType = IMAGE_FILE_MACHINE_I386;
+#elif _M_X64
+  dwImageType                = IMAGE_FILE_MACHINE_AMD64;
+  sf.AddrPC.Offset    = context.Rip;
+  sf.AddrPC.Mode      = AddrModeFlat;
+  sf.AddrFrame.Offset = context.Rsp;
+  sf.AddrFrame.Mode   = AddrModeFlat;
+  sf.AddrStack.Offset = context.Rsp;
+  sf.AddrStack.Mode   = AddrModeFlat;
+#elif _M_IA64
+  dwImageType                 = IMAGE_FILE_MACHINE_IA64;
+  sf.AddrPC.Offset    = context.StIIP;
+  sf.AddrPC.Mode      = AddrModeFlat;
+  sf.AddrFrame.Offset = context.IntSp;
+  sf.AddrFrame.Mode   = AddrModeFlat;
+  sf.AddrBStore.Offset= context.RsBSP;
+  sf.AddrBStore.Mode  = AddrModeFlat;
+  sf.AddrStack.Offset = context.IntSp;
+  sf.AddrStack.Mode   = AddrModeFlat;
 #else
 # error You need to fill in the STACKFRAME structure for your architecture
 #endif
