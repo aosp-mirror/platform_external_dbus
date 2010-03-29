@@ -114,50 +114,28 @@ endif (UNIX AND NOT DBUS_DISABLE_ASSERTS)
 SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}  -D_DEBUG")
 
 #########################################################################
-# Windows CE
+# Windows CE (>= 5.0.0)
 #
-# usage:
-#      cmake ..\trunk\cmake -Dwince=1 -Dwcelibcex=c:\wcelibcex
+# WinCE support now relies on the presence of platform files, found in cmake/modules/platform
+# Cmake 2.8.0 doesn't include WinCE platform files by default, but working ones can be found
+# on CMake's bugtracker :
+# http://public.kitware.com/Bug/view.php?id=7919
 #
-# change configuration in Visual Studio to 'Pocket PC 2003 (ARMV4)'
+# for cmake 2.8.0 get the following patch only :
+# http://public.kitware.com/Bug/file_download.php?file_id=2944&type=bug
 #
-if(wince)
-	project(${CMAKE_PROJECT_NAME}-wince)
-	# don't forget parameters
-	set(wince 1 CACHE TYPE STRING FORCE)
-	set(wcelibcex ${wcelibcex} CACHE TYPE STRING FORCE)
+# after applying the patch, you can enable the WinCE build by specifying :
+# cmake [...] -DCMAKE_SYSTEM_NAME=WinCE -DCMAKE_SYSTEM_VERSION=X.XX
+# (where X.XX is your actual WinCE version, e.g. 5.02 for Windows Mobile 6)
+#
+# Note that you should have a proper cross-compilation environment set up prior to running
+# cmake, ie. the PATH, INCLUDE and LIB env vars pointing to your CE SDK/toolchain.
+#
+if(WINCE)
 
-	include_directories(${wcelibcex}/include/wcelibcex ${wcelibcex}/src)
+MESSAGE("Building for WinCE (${CMAKE_SYSTEM_VERSION})")
 
-	add_definitions(
-# see config.h.cmake
-#			-DDBUS_WINCE
-			-DWINCE
-			-DWIN32_PLATFORM_PSPC
-			-D_WINDOWS
-			-D_UNICODE
-			-DUNICODE
-			-DPOCKETPC2003_UI_MODEL
-			)
-
-	# Windows CE Version
-	add_definitions(
-			-D_WIN32_WCE=0x420
-			-DWIN32_PLATFORM_PSPC=0x420
-			-DUNDER_CE=0x420
-			)
-
-	# Architecture
-	add_definitions(
-			-DARM
-			-D_ARM_
-			)
-
-	set(CMAKE_CXX_STANDARD_LIBRARIES "coredll.lib corelibc.lib ole32.lib oleaut32.lib uuid.lib commctrl.lib ws2.lib")
-
-	set(CMAKE_SHARED_LINKER_FLAGS "/subsystem:windowsce,4.20 /machine:THUMB")
-
-endif(wince)
+endif(WINCE)
 #########################################################################
 
 

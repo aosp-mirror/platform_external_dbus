@@ -198,6 +198,14 @@ if (WIN32)
 		${DBUS_DIR}/dbus-spawn-win.c
 		${DBUS_DIR}/dbus-sysdeps-util-win.c
 	)
+	if(WINCE)
+	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES}
+		${DBUS_DIR}/dbus-sysdeps-wince-glue.c
+	)
+	set (DBUS_SHARED_HEADERS ${DBUS_SHARED_HEADERS}
+		${DBUS_DIR}/dbus-sysdeps-wince-glue.h
+	)
+	endif(WINCE)
 else (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
 		${DBUS_DIR}/dbus-file-unix.c
@@ -256,7 +264,11 @@ add_library(dbus-1 SHARED
 			${DBUS_LIB_HEADERS}
 			${DBUS_SHARED_HEADERS})
 if(WIN32)
-	target_link_libraries(dbus-1 ws2_32 advapi32 netapi32)
+    if(WINCE)
+        target_link_libraries(dbus-1 ws2)
+    else(WINCE)
+        target_link_libraries(dbus-1 ws2_32 advapi32 netapi32)
+    endif(WINCE)
 endif(WIN32)
 
 install_targets(/lib dbus-1 )
@@ -275,7 +287,11 @@ add_library(dbus-internal ${DBUS_INTERNAL_ADD_LIBRARY_OPTIONS}
 target_link_libraries(dbus-internal)
 set_target_properties(dbus-internal PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_LIBRARY_DEFINITIONS})
 if(WIN32)
-	target_link_libraries(dbus-internal ws2_32 advapi32 netapi32)
+    if(WINCE)
+        target_link_libraries(dbus-internal ws2)
+    else(WINCE)
+        target_link_libraries(dbus-internal ws2_32 advapi32 netapi32)
+    endif(WINCE)
 endif(WIN32)
 
 if (DBUS_BUILD_TESTS)
