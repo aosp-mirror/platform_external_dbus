@@ -38,28 +38,28 @@ endif (MEINPROC_EXECUTABLE)
  
 if (XMLTO_EXECUTABLE)
 	set (DOCBOOK_GENERATOR_NAME "xmlto" PARENT_SCOPE)
-	set(DBUS_XML_DOCS_ENABLED 0)
-	MESSAGE(STATUS "xmlto docbook generator found, but xmlto doc generating needs validation")
+	set(DBUS_XML_DOCS_ENABLED 1)
+	MESSAGE(STATUS "xmlto docbook generator found")
 endif (XMLTO_EXECUTABLE)
 
 if (DBUS_ENABLE_XML_DOCS)
 
 macro (DOCBOOK _sources _options)
-  get_filename_component(_infile ${_sources} REALPATH)
+  get_filename_component(_infile ${_sources} ABSOLUTE)
   get_filename_component(_basename ${_infile} NAME_WE)
   set(_outfile ${CMAKE_CURRENT_BINARY_DIR}/${_basename}.html)
 
   if (EXISTS ${_sources})
 	  if (MEINPROC_EXECUTABLE)
 		  ADD_CUSTOM_TARGET(${_basename}.html ALL
-			meinproc4 --stylesheet ${STYLESHEET} -o ${_outfile} ${_infile} 
+			${MEINPROC4_EXECUTABLE} --stylesheet ${STYLESHEET} -o ${_outfile} ${_infile} 
 			DEPENDS ${_infile} 
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 		)
 	  endif ()
 	  if (XMLTO_EXECUTABLE)
 		  ADD_CUSTOM_TARGET(${_basename}.html ALL
-			xmlto.bat ${_options} ${_infile} 
+			${XMLTO_EXECUTABLE} -vv ${_options} ${_infile} 
 			DEPENDS ${_infile} 
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 		)
