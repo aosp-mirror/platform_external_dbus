@@ -38,8 +38,6 @@ no_undefined =
 ## convention for internal symbols)
 export_symbols = -export-symbols-regex "^[^_].*"
 export_symbols_internal =
-install-def-file:
-uninstall-def-file:
 
 intllibs = @LTLIBINTL@
 
@@ -272,10 +270,6 @@ dbus_test_SOURCES=				\
 
 dbus_test_LDADD=libdbus-internal.la $(DBUS_TEST_LIBS)
 dbus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
-
-install-data-local: install-def-file
-
-uninstall-local: uninstall-def-file
 
 ## mop up the gcov files
 clean-local:
