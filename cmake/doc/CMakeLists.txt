@@ -15,15 +15,15 @@ endif (DBUS_ENABLE_DOXYGEN_DOCS)
 #
 # find docbook generator
 # 
-find_program(MEINPROC_EXECUTABLE meinproc4)
+find_program(MEINPROC4_EXECUTABLE meinproc4)
 
 find_program(XMLTO_EXECUTABLE xmlto)
 
-if (MEINPROC_EXECUTABLE OR XMLTO_EXECUTABLE)
+if (MEINPROC4_EXECUTABLE OR XMLTO_EXECUTABLE)
   OPTION(DBUS_ENABLE_XML_DOCS "build XML  documentation (requires xmlto or meinproc4)" ON)
-endif (MEINPROC_EXECUTABLE OR XMLTO_EXECUTABLE)
+endif (MEINPROC4_EXECUTABLE OR XMLTO_EXECUTABLE)
 
-if (MEINPROC_EXECUTABLE)
+if (MEINPROC4_EXECUTABLE)
 	set(DOCBOOK_GENERATOR_NAME "meinproc4" PARENT_SCOPE)
 	set(DBUS_XML_DOCS_ENABLED 1)
 	if(WIN32)
@@ -33,7 +33,7 @@ if (MEINPROC_EXECUTABLE)
 		set(_meinproc_install_path ${CMAKE_INSTALL_PREFIX})
 	endif(WIN32)
 	set(STYLESHEET "${_meinproc_install_path}/share/apps/ksgmltools2/docbook/xsl/html/docbook.xsl")
-endif (MEINPROC_EXECUTABLE)
+endif (MEINPROC4_EXECUTABLE)
   
  
 if (XMLTO_EXECUTABLE)
@@ -50,7 +50,7 @@ macro (DOCBOOK _sources _options)
   set(_outfile ${CMAKE_CURRENT_BINARY_DIR}/${_basename}.html)
 
   if (EXISTS ${_sources})
-	  if (MEINPROC_EXECUTABLE)
+	  if (MEINPROC4_EXECUTABLE)
 		  ADD_CUSTOM_TARGET(${_basename}.html ALL
 			${MEINPROC4_EXECUTABLE} --stylesheet ${STYLESHEET} -o ${_outfile} ${_infile} 
 			DEPENDS ${_infile} 
