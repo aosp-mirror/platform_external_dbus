@@ -475,10 +475,6 @@ if (MINGW)
 	set (HAVE_GNUC_VARARGS 1)
 endif(MINGW)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h )
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-env.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-env.bat )
-install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)
-
 # compiler definitions
 add_definitions(-DHAVE_CONFIG_H=1)
 add_definitions(${DBUS_BUS_CFLAGS} -DDBUS_API_SUBJECT_TO_CHANGE)
@@ -490,6 +486,14 @@ if (DBUS_BUILD_TESTS)
     set(TEST_VALID_SERVICE_SYSTEM_DIR ${CMAKE_BINARY_DIR}/test/data/valid-service-files-system)
     set(TEST_SOCKET_DIR ${DBUS_SESSION_SOCKET_DIR} )
     set(TEST_LAUNCH_HELPER_BINARY ${EXECUTABLE_OUTPUT_PATH}/dbus-daemon-launch-helper-test)
+    if (UNIX)
+        set (TEST_LISTEN "debug-pipe:name=test-server")
+        set (TEST_CONNECTION "${TEST_LISTEN}")
+    endif (UNIX)
+    if (WIN32)
+        set (TEST_LISTEN "tcp:host=localhost,port=12436")
+        set (TEST_CONNECTION "${TEST_LISTEN}")
+    endif (WIN32)
 endif  (DBUS_BUILD_TESTS)
 
 set(DBUS_LIBRARIES dbus-1)
@@ -500,6 +504,11 @@ set(DBUS_INTERNAL_LIBRARIES dbus-internal)
 set (DBUS_INTERNAL_ADD_LIBRARY_OPTIONS STATIC)
 set (DBUS_INTERNAL_LIBRARY_DEFINITIONS "-DDBUS_STATIC_BUILD")
 set (DBUS_INTERNAL_CLIENT_DEFINITIONS "-DDBUS_STATIC_BUILD")
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h )
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-env.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-env.bat )
+install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)
+
 
 ########### subdirs ###############
 
@@ -576,6 +585,7 @@ message("        Console auth dir:         ${DBUS_CONSOLE_AUTH_DIR}            "
 message("        System bus user:          ${DBUS_USER}                        ")
 message("        'make check' socket dir:  ${TEST_SOCKET_DIR}                  ")
 endif (WIN32)
+message("        Test listen address:      ${TEST_LISTEN}                      ")
 if (MSVC)
 message("        build timestamp:          ${DBUS_BUILD_TIMESTAMP}             ")
 endif (MSVC)

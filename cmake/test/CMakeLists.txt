@@ -122,13 +122,6 @@ FOREACH(FILE_TYPE *.message *.message-raw *.auth-script *.sha1 *.txt *.conf *.se
 	ENDFOREACH(DIR)
 ENDFOREACH(FILE_TYPE)
 
-if (UNIX)
-    set (TEST_LISTEN "debug-pipe:name=test-server")
-endif (UNIX)
-if (WIN32)
-    set (TEST_LISTEN "tcp:host=localhost,port=1234")
-endif (WIN32)
-
 ### generate test files
 MESSAGE(STATUS "Generating test files from templates into test directory")			
 

@@ -26,6 +26,9 @@
 
 #define VERSION DBUS_VERSION_STRING
 
+#define TEST_LISTEN       "@TEST_LISTEN@"
+#define TEST_CONNECTION   "@TEST_CONNECTION@"
+
 // test binaries
 /* Full path to test file test/test-exit in builddir */
 #define TEST_BUS_BINARY          "@TEST_BUS_BINARY@"

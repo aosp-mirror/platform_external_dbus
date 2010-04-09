@@ -41,10 +41,16 @@
 #include <unistd.h>
 #endif
 
+#ifndef TEST_CONNECTION
+/*
+ TODO autotools:
+  move to build system as already done for cmake
+*/
 #ifdef DBUS_UNIX
 #define TEST_CONNECTION "debug-pipe:name=test-server"
 #else
 #define TEST_CONNECTION "tcp:host=localhost,port=1234"
+#endif
 #endif
 
 static dbus_bool_t
