@@ -2,6 +2,12 @@ project(test)
 
 add_definitions(${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 
+add_library(dbus_testutils STATIC
+    ${CMAKE_SOURCE_DIR}/../test/test-utils.h
+    ${CMAKE_SOURCE_DIR}/../test/test-utils.c
+)
+target_link_libraries(dbus_testutils ${DBUS_INTERNAL_LIBRARIES})
+
 add_subdirectory( name-test )
 
 set (test-service_SOURCES
