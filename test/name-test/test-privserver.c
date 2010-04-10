@@ -89,7 +89,11 @@ main (int argc, char *argv[])
   if (!dbus_connection_add_filter (session, filter_session_message, testdata, NULL))
     die ("couldn't add filter");
 
+#ifdef DBUS_CMAKE
+  server = dbus_server_listen (TEST_LISTEN, &error);
+#else
   server = dbus_server_listen ("unix:tmpdir=/tmp", &error);
+#endif
   if (!server)
     die (error.message);
   testdata->private_addr = dbus_server_get_address (server);
