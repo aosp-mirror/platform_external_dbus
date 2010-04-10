@@ -3,6 +3,8 @@
 #ifndef _DBUS_CONFIG_H
 #define _DBUS_CONFIG_H
 /****************************/
+/* indicate that we are building with cmake */
+#define DBUS_CMAKE 1
 
 #cmakedefine HAVE_GNUC_VARARGS 1
 
