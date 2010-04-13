@@ -26,6 +26,8 @@
  *
  */
 
+#include <config.h>
+
 #define STRSAFE_NO_DEPRECATE
 
 #ifndef DBUS_WINCE
@@ -83,7 +85,7 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 
 typedef int socklen_t;
 
-static char*
+char*
 _dbus_win_error_string (int error_number)
 {
   char *msg;
@@ -102,7 +104,7 @@ _dbus_win_error_string (int error_number)
   return msg;
 }
 
-static void
+void
 _dbus_win_free_error_string (char *string)
 {
   LocalFree (string);
@@ -118,8 +120,9 @@ _dbus_win_free_error_string (char *string)
  * the data it reads to the DBusString buffer. It appends
  * up to the given count, and returns the same value
  * and same errno as read(). The only exception is that
- * _dbus_read() handles EINTR for you. _dbus_read() can
- * return ENOMEM, even though regular UNIX read doesn't.
+ * _dbus_read_socket() handles EINTR for you. 
+ * _dbus_read_socket() can return ENOMEM, even though 
+ * regular UNIX read doesn't.
  *
  * @param fd the file descriptor to read from
  * @param buffer the buffer to append data to
@@ -275,31 +278,12 @@ _dbus_close_socket (int        fd,
 void
 _dbus_fd_set_close_on_exec (int handle)
 {
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *s;
-  if (handle < 0)
-    return;
-
-  _dbus_lock_sockets();
-
-  _dbus_handle_to_socket_unlocked (handle, &s);
-  s->close_on_exec = TRUE;
-
-  _dbus_unlock_sockets();
-#else
-  /* TODO unic code.
-  int val;
-  
-  val = fcntl (fd, F_GETFD, 0);
-  
-  if (val < 0)
-    return;
-
-  val |= FD_CLOEXEC;
-  
-  fcntl (fd, F_SETFD, val);
-  */
-#endif
+  if ( !SetHandleInformation( (HANDLE) handle,
+                        HANDLE_FLAG_INHERIT | HANDLE_FLAG_PROTECT_FROM_CLOSE,
+                        0 /*disable both flags*/ ) )
+    {
+      _dbus_win_warn_win_error ("Disabling socket handle inheritance failed:", GetLastError());
+    }
 }
 
 /**
@@ -705,7 +689,7 @@ _dbus_pid_for_log (void)
 static dbus_bool_t
 _dbus_getsid(char **sid)
 {
-  HANDLE process_token = NULL;
+  HANDLE process_token = INVALID_HANDLE_VALUE;
   TOKEN_USER *token_user = NULL;
   DWORD n;
   PSID psid;
@@ -739,7 +723,7 @@ _dbus_getsid(char **sid)
   retval = TRUE;
 
 failed:
-  if (process_token != NULL)
+  if (process_token != INVALID_HANDLE_VALUE)
     CloseHandle (process_token);
 
   _dbus_verbose("_dbus_getsid() returns %d\n",retval);
@@ -1912,21 +1896,23 @@ _dbus_get_current_time (long *tv_sec,
                         long *tv_usec)
 {
   FILETIME ft;
-  dbus_uint64_t *time64 = (dbus_uint64_t *) &ft;
+  dbus_uint64_t time64;
 
   GetSystemTimeAsFileTime (&ft);
+
+  memcpy (&time64, &ft, sizeof (time64));
 
   /* Convert from 100s of nanoseconds since 1601-01-01
   * to Unix epoch. Yes, this is Y2038 unsafe.
   */
-  *time64 -= DBUS_INT64_CONSTANT (116444736000000000);
-  *time64 /= 10;
+  time64 -= DBUS_INT64_CONSTANT (116444736000000000);
+  time64 /= 10;
 
   if (tv_sec)
-    *tv_sec = *time64 / 1000000;
+    *tv_sec = time64 / 1000000;
 
   if (tv_usec)
-    *tv_usec = *time64 % 1000000;
+    *tv_usec = time64 % 1000000;
 }
 
 
@@ -1937,354 +1923,6 @@ void
 _dbus_disable_sigpipe (void)
 {
 }
-
-
-/* _dbus_read() is static on Windows, only used below in this file.
- */
-static int
-_dbus_read (int               fd,
-            DBusString       *buffer,
-            int               count)
-{
-  int bytes_read;
-  int start;
-  char *data;
-
-  _dbus_assert (count >= 0);
-
-  start = _dbus_string_get_length (buffer);
-
-  if (!_dbus_string_lengthen (buffer, count))
-    {
-      errno = ENOMEM;
-      return -1;
-    }
-
-  data = _dbus_string_get_data_len (buffer, start, count);
-
- again:
-
-  bytes_read = _read (fd, data, count);
-
-  if (bytes_read < 0)
-    {
-      if (errno == EINTR)
-        goto again;
-      else
-        {
-          /* put length back (note that this doesn't actually realloc anything) */
-          _dbus_string_set_length (buffer, start);
-          return -1;
-        }
-    }
-  else
-    {
-      /* put length back (doesn't actually realloc) */
-      _dbus_string_set_length (buffer, start + bytes_read);
-
-#if 0
-      if (bytes_read > 0)
-        _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
-#endif
-
-      return bytes_read;
-    }
-}
-
-/**
- * Appends the contents of the given file to the string,
- * returning error code. At the moment, won't open a file
- * more than a megabyte in size.
- *
- * @param str the string to append to
- * @param filename filename to load
- * @param error place to set an error
- * @returns #FALSE if error was set
- */
-dbus_bool_t
-_dbus_file_get_contents (DBusString       *str,
-                         const DBusString *filename,
-                         DBusError        *error)
-{
-  int fd;
-  struct _stati64 sb;
-  int orig_len;
-  int total;
-  const char *filename_c;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  filename_c = _dbus_string_get_const_data (filename);
-
-  fd = _open (filename_c, O_RDONLY | O_BINARY);
-  if (fd < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to open \"%s\": %s",
-                      filename_c,
-                      strerror (errno));
-      return FALSE;
-    }
-
-  _dbus_verbose ("file %s fd %d opened\n", filename_c, fd);
-
-  if (_fstati64 (fd, &sb) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to stat \"%s\": %s",
-                      filename_c,
-                      strerror (errno));
-
-      _dbus_verbose ("fstat() failed: %s",
-                     strerror (errno));
-
-      _close (fd);
-
-      return FALSE;
-    }
-
-  if (sb.st_size > _DBUS_ONE_MEGABYTE)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "File size %lu of \"%s\" is too large.",
-                      (unsigned long) sb.st_size, filename_c);
-      _close (fd);
-      return FALSE;
-    }
-
-  total = 0;
-  orig_len = _dbus_string_get_length (str);
-  if (sb.st_size > 0 && S_ISREG (sb.st_mode))
-    {
-      int bytes_read;
-
-      while (total < (int) sb.st_size)
-        {
-          bytes_read = _dbus_read (fd, str, sb.st_size - total);
-          if (bytes_read <= 0)
-            {
-              dbus_set_error (error, _dbus_error_from_errno (errno),
-                              "Error reading \"%s\": %s",
-                              filename_c,
-                              strerror (errno));
-
-              _dbus_verbose ("read() failed: %s",
-                             strerror (errno));
-
-              _close (fd);
-              _dbus_string_set_length (str, orig_len);
-              return FALSE;
-            }
-          else
-            total += bytes_read;
-        }
-
-      _close (fd);
-      return TRUE;
-    }
-  else if (sb.st_size != 0)
-    {
-      _dbus_verbose ("Can only open regular files at the moment.\n");
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "\"%s\" is not a regular file",
-                      filename_c);
-      _close (fd);
-      return FALSE;
-    }
-  else
-    {
-      _close (fd);
-      return TRUE;
-    }
-}
-
-/**
- * Writes a string out to a file. If the file exists,
- * it will be atomically overwritten by the new data.
- *
- * @param str the string to write out
- * @param filename the file to save string to
- * @param error error to be filled in on failure
- * @returns #FALSE on failure
- */
-dbus_bool_t
-_dbus_string_save_to_file (const DBusString *str,
-                           const DBusString *filename,
-                           DBusError        *error)
-{
-  int fd;
-  int bytes_to_write;
-  const char *filename_c;
-  DBusString tmp_filename;
-  const char *tmp_filename_c;
-  int total;
-  const char *str_c;
-  dbus_bool_t need_unlink;
-  dbus_bool_t retval;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  fd = -1;
-  retval = FALSE;
-  need_unlink = FALSE;
-
-  if (!_dbus_string_init (&tmp_filename))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return FALSE;
-    }
-
-  if (!_dbus_string_copy (filename, 0, &tmp_filename, 0))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_string_free (&tmp_filename);
-      return FALSE;
-    }
-
-  if (!_dbus_string_append (&tmp_filename, "."))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_string_free (&tmp_filename);
-      return FALSE;
-    }
-
-#define N_TMP_FILENAME_RANDOM_BYTES 8
-  if (!_dbus_generate_random_ascii (&tmp_filename, N_TMP_FILENAME_RANDOM_BYTES))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_string_free (&tmp_filename);
-      return FALSE;
-    }
-
-  filename_c = _dbus_string_get_const_data (filename);
-  tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
-
-  fd = _open (tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-              0600);
-  if (fd < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not create %s: %s", tmp_filename_c,
-                      strerror (errno));
-      goto out;
-    }
-
-  _dbus_verbose ("tmp file %s fd %d opened\n", tmp_filename_c, fd);
-
-  need_unlink = TRUE;
-
-  total = 0;
-  bytes_to_write = _dbus_string_get_length (str);
-  str_c = _dbus_string_get_const_data (str);
-
-  while (total < bytes_to_write)
-    {
-      int bytes_written;
-
-      bytes_written = _write (fd, str_c + total, bytes_to_write - total);
-
-      if (bytes_written <= 0)
-        {
-          dbus_set_error (error, _dbus_error_from_errno (errno),
-                          "Could not write to %s: %s", tmp_filename_c,
-                          strerror (errno));
-          goto out;
-        }
-
-      total += bytes_written;
-    }
-
-  if (_close (fd) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not close file %s: %s",
-                      tmp_filename_c, strerror (errno));
-
-      goto out;
-    }
-
-  fd = -1;
-
-  /* Unlike rename(), MoveFileEx() can replace existing files */
-  if (MoveFileExA (tmp_filename_c, filename_c, MOVEFILE_REPLACE_EXISTING) < 0)
-    {
-      char *emsg = _dbus_win_error_string (GetLastError ());
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Could not rename %s to %s: %s",
-                      tmp_filename_c, filename_c,
-                      emsg);
-      _dbus_win_free_error_string (emsg);
-
-      goto out;
-    }
-
-  need_unlink = FALSE;
-
-  retval = TRUE;
-
- out:
-  /* close first, then unlink */
-
-  if (fd >= 0)
-    _close (fd);
-
-  if (need_unlink && _unlink (tmp_filename_c) < 0)
-    _dbus_verbose ("failed to unlink temp file %s: %s\n",
-                   tmp_filename_c, strerror (errno));
-
-  _dbus_string_free (&tmp_filename);
-
-  if (!retval)
-    _DBUS_ASSERT_ERROR_IS_SET (error);
-
-  return retval;
-}
-
-
-/** Creates the given file, failing if the file already exists.
- *
- * @param filename the filename
- * @param error error location
- * @returns #TRUE if we created the file and it didn't exist
- */
-dbus_bool_t
-_dbus_create_file_exclusively (const DBusString *filename,
-                               DBusError        *error)
-{
-  int fd;
-  const char *filename_c;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  filename_c = _dbus_string_get_const_data (filename);
-
-  fd = _open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-              0600);
-  if (fd < 0)
-    {
-      dbus_set_error (error,
-                      DBUS_ERROR_FAILED,
-                      "Could not create file %s: %s\n",
-                      filename_c,
-                      strerror (errno));
-      return FALSE;
-    }
-
-  _dbus_verbose ("exclusive file %s fd %d opened\n", filename_c, fd);
-
-  if (_close (fd) < 0)
-    {
-      dbus_set_error (error,
-                      DBUS_ERROR_FAILED,
-                      "Could not close file %s: %s\n",
-                      filename_c,
-                      strerror (errno));
-      return FALSE;
-    }
-
-  return TRUE;
-}
-
 
 /**
  * Creates a directory; succeeds if the directory
@@ -2622,6 +2260,24 @@ static void dump_backtrace_for_thread(HANDLE hThread)
     sf.AddrPC.Offset = context.Eip;
     sf.AddrPC.Mode = AddrModeFlat;
     dwImageType = IMAGE_FILE_MACHINE_I386;
+#elif _M_X64
+  dwImageType                = IMAGE_FILE_MACHINE_AMD64;
+  sf.AddrPC.Offset    = context.Rip;
+  sf.AddrPC.Mode      = AddrModeFlat;
+  sf.AddrFrame.Offset = context.Rsp;
+  sf.AddrFrame.Mode   = AddrModeFlat;
+  sf.AddrStack.Offset = context.Rsp;
+  sf.AddrStack.Mode   = AddrModeFlat;
+#elif _M_IA64
+  dwImageType                 = IMAGE_FILE_MACHINE_IA64;
+  sf.AddrPC.Offset    = context.StIIP;
+  sf.AddrPC.Mode      = AddrModeFlat;
+  sf.AddrFrame.Offset = context.IntSp;
+  sf.AddrFrame.Mode   = AddrModeFlat;
+  sf.AddrBStore.Offset= context.RsBSP;
+  sf.AddrBStore.Mode  = AddrModeFlat;
+  sf.AddrStack.Offset = context.IntSp;
+  sf.AddrStack.Mode   = AddrModeFlat;
 #else
 # error You need to fill in the STACKFRAME structure for your architecture
 #endif
@@ -2963,11 +2619,7 @@ _dbus_get_autolaunch_address (DBusString *address,
   LPSTR lpFile;
   char dbus_exe_path[MAX_PATH];
   char dbus_args[MAX_PATH * 2];
-#ifdef _DEBUG
-  const char * daemon_name = "dbus-daemond.exe";
-#else
-  const char * daemon_name = "dbus-daemon.exe";
-#endif
+  const char * daemon_name = DBUS_DAEMON_NAME ".exe";
 
   mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 
@@ -2999,7 +2651,8 @@ _dbus_get_autolaunch_address (DBusString *address,
 //  printf("create process \"%s\" %s\n", dbus_exe_path, dbus_args);
   if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
     {
-
+      CloseHandle (pi.hThread);
+      CloseHandle (pi.hProcess);
       retval = _dbus_get_autolaunch_shm( address );
     }
   
@@ -3206,10 +2859,13 @@ _dbus_get_install_root(char *prefix, int len)
     //folder's name happens to end with the *bytes*
     //"\\bin"... (I.e. the second byte of some Han character and then
     //the Latin "bin", but that is not likely I think...
-    if (lastSlash - prefix > 3 && strncmp(lastSlash - 4, "\\bin", 4) == 0)
+    if (lastSlash - prefix >= 4 && strnicmp(lastSlash - 4, "\\bin", 4) == 0)
         lastSlash[-3] = 0;
-    else if (lastSlash - prefix > 3 && (strncmp(lastSlash - 10, "\\bin\\Debug", 10) == 0 || strncmp(lastSlash - 10, "\\bin\\Release", 10) == 0))
+    else if (lastSlash - prefix >= 10 && strnicmp(lastSlash - 10, "\\bin\\debug", 10) == 0)
         lastSlash[-9] = 0;
+    else if (lastSlash - prefix >= 12 && strnicmp(lastSlash - 12, "\\bin\\release", 12) == 0)
+        lastSlash[-11] = 0;
+
     return TRUE;
 }
 
@@ -3336,12 +2992,19 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
   DBusString dotdir;
   dbus_uid_t uid;
   const char *homepath;
+  const char *homedrive;
 
   _dbus_assert (credentials != NULL);
   _dbus_assert (!_dbus_credentials_are_anonymous (credentials));
   
   if (!_dbus_string_init (&homedir))
     return FALSE;
+
+  homedrive = _dbus_getenv("HOMEDRIVE");
+  if (homedrive != NULL && *homedrive != '\0')
+    {
+      _dbus_string_append(&homedir,homedrive);
+    }
 
   homepath = _dbus_getenv("HOMEPATH");
   if (homepath != NULL && *homepath != '\0')

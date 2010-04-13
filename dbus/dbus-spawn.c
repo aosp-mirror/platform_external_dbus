@@ -77,8 +77,8 @@ read_ints (int        fd,
   
   while (TRUE)
     {
-      size_t chunk;
-      ssize_t to_read;
+      ssize_t chunk;
+      size_t to_read;
 
       to_read = sizeof (int) * n_ints_in_buf - bytes;
 
@@ -132,9 +132,9 @@ read_pid (int        fd,
   
   while (TRUE)
     {
-      size_t chunk;    
-      ssize_t to_read;
-      
+      ssize_t chunk;
+      size_t to_read;
+
       to_read = sizeof (pid_t) - bytes;
 
       if (to_read == 0)

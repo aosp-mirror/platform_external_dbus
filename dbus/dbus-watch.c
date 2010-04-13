@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-watch.h"
 #include "dbus-list.h"
@@ -649,8 +650,7 @@ dbus_watch_handle (DBusWatch    *watch,
 #ifndef DBUS_DISABLE_CHECKS
   if (watch->fd < 0 || watch->flags == 0)
     {
-      _dbus_warn_check_failed ("%s: Watch is invalid, it should have been removed\n",
-                               _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Watch is invalid, it should have been removed\n");
       return TRUE;
     }
 #endif

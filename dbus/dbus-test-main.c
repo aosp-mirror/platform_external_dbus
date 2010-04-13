@@ -22,11 +22,14 @@
  */
 
 
+#include <config.h>
 #include "dbus-types.h"
 #include "dbus-test.h"
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_LOCALE_H
 #include <locale.h>
+#endif
 
 int
 main (int    argc,
@@ -35,8 +38,9 @@ main (int    argc,
   const char *test_data_dir;
   const char *specific_test;
 
+#if HAVE_LOCALE_H
   setlocale(LC_ALL, "");
-
+#endif
   
   if (argc > 1)
     test_data_dir = argv[1];

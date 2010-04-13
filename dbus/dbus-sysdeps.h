@@ -25,9 +25,8 @@
 #ifndef DBUS_SYSDEPS_H
 #define DBUS_SYSDEPS_H
 
-#include <config.h>
-
 #include <dbus/dbus-errors.h>
+#include <dbus/dbus-file.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-pipe.h>
 
@@ -295,23 +294,8 @@ void _dbus_get_current_time (long *tv_sec,
                              long *tv_usec);
 
 /**
- * File/directory interface
+ * directory interface
  */
-dbus_bool_t _dbus_file_exists         (const char       *file);
-dbus_bool_t _dbus_file_get_contents   (DBusString       *str,
-                                       const DBusString *filename,
-                                       DBusError        *error);
-dbus_bool_t _dbus_string_save_to_file (const DBusString *str,
-                                       const DBusString *filename,
-                                       DBusError        *error);
-
-dbus_bool_t _dbus_make_file_world_readable   (const DBusString *filename,
-                                              DBusError *error);
-
-dbus_bool_t    _dbus_create_file_exclusively (const DBusString *filename,
-                                              DBusError        *error);
-dbus_bool_t    _dbus_delete_file             (const DBusString *filename,
-                                              DBusError        *error);
 dbus_bool_t    _dbus_create_directory        (const DBusString *filename,
                                               DBusError        *error);
 dbus_bool_t    _dbus_delete_directory        (const DBusString *filename,
@@ -431,11 +415,18 @@ dbus_bool_t _dbus_user_at_console (const char *username,
                                    DBusError  *error);
 
 void _dbus_init_system_log (void);
-void _dbus_log_info (const char *msg, va_list args);
-void _dbus_log_security (const char *msg, va_list args);
 
-/* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
- * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 
+typedef enum {
+  DBUS_SYSTEM_LOG_INFO,
+  DBUS_SYSTEM_LOG_SECURITY,
+  DBUS_SYSTEM_LOG_FATAL
+} DBusSystemLogSeverity;
+
+void _dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...) _DBUS_GNUC_PRINTF (2, 3);
+void _dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args);
+
+/* Define DBUS_VA_COPY() to do the right thing for copying va_list variables.
+ * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy.
  */
 #if !defined (DBUS_VA_COPY)
 #  if defined (__GNUC__) && defined (__PPC__) && (defined (_CALL_SYSV) || defined (_WIN32))
@@ -503,6 +494,9 @@ unsigned long _dbus_pid_for_log (void);
  * in the bus daemon first.
  */
 dbus_pid_t    _dbus_getpid (void);
+
+dbus_bool_t _dbus_change_to_daemon_user (const char *user,
+                                         DBusError  *error);
 
 void _dbus_flush_caches (void);
 

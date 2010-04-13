@@ -27,6 +27,7 @@
  *
  */
 
+#include <config.h>
 #define DBUS_COMPILATION /* cheat */
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-string.h>

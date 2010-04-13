@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-timeout.h"
 #include "dbus-list.h"

@@ -42,7 +42,7 @@ set (dbus_viewer_SOURCES
 )
 
 add_executable(dbus-send ${dbus_send_SOURCES})
-target_link_libraries(dbus-send ${DBUS_1})
+target_link_libraries(dbus-send ${DBUS_LIBRARIES})
 install_targets(/bin dbus-send )
 
 add_executable(dbus-launch ${dbus_launch_SOURCES})
@@ -53,9 +53,5 @@ endif (DBUS_BUILD_X11)
 install_targets(/bin dbus-launch )
 
 add_executable(dbus-monitor ${dbus_monitor_SOURCES})
-target_link_libraries(dbus-monitor ${DBUS_1})
+target_link_libraries(dbus-monitor ${DBUS_LIBRARIES})
 install_targets(/bin dbus-monitor )
-
-if(WIN32)
-  set_target_properties(dbus-send dbus-launch dbus-monitor PROPERTIES DEBUG_POSTFIX d)
-endif(WIN32)

@@ -25,6 +25,10 @@ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE",[The name of the gettext d
  ## must come before we use the $USE_MAINTAINER_MODE variable later
 AM_MAINTAINER_MODE
 
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
+
+AC_DEFINE_UNQUOTED(DBUS_DAEMON_NAME,"dbus-daemon",[Name of executable])
+
 # libtool versioning - this applies to libdbus
 #
 # See http://sources.redhat.com/autobook/autobook/autobook_91.html#SEC91 for details
@@ -64,6 +68,7 @@ AC_ISC_POSIX
 AC_HEADER_STDC
 AC_C_INLINE
 AM_PROG_LIBTOOL
+AC_PROG_MKDIR_P
 
 # Set some internal variables depending on the platform for later use.
 dbus_win=no
@@ -176,6 +181,31 @@ if test x$enable_gcov = xyes; then
 fi
 AM_CONDITIONAL(DBUS_GCOV_ENABLED, test x$enable_gcov = xyes)
 
+# glibc21.m4 serial 3
+dnl Copyright (C) 2000-2002, 2004 Free Software Foundation, Inc.
+dnl This file is free software; the Free Software Foundation
+dnl gives unlimited permission to copy and/or distribute it,
+dnl with or without modifications, as long as this notice is preserved.
+
+# Test for the GNU C Library, version 2.1 or newer.
+# From Bruno Haible.
+
+AC_CACHE_CHECK(whether we are using the GNU C Library 2.1 or newer,
+  ac_cv_gnu_library_2_1,
+  [AC_EGREP_CPP([Lucky GNU user],
+    [
+#include <features.h>
+#ifdef __GNU_LIBRARY__
+ #if (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1) || (__GLIBC__ > 2)
+  Lucky GNU user
+ #endif
+#endif
+    ],
+    ac_cv_gnu_library_2_1=yes,
+    ac_cv_gnu_library_2_1=no)
+  ]
+)
+
 #### Integer sizes 
 
 AC_CHECK_SIZEOF(char)
@@ -194,21 +224,32 @@ $ac_cv_sizeof_int)
   dbusint64=int
   dbusint64_constant='(val)'
   dbusuint64_constant='(val)'
+  dbusint64_printf_modifier='""'
   ;;
 $ac_cv_sizeof_long)
   dbusint64=long
   dbusint64_constant='(val##L)'
   dbusuint64_constant='(val##UL)'
+  dbusint64_printf_modifier='"l"'
   ;;
 $ac_cv_sizeof_long_long)
   dbusint64='long long'
   dbusint64_constant='(val##LL)'
   dbusuint64_constant='(val##ULL)'
+  # Ideally we discover what the format is, but this is
+  # only used in verbose mode, so eh...
+  if test x"$ac_cv_gnu_library_2_1" = xyes; then
+    dbusint64_printf_modifier='"ll"'
+  fi
   ;;
 $ac_cv_sizeof___int64)
   dbusint64=__int64
   dbusint64_constant='(val##i64)'
   dbusuint64_constant='(val##ui64)'
+  # See above case
+  if test x"$ac_cv_gnu_library_2_1" = xyes; then
+    dbusint64_printf_modifier='"ll"'
+  fi
   ;;
 esac
 
@@ -223,6 +264,9 @@ else
         DBUS_HAVE_INT64=1
         DBUS_INT64_CONSTANT="$dbusint64_constant"
         DBUS_UINT64_CONSTANT="$dbusuint64_constant"
+	if test x"$dbusint64_printf_modifier" != x; then
+		AC_DEFINE_UNQUOTED(DBUS_INT64_PRINTF_MODIFIER, [$dbusint64_printf_modifier], [Define to printf modifier for 64 bit integer type])
+	fi
         AC_MSG_RESULT($DBUS_INT64_TYPE)
 fi
 
@@ -471,6 +515,10 @@ AC_CHECK_HEADERS(dirent.h)
 AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 
 AC_CHECK_HEADERS(errno.h)
+
+AC_CHECK_HEADERS(signal.h)
+
+AC_CHECK_HEADERS(locale.h)
 
 AC_CHECK_HEADERS(byteswap.h)
 
@@ -876,7 +924,7 @@ else
     AC_CHECK_LIB(audit, audit_log_user_avc_message, 
                  have_libaudit=yes, have_libaudit=no)
     if test x$have_libaudit = xyes ; then
-        AC_CHECK_LIB(cap, cap_set_proc, 
+        AC_CHECK_LIB(cap-ng, capng_clear,
                  have_libaudit=yes, have_libaudit=no)
     fi
 fi
@@ -884,8 +932,7 @@ fi
 AM_CONDITIONAL(HAVE_LIBAUDIT, test x$have_libaudit = xyes)
 
 if test x$have_libaudit = xyes ; then
-    SELINUX_LIBS="$SELINUX_LIBS -laudit"
-    LIBS="-lcap $LIBS"
+    SELINUX_LIBS="$SELINUX_LIBS -laudit -lcap-ng"
     AC_DEFINE(HAVE_LIBAUDIT,1,[audit daemon SELinux support])
 fi
 
@@ -1133,12 +1180,6 @@ if test "x$GCC" = "xyes"; then
         CFLAGS="$CFLAGS -Wno-pointer-sign"
      fi
      ;;
-  esac  
-  
-  # http://bugs.freedesktop.org/show_bug.cgi?id=19195
-  case " $CFLAGS " in
-  *[\ \	]-Wno-format[\ \	]*) ;;
-  *) CFLAGS="$CFLAGS -Wno-format" ;;
   esac
   
   # This one is special - it's not a warning override.
@@ -1402,9 +1443,18 @@ AC_DEFINE_UNQUOTED(DBUS_LIBEXECDIR,"$DBUS_LIBEXECDIR", [Directory for installing
 #### Tell tests where to find certain stuff in builddir
 
 DBUS_PWD=`pwd`
+# Useful in a cross-compilation environment, where the tests are run on the host system.
+AC_ARG_WITH(dbus-test-dir, AS_HELP_STRING([--with-dbus-test-dir=[dirname]],[path where the tests tools are available]),
+			   DBUS_PWD=$withval)
 AC_DEFUN([TEST_PATH], [
 TEST_$1=${DBUS_PWD}/test/$2
 AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1",
+                   [Full path to test file test/$2 in builddir])
+AC_SUBST(TEST_$1)
+])
+AC_DEFUN([TEST_PROG], [
+TEST_$1=${DBUS_PWD}/test/$2
+AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1$EXEEXT",
                    [Full path to test file test/$2 in builddir])
 AC_SUBST(TEST_$1)
 ])
@@ -1413,19 +1463,19 @@ TEST_PATH(VALID_SERVICE_DIR, data/valid-service-files)
 TEST_PATH(INVALID_SERVICE_DIR, data/invalid-service-files)
 TEST_PATH(VALID_SERVICE_SYSTEM_DIR, data/valid-service-files-system)
 TEST_PATH(INVALID_SERVICE_SYSTEM_DIR, data/invalid-service-files-system)
-TEST_PATH(SERVICE_BINARY, test-service)
-TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
-TEST_PATH(EXIT_BINARY, test-exit)
-TEST_PATH(SEGFAULT_BINARY, test-segfault)
-TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
-TEST_PATH(PRIVSERVER_BINARY, name-test/test-privserver)
+TEST_PROG(SERVICE_BINARY, test-service)
+TEST_PROG(SHELL_SERVICE_BINARY, test-shell-service)
+TEST_PROG(EXIT_BINARY, test-exit)
+TEST_PROG(SEGFAULT_BINARY, test-segfault)
+TEST_PROG(SLEEP_FOREVER_BINARY, test-sleep-forever)
+TEST_PROG(PRIVSERVER_BINARY, name-test/test-privserver)
 
-AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon",
+AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon$EXEEXT",
                    [Full path to the daemon in the builddir])
 AC_SUBST(TEST_BUS_BINARY)
 
 ## Export the non-setuid external helper
-TEST_LAUNCH_HELPER_BINARY="$DBUS_PWD/bus/dbus-daemon-launch-helper-test"
+TEST_LAUNCH_HELPER_BINARY="$DBUS_PWD/bus/dbus-daemon-launch-helper-test$EXEEXT"
 AC_SUBST(TEST_LAUNCH_HELPER_BINARY)
 AC_DEFINE_UNQUOTED(DBUS_TEST_LAUNCH_HELPER_BINARY, "$TEST_LAUNCH_HELPER_BINARY",
                    [Full path to the launch helper test program in the builddir])

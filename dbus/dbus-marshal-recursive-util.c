@@ -1090,7 +1090,7 @@ run_test_copy (NodeIterationData *nid)
   DBusTypeReader reader;
   DBusTypeWriter writer;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   src = nid->block;
 
@@ -1153,7 +1153,7 @@ run_test_values_only_write (NodeIterationData *nid)
   dbus_bool_t retval;
   int sig_len;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 
@@ -1221,7 +1221,7 @@ run_test_set_values (NodeIterationData *nid)
   dbus_bool_t retval;
   int i;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 
@@ -1278,7 +1278,7 @@ run_test_delete_values (NodeIterationData *nid)
   dbus_bool_t retval;
   int t;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 
@@ -2651,8 +2651,8 @@ double_read_value (TestTypeNode   *node,
 
   if (!_DBUS_DOUBLES_BITWISE_EQUAL (v, expected))
     {
-#ifdef DBUS_HAVE_INT64
-      _dbus_warn ("Expected double %g got %g\n bits = 0x%llx vs.\n bits = 0x%llx)\n",
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+      _dbus_warn ("Expected double %g got %g\n bits = 0x%" DBUS_INT64_PRINTF_MODIFIER "x vs.\n bits = 0x%" DBUS_INT64_PRINTF_MODIFIER "x)\n",
                   expected, v,
                   *(dbus_uint64_t*)(char*)&expected,
                   *(dbus_uint64_t*)(char*)&v);

@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-sha.h"
 #include "dbus-marshal-basic.h" /* for byteswap routines */

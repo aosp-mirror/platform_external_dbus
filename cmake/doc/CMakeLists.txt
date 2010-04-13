@@ -12,45 +12,63 @@ if (DBUS_ENABLE_DOXYGEN_DOCS)
     )
 endif (DBUS_ENABLE_DOXYGEN_DOCS)
 
-#AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
-#xmldocs missing
+#
+# find docbook generator
+# 
+find_program(MEINPROC4_EXECUTABLE meinproc4)
 
-# depends on xmlto
-set(DBUS_XML_DOCS_ENABLED 0)
+find_program(XMLTO_EXECUTABLE xmlto)
 
-set (EXTRA_DIST 	
-	busconfig.dtd			
-	introspect.dtd			
-	dbus-faq.xml			
-	dbus-specification.xml	
-	dbus-test-plan.xml		
-	dbus-tutorial.xml		
-	dcop-howto.txt			
-	file-boilerplate.c		
-	introspect.xsl
-)
+if (MEINPROC4_EXECUTABLE OR XMLTO_EXECUTABLE)
+  OPTION(DBUS_ENABLE_XML_DOCS "build XML  documentation (requires xmlto or meinproc4)" ON)
+endif (MEINPROC4_EXECUTABLE OR XMLTO_EXECUTABLE)
 
-set (HTML_FILES
-	dbus-faq.html			
-	dbus-specification.html	
-	dbus-test-plan.html		
-	dbus-tutorial.html
-)
+if (MEINPROC4_EXECUTABLE)
+	set(DOCBOOK_GENERATOR_NAME "meinproc4" PARENT_SCOPE)
+	set(DBUS_XML_DOCS_ENABLED 1)
+	if(WIN32)
+		get_filename_component(_a ${MEINPROC_EXECUTABLE} PATH)
+		get_filename_component(_meinproc_install_path ${_a} PATH)
+	else(WIN32)
+		set(_meinproc_install_path ${CMAKE_INSTALL_PREFIX})
+	endif(WIN32)
+	set(STYLESHEET "${_meinproc_install_path}/share/apps/ksgmltools2/docbook/xsl/html/docbook.xsl")
+endif (MEINPROC4_EXECUTABLE)
+  
+ 
+if (XMLTO_EXECUTABLE)
+	set (DOCBOOK_GENERATOR_NAME "xmlto" PARENT_SCOPE)
+	set(DBUS_XML_DOCS_ENABLED 1)
+	MESSAGE(STATUS "xmlto docbook generator found")
+endif (XMLTO_EXECUTABLE)
 
-if (DBUS_XML_DOCS_ENABLED)
+if (DBUS_ENABLE_XML_DOCS)
 
 macro (DOCBOOK _sources _options)
-  get_filename_component(_tmp_FILE ${_sources} ABSOLUTE)
-  get_filename_component(_basename ${_tmp_FILE} NAME_WE)
-  set(_header ${CMAKE_CURRENT_BINARY_DIR}/${_basename}.html)
-  MESSAGE (${_header} ${_sources} ${_options} ${_basename})
+  get_filename_component(_infile ${_sources} ABSOLUTE)
+  get_filename_component(_basename ${_infile} NAME_WE)
+  set(_outfile ${CMAKE_CURRENT_BINARY_DIR}/${_basename}.html)
 
-  ADD_CUSTOM_TARGET(${_basename}.html ALL
-    xmlto.bat ${_sources} 
-#    xmlto.bat ${_options} ${_sources} 
-    DEPENDS ${_sources} 
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  )
+  if (EXISTS ${_sources})
+	  if (MEINPROC4_EXECUTABLE)
+		  ADD_CUSTOM_TARGET(${_basename}.html ALL
+			${MEINPROC4_EXECUTABLE} --stylesheet ${STYLESHEET} -o ${_outfile} ${_infile} 
+			DEPENDS ${_infile} 
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		)
+	  endif ()
+	  if (XMLTO_EXECUTABLE)
+		  ADD_CUSTOM_TARGET(${_basename}.html ALL
+			${XMLTO_EXECUTABLE} -vv ${_options} ${_infile} 
+			DEPENDS ${_infile} 
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		)
+	  endif ()
+	  install(FILES ${_outfile} DESTINATION share/doc/dbus)
+  else ()
+	  MESSAGE(STATUS "skipping xml doc generating for ${_infile}, file not found")
+  endif ()
+	  
 endmacro (DOCBOOK)
 
 ### copy tests to builddir so that generated tests and static tests 
@@ -80,5 +98,23 @@ DOCBOOK(${CMAKE_SOURCE_DIR}/../doc/dbus-test-plan.xml html-nochunks)
 DOCBOOK(${CMAKE_SOURCE_DIR}/../doc/dbus-tutorial.xml html-nochunks)
 DOCBOOK(${CMAKE_SOURCE_DIR}/../doc/dbus-specification.xml html-nochunks)
 DOCBOOK(${CMAKE_SOURCE_DIR}/../doc/dbus-faq.xml html-nochunks)
+DOCBOOK(${CMAKE_SOURCE_DIR}/bus/dbus-daemon.xml html-nochunks)
+DOCBOOK(${CMAKE_SOURCE_DIR}/tools/dbus-monitor.xml html-nochunks)
+DOCBOOK(${CMAKE_SOURCE_DIR}/tools/dbus-send.xml html-nochunks)
+DOCBOOK(${CMAKE_SOURCE_DIR}/tools/dbus-launch.xml html-nochunks)
 
-endif(DBUS_XML_DOCS_ENABLED)
+#
+# handle html index file
+#
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/index.html.cmake ${CMAKE_CURRENT_BINARY_DIR}/index.html )
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/index.html DESTINATION share/doc/dbus)
+
+set (EXTRA_DIST 	
+	${CMAKE_SOURCE_DIR}/../doc/busconfig.dtd			
+	${CMAKE_SOURCE_DIR}/../doc/introspect.dtd			
+	${CMAKE_SOURCE_DIR}/../doc/introspect.xsl
+)
+
+install(FILES ${EXTRA_DIST} DESTINATION share/doc/dbus)
+
+endif(DBUS_ENABLE_XML_DOCS)

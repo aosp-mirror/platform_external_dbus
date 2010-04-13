@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-transport-protected.h"
 #include "dbus-transport-unix.h"
 #include "dbus-transport-socket.h"
@@ -474,7 +475,7 @@ _dbus_transport_unref (DBusTransport *transport)
   transport->refcount -= 1;
   if (transport->refcount == 0)
     {
-      _dbus_verbose ("%s: finalizing\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("finalizing\n");
       
       _dbus_assert (transport->vtable->finalize != NULL);
       
@@ -493,7 +494,7 @@ _dbus_transport_unref (DBusTransport *transport)
 void
 _dbus_transport_disconnect (DBusTransport *transport)
 {
-  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("start\n");
   
   _dbus_assert (transport->vtable->disconnect != NULL);
   
@@ -504,7 +505,7 @@ _dbus_transport_disconnect (DBusTransport *transport)
   
   transport->disconnected = TRUE;
 
-  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("end\n");
 }
 
 /**
@@ -541,14 +542,14 @@ auth_via_unix_user_function (DBusTransport *transport)
   unix_user_data = transport->unix_user_data;
   uid = _dbus_credentials_get_unix_uid (auth_identity);
               
-  _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("unlock\n");
   _dbus_connection_unlock (connection);
 
   allow = (* unix_user_function) (connection,
                                   uid,
                                   unix_user_data);
               
-  _dbus_verbose ("lock %s post unix user function\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("lock post unix user function\n");
   _dbus_connection_lock (connection);
 
   if (allow)
@@ -592,14 +593,14 @@ auth_via_windows_user_function (DBusTransport *transport)
       return FALSE;
     }
                 
-  _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("unlock\n");
   _dbus_connection_unlock (connection);
 
   allow = (* windows_user_function) (connection,
                                      windows_sid,
                                      windows_user_data);
               
-  _dbus_verbose ("lock %s post windows user function\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("lock post windows user function\n");
   _dbus_connection_lock (connection);
 
   if (allow)
@@ -745,7 +746,7 @@ _dbus_transport_get_is_authenticated (DBusTransport *transport)
 
               if (transport->expected_guid == NULL)
                 {
-                  _dbus_verbose ("No memory to complete auth in %s\n", _DBUS_FUNCTION_NAME);
+                  _dbus_verbose ("No memory to complete auth\n");
                   return FALSE;
                 }
             }
@@ -980,7 +981,7 @@ _dbus_transport_do_iteration (DBusTransport  *transport,
                                        timeout_milliseconds);
   _dbus_transport_unref (transport);
 
-  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("end\n");
 }
 
 static dbus_bool_t

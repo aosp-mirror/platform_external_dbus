@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
 #include "dbus-marshal-basic.h"
@@ -30,6 +32,7 @@
 #include <stdlib.h>
 #ifdef DBUS_USE_OUTPUT_DEBUG_STRING
 #include <windows.h>
+#include <mbstring.h>
 #endif
 
 /**
@@ -436,7 +439,7 @@ _dbus_verbose_real (const char *format,
   char buf[1024];
   strcpy(buf,module_name);
 #ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
-  vsprintf (buf+strlen(buf), "[%s(%d):%s] ",_dbus_file_path_extract_elements_from_tail(file,2),line,function);
+  sprintf (buf+strlen(buf), "[%s(%d):%s] ",_dbus_file_path_extract_elements_from_tail(file,2),line,function);
 #endif
   vsprintf (buf+strlen(buf),format, args);
   va_end (args);

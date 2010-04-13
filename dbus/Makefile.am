@@ -15,6 +15,7 @@ lib_LTLIBRARIES=libdbus-1.la
 # Deal with W32 .def and version-info.rc stuff
 #
 if DBUS_WIN
+
 SUFFIXES = rc
 
 .rc.o:
@@ -23,16 +24,10 @@ SUFFIXES = rc
 dbus_res = versioninfo.o
 dbus_res_ldflag = -Wl,$(dbus_res)
 no_undefined = -no-undefined
-export_symbols = -export-symbols $(srcdir)/dbus-1.def
+export_symbols =
+export_symvols_internal =
 
-install-def-file:
-	test -z "$(libdir)" || $(MKDIR_P) "$(DESTDIR)$(libdir)"
-	$(INSTALL) dbus-1.def $(DESTDIR)$(libdir)/dbus-1.def
-
-uninstall-def-file:
-	-rm $(DESTDIR)$(libdir)/dbus-1.def
-
-libdbus_1_la_DEPENDENCIES = $(dbus_res) dbus-1.def
+libdbus_1_la_DEPENDENCIES = $(dbus_res)
 intllibs =
 
 else
@@ -42,6 +37,7 @@ no_undefined =
 ## don't export symbols that start with "_" (we use this
 ## convention for internal symbols)
 export_symbols = -export-symbols-regex "^[^_].*"
+export_symbols_internal =
 install-def-file:
 uninstall-def-file:
 
@@ -59,7 +55,9 @@ DBUS_LIB_arch_sources = 			\
 	dbus-server-win.h
 
 DBUS_SHARED_arch_sources = 			\
+	dbus-file-win.c 			\
 	dbus-pipe-win.c 			\
+	dbus-sockets-win.h			\
 	dbus-sysdeps-win.c 			\
 	dbus-sysdeps-win.h			\
 	dbus-sysdeps-thread-win.c		\
@@ -77,6 +75,7 @@ DBUS_LIB_arch_sources = 			\
 	dbus-server-unix.h
 
 DBUS_SHARED_arch_sources = 			\
+	dbus-file-unix.c 			\
 	dbus-pipe-unix.c 			\
 	dbus-sysdeps-unix.c 			\
 	dbus-sysdeps-unix.h			\
@@ -107,7 +106,6 @@ dbusinclude_HEADERS=				\
 	dbus-server.h				\
 	dbus-shared.h				\
 	dbus-signature.h			\
-	dbus-spawn.h				\
 	dbus-threads.h				\
 	dbus-types.h
 
@@ -143,6 +141,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-message-internal.h			\
 	dbus-message-private.h			\
 	dbus-misc.c				\
+	dbus-nonce.h				\
 	dbus-nonce.c				\
 	dbus-object-tree.c			\
 	dbus-object-tree.h			\
@@ -182,6 +181,8 @@ DBUS_LIB_SOURCES=				\
 DBUS_SHARED_SOURCES=				\
 	dbus-dataslot.c				\
 	dbus-dataslot.h				\
+	dbus-file.c                 \
+	dbus-file.h                 \
 	dbus-hash.c				\
 	dbus-hash.h				\
 	dbus-internals.c			\
@@ -231,23 +232,26 @@ libdbus_1_la_SOURCES=				\
 	$(DBUS_LIB_SOURCES)			\
 	$(DBUS_SHARED_SOURCES)
 
-libdbus_convenience_la_SOURCES=			\
+libdbus_internal_la_SOURCES=			\
 	$(DBUS_LIB_SOURCES)			\
 	$(DBUS_SHARED_SOURCES)			\
 	$(DBUS_UTIL_SOURCES)
 
-
 BUILT_SOURCES=$(dbusarchinclude_HEADERS)
-EXTRA_DIST=dbus-arch-deps.h.in dbus-1.def
+EXTRA_DIST=dbus-arch-deps.h.in
+
 
 ## this library is the same as libdbus, but exports all the symbols
 ## and is only used for static linking within the dbus package.
-noinst_LTLIBRARIES=libdbus-convenience.la
+noinst_LTLIBRARIES=libdbus-internal.la
 
+libdbus_1_la_CPPFLAGS= -Ddbus_1_EXPORTS
 libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 libdbus_1_la_LDFLAGS= $(export_symbols) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
 
-libdbus_convenience_la_LDFLAGS=@R_DYNAMIC_LDFLAG@
+libdbus_internal_la_CPPFLAGS = -DDBUS_STATIC_BUILD
+libdbus_internal_la_LIBADD=$(DBUS_CLIENT_LIBS)
+libdbus_internal_la_LDFLAGS=$(export_symbols_internal) @R_DYNAMIC_LDFLAG@
 
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
@@ -266,7 +270,7 @@ noinst_PROGRAMS=$(TESTS)
 dbus_test_SOURCES=				\
 	dbus-test-main.c
 
-dbus_test_LDADD=libdbus-convenience.la $(DBUS_TEST_LIBS)
+dbus_test_LDADD=libdbus-internal.la $(DBUS_TEST_LIBS)
 dbus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 install-data-local: install-def-file

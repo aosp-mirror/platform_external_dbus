@@ -27,8 +27,6 @@
 #ifndef DBUS_INTERNALS_H
 #define DBUS_INTERNALS_H
 
-#include <config.h>
-
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>
@@ -146,6 +144,7 @@ void _dbus_real_assert_not_reached (const char *explanation,
 #define _dbus_return_if_fail(condition)
 #define _dbus_return_val_if_fail(condition, val)
 #else
+
 extern const char *_dbus_return_if_fail_warning_format;
 
 #define _dbus_return_if_fail(condition) do {                                       \

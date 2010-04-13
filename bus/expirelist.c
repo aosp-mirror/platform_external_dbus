@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "expirelist.h"
 #include "test.h"
 #include <dbus/dbus-internals.h>
@@ -217,7 +218,7 @@ expire_timeout_handler (void *data)
 {
   BusExpireList *list = data;
 
-  _dbus_verbose ("Running %s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("Running\n");
 
   /* note that this may remove the timeout */
   bus_expirelist_expire (list);

@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-mainloop.h"
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS

@@ -21,6 +21,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-sysdeps.h"
 #include "dbus-sysdeps-unix.h"
 #include "dbus-internals.h"
@@ -44,12 +46,6 @@
 #include <dirent.h>
 #include <sys/un.h>
 #include <syslog.h>
-#include <syslog.h>
-#ifdef HAVE_LIBAUDIT
-#include <sys/prctl.h>
-#include <sys/capability.h>
-#include <libaudit.h>
-#endif /* HAVE_LIBAUDIT */
 
 #ifdef HAVE_SYS_SYSLIMITS_H
 #include <sys/syslimits.h>
@@ -309,6 +305,9 @@ _dbus_verify_daemon_user (const char *user)
   return _dbus_get_user_id_and_primary_group (&u, NULL, NULL);
 }
 
+
+/* The HAVE_LIBAUDIT case lives in selinux.c */
+#ifndef HAVE_LIBAUDIT
 /**
  * Changes the user and group the bus is running as.
  *
@@ -323,13 +322,9 @@ _dbus_change_to_daemon_user  (const char    *user,
   dbus_uid_t uid;
   dbus_gid_t gid;
   DBusString u;
-#ifdef HAVE_LIBAUDIT
-  dbus_bool_t we_were_root;
-  cap_t new_caps;
-#endif
-  
+
   _dbus_string_init_const (&u, user);
-  
+
   if (!_dbus_get_user_id_and_primary_group (&u, &uid, &gid))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -337,59 +332,7 @@ _dbus_change_to_daemon_user  (const char    *user,
                       user);
       return FALSE;
     }
-  
-#ifdef HAVE_LIBAUDIT
-  we_were_root = _dbus_geteuid () == 0;
-  new_caps = NULL;
-  /* have a tmp set of caps that we use to transition to the usr/grp dbus should
-   * run as ... doesn't really help. But keeps people happy.
-   */
-    
-  if (we_were_root)
-    {
-      cap_value_t new_cap_list[] = { CAP_AUDIT_WRITE };
-      cap_value_t tmp_cap_list[] = { CAP_AUDIT_WRITE, CAP_SETUID, CAP_SETGID };
-      cap_t tmp_caps = cap_init();
-        
-      if (!tmp_caps || !(new_caps = cap_init ()))
-        {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Failed to initialize drop of capabilities: %s\n",
-                          _dbus_strerror (errno));
 
-          if (tmp_caps)
-            cap_free (tmp_caps);
-
-          return FALSE;
-        }
-
-      /* assume these work... */
-      cap_set_flag (new_caps, CAP_PERMITTED, 1, new_cap_list, CAP_SET);
-      cap_set_flag (new_caps, CAP_EFFECTIVE, 1, new_cap_list, CAP_SET);
-      cap_set_flag (tmp_caps, CAP_PERMITTED, 3, tmp_cap_list, CAP_SET);
-      cap_set_flag (tmp_caps, CAP_EFFECTIVE, 3, tmp_cap_list, CAP_SET);
-      
-      if (prctl (PR_SET_KEEPCAPS, 1, 0, 0, 0) == -1)
-        {
-          dbus_set_error (error, _dbus_error_from_errno (errno),
-                          "Failed to set keep-capabilities: %s\n",
-                          _dbus_strerror (errno));
-          cap_free (tmp_caps);
-          goto fail;
-        }
-        
-      if (cap_set_proc (tmp_caps) == -1)
-        {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Failed to drop capabilities: %s\n",
-                          _dbus_strerror (errno));
-          cap_free (tmp_caps);
-          goto fail;
-        }
-      cap_free (tmp_caps);
-    }
-#endif /* HAVE_LIBAUDIT */
-  
   /* setgroups() only works if we are a privileged process,
    * so we don't return error on failure; the only possible
    * failure is that we don't have perms to do it.
@@ -400,7 +343,7 @@ _dbus_change_to_daemon_user  (const char    *user,
   if (setgroups (0, NULL) < 0)
     _dbus_warn ("Failed to drop supplementary groups: %s\n",
                 _dbus_strerror (errno));
-  
+
   /* Set GID first, or the setuid may remove our permission
    * to change the GID
    */
@@ -409,85 +352,78 @@ _dbus_change_to_daemon_user  (const char    *user,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to set GID to %lu: %s", gid,
                       _dbus_strerror (errno));
-      goto fail;
+      return FALSE;
     }
-  
+
   if (setuid (uid) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to set UID to %lu: %s", uid,
                       _dbus_strerror (errno));
-      goto fail;
+      return FALSE;
     }
-  
-#ifdef HAVE_LIBAUDIT
-  if (we_were_root)
-    {
-      if (cap_set_proc (new_caps))
-        {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Failed to drop capabilities: %s\n",
-                          _dbus_strerror (errno));
-          goto fail;
-        }
-      cap_free (new_caps);
 
-      /* should always work, if it did above */      
-      if (prctl (PR_SET_KEEPCAPS, 0, 0, 0, 0) == -1)
-        {
-          dbus_set_error (error, _dbus_error_from_errno (errno),
-                          "Failed to unset keep-capabilities: %s\n",
-                          _dbus_strerror (errno));
-          return FALSE;
-        }
-    }
-#endif
-
- return TRUE;
-
- fail:
-#ifdef HAVE_LIBAUDIT
- if (!we_were_root)
-   {
-     /* should always work, if it did above */
-     prctl (PR_SET_KEEPCAPS, 0, 0, 0, 0);
-     cap_free (new_caps);
-   }
-#endif
-
- return FALSE;
+  return TRUE;
 }
+#endif /* !HAVE_LIBAUDIT */
 
 void 
 _dbus_init_system_log (void)
 {
   openlog ("dbus", LOG_PID, LOG_DAEMON);
 }
-
 /**
- * Log an informative message.  Intended for use primarily by
- * the system bus.
+ * Log a message to the system log file (e.g. syslog on Unix).
  *
+ * @param severity a severity value
  * @param msg a printf-style format string
  * @param args arguments for the format string
+ *
  */
-void 
-_dbus_log_info (const char *msg, va_list args)
+void
+_dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...)
 {
-  vsyslog (LOG_DAEMON|LOG_NOTICE, msg, args);
+  va_list args;
+
+  va_start (args, msg);
+
+  _dbus_system_logv (severity, msg, args);
+
+  va_end (args);
 }
 
 /**
- * Log a security-related message.  Intended for use primarily by
- * the system bus.
+ * Log a message to the system log file (e.g. syslog on Unix).
  *
+ * @param severity a severity value
  * @param msg a printf-style format string
  * @param args arguments for the format string
+ *
+ * If the FATAL severity is given, this function will terminate the program
+ * with an error code.
  */
-void 
-_dbus_log_security (const char *msg, va_list args)
+void
+_dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args)
 {
-  vsyslog (LOG_AUTH|LOG_NOTICE, msg, args);
+  int flags;
+  switch (severity)
+    {
+      case DBUS_SYSTEM_LOG_INFO:
+        flags =  LOG_DAEMON | LOG_NOTICE;
+        break;
+      case DBUS_SYSTEM_LOG_SECURITY:
+        flags = LOG_AUTH | LOG_NOTICE;
+        break;
+      case DBUS_SYSTEM_LOG_FATAL:
+        flags = LOG_DAEMON|LOG_CRIT;
+      default:
+        return;
+    }
+
+  vsyslog (flags, msg, args);
+
+  if (severity == DBUS_SYSTEM_LOG_FATAL)
+    exit (1);
 }
 
 /** Installs a UNIX signal handler
@@ -1113,7 +1049,7 @@ _dbus_string_get_dirname  (const DBusString *filename,
 static void
 string_squash_nonprintable (DBusString *str)
 {
-  char *buf;
+  unsigned char *buf;
   int i, len; 
   
   buf = _dbus_string_get_data (str);

@@ -24,7 +24,6 @@
 #ifndef DBUS_MARSHAL_BYTESWAP_H
 #define DBUS_MARSHAL_BYTESWAP_H
 
-#include <config.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-marshal-recursive.h>
 

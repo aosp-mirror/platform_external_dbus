@@ -21,16 +21,12 @@
  *
  */
 
+#include <config.h>
 #include "config-parser.h"
 #include <dbus/dbus-internals.h>
 #include <expat.h>
 
-static XML_Memory_Handling_Suite memsuite =
-{
-  dbus_malloc,
-  dbus_realloc,
-  dbus_free
-};
+static XML_Memory_Handling_Suite memsuite;
 
 typedef struct
 {
@@ -195,7 +191,11 @@ bus_config_load (const DBusString      *file,
       _dbus_string_free (&context.content);
       return NULL;
     }
-  
+
+  memsuite.malloc_fcn = dbus_malloc;
+  memsuite.realloc_fcn = dbus_realloc;
+  memsuite.free_fcn = dbus_free;
+
   expat = XML_ParserCreate_MM ("UTF-8", &memsuite, NULL);
   if (expat == NULL)
     {

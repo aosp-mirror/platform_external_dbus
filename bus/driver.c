@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "activation.h"
 #include "connection.h"
 #include "driver.h"
@@ -32,6 +33,7 @@
 #include "utils.h"
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-message.h>
 #include <dbus/dbus-marshal-recursive.h>
 #include <string.h>
 
@@ -790,6 +792,9 @@ send_ack_reply (DBusConnection *connection,
                 DBusError      *error)
 {
   DBusMessage *reply;
+
+  if (dbus_message_get_no_reply (message))
+    return TRUE;
 
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)

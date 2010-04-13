@@ -76,19 +76,11 @@ set (BUS_SOURCES
 )
 
 include_directories(${XML_INCLUDE_DIR})
-SET (LIBS ${XML_LIBRARY})
 
-if(splitlib AND MSVC)
-	add_library(bus-lib STATIC ${BUS_SOURCES})
-	add_executable(dbus-daemon ${BUS_DIR}/main.c)
-	target_link_libraries(dbus-daemon ${DBUS_1} ${LIBS} bus-lib)
-else(splitlib AND MSVC)
-	add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_DIR}/main.c)
-	target_link_libraries(dbus-daemon ${DBUS_1} ${LIBS})
-endif(splitlib AND MSVC)
-if(WIN32)
-    set_target_properties(dbus-daemon PROPERTIES DEBUG_POSTFIX d)
-endif(WIN32)
+add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_DIR}/main.c)
+target_link_libraries(dbus-daemon ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
+set_target_properties(dbus-daemon PROPERTIES OUTPUT_NAME ${DBUS_DAEMON_NAME})
+set_target_properties(dbus-daemon PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 
 install_targets(/bin dbus-daemon)
 install_files(/etc FILES ${config_DATA})
@@ -102,36 +94,15 @@ if (DBUS_SERVICE)
 	)
 
 	add_executable(dbus-service ${dbus_service_SOURCES} )
-	target_link_libraries(dbus-service ${DBUS_1} ${LIBS})
+	target_link_libraries(dbus-service ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
+	set_target_properties(dbus-service PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 	install_targets(/bin dbus-service )
-	if(WIN32)
-	   set_target_properties(dbus-service PROPERTIES DEBUG_POSTFIX d)
-    endif(WIN32)
 endif (DBUS_SERVICE)
 
-## note that TESTS has special meaning (stuff to use in make check)
-## so if adding tests not to be run in make check, don't add them to 
-## TESTS
-#if DBUS_BUILD_TESTS
-#TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
-#TESTS=bus-test 
-#else
-#TESTS=
-#endif
-
-## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
-## even when not doing "make check"
-#noinst_PROGRAMS=$(TESTS) 
-
 if (DBUS_BUILD_TESTS)	
-	if(splitlib AND MSVC)
-		add_executable(bus-test ${BUS_DIR}/test-main.c)
-		target_link_libraries(bus-test ${DBUS_1} ${LIBS} bus-lib)
-	else(splitlib AND MSVC)
-		add_executable(bus-test ${BUS_SOURCES} ${BUS_DIR}/test-main.c)
-		target_link_libraries(bus-test ${DBUS_1} ${LIBS})
-	endif(splitlib AND MSVC)
-	#install_targets(/bin bus-test)
+	add_executable(bus-test ${BUS_SOURCES} ${BUS_DIR}/test-main.c)
+	target_link_libraries(bus-test ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY})
+	set_target_properties(bus-test PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_BINARY_DIR}/test/data)
 endif (DBUS_BUILD_TESTS)
 
@@ -163,15 +134,15 @@ set(LAUNCH_HELPER_SOURCES ${XML_SOURCES}
 if(NOT WIN32)
 # TODO PENDING(kdab) fix build on windows (activation-helper.c)
    add_executable(dbus-daemon-launch-helper ${LAUNCH_HELPER_SOURCES} ${BUS_DIR}/activation-helper-bin.c )
-   target_link_libraries(dbus-daemon-launch-helper ${DBUS_1} ${LIBS} )
+   target_link_libraries(dbus-daemon-launch-helper ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY} )
    
    add_executable(dbus-daemon-launch-helper-test ${LAUNCH_HELPER_SOURCES}     ${BUS_DIR}/activation-helper-bin.c)
    set_target_properties(dbus-daemon-launch-helper-test PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST")
-   target_link_libraries(dbus-daemon-launch-helper-test ${DBUS_1} ${LIBS} )
+   target_link_libraries(dbus-daemon-launch-helper-test ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY} )
    
    add_executable(bus-test-launch-helper ${LAUNCH_HELPER_SOURCES}  ${BUS_DIR}/test-launch-helper.c)
    set_target_properties(bus-test-launch-helper PROPERTIES COMPILE_FLAGS "-DACTIVATION_LAUNCHER_TEST -DACTIVATION_LAUNCHER_DO_OOM")
-   target_link_libraries(bus-test-launch-helper ${DBUS_1} ${LIBS} )
+   target_link_libraries(bus-test-launch-helper ${DBUS_INTERNAL_LIBRARIES} ${XML_LIBRARY} )
    add_test(bus-test-launch-helper ${EXECUTABLE_OUTPUT_PATH}/bus-test-launch-helper )
 
 endif(NOT WIN32)

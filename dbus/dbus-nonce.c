@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 // major sections of this file are modified code from libassuan, (C) FSF
 #include "dbus-nonce.h"
 #include "dbus-internals.h"

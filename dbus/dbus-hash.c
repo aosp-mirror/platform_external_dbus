@@ -74,6 +74,7 @@
  * accordance with the terms specified in this license.
  */
 
+#include <config.h>
 #include "dbus-hash.h"
 #include "dbus-internals.h"
 #include "dbus-mempool.h"

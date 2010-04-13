@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "config-parser.h"
 #include <dbus/dbus-internals.h>
 #include <libxml/xmlreader.h>

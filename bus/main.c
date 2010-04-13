@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "bus.h"
 #include "driver.h"
 #include <dbus/dbus-internals.h>
@@ -27,7 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
+#endif
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
@@ -65,16 +69,18 @@ signal_handler (int sig)
       }
       break;
 #endif
+#ifdef SIGTERM
     case SIGTERM:
       _dbus_loop_quit (bus_context_get_loop (context));
       break;
+#endif
     }
 }
 
 static void
 usage (void)
 {
-  fprintf (stderr, DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect]\n");
+  fprintf (stderr, DBUS_DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect]\n");
   exit (1);
 }
 
@@ -156,7 +162,10 @@ handle_reload_watch (DBusWatch    *watch,
 {
   DBusError error;
   DBusString str;
-  _dbus_string_init (&str);
+
+  while (!_dbus_string_init (&str))
+    _dbus_wait_for_memory ();
+
   if ((reload_pipe[RELOAD_READ_END] > 0) &&
       _dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
     {
@@ -298,7 +307,6 @@ main (int argc, char **argv)
         }
       else if (strcmp (arg, "--session") == 0)
         {
-          is_session_bus = TRUE;
           check_two_config_files (&config_file, "session");
 
           if (!_dbus_append_session_config_file (&config_file))
@@ -455,6 +463,9 @@ main (int argc, char **argv)
       exit (1);
     }
 
+  is_session_bus = bus_context_get_type(context) != NULL
+      && strcmp(bus_context_get_type(context),"session") == 0;
+
   if (is_session_bus)
     _dbus_daemon_publish_session_bus_address (bus_context_get_address (context));
 
@@ -467,7 +478,9 @@ main (int argc, char **argv)
 #ifdef SIGHUP
   _dbus_set_signal_handler (SIGHUP, signal_handler);
 #endif
+#ifdef SIGTERM
   _dbus_set_signal_handler (SIGTERM, signal_handler);
+#endif
 #ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
   _dbus_set_signal_handler (SIGIO, signal_handler);
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX */

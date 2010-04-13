@@ -22,6 +22,7 @@
  *
  */
  
+#include <config.h>
 #include "config-parser-common.h"
 #include "config-parser-trivial.h"
 #include "utils.h"

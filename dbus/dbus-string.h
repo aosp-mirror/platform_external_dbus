@@ -25,8 +25,6 @@
 #ifndef DBUS_STRING_H
 #define DBUS_STRING_H
 
-#include <config.h>
-
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-memory.h>
@@ -43,7 +41,11 @@ typedef struct DBusString DBusString;
 
 struct DBusString
 {
+#if defined(DBUS_WIN) && defined(_DEBUG)
+  const char *dummy1; /**< placeholder */
+#else
   const void *dummy1; /**< placeholder */
+#endif
   int   dummy2;       /**< placeholder */
   int   dummy3;       /**< placeholder */
   int   dummy4;       /**< placeholder */
@@ -284,6 +286,12 @@ dbus_bool_t   _dbus_string_hex_decode            (const DBusString  *source,
 						  int               *end_return,
                                                   DBusString        *dest,
                                                   int                insert_at);
+void          _dbus_string_tolower_ascii         (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+void          _dbus_string_toupper_ascii         (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
 dbus_bool_t   _dbus_string_validate_ascii        (const DBusString  *str,
                                                   int                start,
                                                   int                len);

@@ -24,8 +24,6 @@
 #ifndef BUS_CONFIG_PARSER_H
 #define BUS_CONFIG_PARSER_H
 
-#include <config.h>
-
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-list.h>

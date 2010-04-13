@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-validate.h"
@@ -3839,6 +3840,7 @@ _dbus_message_loader_get_unix_fds(DBusMessageLoader  *loader,
   return TRUE;
 #else
   _dbus_assert_not_reached("Platform doesn't support unix fd passing");
+  return FALSE;
 #endif
 }
 

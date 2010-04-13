@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-launch.h"
 
 #ifdef DBUS_BUILD_X11
@@ -459,5 +461,7 @@ x11_handle_event (void)
 }  
 
 #else
+void dummy_dbus_launch_x11 (void);
+
 void dummy_dbus_launch_x11 (void) { }
 #endif

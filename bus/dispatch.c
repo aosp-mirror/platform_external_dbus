@@ -23,6 +23,7 @@
  *
  */
 
+#include <config.h>
 #include "dispatch.h"
 #include "connection.h"
 #include "driver.h"
@@ -40,10 +41,16 @@
 #include <unistd.h>
 #endif
 
+#ifndef TEST_CONNECTION
+/*
+ TODO autotools:
+  move to build system as already done for cmake
+*/
 #ifdef DBUS_UNIX
 #define TEST_CONNECTION "debug-pipe:name=test-server"
 #else
 #define TEST_CONNECTION "tcp:host=localhost,port=1234"
+#endif
 #endif
 
 static dbus_bool_t
@@ -101,10 +108,39 @@ bus_dispatch_matches (BusTransaction *transaction,
   _dbus_assert (sender == NULL || bus_connection_is_active (sender));
   _dbus_assert (dbus_message_get_sender (message) != NULL);
 
-  connections = bus_transaction_get_connections (transaction);
-  
-  dbus_error_init (&tmp_error);
   context = bus_transaction_get_context (transaction);
+
+  /* First, send the message to the addressed_recipient, if there is one. */
+  if (addressed_recipient != NULL)
+    {
+      if (!bus_context_check_security_policy (context, transaction,
+                                              sender, addressed_recipient,
+                                              addressed_recipient,
+                                              message, error))
+        return FALSE;
+
+      if (dbus_message_contains_unix_fds (message) &&
+          !dbus_connection_can_send_type (addressed_recipient,
+                                          DBUS_TYPE_UNIX_FD))
+        {
+          dbus_set_error (error,
+                          DBUS_ERROR_NOT_SUPPORTED,
+                          "Tried to send message with Unix file descriptors"
+                          "to a client that doesn't support that.");
+          return FALSE;
+      }
+
+      /* Dispatch the message */
+      if (!bus_transaction_send (transaction, addressed_recipient, message))
+        {
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+    }
+
+  /* Now dispatch to others who look interested in this message */
+  connections = bus_transaction_get_connections (transaction);
+  dbus_error_init (&tmp_error);
   matchmaker = bus_context_get_matchmaker (context);
 
   recipients = NULL;
@@ -304,34 +340,12 @@ bus_dispatch (DBusConnection *connection,
         {
           addressed_recipient = bus_service_get_primary_owners_connection (service);
           _dbus_assert (addressed_recipient != NULL);
-          
-          if (!bus_context_check_security_policy (context, transaction,
-                                                  connection, addressed_recipient,
-                                                  addressed_recipient,
-                                                  message, &error))
-            goto out;
-
-          if (dbus_message_contains_unix_fds(message) &&
-              !dbus_connection_can_send_type(addressed_recipient, DBUS_TYPE_UNIX_FD))
-            {
-              dbus_set_error(&error,
-                             DBUS_ERROR_NOT_SUPPORTED,
-                             "Tried to send message with Unix file descriptors"
-                             "to a client that doesn't support that.");
-              goto out;
-          }
-          
-          /* Dispatch the message */
-          if (!bus_transaction_send (transaction, addressed_recipient, message))
-            {
-              BUS_SET_OOM (&error);
-              goto out;
-            }
         }
     }
 
-  /* Now match the messages against any match rules, which will send
-   * out signals and such. addressed_recipient may == NULL.
+  /* Now send the message to its destination (or not, if
+   * addressed_recipient == NULL), and match it against other connections'
+   * match rules.
    */
   if (!bus_dispatch_matches (transaction, connection, addressed_recipient, message, &error))
     goto out;
@@ -744,8 +758,7 @@ check_no_leftovers (BusContext *context)
   
   if (nmd.failed)
     {
-      _dbus_verbose ("%s: leftover message found\n",
-                     _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("leftover message found\n");
       return FALSE;
     }
   else
@@ -969,7 +982,7 @@ check_hello_message (BusContext     *context,
   retval = TRUE;
   
  out:
-  _dbus_verbose ("ending %s retval = %d\n", _DBUS_FUNCTION_NAME, retval);
+  _dbus_verbose ("ending - retval = %d\n", retval);
   
   dbus_error_free (&error);
   
@@ -1025,7 +1038,7 @@ check_double_hello_message (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       
       dbus_connection_unref (connection);
       
@@ -1127,7 +1140,7 @@ check_get_connection_unix_user (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       
       dbus_connection_unref (connection);
       
@@ -1264,7 +1277,7 @@ check_get_connection_unix_process_id (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       
       dbus_connection_unref (connection);
       
@@ -1427,7 +1440,7 @@ check_add_match_all (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       
       dbus_connection_unref (connection);
       
@@ -1438,7 +1451,7 @@ check_add_match_all (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       
       dbus_connection_unref (connection);
       
@@ -1607,7 +1620,7 @@ check_nonexistent_service_no_auto_start (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -1699,7 +1712,7 @@ check_nonexistent_service_auto_start (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -2479,7 +2492,7 @@ check_existent_service_no_auto_start (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -2701,7 +2714,7 @@ check_segfault_service_no_auto_start (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -2802,7 +2815,7 @@ check_segfault_service_auto_start (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -3121,7 +3134,7 @@ check_existent_service_auto_start (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
 
@@ -3306,7 +3319,7 @@ check_launch_service_file_missing (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -3402,7 +3415,7 @@ check_launch_service_user_missing (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_warn ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_warn ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -3498,7 +3511,7 @@ check_launch_service_exec_missing (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_warn ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_warn ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -3602,7 +3615,7 @@ check_launch_service_service_missing (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_warn ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_warn ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -3705,7 +3718,7 @@ check_shell_fail_service_auto_start (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
   
@@ -3809,7 +3822,7 @@ check_shell_service_success_auto_start (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
 
@@ -4089,7 +4102,7 @@ check_get_services (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
 
       dbus_connection_unref (connection);
 
@@ -4251,7 +4264,7 @@ check_list_services (BusContext     *context,
 
   if (!dbus_connection_get_is_connected (connection))
     {
-      _dbus_verbose ("connection was disconnected: %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+      _dbus_verbose ("connection was disconnected\n");
       return TRUE;
     }
 
@@ -4536,11 +4549,16 @@ bus_dispatch_test_conf (const DBusString *test_data_dir,
   if (!check_add_match_all (context, baz))
     _dbus_assert_not_reached ("AddMatch message failed");
 
+#ifdef DBUS_WIN_FIXME
+  _dbus_warn("TODO: testing of GetConnectionUnixUser message skipped for now\n");
+  _dbus_warn("TODO: testing of GetConnectionUnixProcessID message skipped for now\n");
+#else
   if (!check_get_connection_unix_user (context, baz))
     _dbus_assert_not_reached ("GetConnectionUnixUser message failed");
 
   if (!check_get_connection_unix_process_id (context, baz))
     _dbus_assert_not_reached ("GetConnectionUnixProcessID message failed");
+#endif
 
   if (!check_list_services (context, baz))
     _dbus_assert_not_reached ("ListActivatableNames message failed");

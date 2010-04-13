@@ -24,8 +24,6 @@
 #ifndef BUS_CONFIG_PARSER_COMMON_H
 #define BUS_CONFIG_PARSER_COMMON_H
 
-#include <config.h>
-
 typedef enum
 {
   ELEMENT_NONE,

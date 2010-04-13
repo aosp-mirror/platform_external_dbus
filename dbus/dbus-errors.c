@@ -21,6 +21,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-errors.h"
 #include "dbus-internals.h"
 #include "dbus-string.h"
@@ -375,6 +377,7 @@ dbus_set_error (DBusError  *error,
                                 message_from_error (name)))
         {
           _dbus_string_free (&str);
+          va_end (args);
           goto nomem;
         }
     }

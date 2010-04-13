@@ -24,8 +24,6 @@
 #ifndef DBUS_STRING_PRIVATE_H
 #define DBUS_STRING_PRIVATE_H
 
-#include <config.h>
-
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 

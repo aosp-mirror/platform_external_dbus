@@ -15,6 +15,8 @@ check_include_file(unistd.h     HAVE_UNISTD_H)  # dbus-sysdeps-util-win.c
 check_include_file(stdio.h      HAVE_STDIO_H)   # dbus-sysdeps.h
 check_include_file(sys/syslimits.h    HAVE_SYS_SYSLIMITS_H)   # dbus-sysdeps-unix.c
 check_include_file(errno.h     HAVE_ERRNO_H)    # dbus-sysdeps.c
+check_include_file(signal.h     HAVE_SIGNAL_H)
+check_include_file(locale.h     HAVE_LOCALE_H)
 
 check_symbol_exists(backtrace    "execinfo.h"       HAVE_BACKTRACE)          #  dbus-sysdeps.c, dbus-sysdeps-win.c
 check_symbol_exists(getgrouplist "grp.h"            HAVE_GETGROUPLIST)       #  dbus-sysdeps.c
@@ -90,7 +92,8 @@ if(MSVC)
    SET(DBUS_VA_COPY_FUNC "_DBUS_VA_COPY_ASSIGN";)
 else(MSVC)
 write_file("${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c" "#include <stdarg.h>
-	void f (int i, ...) {
+	#include <stdlib.h>
+        static void f (int i, ...) {
 	va_list args1, args2;
 	va_start (args1, i);
 	va_copy (args2, args1);
@@ -111,7 +114,8 @@ if(DBUS_HAVE_VA_COPY)
   SET(DBUS_VA_COPY_FUNC va_copy CACHE STRING "va_copy function")
 else(DBUS_HAVE_VA_COPY)
   write_file("${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c" "#include <stdarg.h>
-	  void f (int i, ...) {
+          #include <stdlib.h>
+	  static void f (int i, ...) {
 	  va_list args1, args2;
 	  va_start (args1, i);
 	  __va_copy (args2, args1);

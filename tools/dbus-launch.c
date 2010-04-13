@@ -21,6 +21,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-launch.h"
 #include <stdlib.h>
 #include <ctype.h>
@@ -405,6 +407,7 @@ signal_handler (int sig)
 #ifdef SIGHUP
     case SIGHUP:
 #endif
+    case SIGINT:
     case SIGTERM:
       got_sighup = TRUE;
       break;
@@ -429,6 +432,7 @@ kill_bus_when_session_ends (void)
   act.sa_flags   = 0;
   sigaction (SIGHUP,  &act, NULL);
   sigaction (SIGTERM,  &act, NULL);
+  sigaction (SIGINT,  &act, NULL);
   
 #ifdef DBUS_BUILD_X11
   x11_init();

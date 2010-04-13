@@ -22,12 +22,14 @@
  *
  */
 
+#include <config.h>
 #include "dbus-protocol.h"
 #include "dbus-string.h"
 #include "dbus-internals.h"
 #include "dbus-pipe.h"
 
 #include <io.h>
+#include <errno.h>
 
 /**
  * write data to a pipe.

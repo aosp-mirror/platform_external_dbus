@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-server-unix.h"
 #include "dbus-server-socket.h"

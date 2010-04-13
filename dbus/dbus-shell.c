@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include <string.h>
 #include "dbus-internals.h"
 #include "dbus-list.h"

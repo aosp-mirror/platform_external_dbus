@@ -23,7 +23,6 @@
 #ifndef DBUS_SERVER_PROTECTED_H
 #define DBUS_SERVER_PROTECTED_H
 
-#include <config.h>
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-threads-internal.h>
 #include <dbus/dbus-server.h>
@@ -144,13 +143,13 @@ DBusServerListenResult _dbus_server_listen_platform_specific (DBusAddressEntry  
 #define TRACE_LOCKS 0
 
 #define SERVER_LOCK(server)   do {                                              \
-    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
+    if (TRACE_LOCKS) { _dbus_verbose ("LOCK\n"); }   \
     _dbus_mutex_lock ((server)->mutex);                                          \
     TOOK_LOCK_CHECK (server);                                                   \
   } while (0)
 
 #define SERVER_UNLOCK(server) do {                                                      \
-    if (TRACE_LOCKS) { _dbus_verbose ("  UNLOCK: %s\n", _DBUS_FUNCTION_NAME);  }        \
+    if (TRACE_LOCKS) { _dbus_verbose ("UNLOCK\n");  }        \
     RELEASING_LOCK_CHECK (server);                                                      \
     _dbus_mutex_unlock ((server)->mutex);                                                \
   } while (0)

@@ -33,8 +33,6 @@
 
 #include <time.h>
 
-#include <signal.h>
-
 #include "dbus-print-message.h"
 
 #ifdef DBUS_WIN
@@ -214,6 +212,13 @@ main (int argc, char *argv[])
   
   int i = 0, j = 0, numFilters = 0;
   char **filters = NULL;
+
+  /* Set stdout to be unbuffered; this is basically so that if people
+   * do dbus-monitor > file, then send SIGINT via Control-C, they
+   * don't lose the last chunk of messages.
+   */
+  setvbuf (stdout, NULL, _IOLBF, 0);
+
   for (i = 1; i < argc; i++)
     {
       char *arg = argv[i];
@@ -339,10 +344,7 @@ main (int argc, char *argv[])
     exit (1);
   }
 
-  /* we handle SIGINT so exit() is reached and flushes stdout */
-  signal (SIGINT, sigint_handler);
-  while (dbus_connection_read_write_dispatch(connection, -1)
-          && !sigint_received)
+  while (dbus_connection_read_write_dispatch(connection, -1))
     ;
   exit (0);
  lose:

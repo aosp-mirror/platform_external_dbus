@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-memory.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
@@ -244,7 +245,18 @@ dbus_bool_t
 _dbus_decrement_fail_alloc_counter (void)
 {
   _dbus_initialize_malloc_debug ();
-  
+#ifdef DBUS_WIN_FIXME
+  {
+    static dbus_bool_t called = 0;
+    if (!called)
+      {
+        _dbus_warn("TODO: memory allocation testing errors disabled for now\n");
+        called = 1;
+      }
+    return FALSE;
+  }
+#endif
+
   if (fail_alloc_counter <= 0)
     {
       if (backtrace_on_fail_alloc)

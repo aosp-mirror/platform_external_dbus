@@ -11,7 +11,7 @@
 #cmakedefine DBUS_BINDIR   "@DBUS_BINDIR@"
 #cmakedefine DBUS_SYSTEM_CONFIG_FILE  "@DBUS_SYSTEM_CONFIG_FILE@"
 #cmakedefine DBUS_SESSION_CONFIG_FILE "@DBUS_SESSION_CONFIG_FILE@"
-#cmakedefine DAEMON_NAME "@DAEMON_NAME@"
+#cmakedefine DBUS_DAEMON_NAME "@DBUS_DAEMON_NAME@"
 #cmakedefine DBUS_SYSTEM_BUS_DEFAULT_ADDRESS  "@DBUS_SYSTEM_BUS_DEFAULT_ADDRESS@"
 #cmakedefine DBUS_MACHINE_UUID_FILE "@DBUS_MACHINE_UUID_FILE@"
 //#cmakedefine DBUS_SESSION_BUS_DEFAULT_ADDRESS "@DBUS_SESSION_BUS_DEFAULT_ADDRESS@"
@@ -23,6 +23,11 @@
 #cmakedefine DBUS_MICRO_VERSION @DBUS_MICRO_VERSION@
 #cmakedefine DBUS_VERSION ((@DBUS_MAJOR_VERSION@ << 16) | (@DBUS_MINOR_VERSION@ << 8) | (@DBUS_MICRO_VERSION@))
 #cmakedefine DBUS_VERSION_STRING "@DBUS_VERSION_STRING@"
+
+#define VERSION DBUS_VERSION_STRING
+
+#define TEST_LISTEN       "@TEST_LISTEN@"
+#define TEST_CONNECTION   "@TEST_CONNECTION@"
 
 // test binaries
 /* Full path to test file test/test-exit in builddir */
@@ -118,14 +123,20 @@
 /* Define to 1 if you have unistd.h */
 #cmakedefine   HAVE_UNISTD_H 1
 
-/* Define to 1 if you have errno.h */
-#cmakedefine   HAVE_ERRNO_H 1
-
 /* Define to 1 if you have stdio.h */
 #cmakedefine   HAVE_STDIO_H 1
 
 /* Define to 1 if you have sys/syslimits.h */
 #cmakedefine   HAVE_SYS_SYSLIMITS_H 1
+
+/* Define to 1 if you have errno.h */
+#cmakedefine   HAVE_ERRNO_H 1
+
+/* Define to 1 if you have signal.h */
+#cmakedefine   HAVE_SIGNAL_H 1
+
+/* Define to 1 if you have locale.h */
+#cmakedefine   HAVE_LOCALE_H 1
 
 // symbols
 /* Define to 1 if you have backtrace */

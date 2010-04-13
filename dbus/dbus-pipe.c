@@ -22,6 +22,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-pipe.h"
 
 /*

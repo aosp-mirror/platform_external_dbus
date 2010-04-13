@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-marshal-validate.h"
 #include "dbus-marshal-recursive.h"

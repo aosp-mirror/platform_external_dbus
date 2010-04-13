@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "signals.h"
 #include "services.h"
 #include "utils.h"
@@ -1018,25 +1020,173 @@ bus_match_rule_parse (DBusConnection   *matches_go_to,
   return rule;
 }
 
+typedef struct RulePool RulePool;
+struct RulePool
+{
+  /* Maps non-NULL interface names to non-NULL (DBusList **)s */
+  DBusHashTable *rules_by_iface;
+
+  /* List of BusMatchRules which don't specify an interface */
+  DBusList *rules_without_iface;
+};
+
 struct BusMatchmaker
 {
   int refcount;
 
-  DBusList *all_rules;
+  /* Pools of rules, grouped by the type of message they match. 0
+   * (DBUS_MESSAGE_TYPE_INVALID) represents rules that do not specify a message
+   * type.
+   */
+  RulePool rules_by_type[DBUS_NUM_MESSAGE_TYPES];
 };
+
+static void
+rule_list_free (DBusList **rules)
+{
+  while (*rules != NULL)
+    {
+      BusMatchRule *rule;
+
+      rule = (*rules)->data;
+      bus_match_rule_unref (rule);
+      _dbus_list_remove_link (rules, *rules);
+    }
+}
+
+static void
+rule_list_ptr_free (DBusList **list)
+{
+  /* We have to cope with NULL because the hash table frees the "existing"
+   * value (which is NULL) when creating a new table entry...
+   */
+  if (list != NULL)
+    {
+      rule_list_free (list);
+      dbus_free (list);
+    }
+}
 
 BusMatchmaker*
 bus_matchmaker_new (void)
 {
   BusMatchmaker *matchmaker;
+  int i;
 
   matchmaker = dbus_new0 (BusMatchmaker, 1);
   if (matchmaker == NULL)
     return NULL;
 
   matchmaker->refcount = 1;
-  
+
+  for (i = DBUS_MESSAGE_TYPE_INVALID; i < DBUS_NUM_MESSAGE_TYPES; i++)
+    {
+      RulePool *p = matchmaker->rules_by_type + i;
+
+      p->rules_by_iface = _dbus_hash_table_new (DBUS_HASH_STRING,
+          dbus_free, (DBusFreeFunction) rule_list_ptr_free);
+
+      if (p->rules_by_iface == NULL)
+        goto nomem;
+    }
+
   return matchmaker;
+
+ nomem:
+  for (i = DBUS_MESSAGE_TYPE_INVALID; i < DBUS_NUM_MESSAGE_TYPES; i++)
+    {
+      RulePool *p = matchmaker->rules_by_type + i;
+
+      if (p->rules_by_iface == NULL)
+        break;
+      else
+        _dbus_hash_table_unref (p->rules_by_iface);
+    }
+
+  return NULL;
+}
+
+static DBusList **
+bus_matchmaker_get_rules (BusMatchmaker *matchmaker,
+                          int            message_type,
+                          const char    *interface,
+                          dbus_bool_t    create)
+{
+  RulePool *p;
+
+  _dbus_assert (message_type >= 0);
+  _dbus_assert (message_type < DBUS_NUM_MESSAGE_TYPES);
+
+  _dbus_verbose ("Looking up rules for message_type %d, interface %s\n",
+                 message_type,
+                 interface != NULL ? interface : "<null>");
+
+  p = matchmaker->rules_by_type + message_type;
+
+  if (interface == NULL)
+    {
+      return &p->rules_without_iface;
+    }
+  else
+    {
+      DBusList **list;
+
+      list = _dbus_hash_table_lookup_string (p->rules_by_iface, interface);
+
+      if (list == NULL && create)
+        {
+          char *dupped_interface;
+
+          list = dbus_new0 (DBusList *, 1);
+          if (list == NULL)
+            return NULL;
+
+          dupped_interface = _dbus_strdup (interface);
+          if (dupped_interface == NULL)
+            {
+              dbus_free (list);
+              return NULL;
+            }
+
+          _dbus_verbose ("Adding list for type %d, iface %s\n", message_type,
+                         interface);
+
+          if (!_dbus_hash_table_insert_string (p->rules_by_iface,
+                                               dupped_interface, list))
+            {
+              dbus_free (list);
+              dbus_free (dupped_interface);
+              return NULL;
+            }
+        }
+
+      return list;
+    }
+}
+
+static void
+bus_matchmaker_gc_rules (BusMatchmaker *matchmaker,
+                         int            message_type,
+                         const char    *interface,
+                         DBusList     **rules)
+{
+  RulePool *p;
+
+  if (interface == NULL)
+    return;
+
+  if (*rules != NULL)
+    return;
+
+  _dbus_verbose ("GCing HT entry for message_type %u, interface %s\n",
+                 message_type, interface);
+
+  p = matchmaker->rules_by_type + message_type;
+
+  _dbus_assert (_dbus_hash_table_lookup_string (p->rules_by_iface, interface)
+      == rules);
+
+  _dbus_hash_table_remove_string (p->rules_by_iface, interface);
 }
 
 BusMatchmaker *
@@ -1057,14 +1207,14 @@ bus_matchmaker_unref (BusMatchmaker *matchmaker)
   matchmaker->refcount -= 1;
   if (matchmaker->refcount == 0)
     {
-      while (matchmaker->all_rules != NULL)
-        {
-          BusMatchRule *rule;
+      int i;
 
-          rule = matchmaker->all_rules->data;
-          bus_match_rule_unref (rule);
-          _dbus_list_remove_link (&matchmaker->all_rules,
-                                  matchmaker->all_rules);
+      for (i = DBUS_MESSAGE_TYPE_INVALID; i < DBUS_NUM_MESSAGE_TYPES; i++)
+        {
+          RulePool *p = matchmaker->rules_by_type + i;
+
+          _dbus_hash_table_unref (p->rules_by_iface);
+          rule_list_free (&p->rules_without_iface);
         }
 
       dbus_free (matchmaker);
@@ -1076,17 +1226,31 @@ dbus_bool_t
 bus_matchmaker_add_rule (BusMatchmaker   *matchmaker,
                          BusMatchRule    *rule)
 {
+  DBusList **rules;
+
   _dbus_assert (bus_connection_is_active (rule->matches_go_to));
 
-  if (!_dbus_list_append (&matchmaker->all_rules, rule))
+  _dbus_verbose ("Adding rule with message_type %d, interface %s\n",
+                 rule->message_type,
+                 rule->interface != NULL ? rule->interface : "<null>");
+
+  rules = bus_matchmaker_get_rules (matchmaker, rule->message_type,
+                                    rule->interface, TRUE);
+
+  if (rules == NULL)
+    return FALSE;
+
+  if (!_dbus_list_append (rules, rule))
     return FALSE;
 
   if (!bus_connection_add_match_rule (rule->matches_go_to, rule))
     {
-      _dbus_list_remove_last (&matchmaker->all_rules, rule);
+      _dbus_list_remove_last (rules, rule);
+      bus_matchmaker_gc_rules (matchmaker, rule->message_type,
+                               rule->interface, rules);
       return FALSE;
     }
-  
+
   bus_match_rule_ref (rule);
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
@@ -1171,13 +1335,13 @@ match_rule_equal (BusMatchRule *a,
 }
 
 static void
-bus_matchmaker_remove_rule_link (BusMatchmaker   *matchmaker,
+bus_matchmaker_remove_rule_link (DBusList       **rules,
                                  DBusList        *link)
 {
   BusMatchRule *rule = link->data;
   
   bus_connection_remove_match_rule (rule->matches_go_to, rule);
-  _dbus_list_remove_link (&matchmaker->all_rules, link);
+  _dbus_list_remove_link (rules, link);
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
   {
@@ -1196,8 +1360,25 @@ void
 bus_matchmaker_remove_rule (BusMatchmaker   *matchmaker,
                             BusMatchRule    *rule)
 {
+  DBusList **rules;
+
+  _dbus_verbose ("Removing rule with message_type %d, interface %s\n",
+                 rule->message_type,
+                 rule->interface != NULL ? rule->interface : "<null>");
+
   bus_connection_remove_match_rule (rule->matches_go_to, rule);
-  _dbus_list_remove (&matchmaker->all_rules, rule);
+
+  rules = bus_matchmaker_get_rules (matchmaker, rule->message_type,
+                                    rule->interface, FALSE);
+
+  /* We should only be asked to remove a rule by identity right after it was
+   * added, so there should be a list for it.
+   */
+  _dbus_assert (rules != NULL);
+
+  _dbus_list_remove (rules, rule);
+  bus_matchmaker_gc_rules (matchmaker, rule->message_type, rule->interface,
+      rules);
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
   {
@@ -1218,29 +1399,38 @@ bus_matchmaker_remove_rule_by_value (BusMatchmaker   *matchmaker,
                                      BusMatchRule    *value,
                                      DBusError       *error)
 {
-  /* FIXME this is an unoptimized linear scan */
+  DBusList **rules;
+  DBusList *link = NULL;
 
-  DBusList *link;
+  _dbus_verbose ("Removing rule by value with message_type %d, interface %s\n",
+                 value->message_type,
+                 value->interface != NULL ? value->interface : "<null>");
 
-  /* we traverse backward because bus_connection_remove_match_rule()
-   * removes the most-recently-added rule
-   */
-  link = _dbus_list_get_last_link (&matchmaker->all_rules);
-  while (link != NULL)
+  rules = bus_matchmaker_get_rules (matchmaker, value->message_type,
+      value->interface, FALSE);
+
+  if (rules != NULL)
     {
-      BusMatchRule *rule;
-      DBusList *prev;
-
-      rule = link->data;
-      prev = _dbus_list_get_prev_link (&matchmaker->all_rules, link);
-
-      if (match_rule_equal (rule, value))
+      /* we traverse backward because bus_connection_remove_match_rule()
+       * removes the most-recently-added rule
+       */
+      link = _dbus_list_get_last_link (rules);
+      while (link != NULL)
         {
-          bus_matchmaker_remove_rule_link (matchmaker, link);
-          break;
-        }
+          BusMatchRule *rule;
+          DBusList *prev;
 
-      link = prev;
+          rule = link->data;
+          prev = _dbus_list_get_prev_link (rules, link);
+
+          if (match_rule_equal (rule, value))
+            {
+              bus_matchmaker_remove_rule_link (rules, link);
+              break;
+            }
+
+          link = prev;
+        }
     }
 
   if (link == NULL)
@@ -1250,38 +1440,30 @@ bus_matchmaker_remove_rule_by_value (BusMatchmaker   *matchmaker,
       return FALSE;
     }
 
+  bus_matchmaker_gc_rules (matchmaker, value->message_type, value->interface,
+      rules);
+
   return TRUE;
 }
 
-void
-bus_matchmaker_disconnected (BusMatchmaker   *matchmaker,
-                             DBusConnection  *disconnected)
+static void
+rule_list_remove_by_connection (DBusList       **rules,
+                                DBusConnection  *connection)
 {
   DBusList *link;
 
-  /* FIXME
-   *
-   * This scans all match rules on the bus. We could avoid that
-   * for the rules belonging to the connection, since we keep
-   * a list of those; but for the rules that just refer to
-   * the connection we'd need to do something more elaborate.
-   * 
-   */
-  
-  _dbus_assert (bus_connection_is_active (disconnected));
-
-  link = _dbus_list_get_first_link (&matchmaker->all_rules);
+  link = _dbus_list_get_first_link (rules);
   while (link != NULL)
     {
       BusMatchRule *rule;
       DBusList *next;
 
       rule = link->data;
-      next = _dbus_list_get_next_link (&matchmaker->all_rules, link);
+      next = _dbus_list_get_next_link (rules, link);
 
-      if (rule->matches_go_to == disconnected)
+      if (rule->matches_go_to == connection)
         {
-          bus_matchmaker_remove_rule_link (matchmaker, link);
+          bus_matchmaker_remove_rule_link (rules, link);
         }
       else if (((rule->flags & BUS_MATCH_SENDER) && *rule->sender == ':') ||
                ((rule->flags & BUS_MATCH_DESTINATION) && *rule->destination == ':'))
@@ -1292,7 +1474,7 @@ bus_matchmaker_disconnected (BusMatchmaker   *matchmaker,
            */
           const char *name;
 
-          name = bus_connection_get_name (disconnected);
+          name = bus_connection_get_name (connection);
           _dbus_assert (name != NULL); /* because we're an active connection */
 
           if (((rule->flags & BUS_MATCH_SENDER) &&
@@ -1300,11 +1482,49 @@ bus_matchmaker_disconnected (BusMatchmaker   *matchmaker,
               ((rule->flags & BUS_MATCH_DESTINATION) &&
                strcmp (rule->destination, name) == 0))
             {
-              bus_matchmaker_remove_rule_link (matchmaker, link);
+              bus_matchmaker_remove_rule_link (rules, link);
             }
         }
 
       link = next;
+    }
+}
+
+void
+bus_matchmaker_disconnected (BusMatchmaker   *matchmaker,
+                             DBusConnection  *connection)
+{
+  int i;
+
+  /* FIXME
+   *
+   * This scans all match rules on the bus. We could avoid that
+   * for the rules belonging to the connection, since we keep
+   * a list of those; but for the rules that just refer to
+   * the connection we'd need to do something more elaborate.
+   */
+
+  _dbus_assert (bus_connection_is_active (connection));
+
+  _dbus_verbose ("Removing all rules for connection %p\n", connection);
+
+  for (i = DBUS_MESSAGE_TYPE_INVALID; i < DBUS_NUM_MESSAGE_TYPES; i++)
+    {
+      RulePool *p = matchmaker->rules_by_type + i;
+      DBusHashIter iter;
+
+      rule_list_remove_by_connection (&p->rules_without_iface, connection);
+
+      _dbus_hash_iter_init (p->rules_by_iface, &iter);
+      while (_dbus_hash_iter_next (&iter))
+        {
+          DBusList **items = _dbus_hash_iter_get_value (&iter);
+
+          rule_list_remove_by_connection (items, connection);
+
+          if (*items == NULL)
+            _dbus_hash_iter_remove_entry (&iter);
+        }
     }
 }
 
@@ -1333,8 +1553,11 @@ static dbus_bool_t
 match_rule_matches (BusMatchRule    *rule,
                     DBusConnection  *sender,
                     DBusConnection  *addressed_recipient,
-                    DBusMessage     *message)
+                    DBusMessage     *message,
+                    BusMatchFlags    already_matched)
 {
+  int flags;
+
   /* All features of the match rule are AND'd together,
    * so FALSE if any of them don't match.
    */
@@ -1343,8 +1566,11 @@ match_rule_matches (BusMatchRule    *rule,
    * or for addressed_recipient may mean a message with no
    * specific recipient (i.e. a signal)
    */
-  
-  if (rule->flags & BUS_MATCH_MESSAGE_TYPE)
+
+  /* Don't bother re-matching features we've already checked implicitly. */
+  flags = rule->flags & (~already_matched);
+
+  if (flags & BUS_MATCH_MESSAGE_TYPE)
     {
       _dbus_assert (rule->message_type != DBUS_MESSAGE_TYPE_INVALID);
 
@@ -1352,7 +1578,7 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
-  if (rule->flags & BUS_MATCH_INTERFACE)
+  if (flags & BUS_MATCH_INTERFACE)
     {
       const char *iface;
 
@@ -1366,7 +1592,7 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
-  if (rule->flags & BUS_MATCH_MEMBER)
+  if (flags & BUS_MATCH_MEMBER)
     {
       const char *member;
 
@@ -1380,7 +1606,7 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
-  if (rule->flags & BUS_MATCH_SENDER)
+  if (flags & BUS_MATCH_SENDER)
     {
       _dbus_assert (rule->sender != NULL);
 
@@ -1397,7 +1623,7 @@ match_rule_matches (BusMatchRule    *rule,
         }
     }
 
-  if (rule->flags & BUS_MATCH_DESTINATION)
+  if (flags & BUS_MATCH_DESTINATION)
     {
       const char *destination;
 
@@ -1420,7 +1646,7 @@ match_rule_matches (BusMatchRule    *rule,
         }
     }
 
-  if (rule->flags & BUS_MATCH_PATH)
+  if (flags & BUS_MATCH_PATH)
     {
       const char *path;
 
@@ -1434,7 +1660,7 @@ match_rule_matches (BusMatchRule    *rule,
         return FALSE;
     }
 
-  if (rule->flags & BUS_MATCH_ARGS)
+  if (flags & BUS_MATCH_ARGS)
     {
       int i;
       DBusMessageIter iter;
@@ -1504,6 +1730,61 @@ match_rule_matches (BusMatchRule    *rule,
   return TRUE;
 }
 
+static dbus_bool_t
+get_recipients_from_list (DBusList       **rules,
+                          DBusConnection  *sender,
+                          DBusConnection  *addressed_recipient,
+                          DBusMessage     *message,
+                          DBusList       **recipients_p)
+{
+  DBusList *link;
+
+  if (rules == NULL)
+    return TRUE;
+
+  link = _dbus_list_get_first_link (rules);
+  while (link != NULL)
+    {
+      BusMatchRule *rule;
+
+      rule = link->data;
+
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+      {
+        char *s = match_rule_to_string (rule);
+
+        _dbus_verbose ("Checking whether message matches rule %s for connection %p\n",
+                       s, rule->matches_go_to);
+        dbus_free (s);
+      }
+#endif
+
+      if (match_rule_matches (rule,
+                              sender, addressed_recipient, message,
+                              BUS_MATCH_MESSAGE_TYPE | BUS_MATCH_INTERFACE))
+        {
+          _dbus_verbose ("Rule matched\n");
+
+          /* Append to the list if we haven't already */
+          if (bus_connection_mark_stamp (rule->matches_go_to))
+            {
+              if (!_dbus_list_append (recipients_p, rule->matches_go_to))
+                return FALSE;
+            }
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+          else
+            {
+              _dbus_verbose ("Connection already receiving this message, so not adding again\n");
+            }
+#endif /* DBUS_ENABLE_VERBOSE_MODE */
+        }
+
+      link = _dbus_list_get_next_link (rules, link);
+    }
+
+  return TRUE;
+}
+
 dbus_bool_t
 bus_matchmaker_get_recipients (BusMatchmaker   *matchmaker,
                                BusConnections  *connections,
@@ -1512,13 +1793,9 @@ bus_matchmaker_get_recipients (BusMatchmaker   *matchmaker,
                                DBusMessage     *message,
                                DBusList       **recipients_p)
 {
-  /* FIXME for now this is a wholly unoptimized linear search */
-  /* Guessing the important optimization is to skip the signal-related
-   * match lists when processing method call and exception messages.
-   * So separate match rule lists for signals?
-   */
-  
-  DBusList *link;
+  int type;
+  const char *interface;
+  DBusList **neither, **just_type, **just_iface, **both;
 
   _dbus_assert (*recipients_p == NULL);
 
@@ -1535,50 +1812,39 @@ bus_matchmaker_get_recipients (BusMatchmaker   *matchmaker,
   if (addressed_recipient != NULL)
     bus_connection_mark_stamp (addressed_recipient);
 
-  link = _dbus_list_get_first_link (&matchmaker->all_rules);
-  while (link != NULL)
+  type = dbus_message_get_type (message);
+  interface = dbus_message_get_interface (message);
+
+  neither = bus_matchmaker_get_rules (matchmaker, DBUS_MESSAGE_TYPE_INVALID,
+      NULL, FALSE);
+  just_type = just_iface = both = NULL;
+
+  if (interface != NULL)
+    just_iface = bus_matchmaker_get_rules (matchmaker,
+        DBUS_MESSAGE_TYPE_INVALID, interface, FALSE);
+
+  if (type > DBUS_MESSAGE_TYPE_INVALID && type < DBUS_NUM_MESSAGE_TYPES)
     {
-      BusMatchRule *rule;
+      just_type = bus_matchmaker_get_rules (matchmaker, type, NULL, FALSE);
 
-      rule = link->data;
+      if (interface != NULL)
+        both = bus_matchmaker_get_rules (matchmaker, type, interface, FALSE);
+    }
 
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-      {
-        char *s = match_rule_to_string (rule);
-        
-        _dbus_verbose ("Checking whether message matches rule %s for connection %p\n",
-                       s, rule->matches_go_to);
-        dbus_free (s);
-      }
-#endif
-      
-      if (match_rule_matches (rule,
-                              sender, addressed_recipient, message))
-        {
-          _dbus_verbose ("Rule matched\n");
-          
-          /* Append to the list if we haven't already */
-          if (bus_connection_mark_stamp (rule->matches_go_to))
-            {
-              if (!_dbus_list_append (recipients_p, rule->matches_go_to))
-                goto nomem;
-            }
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-          else
-            {
-              _dbus_verbose ("Connection already receiving this message, so not adding again\n");
-            }
-#endif /* DBUS_ENABLE_VERBOSE_MODE */
-        }
-
-      link = _dbus_list_get_next_link (&matchmaker->all_rules, link);
+  if (!(get_recipients_from_list (neither, sender, addressed_recipient,
+                                  message, recipients_p) &&
+        get_recipients_from_list (just_iface, sender, addressed_recipient,
+                                  message, recipients_p) &&
+        get_recipients_from_list (just_type, sender, addressed_recipient,
+                                  message, recipients_p) &&
+        get_recipients_from_list (both, sender, addressed_recipient,
+                                  message, recipients_p)))
+    {
+      _dbus_list_clear (recipients_p);
+      return FALSE;
     }
 
   return TRUE;
-
- nomem:
-  _dbus_list_clear (recipients_p);
-  return FALSE;
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -1943,7 +2209,7 @@ check_matches (dbus_bool_t  expected_to_match,
   _dbus_assert (rule != NULL);
 
   /* We can't test sender/destination rules since we pass NULL here */
-  matched = match_rule_matches (rule, NULL, NULL, message);
+  matched = match_rule_matches (rule, NULL, NULL, message, 0);
 
   if (matched != expected_to_match)
     {

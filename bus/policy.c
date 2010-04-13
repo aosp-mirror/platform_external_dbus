@@ -21,6 +21,7 @@
  *
  */
 
+#include <config.h>
 #include "policy.h"
 #include "services.h"
 #include "test.h"
