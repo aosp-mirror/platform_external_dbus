@@ -163,11 +163,26 @@
 /* Define to 1 if you have unsetenv */
 #cmakedefine   HAVE_UNSETENV 1
 
+/* Define to 1 if you have clearenv */
+#cmakedefine   HAVE_CLEARENV 1
+
 /* Define to 1 if you have writev */
 #cmakedefine   HAVE_WRITEV 1
 
 /* Define to 1 if you have socklen_t */
 #cmakedefine   HAVE_SOCKLEN_T 1
+
+/* Define to 1 if you have setlocale */
+#cmakedefine   HAVE_SETLOCALE 1
+
+/* Define to 1 if you have localeconv */
+#cmakedefine   HAVE_LOCALECONV 1
+
+/* Define to 1 if you have strtoll */
+#cmakedefine   HAVE_STRTOLL 1
+
+/* Define to 1 if you have strtoull */
+#cmakedefine   HAVE_STRTOULL 1
 
 // structs
 /* Define to 1 if you have struct cmsgred */
@@ -196,9 +211,13 @@
 #  define gid_t int
 # else
 #  define snprintf _snprintf
-#  define strtoll _strtoi64
-#  define strtoull _strtoui64
    typedef int mode_t;
+#  if !defined(_WIN32_WCE)
+#    define strtoll _strtoi64
+#    define strtoull _strtoui64
+#    define HAVE_STRTOLL 1
+#    define HAVE_STRTOULL 1
+#  endif
 # endif
 #endif	// defined(_WIN32) || defined(_WIN64)
 
