@@ -29,12 +29,72 @@
 #include "dbus-sysdeps-win.h"
 #include "dbus-pipe.h"
 
-#include <errno.h>
-#include <fcntl.h>
-#include <io.h>
-#include <sys/stat.h>
-
 #include <windows.h>
+
+
+/**
+ * Thin wrapper around the read() system call that appends
+ * the data it reads to the DBusString buffer. It appends
+ * up to the given count.
+ * 
+ * @param hnd the HANDLE to read from
+ * @param buffer the buffer to append data to
+ * @param count the amount of data to read
+ * @param error place to set an error
+ * @returns the number of bytes read or -1
+ */
+static int
+_dbus_file_read (HANDLE            hnd,
+                 DBusString       *buffer,
+                 int               count,
+                 DBusError        *error)
+{
+  BOOL result;
+  DWORD bytes_read;
+  int start;
+  char *data;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  _dbus_assert (count >= 0);
+
+  start = _dbus_string_get_length (buffer);
+
+  if (!_dbus_string_lengthen (buffer, count))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return -1;
+    }
+
+  data = _dbus_string_get_data_len (buffer, start, count);
+
+ again:
+
+  result = ReadFile (hnd, data, count, &bytes_read, NULL);
+  if (result == 0)
+    {
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                      "Failed to read from 0x%x: %s", hnd, emsg);
+      _dbus_win_free_error_string (emsg);
+      return -1;
+    }
+
+  if (bytes_read)
+    {
+      /* put length back (doesn't actually realloc) */
+      _dbus_string_set_length (buffer, start + bytes_read);
+
+#if 0
+      if (bytes_read > 0)
+        _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
+#endif
+    }
+
+  return bytes_read;
+}
+
+
 /**
  * Appends the contents of the given file to the string,
  * returning error code. At the moment, won't open a file
@@ -50,8 +110,9 @@ _dbus_file_get_contents (DBusString       *str,
                          const DBusString *filename,
                          DBusError        *error)
 {
-  int fd;
-  struct _stati64 sb;
+  HANDLE hnd;
+  DWORD fsize;
+  DWORD fsize_hi;
   int orig_len;
   int total;
   const char *filename_c;
@@ -60,62 +121,67 @@ _dbus_file_get_contents (DBusString       *str,
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  fd = _open (filename_c, O_RDONLY | O_BINARY);
-  if (fd < 0)
+  hnd = CreateFileA (filename_c, GENERIC_READ,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (hnd == INVALID_HANDLE_VALUE)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to open \"%s\": %s",
-                      filename_c,
-                      strerror (errno));
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                       "Failed to open \"%s\": %s", filename_c, emsg);
+      _dbus_win_free_error_string (emsg);
       return FALSE;
     }
 
-  _dbus_verbose ("file %s fd %d opened\n", filename_c, fd);
+  _dbus_verbose ("file %s fd 0x%x opened\n", filename_c, hnd);
+  
+  fsize = GetFileSize (hnd, &fsize_hi);
+  if (fsize == 0xFFFFFFFF && GetLastError() != NO_ERROR)
+    { 
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                      "Failed to get file size for \"%s\": %s",
+                      filename_c, emsg);
+      _dbus_win_free_error_string (emsg);
 
-  if (_fstati64 (fd, &sb) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to stat \"%s\": %s",
-                      filename_c,
-                      strerror (errno));
+      _dbus_verbose ("GetFileSize() failed: %s", emsg);
 
-      _dbus_verbose ("fstat() failed: %s",
-                     strerror (errno));
-
-      _close (fd);
+      CloseHandle (hnd);
 
       return FALSE;
     }
 
-  if (sb.st_size > _DBUS_ONE_MEGABYTE)
+  if (fsize_hi != 0 || fsize > _DBUS_ONE_MEGABYTE)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "File size %lu of \"%s\" is too large.",
-                      (unsigned long) sb.st_size, filename_c);
-      _close (fd);
+                      "File size %lu/%lu of \"%s\" is too large.",
+                      (unsigned long) fsize_hi,
+                      (unsigned long) fsize, filename_c);
+      CloseHandle (hnd);
       return FALSE;
     }
 
   total = 0;
   orig_len = _dbus_string_get_length (str);
-  if (sb.st_size > 0 && S_ISREG (sb.st_mode))
+  if (fsize > 0)
     {
       int bytes_read;
 
-      while (total < (int) sb.st_size)
+      while (total < fsize)
         {
-          bytes_read = _dbus_file_read (fd, str, sb.st_size - total);
+          bytes_read = _dbus_file_read (hnd, str, fsize - total, error);
           if (bytes_read <= 0)
             {
-              dbus_set_error (error, _dbus_error_from_errno (errno),
-                              "Error reading \"%s\": %s",
-                              filename_c,
-                              strerror (errno));
+              if (bytes_read == 0)
+                {
+                  dbus_set_error (error, DBUS_ERROR_FAILED,
+                                  "Premature EOF reading \"%s\"",
+                                  filename_c);
+                }
+              else
+                _DBUS_ASSERT_ERROR_IS_SET (error);
 
-              _dbus_verbose ("read() failed: %s",
-                             strerror (errno));
-
-              _close (fd);
+              CloseHandle (hnd);
               _dbus_string_set_length (str, orig_len);
               return FALSE;
             }
@@ -123,24 +189,16 @@ _dbus_file_get_contents (DBusString       *str,
             total += bytes_read;
         }
 
-      _close (fd);
+      CloseHandle (hnd);
       return TRUE;
-    }
-  else if (sb.st_size != 0)
-    {
-      _dbus_verbose ("Can only open regular files at the moment.\n");
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "\"%s\" is not a regular file",
-                      filename_c);
-      _close (fd);
-      return FALSE;
     }
   else
     {
-      _close (fd);
+      CloseHandle (hnd);
       return TRUE;
     }
 }
+
 
 /**
  * Writes a string out to a file. If the file exists,
@@ -156,7 +214,7 @@ _dbus_string_save_to_file (const DBusString *str,
                            const DBusString *filename,
                            DBusError        *error)
 {
-  int fd;
+  HANDLE hnd;
   int bytes_to_write;
   const char *filename_c;
   DBusString tmp_filename;
@@ -168,7 +226,7 @@ _dbus_string_save_to_file (const DBusString *str,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  fd = -1;
+  hnd = INVALID_HANDLE_VALUE;
   retval = FALSE;
   need_unlink = FALSE;
 
@@ -203,17 +261,20 @@ _dbus_string_save_to_file (const DBusString *str,
   filename_c = _dbus_string_get_const_data (filename);
   tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
 
-  fd = _open (tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-              0600);
-  if (fd < 0)
+  hnd = CreateFileA (tmp_filename_c, GENERIC_WRITE,
+                     FILE_SHARE_READ | FILE_SHARE_WRITE,
+                     NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL,
+                     INVALID_HANDLE_VALUE);
+  if (hnd == INVALID_HANDLE_VALUE)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not create %s: %s", tmp_filename_c,
-                      strerror (errno));
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                       "Could not create \"%s\": %s", filename_c, emsg);
+      _dbus_win_free_error_string (emsg);
       goto out;
     }
 
-  _dbus_verbose ("tmp file %s fd %d opened\n", tmp_filename_c, fd);
+  _dbus_verbose ("tmp file %s fd 0x%x opened\n", tmp_filename_c, hnd);
 
   need_unlink = TRUE;
 
@@ -223,40 +284,42 @@ _dbus_string_save_to_file (const DBusString *str,
 
   while (total < bytes_to_write)
     {
-      int bytes_written;
+      DWORD bytes_written;
+      BOOL res;
 
-      bytes_written = _write (fd, str_c + total, bytes_to_write - total);
+      res = WriteFile (hnd, str_c + total, bytes_to_write - total,
+                       &bytes_written, NULL);
 
-      if (bytes_written <= 0)
+      if (res == 0 || bytes_written <= 0)
         {
-          dbus_set_error (error, _dbus_error_from_errno (errno),
-                          "Could not write to %s: %s", tmp_filename_c,
-                          strerror (errno));
+          char *emsg = _dbus_win_error_string (GetLastError ());
+          dbus_set_error (error, _dbus_win_error_from_last_error (),
+                           "Could not write to %s: %s", tmp_filename_c, emsg);
+          _dbus_win_free_error_string (emsg);
           goto out;
         }
 
       total += bytes_written;
     }
 
-  if (_close (fd) < 0)
+  if (CloseHandle (hnd) == 0)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not close file %s: %s",
-                      tmp_filename_c, strerror (errno));
-
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                       "Could not close file %s: %s", tmp_filename_c, emsg);
+      _dbus_win_free_error_string (emsg);
       goto out;
     }
 
-  fd = -1;
+  hnd = INVALID_HANDLE_VALUE;
 
   /* Unlike rename(), MoveFileEx() can replace existing files */
   if (!MoveFileExA (tmp_filename_c, filename_c, MOVEFILE_REPLACE_EXISTING))
     {
       char *emsg = _dbus_win_error_string (GetLastError ());
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Could not rename %s to %s: %s",
-                      tmp_filename_c, filename_c,
-                      emsg);
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                       "Could not rename %s to %s: %s",
+                       tmp_filename_c, filename_c, emsg);
       _dbus_win_free_error_string (emsg);
 
       goto out;
@@ -269,12 +332,16 @@ _dbus_string_save_to_file (const DBusString *str,
  out:
   /* close first, then unlink */
 
-  if (fd >= 0)
-    _close (fd);
+  if (hnd != INVALID_HANDLE_VALUE)
+    CloseHandle (hnd);
 
-  if (need_unlink && _unlink (tmp_filename_c) < 0)
-    _dbus_verbose ("failed to unlink temp file %s: %s\n",
-                   tmp_filename_c, strerror (errno));
+  if (need_unlink && DeleteFileA (tmp_filename_c) == 0)
+    {
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      _dbus_verbose ("Failed to unlink temp file %s: %s", tmp_filename_c,
+                     emsg);
+      _dbus_win_free_error_string (emsg);
+    }
 
   _dbus_string_free (&tmp_filename);
 
@@ -295,99 +362,40 @@ dbus_bool_t
 _dbus_create_file_exclusively (const DBusString *filename,
                                DBusError        *error)
 {
-  int fd;
+  HANDLE hnd;
   const char *filename_c;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  fd = _open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-              0600);
-  if (fd < 0)
+  hnd = CreateFileA (filename_c, GENERIC_WRITE,
+                     FILE_SHARE_READ | FILE_SHARE_WRITE,
+                     NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL,
+                     INVALID_HANDLE_VALUE);
+  if (hnd == INVALID_HANDLE_VALUE)
     {
-      dbus_set_error (error,
-                      DBUS_ERROR_FAILED,
-                      "Could not create file %s: %s\n",
-                      filename_c,
-                      strerror (errno));
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                       "Could not create file %s: %s",
+                       filename_c, emsg);
+      _dbus_win_free_error_string (emsg);
       return FALSE;
     }
 
-  _dbus_verbose ("exclusive file %s fd %d opened\n", filename_c, fd);
+  _dbus_verbose ("exclusive file %s fd 0x%x opened\n", filename_c, hnd);
 
-  if (_close (fd) < 0)
+  if (CloseHandle (hnd) == 0)
     {
-      dbus_set_error (error,
-                      DBUS_ERROR_FAILED,
-                      "Could not close file %s: %s\n",
-                      filename_c,
-                      strerror (errno));
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                       "Could not close file %s: %s",
+                       filename_c, emsg);
+      _dbus_win_free_error_string (emsg);
+
       return FALSE;
     }
 
   return TRUE;
 }
 
-/**
- * Thin wrapper around the read() system call that appends
- * the data it reads to the DBusString buffer. It appends
- * up to the given count, and returns the same value
- * and same errno as read(). The only exception is that
- * _dbus_file_read() handles EINTR for you. Also, 
- * _dbus_file_read() can return ENOMEM.
- * 
- * @param fd the file descriptor to read from
- * @param buffer the buffer to append data to
- * @param count the amount of data to read
- * @returns the number of bytes read or -1
- */
-int
-_dbus_file_read (int               fd,
-                 DBusString       *buffer,
-                 int               count)
-{
-  int bytes_read;
-  int start;
-  char *data;
-
-  _dbus_assert (count >= 0);
-
-  start = _dbus_string_get_length (buffer);
-
-  if (!_dbus_string_lengthen (buffer, count))
-    {
-      errno = ENOMEM;
-      return -1;
-    }
-
-  data = _dbus_string_get_data_len (buffer, start, count);
-
- again:
-
-  bytes_read = _read (fd, data, count);
-
-  if (bytes_read < 0)
-    {
-      if (errno == EINTR)
-        goto again;
-      else
-        {
-          /* put length back (note that this doesn't actually realloc anything) */
-          _dbus_string_set_length (buffer, start);
-          return -1;
-        }
-    }
-  else
-    {
-      /* put length back (doesn't actually realloc) */
-      _dbus_string_set_length (buffer, start + bytes_read);
-
-#if 0
-      if (bytes_read > 0)
-        _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
-#endif
-
-      return bytes_read;
-    }
-}

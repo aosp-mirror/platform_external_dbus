@@ -30,10 +30,6 @@
 
 #include <stdio.h>
 
-#ifdef HAVE_ERRNO_H
-# include <errno.h>
-#endif
-
 static dbus_bool_t
 do_check_nonce (int fd, const DBusString *nonce, DBusError *error)
 {
@@ -191,7 +187,7 @@ generate_and_write_nonce (const DBusString *filename, DBusError *error)
  * indicate whether the server accepted the nonce.
  */
 dbus_bool_t
-_dbus_send_nonce(int fd, const DBusString *noncefile, DBusError *error)
+_dbus_send_nonce (int fd, const DBusString *noncefile, DBusError *error)
 {
   dbus_bool_t read_result;
   int send_result;
@@ -203,36 +199,33 @@ _dbus_send_nonce(int fd, const DBusString *noncefile, DBusError *error)
   if (_dbus_string_get_length (noncefile) == 0)
     return FALSE;
 
-  if ( !_dbus_string_init (&nonce) )
+  if (!_dbus_string_init (&nonce))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return FALSE;
-  }
+    }
 
-  read_result = _dbus_read_nonce (noncefile, &nonce, NULL);
-
+  read_result = _dbus_read_nonce (noncefile, &nonce, error);
   if (!read_result)
     {
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Could not read nonce from file %s (%s)",
-                      _dbus_string_get_const_data (noncefile), _dbus_strerror(errno));
+      _DBUS_ASSERT_ERROR_IS_SET (error);
       _dbus_string_free (&nonce);
       return FALSE;
     }
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   send_result = _dbus_write_socket (fd, &nonce, 0, _dbus_string_get_length (&nonce));
 
   _dbus_string_free (&nonce);
 
   if (send_result == -1)
-  {
-    dbus_set_error (error,
-                    _dbus_error_from_errno (errno),
-                    "Failed to send nonce (fd=%d): %s",
-                    fd, _dbus_strerror(errno));
-    return FALSE;
-  }
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_system_errno (),
+                      "Failed to send nonce (fd=%d): %s",
+                      fd, _dbus_strerror_from_errno ());
+      return FALSE;
+    }
 
   return TRUE;
 }
@@ -284,8 +277,10 @@ do_noncefile_create (DBusNonceFile *noncefile,
           }
         if (!_dbus_create_directory (&noncefile->dir, error))
           {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
             goto on_error;
           }
+        _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
       }
     else
@@ -303,10 +298,12 @@ do_noncefile_create (DBusNonceFile *noncefile,
 
     if (!generate_and_write_nonce (&noncefile->path, error))
       {
+        _DBUS_ASSERT_ERROR_IS_SET (error);
         if (use_subdir)
           _dbus_delete_directory (&noncefile->dir, NULL); //we ignore possible errors deleting the dir and return the write error instead
         goto on_error;
       }
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
     _dbus_string_free (&randomStr);
 

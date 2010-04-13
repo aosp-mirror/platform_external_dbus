@@ -40,19 +40,13 @@ extern void *_dbus_win_get_dll_hmodule (void);
 #include <lm.h>
 #include <io.h>
 #include <share.h>
-#include <direct.h>
-
-#define mkdir(path, mode) _mkdir (path)
-
-#ifndef DBUS_WINCE
-#ifndef S_ISREG
-#define S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
-#endif
-#endif
 
 
 #define DBUS_CONSOLE_DIR "/var/run/console/"
 
+
+void _dbus_win_set_errno (int err);
+const char* _dbus_win_error_from_last_error (void);
 
 void _dbus_win_startup_winsock (void);
 void _dbus_win_warn_win_error  (const char *message,

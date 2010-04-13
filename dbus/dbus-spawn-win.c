@@ -315,9 +315,11 @@ _dbus_babysitter_set_child_exit_error (DBusBabysitter *sitter,
   PING();
   if (sitter->have_spawn_errno)
     {
+      char *emsg = _dbus_win_error_string (sitter->spawn_errno);
       dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
                       "Failed to execute program %s: %s",
-                      sitter->executable, _dbus_strerror (sitter->spawn_errno));
+                      sitter->executable, emsg);
+      _dbus_win_free_error_string (emsg);
     }
   else if (sitter->have_child_status)
     {
@@ -467,7 +469,64 @@ protect_argv (char  **argv,
   return argc;
 }
 
-static unsigned __stdcall
+
+/* From GPGME, relicensed by g10 Code GmbH.  */
+static char *
+build_commandline (char **argv)
+{
+  int i;
+  int n = 0;
+  char *buf;
+  char *p;
+  const char *ptr;
+  
+  for (i = 0; argv[i]; i++)
+    n += strlen (argv[i]) + 1;
+  n++;
+
+  buf = p = malloc (n);
+  if (!buf)
+    return NULL;
+  for (i = 0; argv[i]; i++)
+    {
+      strcpy (p, argv[i]);
+      p += strlen (argv[i]);
+      *(p++) = ' ';
+    }
+  if (i)
+    p--;
+  *p = '\0';
+
+  return buf;
+}
+
+
+static HANDLE
+spawn_program (const char* name, char** argv, char** envp)
+{
+  PROCESS_INFORMATION pi = { NULL, 0, 0, 0 };
+  STARTUPINFOA si;
+  char *arg_string;
+  BOOL result;
+
+  arg_string = build_commandline (argv);
+  if (!arg_string)
+    return INVALID_HANDLE_VALUE;
+
+  memset (&si, 0, sizeof (si));
+  si.cb = sizeof (si);
+  result = CreateProcessA (name, arg_string, NULL, NULL, FALSE, 0,
+			   envp, NULL, &si, &pi);
+  free (arg_string);
+  if (!result)
+    return INVALID_HANDLE_VALUE;
+
+  CloseHandle (pi.hThread);
+  return pi.hProcess;
+}
+
+
+static DWORD __stdcall
 babysitter (void *parameter)
 {
   DBusBabysitter *sitter = (DBusBabysitter *) parameter;
@@ -484,22 +543,17 @@ babysitter (void *parameter)
   _dbus_verbose ("babysitter: spawning %s\n", sitter->executable);
 
   PING();
-  if (sitter->envp != NULL)
-    sitter->child_handle = (HANDLE) spawnve (P_NOWAIT, sitter->executable,
-                           (const char * const *) sitter->argv,
-                           (const char * const *) sitter->envp);
-  else
-    sitter->child_handle = (HANDLE) spawnv (P_NOWAIT, sitter->executable,
-                                            (const char * const *) sitter->argv);
+  sitter->child_handle = spawn_program (sitter->executable,
+					sitter->argv, sitter->envp);
 
   PING();
   if (sitter->child_handle == (HANDLE) -1)
     {
       sitter->child_handle = NULL;
       sitter->have_spawn_errno = TRUE;
-      sitter->spawn_errno = errno;
+      sitter->spawn_errno = GetLastError();
     }
-
+  
   PING();
   SetEvent (sitter->start_sync_event);
 
@@ -543,8 +597,8 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter           **sitter_p,
 {
   DBusBabysitter *sitter;
   HANDLE sitter_thread;
-  int sitter_thread_id;
-
+  DWORD sitter_thread_id;
+  
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   *sitter_p = NULL;
@@ -599,7 +653,7 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter           **sitter_p,
   sitter->envp = envp;
 
   PING();
-  sitter_thread = (HANDLE) _beginthreadex (NULL, 0, babysitter,
+  sitter_thread = (HANDLE) CreateThread (NULL, 0, babysitter,
                   sitter, 0, &sitter_thread_id);
 
   if (sitter_thread == 0)

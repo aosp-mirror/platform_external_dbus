@@ -43,7 +43,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#if HAVE_ERRNO_H
 #include <errno.h>
+#endif
 #include <winsock2.h>   // WSA error codes
 
 /**
@@ -78,44 +80,70 @@ _dbus_write_pid_file (const DBusString *filename,
                       DBusError        *error)
 {
   const char *cfilename;
-  int fd;
-  FILE *f;
+  HANDLE hnd;
+  char pidstr[20];
+  int total;
+  int bytes_to_write;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   cfilename = _dbus_string_get_const_data (filename);
-  
-  fd = _open (cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644);
-  
-  if (fd < 0)
+
+  hnd = CreateFileA (cfilename, GENERIC_WRITE,
+                     FILE_SHARE_READ | FILE_SHARE_WRITE,
+                     NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL,
+                     INVALID_HANDLE_VALUE);
+  if (hnd == INVALID_HANDLE_VALUE)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to open \"%s\": %s", cfilename,
-                      strerror (errno));
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                      "Could not create PID file %s: %s",
+                      cfilename, emsg);
+      _dbus_win_free_error_string (emsg);
       return FALSE;
     }
 
-  if ((f = fdopen (fd, "w")) == NULL)
+  if (snprintf (pidstr, sizeof (pidstr), "%lu\n", pid) < 0)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to fdopen fd %d: %s", fd, strerror (errno));
-      _close (fd);
+      dbus_set_error (error, _dbus_error_from_system_errno (),
+                      "Failed to format PID for \"%s\": %s", cfilename,
+                      _dbus_strerror_from_errno ());
+      CloseHandle (hnd);
       return FALSE;
     }
 
-  if (fprintf (f, "%lu\n", pid) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to write to \"%s\": %s", cfilename,
-                      strerror (errno));
+  total = 0;
+  bytes_to_write = strlen (pidstr);;
 
-      fclose (f);
-      return FALSE;
+  while (total < bytes_to_write)
+    {
+      DWORD bytes_written;
+      BOOL res;
+
+      res = WriteFile (hnd, pidstr + total, bytes_to_write - total,
+                       &bytes_written, NULL);
+
+      if (res == 0 || bytes_written <= 0)
+        {
+          char *emsg = _dbus_win_error_string (GetLastError ());
+          dbus_set_error (error, _dbus_win_error_from_last_error (),
+                           "Could not write to %s: %s", cfilename, emsg);
+          _dbus_win_free_error_string (emsg);
+          CloseHandle (hnd);
+          return FALSE;
+        }
+
+      total += bytes_written;
     }
 
-  if (fclose (f) == EOF)
+  if (CloseHandle (hnd) == 0)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to close \"%s\": %s", cfilename,
-                      strerror (errno));
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
+                       "Could not close file %s: %s",
+                      cfilename, emsg);
+      _dbus_win_free_error_string (emsg);
+
       return FALSE;
     }
 
@@ -293,22 +321,16 @@ _dbus_stat(const DBusString *filename,
            DBusStat         *statbuf,
            DBusError        *error)
 {
-#ifdef DBUS_WINCE
-	return TRUE;
-	//TODO
-#else
   const char *filename_c;
   WIN32_FILE_ATTRIBUTE_DATA wfad;
   char *lastdot;
   DWORD rc;
-  PSID owner_sid, group_sid;
-  PSECURITY_DESCRIPTOR sd;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  if (!GetFileAttributesEx (filename_c, GetFileExInfoStandard, &wfad))
+  if (!GetFileAttributesExA (filename_c, GetFileExInfoStandard, &wfad))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       return FALSE;
@@ -332,28 +354,36 @@ _dbus_stat(const DBusString *filename,
 
   statbuf->nlink = 1;
 
-  sd = NULL;
-  rc = GetNamedSecurityInfo ((char *) filename_c, SE_FILE_OBJECT,
-                             OWNER_SECURITY_INFORMATION |
-                             GROUP_SECURITY_INFORMATION,
-                             &owner_sid, &group_sid,
-                             NULL, NULL,
-                             &sd);
-  if (rc != ERROR_SUCCESS)
-    {
-      _dbus_win_set_error_from_win_error (error, rc);
-      if (sd != NULL)
-        LocalFree (sd);
-      return FALSE;
-    }
-
 #ifdef ENABLE_UID_TO_SID
-  /* FIXME */
-  statbuf->uid = _dbus_win_sid_to_uid_t (owner_sid);
-  statbuf->gid = _dbus_win_sid_to_uid_t (group_sid);
-#endif
+  {
+    PSID owner_sid, group_sid;
+    PSECURITY_DESCRIPTOR sd;
 
-  LocalFree (sd);
+    sd = NULL;
+    rc = GetNamedSecurityInfo ((char *) filename_c, SE_FILE_OBJECT,
+                               OWNER_SECURITY_INFORMATION |
+                               GROUP_SECURITY_INFORMATION,
+                               &owner_sid, &group_sid,
+                               NULL, NULL,
+                               &sd);
+    if (rc != ERROR_SUCCESS)
+      {
+        _dbus_win_set_error_from_win_error (error, rc);
+        if (sd != NULL)
+          LocalFree (sd);
+        return FALSE;
+      }
+    
+    /* FIXME */
+    statbuf->uid = _dbus_win_sid_to_uid_t (owner_sid);
+    statbuf->gid = _dbus_win_sid_to_uid_t (group_sid);
+
+    LocalFree (sd);
+  }
+#else
+  statbuf->uid = DBUS_UID_UNSET;
+  statbuf->gid = DBUS_GID_UNSET;
+#endif
 
   statbuf->size = ((dbus_int64_t) wfad.nFileSizeHigh << 32) + wfad.nFileSizeLow;
 
@@ -370,26 +400,8 @@ _dbus_stat(const DBusString *filename,
      wfad.ftCreationTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
 
   return TRUE;
-#endif //DBUS_WINCE
 }
 
-
-#ifdef HAVE_DIRENT_H
-
-// mingw ships with dirent.h
-#include <dirent.h>
-#define _dbus_opendir opendir
-#define _dbus_readdir readdir
-#define _dbus_closedir closedir
-
-#else
-
-#ifdef HAVE_IO_H
-#include <io.h> // win32 file functions
-#endif
-
-#include <sys/types.h>
-#include <stdlib.h>
 
 /* This file is part of the KDE project
 Copyright (C) 2000 Werner Almesberger
@@ -430,10 +442,10 @@ struct dirent
 /* typedef DIR - not the same as Unix */
 typedef struct
   {
-    long handle;                /* _findfirst/_findnext handle */
-    short offset;                /* offset into directory */
+    HANDLE handle;              /* FindFirst/FindNext handle */
+    short offset;               /* offset into directory */
     short finished;             /* 1 if there are not more files */
-    struct _finddata_t fileinfo;  /* from _findfirst/_findnext */
+    WIN32_FIND_DATAA fileinfo;  /* from FindFirst/FindNext */
     char *dir;                  /* the dir we are reading */
     struct dirent dent;         /* the dirent to return */
   }
@@ -449,6 +461,8 @@ DIR;
 * The dirent struct is compatible with Unix, except that d_ino is
 * always 1 and d_off is made up as we go along.
 *
+* Error codes are not available with errno but GetLastError.
+*
 * The DIR typedef is not compatible with Unix.
 **********************************************************************/
 
@@ -456,7 +470,7 @@ static DIR * _dbus_opendir(const char *dir)
 {
   DIR *dp;
   char *filespec;
-  long handle;
+  HANDLE handle;
   int index;
 
   filespec = malloc(strlen(dir) + 2 + 1);
@@ -471,9 +485,10 @@ static DIR * _dbus_opendir(const char *dir)
   dp->finished = 0;
   dp->dir = strdup(dir);
 
-  if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0)
+  handle = FindFirstFileA(filespec, &(dp->fileinfo));
+  if (handle == INVALID_HANDLE_VALUE)
     {
-      if (errno == ENOENT)
+      if (GetLastError() == ERROR_NO_MORE_FILES)
         dp->finished = 1;
       else
         return NULL;
@@ -486,35 +501,40 @@ static DIR * _dbus_opendir(const char *dir)
 }
 
 static struct dirent * _dbus_readdir(DIR *dp)
-  {
-    if (!dp || dp->finished)
-      return NULL;
+{
+  int saved_err = GetLastError();
 
-    if (dp->offset != 0)
-      {
-        if (_findnext(dp->handle, &(dp->fileinfo)) < 0)
-          {
-            dp->finished = 1;
-            errno = 0;
-            return NULL;
-          }
-      }
-    dp->offset++;
+  if (!dp || dp->finished)
+    return NULL;
 
-    strncpy(dp->dent.d_name, dp->fileinfo.name, _MAX_FNAME);
-    dp->dent.d_ino = 1;
-    dp->dent.d_reclen = strlen(dp->dent.d_name);
-    dp->dent.d_off = dp->offset;
-
-    return &(dp->dent);
-  }
+  if (dp->offset != 0)
+    {
+      if (FindNextFileA(dp->handle, &(dp->fileinfo)) == 0)
+        {
+          if (GetLastError() == ERROR_NO_MORE_FILES)
+            {
+              SetLastError(saved_err);
+              dp->finished = 1;
+            }
+          return NULL;
+        }
+    }
+  dp->offset++;
+  
+  strncpy(dp->dent.d_name, dp->fileinfo.cFileName, _MAX_FNAME);
+  dp->dent.d_ino = 1;
+  dp->dent.d_reclen = strlen(dp->dent.d_name);
+  dp->dent.d_off = dp->offset;
+  
+  return &(dp->dent);
+}
 
 
 static int _dbus_closedir(DIR *dp)
 {
   if (!dp)
     return 0;
-  _findclose(dp->handle);
+  FindClose(dp->handle);
   if (dp->dir)
     free(dp->dir);
   if (dp)
@@ -523,7 +543,6 @@ static int _dbus_closedir(DIR *dp)
   return 0;
 }
 
-#endif //#ifdef HAVE_DIRENT_H
 
 /**
  * Internals of directory iterator
@@ -556,10 +575,11 @@ _dbus_directory_open (const DBusString *filename,
   d = _dbus_opendir (filename_c);
   if (d == NULL)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
+      char *emsg = _dbus_win_error_string (GetLastError ());
+      dbus_set_error (error, _dbus_win_error_from_last_error (),
                       "Failed to read directory \"%s\": %s",
-                      filename_c,
-                      _dbus_strerror (errno));
+                      filename_c, emsg);
+      _dbus_win_free_error_string (emsg);
       return NULL;
     }
   iter = dbus_new0 (DBusDirIter, 1);
@@ -599,14 +619,17 @@ _dbus_directory_get_next_file (DBusDirIter      *iter,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
 again:
-  errno = 0;
+  SetLastError (0);
   ent = _dbus_readdir (iter->d);
   if (ent == NULL)
     {
-      if (errno != 0)
-        dbus_set_error (error,
-                        _dbus_error_from_errno (errno),
-                        "%s", _dbus_strerror (errno));
+      if (GetLastError() != 0)
+        {
+          char *emsg = _dbus_win_error_string (GetLastError ());
+          dbus_set_error (error, _dbus_win_error_from_last_error (),
+                          "Failed to get next in directory: %s", emsg);
+          _dbus_win_free_error_string (emsg);
+        }
       return FALSE;
     }
   else if (ent->d_name[0] == '.' &&
