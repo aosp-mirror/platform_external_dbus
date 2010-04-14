@@ -2487,7 +2487,7 @@ _dbus_daemon_publish_session_bus_address (const char* address)
   hDBusDaemonMutex = CreateMutexA( NULL, FALSE, cDBusDaemonMutex );
   ret = WaitForSingleObject( hDBusDaemonMutex, 1000 );
   if ( ret != WAIT_OBJECT_0 ) {
-    _dbus_warn("Could not lock mutex %s (return code %d). daemon already running? Bus address not published.\n", cDBusDaemonMutex, ret );
+    _dbus_warn("Could not lock mutex %s (return code %ld). daemon already running? Bus address not published.\n", cDBusDaemonMutex, ret );
     return;
   }
 

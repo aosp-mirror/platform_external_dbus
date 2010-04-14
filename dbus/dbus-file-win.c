@@ -133,7 +133,7 @@ _dbus_file_get_contents (DBusString       *str,
       return FALSE;
     }
 
-  _dbus_verbose ("file %s fd 0x%x opened\n", filename_c, hnd);
+  _dbus_verbose ("file %s hnd %p opened\n", filename_c, hnd);
   
   fsize = GetFileSize (hnd, &fsize_hi);
   if (fsize == 0xFFFFFFFF && GetLastError() != NO_ERROR)
@@ -274,7 +274,7 @@ _dbus_string_save_to_file (const DBusString *str,
       goto out;
     }
 
-  _dbus_verbose ("tmp file %s fd 0x%x opened\n", tmp_filename_c, hnd);
+  _dbus_verbose ("tmp file %s hnd %p opened\n", tmp_filename_c, hnd);
 
   need_unlink = TRUE;
 
@@ -383,7 +383,7 @@ _dbus_create_file_exclusively (const DBusString *filename,
       return FALSE;
     }
 
-  _dbus_verbose ("exclusive file %s fd 0x%x opened\n", filename_c, hnd);
+  _dbus_verbose ("exclusive file %s hnd %p opened\n", filename_c, hnd);
 
   if (CloseHandle (hnd) == 0)
     {
