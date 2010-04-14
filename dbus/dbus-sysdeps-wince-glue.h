@@ -28,6 +28,8 @@
 #include <time.h>
 #include <stdarg.h>
 
+/* For getaddrinfo.  */
+#define _WIN32_WCE 0x0401 
 #include <windows.h>
 #undef interface
 
@@ -46,7 +48,7 @@ BOOL WINAPI SHGetSpecialFolderPathW(HWND,LPWSTR,int,BOOL);
 
 /* Seriously.  Windows CE does not have errno.  Don't you hate it when
    that happens?  */
-#define errno (GetLastError ())
+#define errno ((int)GetLastError ())
 
 #define ENOENT          ERROR_FILE_NOT_FOUND
 #define EMFILE          ERROR_TOO_MANY_OPEN_FILES

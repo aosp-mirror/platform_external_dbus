@@ -10,6 +10,7 @@ check_include_file(sys/poll.h   HAVE_POLL)      # dbus-sysdeps.c, dbus-sysdeps-w
 check_include_file(sys/time.h   HAVE_SYS_TIME_H)# dbus-sysdeps-win.c
 check_include_file(sys/wait.h   HAVE_SYS_WAIT_H)# dbus-sysdeps-win.c
 check_include_file(time.h       HAVE_TIME_H)    # dbus-sysdeps-win.c
+check_include_file(ws2tcpip.h   HAVE_WS2TCPIP_H)# dbus-sysdeps-win.c
 check_include_file(wspiapi.h    HAVE_WSPIAPI_H) # dbus-sysdeps-win.c
 check_include_file(unistd.h     HAVE_UNISTD_H)  # dbus-sysdeps-util-win.c
 check_include_file(stdio.h      HAVE_STDIO_H)   # dbus-sysdeps.h

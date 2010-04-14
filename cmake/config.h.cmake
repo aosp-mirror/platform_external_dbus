@@ -119,6 +119,9 @@
 /* Define to 1 if you have time.h */
 #cmakedefine   HAVE_TIME_H 1
 
+/* Define to 1 if you have ws2tcpip.h */
+#cmakedefine   HAVE_WS2TCPIP_H
+
 /* Define to 1 if you have wspiapi.h */
 #cmakedefine   HAVE_WSPIAPI_H 1
 

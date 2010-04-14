@@ -69,6 +69,11 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 #include <sys/types.h>
 #endif
 
+#ifdef HAVE_WS2TCPIP_H
+/* getaddrinfo for Windows CE (and Windows).  */
+#include <ws2tcpip.h>
+#endif
+
 #ifdef HAVE_WSPIAPI_H
 // needed for w2k compatibility (getaddrinfo/freeaddrinfo/getnameinfo)
 #ifdef __GNUC__
