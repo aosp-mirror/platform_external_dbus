@@ -28,7 +28,7 @@
 #include <time.h>
 #include <stdarg.h>
 
-/* For getaddrinfo.  */
+/* For getaddrinfo, configure/cmake defined _WIN32_WCE to something >= 0x0401.  */
 #include <windows.h>
 #undef interface
 

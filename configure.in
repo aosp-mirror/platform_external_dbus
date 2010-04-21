@@ -100,6 +100,7 @@ if test "$dbus_win" = yes; then
     fi
     if test "$dbus_wince" = yes; then
       AC_DEFINE(DBUS_WINCE,1,[Defined if we run on a W32 CE API based system])
+      AC_DEFINE(_WIN32_WCE, 0x0502, [Defined to get newer W32 CE APIs])
     fi
 else
     AC_DEFINE(DBUS_UNIX,1,[Defined if we run on a Unix-based system])
