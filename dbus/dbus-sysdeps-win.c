@@ -2108,7 +2108,7 @@ _dbus_replace_install_prefix (const char *configure_time_path)
 #endif
 }
 
-#if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
+#if !defined (DBUS_DISABLE_ASSERTS) || defined(DBUS_BUILD_TESTS)
 
 #if defined(_MSC_VER) || defined(DBUS_WINCE)
 # ifdef BACKTRACES
@@ -2382,7 +2382,10 @@ static void dump_backtrace()
     CloseHandle(hThread);
     CloseHandle(hCurrentThread);
 }
+#endif
+#endif /* asserts or tests enabled */
 
+#ifdef BACKTRACES
 void _dbus_print_backtrace(void)
 {
   init_backtrace();
@@ -2394,7 +2397,6 @@ void _dbus_print_backtrace(void)
   _dbus_verbose ("  D-Bus not compiled with backtrace support\n");
 }
 #endif
-#endif /* asserts or tests enabled */
 
 static dbus_uint32_t fromAscii(char ascii)
 {
