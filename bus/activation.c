@@ -255,7 +255,7 @@ update_desktop_file_entry (BusActivation       *activation,
                            BusDesktopFile      *desktop_file,
                            DBusError           *error)
 {
-  char *name, *exec, *user;
+  char *name, *exec, *user, *exec_tmp;
   BusActivationEntry *entry;
   DBusStat stat_buf;
   DBusString file_path;
@@ -266,6 +266,7 @@ update_desktop_file_entry (BusActivation       *activation,
   name = NULL;
   exec = NULL;
   user = NULL;
+  exec_tmp = NULL;
   entry = NULL;
   
   dbus_error_init (&tmp_error);
@@ -300,7 +301,7 @@ update_desktop_file_entry (BusActivation       *activation,
   if (!bus_desktop_file_get_string (desktop_file,
                                     DBUS_SERVICE_SECTION,
                                     DBUS_SERVICE_EXEC,
-                                    &exec,
+                                    &exec_tmp,
                                     error))
     goto failed;
 
@@ -329,6 +330,9 @@ update_desktop_file_entry (BusActivation       *activation,
 
   entry = _dbus_hash_table_lookup_string (s_dir->entries, 
                                           _dbus_string_get_const_data (filename));
+
+  exec = strdup (_dbus_replace_install_prefix (exec_tmp));
+
   if (entry == NULL) /* New file */
     { 
       /* FIXME we need a better-defined algorithm for which service file to
@@ -417,7 +421,7 @@ update_desktop_file_entry (BusActivation       *activation,
 
 failed:
   dbus_free (name);
-  dbus_free (exec);
+  dbus_free (exec_tmp);
   dbus_free (user);
   _dbus_string_free (&file_path);
 

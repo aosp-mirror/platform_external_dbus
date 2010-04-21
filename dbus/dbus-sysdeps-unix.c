@@ -3583,4 +3583,18 @@ _dbus_socket_can_pass_unix_fd(int fd) {
 #endif
 }
 
+
+/*
+ * replaces the term DBUS_PREFIX in configure_time_path by the
+ * current dbus installation directory. On unix this function is a noop
+ *
+ * @param configure_time_path
+ * @return real path
+ */
+const char *
+_dbus_replace_install_prefix (const char *configure_time_path)
+{
+  return configure_time_path;
+}
+
 /* tests in dbus-sysdeps-util.c */

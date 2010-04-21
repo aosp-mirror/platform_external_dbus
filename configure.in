@@ -1335,6 +1335,7 @@ AC_MSG_RESULT(yes)
 #### find the actual value for $prefix that we'll end up with
 ##   (I know this is broken and should be done in the Makefile, but
 ##    that's a major pain and almost nobody actually seems to care)
+AS_AC_EXPAND(EXPANDED_PREFIX, "$prefix")
 AS_AC_EXPAND(EXPANDED_LOCALSTATEDIR, "$localstatedir")
 AS_AC_EXPAND(EXPANDED_SYSCONFDIR, "$sysconfdir")
 AS_AC_EXPAND(EXPANDED_BINDIR, "$bindir")
@@ -1429,6 +1430,11 @@ else
 fi
 AC_SUBST(DBUS_USER)
 AC_DEFINE_UNQUOTED(DBUS_USER,"$DBUS_USER", [User for running the system BUS daemon])
+
+#### Prefix to install into
+DBUS_PREFIX=$EXPANDED_PREFIX
+AC_SUBST(DBUS_PREFIX)
+AC_DEFINE_UNQUOTED(DBUS_PREFIX,"$DBUS_PREFIX", [Prefix for installing DBUS])
 
 #### Direcotry to install data files into
 DBUS_DATADIR=$EXPANDED_DATADIR
@@ -1581,7 +1587,7 @@ echo "
                     D-Bus $VERSION
                   ==============
 
-	prefix:                   ${prefix}
+	prefix:                   ${EXPANDED_PREFIX}
 	exec_prefix:              ${exec_prefix}
         libdir:                   ${EXPANDED_LIBDIR}
         libexecdir:               ${EXPANDED_LIBEXECDIR}
