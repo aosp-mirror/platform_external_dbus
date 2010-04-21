@@ -2074,10 +2074,10 @@ _dbus_get_install_root(char *prefix, int len);
 const char *
 _dbus_replace_install_prefix (const char *configure_time_path)
 {
-  static char retval[1000];
 #ifndef DBUS_PREFIX
-  strcpy (retval, configure_time_path);
+  return configure_time_path;
 #else
+  static char retval[1000];
   static char runtime_prefix[1000];
   int len = 1000;
   int i;
@@ -2104,8 +2104,8 @@ _dbus_replace_install_prefix (const char *configure_time_path)
     if(retval[i] == '\\')
       retval[i] = '/';
   }
-#endif
   return retval;
+#endif
 }
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
