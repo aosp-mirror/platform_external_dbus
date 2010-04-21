@@ -2394,6 +2394,7 @@ void _dbus_print_backtrace(void)
   _dbus_verbose ("  D-Bus not compiled with backtrace support\n");
 }
 #endif
+#endif /* asserts or tests enabled */
 
 static dbus_uint32_t fromAscii(char ascii)
 {
@@ -2877,8 +2878,6 @@ _dbus_atomic_dec (DBusAtomic *atomic)
   // no volatile argument with mingw
   return InterlockedDecrement (&atomic->value) + 1;
 }
-
-#endif /* asserts or tests enabled */
 
 /**
  * Called when the bus daemon is signaled to reload its configuration; any
