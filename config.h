@@ -1,5 +1,6 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 #include <cutils/sockets.h>
+#include <endian.h>
 
 /* Directory for installing the binaries */
 #define DBUS_BINDIR "/system/bin"
@@ -290,12 +291,13 @@
    first (like Motorola and SPARC, unlike Intel and VAX). */
 #undef WORDS_BIGENDIAN
 
+#if !defined(__BYTE_ORDER) || !defined (__BIG_ENDIAN)
+#error __BYTE_ORDER macros not defined
+#endif
 
-			/* Use the compiler-provided endianness defines to allow universal compiling. */
-			#if defined(__BIG_ENDIAN__)
-			#define WORDS_BIGENDIAN 1
-			#endif
-		
+#if __BYTE_ORDER == __BIG_ENDIAN
+     #define WORDS_BIGENDIAN 1
+#endif /* __BYTE_ORDER */
 
 /* Define to 1 if the X Window System is missing or not being used. */
 #define X_DISPLAY_MISSING 1
