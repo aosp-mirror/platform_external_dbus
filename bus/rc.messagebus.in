@@ -61,7 +61,7 @@ case "$1" in
         stop
         ;;
     status)
-        status $processname
+        status $servicename
         RETVAL=$?
         ;;
     restart)
