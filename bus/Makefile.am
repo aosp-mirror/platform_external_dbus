@@ -208,7 +208,7 @@ if DBUS_UNIX
 	fi
 	$(INSTALL_PROGRAM) dbus-daemon$(EXEEXT) $(DESTDIR)$(DBUS_DAEMONDIR)
 	$(mkinstalldirs) $(DESTDIR)$(libexecdir)/dbus-1
-	if test -f dbus-daemin-launch-helper$(EXEEXT) ; then \
+	if test -f dbus-daemon-launch-helper$(EXEEXT) ; then \
 	$(INSTALL_PROGRAM) dbus-daemon-launch-helper$(EXEEXT) $(DESTDIR)$(libexecdir); \
 	if test `id -u` -eq 0; then \
 		chown root:$(DBUS_USER) $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper; \
