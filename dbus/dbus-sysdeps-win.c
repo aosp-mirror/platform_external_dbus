@@ -2060,7 +2060,55 @@ _dbus_delete_file (const DBusString *filename,
     return TRUE;
 }
 
-#if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
+/* Forward declaration of prototype used in next function */
+static dbus_bool_t
+_dbus_get_install_root(char *prefix, int len);
+
+/*
+ * replaces the term DBUS_PREFIX in configure_time_path by the
+ * current dbus installation directory. On unix this function is a noop
+ *
+ * @param configure_time_path
+ * @return real path
+ */
+const char *
+_dbus_replace_install_prefix (const char *configure_time_path)
+{
+#ifndef DBUS_PREFIX
+  return configure_time_path;
+#else
+  static char retval[1000];
+  static char runtime_prefix[1000];
+  int len = 1000;
+  int i;
+
+  if (!configure_time_path)
+    return NULL;
+
+  if ((!_dbus_get_install_root(runtime_prefix, len) ||
+       strncmp (configure_time_path, DBUS_PREFIX "/",
+                strlen (DBUS_PREFIX) + 1))) {
+     strcat (retval, configure_time_path);
+     return retval;
+  }
+
+  strcpy (retval, runtime_prefix);
+  strcat (retval, configure_time_path + strlen (DBUS_PREFIX) + 1);
+
+  /* Somehow, in some situations, backslashes get collapsed in the string.
+   * Since windows C library accepts both forward and backslashes as
+   * path separators, convert all backslashes to forward slashes.
+   */
+
+  for(i = 0; retval[i] != '\0'; i++) {
+    if(retval[i] == '\\')
+      retval[i] = '/';
+  }
+  return retval;
+#endif
+}
+
+#if !defined (DBUS_DISABLE_ASSERTS) || defined(DBUS_BUILD_TESTS)
 
 #if defined(_MSC_VER) || defined(DBUS_WINCE)
 # ifdef BACKTRACES
@@ -2334,7 +2382,10 @@ static void dump_backtrace()
     CloseHandle(hThread);
     CloseHandle(hCurrentThread);
 }
+#endif
+#endif /* asserts or tests enabled */
 
+#ifdef BACKTRACES
 void _dbus_print_backtrace(void)
 {
   init_backtrace();
@@ -2683,6 +2734,21 @@ _dbus_make_file_world_readable(const DBusString *filename,
   return TRUE;
 }
 
+/**
+ * return the relocated DATADIR
+ *
+ * @returns relocated DATADIR static string
+ */
+
+static const char *
+_dbus_windows_get_datadir (void)
+{
+	return _dbus_replace_install_prefix(DBUS_DATADIR);
+}
+
+#undef DBUS_DATADIR
+#define DBUS_DATADIR _dbus_windows_get_datadir ()
+
 
 #define DBUS_STANDARD_SESSION_SERVICEDIR "/dbus-1/services"
 #define DBUS_STANDARD_SYSTEM_SERVICEDIR "/dbus-1/system-services"
@@ -2697,7 +2763,7 @@ _dbus_make_file_world_readable(const DBusString *filename,
  *
  * and
  *
- * DBUS_DATADIR
+ * relocated DBUS_DATADIR
  *
  * @param dirs the directory list we are returning
  * @returns #FALSE on OOM 
@@ -2727,8 +2793,11 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
       }
   }
 #else
-  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR _DBUS_PATH_SEPARATOR))
-        goto oom;
+  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR))
+    goto oom;
+
+  if (!_dbus_string_append (&servicedir_path, _DBUS_PATH_SEPARATOR))
+    goto oom;
 #endif
 
   common_progs = _dbus_getenv ("CommonProgramFiles");
@@ -2811,8 +2880,6 @@ _dbus_atomic_dec (DBusAtomic *atomic)
   // no volatile argument with mingw
   return InterlockedDecrement (&atomic->value) + 1;
 }
-
-#endif /* asserts or tests enabled */
 
 /**
  * Called when the bus daemon is signaled to reload its configuration; any
