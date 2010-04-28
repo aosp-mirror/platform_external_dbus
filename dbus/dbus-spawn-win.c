@@ -471,7 +471,7 @@ protect_argv (char  **argv,
 
 /* From GPGME, relicensed by g10 Code GmbH.  */
 static char *
-build_commandline (char **argv)
+compose_string (char **strings, char separator)
 {
   int i;
   int n = 0;
@@ -479,33 +479,46 @@ build_commandline (char **argv)
   char *p;
   const char *ptr;
   
-  for (i = 0; argv[i]; i++)
-    n += strlen (argv[i]) + 1;
+  if (!strings || !strings[0])
+    return 0;
+  for (i = 0; strings[i]; i++)
+    n += strlen (strings[i]) + 1;
   n++;
 
   buf = p = malloc (n);
   if (!buf)
     return NULL;
-  for (i = 0; argv[i]; i++)
+  for (i = 0; strings[i]; i++)
     {
-      strcpy (p, argv[i]);
-      p += strlen (argv[i]);
-      *(p++) = ' ';
+      strcpy (p, strings[i]);
+      p += strlen (strings[i]);
+      *(p++) = separator;
     }
-  if (i)
-    p--;
+  p--;
+  *(p++) = '\0';
   *p = '\0';
 
   return buf;
 }
 
+static char *
+build_commandline (char **argv)
+{
+  return compose_string (argv, ' ');
+}
+
+static char *
+build_env_string (char** envp)
+{
+  return compose_string (envp, '\0');
+}
 
 static HANDLE
-spawn_program (const char* name, char** argv, char** envp)
+spawn_program (char* name, char** argv, char** envp)
 {
   PROCESS_INFORMATION pi = { NULL, 0, 0, 0 };
   STARTUPINFOA si;
-  char *arg_string;
+  char *arg_string, *env_string;
   BOOL result;
 
 #ifdef DBUS_WINCE
@@ -516,11 +529,16 @@ spawn_program (const char* name, char** argv, char** envp)
   if (!arg_string)
     return INVALID_HANDLE_VALUE;
 
+  env_string = build_env_string(envp);
+
   memset (&si, 0, sizeof (si));
   si.cb = sizeof (si);
   result = CreateProcessA (name, arg_string, NULL, NULL, FALSE, 0,
-			   envp, NULL, &si, &pi);
+			   (LPVOID)env_string, NULL, &si, &pi);
   free (arg_string);
+  if (env_string)
+    free (env_string);
+
   if (!result)
     return INVALID_HANDLE_VALUE;
 
