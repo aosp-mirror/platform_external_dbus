@@ -533,7 +533,11 @@ spawn_program (char* name, char** argv, char** envp)
 
   memset (&si, 0, sizeof (si));
   si.cb = sizeof (si);
+#ifdef DBUS_WINCE
   result = CreateProcessA (name, arg_string, NULL, NULL, FALSE, 0,
+#else
+  result = CreateProcessA (NULL, arg_string, NULL, NULL, FALSE, 0,
+#endif
 			   (LPVOID)env_string, NULL, &si, &pi);
   free (arg_string);
   if (env_string)
