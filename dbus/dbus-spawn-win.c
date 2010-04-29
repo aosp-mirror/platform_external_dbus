@@ -522,7 +522,10 @@ spawn_program (char* name, char** argv, char** envp)
   BOOL result;
 
 #ifdef DBUS_WINCE
-  arg_string = build_commandline (argv + 1);
+  if (argv && argv[0])
+    arg_string = build_commandline (argv + 1);
+  else
+    arg_string = NULL;
 #else
   arg_string = build_commandline (argv);
 #endif
