@@ -294,7 +294,21 @@ _dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...)
 void
 _dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args)
 {
-    // FIXME!
+  char *s = "";
+  char buf[1024];
+  
+  switch(severity) 
+   {
+     case DBUS_SYSTEM_LOG_INFO: s = "info"; break;
+     case DBUS_SYSTEM_LOG_SECURITY: s = "security"; break;
+     case DBUS_SYSTEM_LOG_FATAL: s = "fatal"; break;
+   }
+   
+  sprintf(buf,"%s%s",s,msg);
+  _dbus_verbose_real ("",0,"",buf,args);
+  
+  if (severity == DBUS_SYSTEM_LOG_FATAL)
+    exit (1);
 }
 
 /** Installs a signal handler
