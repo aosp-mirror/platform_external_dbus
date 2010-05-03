@@ -169,13 +169,13 @@ bus_policy_new (void)
 
   policy->refcount = 1;
   
-  policy->rules_by_uid = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  policy->rules_by_uid = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                                NULL,
                                                free_rule_list_func);
   if (policy->rules_by_uid == NULL)
     goto failed;
 
-  policy->rules_by_gid = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  policy->rules_by_gid = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                                NULL,
                                                free_rule_list_func);
   if (policy->rules_by_gid == NULL)
@@ -304,7 +304,7 @@ bus_policy_create_client_policy (BusPolicy      *policy,
         {
           DBusList **list;
           
-          list = _dbus_hash_table_lookup_ulong (policy->rules_by_gid,
+          list = _dbus_hash_table_lookup_uintptr (policy->rules_by_gid,
                                                 groups[i]);
           
           if (list != NULL)
@@ -328,7 +328,7 @@ bus_policy_create_client_policy (BusPolicy      *policy,
         {
           DBusList **list;
           
-          list = _dbus_hash_table_lookup_ulong (policy->rules_by_uid,
+          list = _dbus_hash_table_lookup_uintptr (policy->rules_by_uid,
                                                 uid);
           
           if (list != NULL)
@@ -518,7 +518,7 @@ get_list (DBusHashTable *hash,
 {
   DBusList **list;
 
-  list = _dbus_hash_table_lookup_ulong (hash, key);
+  list = _dbus_hash_table_lookup_uintptr (hash, key);
 
   if (list == NULL)
     {
@@ -526,7 +526,7 @@ get_list (DBusHashTable *hash,
       if (list == NULL)
         return NULL;
 
-      if (!_dbus_hash_table_insert_ulong (hash, key, list))
+      if (!_dbus_hash_table_insert_uintptr (hash, key, list))
         {
           dbus_free (list);
           return NULL;
@@ -639,7 +639,7 @@ merge_id_hash (DBusHashTable *dest,
   _dbus_hash_iter_init (to_absorb, &iter);
   while (_dbus_hash_iter_next (&iter))
     {
-      unsigned long id = _dbus_hash_iter_get_ulong_key (&iter);
+      unsigned long id = _dbus_hash_iter_get_uintptr_key (&iter);
       DBusList **list = _dbus_hash_iter_get_value (&iter);
       DBusList **target = get_list (dest, id);
 

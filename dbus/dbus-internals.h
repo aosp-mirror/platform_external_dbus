@@ -167,13 +167,13 @@ extern const char *_dbus_return_if_fail_warning_format;
 
 #define _DBUS_N_ELEMENTS(array) ((int) (sizeof ((array)) / sizeof ((array)[0])))
 
-#define _DBUS_POINTER_TO_INT(pointer) ((long)(pointer))
-#define _DBUS_INT_TO_POINTER(integer) ((void*)((long)(integer)))
+#define _DBUS_POINTER_TO_INT(pointer) ((intptr_t)(pointer))
+#define _DBUS_INT_TO_POINTER(integer) ((void*)((intptr_t)(integer)))
 
 #define _DBUS_ZERO(object) (memset (&(object), '\0', sizeof ((object))))
 
 #define _DBUS_STRUCT_OFFSET(struct_type, member)	\
-    ((long) ((unsigned char*) &((struct_type*) 0)->member))
+    ((intptr_t) ((unsigned char*) &((struct_type*) 0)->member))
 
 #ifdef DBUS_DISABLE_CHECKS
 /* this is an assert and not an error, but in the typical --disable-checks case (you're trying
@@ -201,7 +201,7 @@ extern const char *_dbus_return_if_fail_warning_format;
  */
 
 #define _DBUS_ALIGN_VALUE(this, boundary) \
-  (( ((unsigned long)(this)) + (((unsigned long)(boundary)) -1)) & (~(((unsigned long)(boundary))-1)))
+  (( ((uintptr_t)(this)) + (((uintptr_t)(boundary)) -1)) & (~(((uintptr_t)(boundary))-1)))
 
 #define _DBUS_ALIGN_ADDRESS(this, boundary) \
   ((void*)_DBUS_ALIGN_VALUE(this, boundary))

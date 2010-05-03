@@ -2599,7 +2599,7 @@ _dbus_disable_sigpipe (void)
  * @param fd the file descriptor
  */
 void
-_dbus_fd_set_close_on_exec (int fd)
+_dbus_fd_set_close_on_exec (intptr_t fd)
 {
   int val;
   

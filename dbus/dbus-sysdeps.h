@@ -332,7 +332,7 @@ void         _dbus_directory_close         (DBusDirIter      *iter);
 dbus_bool_t  _dbus_check_dir_is_private_to_user    (DBusString *dir,
                                                     DBusError *error);
 
-void _dbus_fd_set_close_on_exec (int fd);
+void _dbus_fd_set_close_on_exec (intptr_t fd);
 
 const char* _dbus_get_tmpdir      (void);
 

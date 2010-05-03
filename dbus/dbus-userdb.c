@@ -146,7 +146,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
 
 #ifdef DBUS_ENABLE_USERDB_CACHE  
   if (uid != DBUS_UID_UNSET)
-    info = _dbus_hash_table_lookup_ulong (db->users, uid);
+    info = _dbus_hash_table_lookup_uintptr (db->users, uid);
   else
     info = _dbus_hash_table_lookup_string (db->users_by_name, _dbus_string_get_const_data (username));
 
@@ -199,7 +199,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
       username = NULL;
 
       /* insert into hash */
-      if (!_dbus_hash_table_insert_ulong (db->users, info->uid, info))
+      if (!_dbus_hash_table_insert_uintptr (db->users, info->uid, info))
         {
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           _dbus_user_info_free_allocated (info);
@@ -210,7 +210,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
                                            info->username,
                                            info))
         {
-          _dbus_hash_table_remove_ulong (db->users, info->uid);
+          _dbus_hash_table_remove_uintptr (db->users, info->uid);
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           return NULL;
         }
@@ -538,13 +538,13 @@ _dbus_user_database_new (void)
 
   db->refcount = 1;
 
-  db->users = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  db->users = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                     NULL, (DBusFreeFunction) _dbus_user_info_free_allocated);
   
   if (db->users == NULL)
     goto failed;
 
-  db->groups = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  db->groups = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                      NULL, (DBusFreeFunction) _dbus_group_info_free_allocated);
   
   if (db->groups == NULL)

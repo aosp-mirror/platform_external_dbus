@@ -226,7 +226,7 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
 
 #ifdef DBUS_ENABLE_USERDB_CACHE
   if (gid != DBUS_GID_UNSET)
-    info = _dbus_hash_table_lookup_ulong (db->groups, gid);
+    info = _dbus_hash_table_lookup_uintptr (db->groups, gid);
   else
     info = _dbus_hash_table_lookup_string (db->groups_by_name,
                                            _dbus_string_get_const_data (groupname));
@@ -278,7 +278,7 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
       gid = DBUS_GID_UNSET;
       groupname = NULL;
 
-      if (!_dbus_hash_table_insert_ulong (db->groups, info->gid, info))
+      if (!_dbus_hash_table_insert_uintptr (db->groups, info->gid, info))
         {
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           _dbus_group_info_free_allocated (info);
@@ -290,7 +290,7 @@ _dbus_user_database_lookup_group (DBusUserDatabase *db,
                                            info->groupname,
                                            info))
         {
-          _dbus_hash_table_remove_ulong (db->groups, info->gid);
+          _dbus_hash_table_remove_uintptr (db->groups, info->gid);
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           return NULL;
         }

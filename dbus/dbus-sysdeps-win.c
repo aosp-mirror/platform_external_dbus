@@ -325,7 +325,7 @@ _dbus_close_socket (int        fd,
  * @param fd the file descriptor
  */
 void
-_dbus_fd_set_close_on_exec (int handle)
+_dbus_fd_set_close_on_exec (intptr_t handle)
 {
   if ( !SetHandleInformation( (HANDLE) handle,
                         HANDLE_FLAG_INHERIT | HANDLE_FLAG_PROTECT_FROM_CLOSE,
@@ -2171,6 +2171,16 @@ static BOOL (WINAPI *pStackWalk)(
   PGET_MODULE_BASE_ROUTINE GetModuleBaseRoutine,
   PTRANSLATE_ADDRESS_ROUTINE TranslateAddress
 );
+#ifdef _WIN64
+static DWORD64 (WINAPI *pSymGetModuleBase)(
+  HANDLE hProcess,
+  DWORD64 dwAddr
+);
+static PVOID  (WINAPI *pSymFunctionTableAccess)(
+  HANDLE hProcess,
+  DWORD64 AddrBase
+);
+#else
 static DWORD (WINAPI *pSymGetModuleBase)(
   HANDLE hProcess,
   DWORD dwAddr
@@ -2179,6 +2189,7 @@ static PVOID  (WINAPI *pSymFunctionTableAccess)(
   HANDLE hProcess,
   DWORD AddrBase
 );
+#endif
 static BOOL  (WINAPI *pSymInitialize)(
   HANDLE hProcess,
   PSTR UserSearchPath,
@@ -2233,6 +2244,16 @@ PFUNCTION_TABLE_ACCESS_ROUTINE FunctionTableAccessRoutine,
 PGET_MODULE_BASE_ROUTINE GetModuleBaseRoutine,
 PTRANSLATE_ADDRESS_ROUTINE TranslateAddress
 ))GetProcAddress (hmodDbgHelp, FUNC(StackWalk));
+#ifdef _WIN64
+    pSymGetModuleBase=(DWORD64  (WINAPI *)(
+  HANDLE hProcess,
+  DWORD64 dwAddr
+))GetProcAddress (hmodDbgHelp, FUNC(SymGetModuleBase));
+    pSymFunctionTableAccess=(PVOID  (WINAPI *)(
+  HANDLE hProcess,
+  DWORD64 AddrBase
+))GetProcAddress (hmodDbgHelp, FUNC(SymFunctionTableAccess));
+#else
     pSymGetModuleBase=(DWORD  (WINAPI *)(
   HANDLE hProcess,
   DWORD dwAddr
@@ -2241,6 +2262,7 @@ PTRANSLATE_ADDRESS_ROUTINE TranslateAddress
   HANDLE hProcess,
   DWORD AddrBase
 ))GetProcAddress (hmodDbgHelp, FUNC(SymFunctionTableAccess));
+#endif
     pSymInitialize = (BOOL  (WINAPI *)(
   HANDLE hProcess,
   PSTR UserSearchPath,
@@ -2685,7 +2707,6 @@ _dbus_get_autolaunch_address (DBusString *address,
     {
       printf ("please add the path to %s to your PATH environment variable\n", daemon_name);
       printf ("or start the daemon manually\n\n");
-      printf ("");
       goto out;
     }
 

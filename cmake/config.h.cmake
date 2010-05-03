@@ -143,6 +143,9 @@
 /* Define to 1 if you have locale.h */
 #cmakedefine   HAVE_LOCALE_H 1
 
+/* Define to 1 if you have inttypes.h */
+#cmakedefine   HAVE_INTTYPES_H 1
+
 // symbols
 /* Define to 1 if you have backtrace */
 #cmakedefine   HAVE_BACKTRACE 1

@@ -120,7 +120,7 @@ get_connections_for_uid (BusConnections *connections,
 
   /* val is NULL is 0 when it isn't in the hash yet */
   
-  val = _dbus_hash_table_lookup_ulong (connections->completed_by_user,
+  val = _dbus_hash_table_lookup_uintptr (connections->completed_by_user,
                                        uid);
 
   current_count = _DBUS_POINTER_TO_INT (val);
@@ -149,14 +149,14 @@ adjust_connections_for_uid (BusConnections *connections,
 
   if (current_count == 0)
     {
-      _dbus_hash_table_remove_ulong (connections->completed_by_user, uid);
+      _dbus_hash_table_remove_uintptr (connections->completed_by_user, uid);
       return TRUE;
     }
   else
     {
       dbus_bool_t retval;
       
-      retval = _dbus_hash_table_insert_ulong (connections->completed_by_user,
+      retval = _dbus_hash_table_insert_uintptr (connections->completed_by_user,
                                               uid, _DBUS_INT_TO_POINTER (current_count));
 
       /* only positive adjustment can fail as otherwise
@@ -439,7 +439,7 @@ bus_connections_new (BusContext *context)
   if (connections == NULL)
     goto failed_1;
 
-  connections->completed_by_user = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  connections->completed_by_user = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                                          NULL, NULL);
   if (connections->completed_by_user == NULL)
     goto failed_2;

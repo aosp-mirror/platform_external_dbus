@@ -25,16 +25,24 @@
 #ifndef DBUS_PIPE_H
 #define DBUS_PIPE_H
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-string.h>
 
 typedef struct {
-  int fd_or_handle;
+  intptr_t fd_or_handle;
 } DBusPipe;
 
 void        _dbus_pipe_init                (DBusPipe         *pipe,
-                                            int               fd);
+                                            intptr_t          fd);
 void        _dbus_pipe_init_stdout         (DBusPipe         *pipe);
 int         _dbus_pipe_write               (DBusPipe         *pipe,
                                             const DBusString *buffer,

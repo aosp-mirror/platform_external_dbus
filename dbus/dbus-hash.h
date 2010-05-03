@@ -24,6 +24,14 @@
 #ifndef DBUS_HASH_H
 #define DBUS_HASH_H
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 
@@ -61,7 +69,7 @@ typedef enum
   DBUS_HASH_TWO_STRINGS,   /**< Hash key is two strings in one memory block, i.e. foo\\0bar\\0 */
   DBUS_HASH_INT,           /**< Hash keys are integers. */
   DBUS_HASH_POINTER,       /**< Hash keys are pointers. */
-  DBUS_HASH_ULONG          /**< Hash keys are unsigned long. */
+  DBUS_HASH_UINTPTR        /**< Hash keys are integer capable to hold a pointer. */
 } DBusHashType;
 
 DBusHashTable* _dbus_hash_table_new                (DBusHashType      type,
@@ -80,7 +88,7 @@ void           _dbus_hash_iter_set_value           (DBusHashIter     *iter,
 int            _dbus_hash_iter_get_int_key         (DBusHashIter     *iter);
 const char*    _dbus_hash_iter_get_string_key      (DBusHashIter     *iter);
 const char*    _dbus_hash_iter_get_two_strings_key (DBusHashIter     *iter);
-unsigned long  _dbus_hash_iter_get_ulong_key       (DBusHashIter     *iter);
+uintptr_t      _dbus_hash_iter_get_uintptr_key     (DBusHashIter     *iter);
 dbus_bool_t    _dbus_hash_iter_lookup              (DBusHashTable    *table,
                                                     void             *key,
                                                     dbus_bool_t       create_if_not_found,
@@ -93,8 +101,8 @@ void*          _dbus_hash_table_lookup_int         (DBusHashTable    *table,
                                                     int               key);
 void*          _dbus_hash_table_lookup_pointer     (DBusHashTable    *table,
                                                     void             *key);
-void*          _dbus_hash_table_lookup_ulong       (DBusHashTable    *table,
-                                                    unsigned long     key);
+void*          _dbus_hash_table_lookup_uintptr     (DBusHashTable    *table,
+                                                    uintptr_t         key);
 dbus_bool_t    _dbus_hash_table_remove_string      (DBusHashTable    *table,
                                                     const char       *key);
 dbus_bool_t    _dbus_hash_table_remove_two_strings (DBusHashTable    *table,
@@ -103,8 +111,8 @@ dbus_bool_t    _dbus_hash_table_remove_int         (DBusHashTable    *table,
                                                     int               key);
 dbus_bool_t    _dbus_hash_table_remove_pointer     (DBusHashTable    *table,
                                                     void             *key);
-dbus_bool_t    _dbus_hash_table_remove_ulong       (DBusHashTable    *table,
-                                                    unsigned long     key);
+dbus_bool_t    _dbus_hash_table_remove_uintptr     (DBusHashTable    *table,
+                                                    uintptr_t         key);
 dbus_bool_t    _dbus_hash_table_insert_string      (DBusHashTable    *table,
                                                     char             *key,
                                                     void             *value);
@@ -117,8 +125,8 @@ dbus_bool_t    _dbus_hash_table_insert_int         (DBusHashTable    *table,
 dbus_bool_t    _dbus_hash_table_insert_pointer     (DBusHashTable    *table,
                                                     void             *key,
                                                     void             *value);
-dbus_bool_t    _dbus_hash_table_insert_ulong       (DBusHashTable    *table,
-                                                    unsigned long     key,
+dbus_bool_t    _dbus_hash_table_insert_uintptr     (DBusHashTable    *table,
+                                                    uintptr_t         key,
                                                     void             *value);
 int            _dbus_hash_table_get_n_entries      (DBusHashTable    *table);
 

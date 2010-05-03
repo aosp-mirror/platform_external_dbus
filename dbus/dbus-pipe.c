@@ -33,7 +33,7 @@
  */
 void
 _dbus_pipe_init (DBusPipe *pipe,
-                 int       fd)
+                 intptr_t  fd)
 {
   pipe->fd_or_handle = fd;
 }

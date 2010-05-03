@@ -488,7 +488,7 @@ set (DBUS_INTERNAL_CLIENT_DEFINITIONS "-DDBUS_STATIC_BUILD")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h )
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-env.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-env.bat )
 install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)
-
+add_definitions(-DHAVE_CONFIG_H=1)
 
 ########### subdirs ###############
 
