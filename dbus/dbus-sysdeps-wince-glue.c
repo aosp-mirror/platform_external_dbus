@@ -848,7 +848,10 @@ RegQueryValueExA (HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved,
   /* If err is ERROR_MORE_DATA, there probably was a race condition.
      We can punt this to the caller just as well.  */
   if (err)
-    return err;
+    {
+      free (data);
+      return err;
+    }
 
   /* NOTE: REG_MULTI_SZ and REG_EXPAND_SZ not supported, because they
      are not needed in this module.  */
@@ -860,10 +863,15 @@ RegQueryValueExA (HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved,
       /* This is valid since we allocated one more above.  */
       data[data_len] = '\0';
       data[data_len + 1] = '\0';
-      
+
+      /* The cast is valid because malloc guarantees alignment of
+         basic types.  */
       data_c = _dbus_win_utf16_to_utf8 ((wchar_t*) data, NULL);
       if (!data_c)
-        return GetLastError();
+        {
+          free (data);
+          return GetLastError();
+        }
 
       data_c_len = strlen (data_c) + 1;
       _dbus_assert (data_c_len <= data_len + sizeof (wchar_t));
@@ -880,6 +888,7 @@ RegQueryValueExA (HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved,
       else
         memcpy (lpData, data, data_len);
     }
+  free (data);
   *lpcbData = data_len;
   return err;
 }
@@ -941,18 +950,33 @@ FormatMessageA (DWORD dwFlags, PCVOID lpSource, DWORD dwMessageId,
 DWORD
 GetModuleFileNameA (HINSTANCE hModule, LPSTR lpFilename, DWORD nSize)
 {
-  wchar_t filename_w[MAX_PATH];
+  wchar_t *filename_w;
   char *filename_c;
   DWORD len;
 
-  _dbus_assert (MAX_PATH >= nSize);
+  if (nSize == 0)
+    {
+      /* Windows XP/2000.  */
+      SetLastError (0);
+      return 0;
+    }
+
+  filename_w = malloc (sizeof (wchar_t) * nSize);
+  if (! filename_w)
+    return 0;
 
   len = GetModuleFileNameW (hModule, filename_w, nSize);
   if (len == 0)
-    return 0;
+    {
+      /* Note: If we fail with ERROR_INSUFFICIENT_BUFFER, this is still
+       (approximately) correct.  */
+      free (filename_w);
+      return 0;
+    }
 
   filename_w[nSize - 1] = '\0';
   filename_c = _dbus_win_utf16_to_utf8 (filename_w, NULL);
+  free (filename_w);
   if (! filename_c)
     return 0;
 
