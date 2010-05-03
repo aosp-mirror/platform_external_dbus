@@ -150,13 +150,7 @@ main (int argc, char **argv)
   flags |= NORMAL_PRIORITY_CLASS;
   if (!verbose)
     flags |= DETACHED_PROCESS;
-  fprintf (stderr, "0b: %i\n", flags);
 #endif
-
-  fprintf (stderr, "1 %ls\n", dbusDaemonPath);
-  fprintf (stderr, "2 %ls\n", command);
-  fprintf (stderr, "3 %i\n", inherit);
-  fprintf (stderr, "4 %i\n", flags);
 
   result = CreateProcessW (dbusDaemonPath, command, 0, 0,
                            inherit, flags, 0, 0, &si, &pi);
