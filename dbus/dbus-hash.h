@@ -24,8 +24,8 @@
 #ifndef DBUS_HASH_H
 #define DBUS_HASH_H
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
 #endif
 
 #ifdef HAVE_INTTYPES_H
@@ -34,6 +34,7 @@
 
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-sysdeps.h>
 
 DBUS_BEGIN_DECLS
 

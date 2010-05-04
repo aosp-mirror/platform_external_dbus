@@ -29,7 +29,6 @@
 #include <stdarg.h>
 
 /* For getaddrinfo.  */
-#define _WIN32_WCE 0x0401 
 #include <windows.h>
 #undef interface
 
@@ -107,9 +106,18 @@ void abort (void);
 #define _S_IREAD        0000400         /* read permission, owner */
 #define _S_IWRITE       0000200         /* write permission, owner */
 #define _S_IEXEC        0000100         /* execute/search permission, owner */
+
 #ifndef __OFF_T_DEFINED
 typedef long off_t;
 #define __OFF_T_DEFINED
+#endif
+#ifndef _INTPTR_T_DEFINED
+typedef int intptr_t;
+#define _INTPTR_T_DEFINED
+#endif
+#ifndef _UINTPTR_T_DEFINED
+typedef unsigned int uintptr_t;
+#define _UINTPTR_T_DEFINED
 #endif
 
 #ifndef _MAX_FNAME

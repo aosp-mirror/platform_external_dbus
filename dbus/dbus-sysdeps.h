@@ -28,7 +28,6 @@
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-file.h>
 #include <dbus/dbus-string.h>
-#include <dbus/dbus-pipe.h>
 
 /* this is perhaps bogus, but strcmp() etc. are faster if we use the
  * stuff straight out of string.h, so have this here for now.
@@ -67,6 +66,9 @@ typedef struct DBusList DBusList;
 
 /** Object that contains a list of credentials such as UNIX or Windows user ID */
 typedef struct DBusCredentials DBusCredentials;
+
+/** A wrapper around a pipe descriptor or handle */
+typedef struct DBusPipe DBusPipe;
 
 /**
  * @addtogroup DBusSysdeps

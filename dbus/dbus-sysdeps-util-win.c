@@ -34,6 +34,7 @@
 #include "dbus-sysdeps-win.h"
 #include "dbus-sockets-win.h"
 #include "dbus-memory.h"
+#include "dbus-pipe.h"
 
 #include <stdio.h>
 #include <stdlib.h>

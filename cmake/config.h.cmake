@@ -146,6 +146,9 @@
 /* Define to 1 if you have inttypes.h */
 #cmakedefine   HAVE_INTTYPES_H 1
 
+/* Define to 1 if you have stdint.h */
+#cmakedefine   HAVE_STDINT_H 1
+
 // symbols
 /* Define to 1 if you have backtrace */
 #cmakedefine   HAVE_BACKTRACE 1
