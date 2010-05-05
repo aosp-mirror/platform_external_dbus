@@ -53,6 +53,84 @@ stpcpy (char *dest, const char *src)
   return d - 1;
 }
 
+
+/* This is special cased, because we must avoid using many dbus
+   functions (such as memory allocations): Those functions may in turn
+   cause verbose output and check the flag!  */
+static char *
+get_verbose_setting()
+{
+  const wchar_t dir[] = L"Software\\freedesktop\\DBus";
+  const wchar_t name[] = L"Verbose";
+  HKEY root_key;
+  HKEY key_handle;
+  DWORD nbytes;
+  DWORD n1;
+  DWORD type;
+  wchar_t *result_w = NULL;
+  char *result;
+  int len;
+
+  root_key = HKEY_LOCAL_MACHINE;
+  if (RegOpenKeyExW (root_key, dir, 0, KEY_READ, &key_handle))
+    return NULL;
+
+  nbytes = 1;
+  if (RegQueryValueExW (key_handle, name, 0, NULL, NULL, &nbytes))
+    {
+      RegCloseKey (key_handle);
+      return NULL;
+    }
+  /* Round up to multiple of wchar_t, convert to number of wchar_t's, and add 1.  */
+  n1 = ((nbytes + sizeof(wchar_t) - 1) / sizeof (wchar_t)) + 1;
+  result_w = malloc (n1 * sizeof (wchar_t));
+  if (!result_w)
+    {
+      RegCloseKey (key_handle);
+      return NULL;
+    }
+  if (RegQueryValueExW (key_handle, name, 0, &type, result_w, &nbytes))
+    {
+      RegCloseKey (key_handle);
+      free (result_w);
+      return NULL;
+    }
+  RegCloseKey (key_handle);
+  result_w[n1 - 1] = 0; /* Make sure it is really a string.  */
+
+  /* NOTE: REG_MULTI_SZ and REG_EXPAND_SZ not supported, because they
+     are not needed in this module.  */
+  if (type != REG_SZ)
+    {
+      free (result_w);
+      return NULL;
+    }
+
+  len = WideCharToMultiByte (CP_UTF8, 0, result_w, -1, NULL, 0, NULL, NULL);
+  if (len < 0)
+    {
+      free (result_w);
+      return NULL;
+    }
+
+  result = malloc (len + 1);
+  if (!result)
+    {
+      free (result_w);
+      return NULL;
+    }
+
+  len = WideCharToMultiByte (CP_UTF8, 0, result_w, -1, result, len, NULL, NULL);
+  free (result_w);
+  if (len < 0)
+    {
+      free (result);
+      return NULL;
+    }
+  return result;
+}
+
+
 /* Return a string from the W32 Registry or NULL in case of error.
    Caller must release the return value.  A NULL for root is an alias
    for HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE in turn. */
@@ -220,7 +298,7 @@ getenv (const char *name)
     }
 
   if (! strcmp (name, "DBUS_VERBOSE"))
-    return past_result = find_env_in_registry ("Verbose");
+    return past_result = get_verbose_setting ();
   else if (! strcmp (name, "HOMEPATH"))
     return past_result = find_my_documents_folder ();
   else if (! strcmp (name, "DBUS_DATADIR"))
