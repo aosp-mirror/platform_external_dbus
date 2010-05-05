@@ -251,7 +251,8 @@ _dbus_write_pid_to_file_and_pipe (const DBusString *pidfile,
       DBusString pid;
       int bytes;
 
-      _dbus_verbose ("writing our pid to pipe %d\n", print_pid_pipe->fd_or_handle);
+      _dbus_verbose ("writing our pid to pipe %"PRIuPTR"\n",
+                     print_pid_pipe->fd_or_handle);
       
       if (!_dbus_string_init (&pid))
         {

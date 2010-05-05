@@ -25,6 +25,10 @@
 #ifndef DBUS_SYSDEPS_H
 #define DBUS_SYSDEPS_H
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-file.h>
 #include <dbus/dbus-string.h>
