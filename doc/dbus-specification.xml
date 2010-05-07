@@ -7,8 +7,8 @@
 <article id="index">
   <articleinfo>
     <title>D-Bus Specification</title>
-    <releaseinfo>Version 0.13</releaseinfo>
-    <date>23 Dezember 2009</date>
+    <releaseinfo>Version 0.14</releaseinfo>
+    <date>May 12, 2010</date>
     <authorgroup>
       <author>
 	<firstname>Havoc</firstname>
@@ -2757,6 +2757,31 @@
         deterministic rule, or returning an error, are the reasonable 
         possibilities).
       </para>
+      <para>
+        If one or more properties change on an object, the
+        <literal>org.freedesktop.DBus.Properties.PropertiesChanged</literal>
+        signal may be emitted (this signal was added in 0.14):
+      </para>
+      <para>
+        <programlisting>
+              org.freedesktop.DBus.Properties.PropertiesChanged (STRING interface_name,
+                                                                 DICT&lt;STRING,VARIANT&gt; changed_properties);
+        </programlisting>
+      </para>
+      <para>
+        where <literal>changed_properties</literal> is a dictionary
+        containing the changed properties and the new values.
+      </para>
+      <para>
+        Whether the <literal>PropertiesChanged</literal> signal is
+        supported can be determined by calling
+        <literal>org.freedesktop.DBus.Introspectable.Introspect</literal>. If
+        the signal is supported for an object but not used for one or
+        more properties (for e.g. performance reasons), each such
+        property must be annotated with the
+        <literal>org.freedesktop.DBus.Properties.EmitsChangedSignal</literal>
+        annotation.
+      </para>
     </sect2>
   </sect1>
 
@@ -2886,6 +2911,11 @@
 	     <entry>org.freedesktop.DBus.Method.NoReply</entry>
 	     <entry>true,false</entry>
 	     <entry>If set, don't expect a reply to the method call; defaults to false.</entry>
+	   </row>
+	   <row>
+	     <entry>org.freedesktop.DBus.Properties.EmitsChangedSignal</entry>
+	     <entry>true,true_no_value,false</entry>
+	     <entry>If set to false, the <literal>org.freedesktop.DBus.Properties.PropertiesChanged</literal> signal, see <xref linkend="standard-interfaces-properties"/>, is not emitted if the property changes. If set to true_no_value the signal is emitted but the value is no included in the signal. Defaults to true.</entry>
 	   </row>
 	 </tbody>
        </tgroup>
