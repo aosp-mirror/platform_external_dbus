@@ -3992,6 +3992,9 @@
         <para>
           Some bus instances, such as the standard system bus, may disable access to this method for some or all callers.
         </para>
+        <para>
+          Note, both the environment variable names and values must be valid UTF-8.  There's no way to update the activation environment with data that is invalid UTF-8.
+        </para>
 
       </sect3>
 
