@@ -232,7 +232,12 @@ main (int argc, char *argv[])
    * do dbus-monitor > file, then send SIGINT via Control-C, they
    * don't lose the last chunk of messages.
    */
+
+#ifdef DBUS_WIN
+  setvbuf (stdout, NULL, _IONBF, 0);
+#else
   setvbuf (stdout, NULL, _IOLBF, 0);
+#endif
 
   for (i = 1; i < argc; i++)
     {
