@@ -44,7 +44,10 @@
 #ifdef DBUS_WINCE
 
 #ifndef _IOLBF
-#define _IOLBF 1
+#define _IOLBF 0x40
+#endif
+#ifndef _IONBF
+#define _IONBF 0x04
 #endif
 
 void
