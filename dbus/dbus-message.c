@@ -1101,6 +1101,7 @@ dbus_message_new_empty_header (void)
 
 #ifdef HAVE_UNIX_FD_PASSING
   message->n_unix_fds = 0;
+  message->n_unix_fds_allocated = 0;
   message->unix_fd_counter_delta = 0;
 #endif
 
