@@ -2765,21 +2765,29 @@
       <para>
         <programlisting>
               org.freedesktop.DBus.Properties.PropertiesChanged (STRING interface_name,
-                                                                 DICT&lt;STRING,VARIANT&gt; changed_properties);
+                                                                 DICT&lt;STRING,VARIANT&gt; changed_properties,
+                                                                 ARRAY&lt;STRING&gt; invalidated_properties);
         </programlisting>
       </para>
       <para>
         where <literal>changed_properties</literal> is a dictionary
-        containing the changed properties and the new values.
+        containing the changed properties with the new values and
+        <literal>invalidated_properties</literal> is an array of
+        properties that changed but the value is not conveyed.
       </para>
       <para>
         Whether the <literal>PropertiesChanged</literal> signal is
         supported can be determined by calling
-        <literal>org.freedesktop.DBus.Introspectable.Introspect</literal>. If
-        the signal is supported for an object but not used for one or
-        more properties (for e.g. performance reasons), each such
-        property must be annotated with the
-        <literal>org.freedesktop.DBus.Properties.EmitsChangedSignal</literal>
+        <literal>org.freedesktop.DBus.Introspectable.Introspect</literal>. Note
+        that the signal may be supported for an object but it may
+        differ how whether and how it is used on a per-property basis
+        (for e.g. performance or security reasons). Each property (or
+        the parent interface) must be annotated with the
+        <literal>org.freedesktop.DBus.Property.EmitsChangedSignal</literal>
+        annotation to convey this (usually the default value
+        <literal>true</literal> is sufficient meaning that the
+        annotation does not need to be used). See <xref
+        linkend="introspection-format"/> for details on this
         annotation.
       </para>
     </sect2>
@@ -2913,9 +2921,33 @@
 	     <entry>If set, don't expect a reply to the method call; defaults to false.</entry>
 	   </row>
 	   <row>
-	     <entry>org.freedesktop.DBus.Properties.EmitsChangedSignal</entry>
-	     <entry>true,true_no_value,false</entry>
-	     <entry>If set to false, the <literal>org.freedesktop.DBus.Properties.PropertiesChanged</literal> signal, see <xref linkend="standard-interfaces-properties"/>, is not emitted if the property changes. If set to true_no_value the signal is emitted but the value is no included in the signal. Defaults to true.</entry>
+	     <entry>org.freedesktop.DBus.Property.EmitsChangedSignal</entry>
+	     <entry>true,invalidates,false</entry>
+	     <entry>
+               <para>
+                 If set to <literal>false</literal>, the
+                 <literal>org.freedesktop.DBus.Properties.PropertiesChanged</literal>
+                 signal, see <xref
+                 linkend="standard-interfaces-properties"/> is not
+                 guaranteed to be emitted if the property changes.
+               </para>
+               <para>
+                 If set to <literal>invalidates</literal> the signal
+                 is emitted but the value is not included in the
+                 signal.
+               </para>
+               <para>
+                 If set to <literal>true</literal> the signal is
+                 emitted with the value included.
+               </para>
+               <para>
+                 The value for the annotation defaults to
+                 <literal>true</literal> if the enclosing interface
+                 element does not specify the annotation. Otherwise it
+                 defaults to the value specified in the enclosing
+                 interface element.
+               </para>
+             </entry>
 	   </row>
 	 </tbody>
        </tgroup>
