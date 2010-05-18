@@ -26,6 +26,7 @@
 #include "dbus-sysdeps.h"
 #include "dbus-sysdeps-unix.h"
 #include "dbus-internals.h"
+#include "dbus-pipe.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
 #define DBUS_USERDB_INCLUDES_PRIVATE 1
