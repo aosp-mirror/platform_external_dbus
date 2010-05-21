@@ -2037,7 +2037,7 @@ include_file (BusConfigParser   *parser,
 
   if (included == NULL)
     {
-      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+      _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&tmp_error);
 
       if (dbus_error_has_name (&tmp_error, DBUS_ERROR_FILE_NOT_FOUND) &&
           ignore_missing)
@@ -2053,7 +2053,7 @@ include_file (BusConfigParser   *parser,
     }
   else
     {
-      _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+      _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&tmp_error);
 
       if (!merge_included (parser, included, error))
         {
@@ -3175,4 +3175,3 @@ bus_config_parser_test (const DBusString *test_data_dir)
 }
 
 #endif /* DBUS_BUILD_TESTS */
-

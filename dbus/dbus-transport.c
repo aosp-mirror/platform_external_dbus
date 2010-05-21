@@ -353,25 +353,25 @@ _dbus_transport_open (DBusAddressEntry *entry,
     {
       DBusTransportOpenResult result;
 
-      _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+      _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&tmp_error);
       result = (* open_funcs[i].func) (entry, &transport, &tmp_error);
 
       switch (result)
         {
         case DBUS_TRANSPORT_OPEN_OK:
-          _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+          _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&tmp_error);
           goto out;
           break;
         case DBUS_TRANSPORT_OPEN_NOT_HANDLED:
-          _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+          _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&tmp_error);
           /* keep going through the loop of open funcs */
           break;
         case DBUS_TRANSPORT_OPEN_BAD_ADDRESS:
-          _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+          _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&tmp_error);
           goto out;
           break;
         case DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT:
-          _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+          _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&tmp_error);
           goto out;
           break;
         }
@@ -386,13 +386,13 @@ _dbus_transport_open (DBusAddressEntry *entry,
                                NULL, NULL,
                                "Unknown address type (examples of valid types are \"tcp\" and on UNIX \"unix\")");
       
-      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+      _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&tmp_error);
       dbus_move_error(&tmp_error, error);
       dbus_free (expected_guid);
     }
   else
     {
-      _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+      _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&tmp_error);
       transport->expected_guid = expected_guid;
     }
 

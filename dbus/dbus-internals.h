@@ -167,9 +167,13 @@ extern const char _dbus_return_if_fail_warning_format[];
  */
 #define _DBUS_ASSERT_ERROR_IS_SET(error)
 #define _DBUS_ASSERT_ERROR_IS_CLEAR(error)
+#define _DBUS_ASSERT_ERROR_CONTENT_IS_SET(error)
+#define _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR(error)
 #else
 #define _DBUS_ASSERT_ERROR_IS_SET(error)   _dbus_assert ((error) == NULL || dbus_error_is_set ((error)))
 #define _DBUS_ASSERT_ERROR_IS_CLEAR(error) _dbus_assert ((error) == NULL || !dbus_error_is_set ((error)))
+#define _DBUS_ASSERT_ERROR_CONTENT_IS_SET(error)   _dbus_assert (dbus_error_is_set ((error)))
+#define _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR(error) _dbus_assert (!dbus_error_is_set ((error)))
 #endif
 
 #define _dbus_return_if_error_is_set(error) _dbus_return_if_fail ((error) == NULL || !dbus_error_is_set ((error)))
