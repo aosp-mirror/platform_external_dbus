@@ -211,7 +211,7 @@ bus_connection_disconnected (DBusConnection *connection)
       if (!bus_service_remove_owner (service, connection,
                                      transaction, &error))
         {
-          _DBUS_ASSERT_ERROR_IS_SET (&error);
+          _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&error);
           
           if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
             {

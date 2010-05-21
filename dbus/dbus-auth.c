@@ -593,7 +593,7 @@ sha1_handle_first_client_response (DBusAuth         *auth,
             }
           else
             {
-              _DBUS_ASSERT_ERROR_IS_SET (&error);
+              _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&error);
               _dbus_verbose ("%s: Error loading keyring: %s\n",
                              DBUS_AUTH_NAME (auth), error.message);
               if (send_rejected (auth))
@@ -614,7 +614,7 @@ sha1_handle_first_client_response (DBusAuth         *auth,
   auth->cookie_id = _dbus_keyring_get_best_key (auth->keyring, &error);
   if (auth->cookie_id < 0)
     {
-      _DBUS_ASSERT_ERROR_IS_SET (&error);
+      _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&error);
       _dbus_verbose ("%s: Could not get a cookie ID to send to client: %s\n",
                      DBUS_AUTH_NAME (auth), error.message);
       if (send_rejected (auth))
@@ -920,7 +920,7 @@ handle_client_data_cookie_sha1_mech (DBusAuth         *auth,
             }
           else
             {
-              _DBUS_ASSERT_ERROR_IS_SET (&error);
+              _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&error);
 
               _dbus_verbose ("%s: Error loading keyring: %s\n",
                              DBUS_AUTH_NAME (auth), error.message);

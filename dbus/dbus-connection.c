@@ -1878,7 +1878,7 @@ _dbus_connection_open_internal (const char     *address,
       if (connection)
         break;
 
-      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+      _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&tmp_error);
       
       if (i == 0)
         dbus_move_error (&tmp_error, &first_error);
@@ -1887,11 +1887,11 @@ _dbus_connection_open_internal (const char     *address,
     }
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+  _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&tmp_error);
   
   if (connection == NULL)
     {
-      _DBUS_ASSERT_ERROR_IS_SET (&first_error);
+      _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&first_error);
       dbus_move_error (&first_error, error);
     }
   else

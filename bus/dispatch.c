@@ -321,7 +321,7 @@ bus_dispatch (DBusConnection *connection,
           if (!bus_activation_activate_service (activation, connection, transaction, TRUE,
                                                 message, service_name, &error))
             {
-              _DBUS_ASSERT_ERROR_IS_SET (&error);
+              _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&error);
               _dbus_verbose ("bus_activation_activate_service() failed: %s\n", error.name);
               goto out;
             }

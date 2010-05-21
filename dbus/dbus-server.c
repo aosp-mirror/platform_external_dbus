@@ -572,14 +572,14 @@ dbus_server_listen (const char     *address,
           if (result == DBUS_SERVER_LISTEN_OK)
             {
               _dbus_assert (server != NULL);
-              _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+              _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&tmp_error);
               handled_once = TRUE;
               goto out;
             }
           else if (result == DBUS_SERVER_LISTEN_BAD_ADDRESS)
             {
               _dbus_assert (server == NULL);
-              _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+              _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&tmp_error);
               dbus_move_error (&tmp_error, error);
               handled_once = TRUE;
               goto out;
@@ -587,14 +587,14 @@ dbus_server_listen (const char     *address,
           else if (result == DBUS_SERVER_LISTEN_NOT_HANDLED)
             {
               _dbus_assert (server == NULL);
-              _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+              _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&tmp_error);
 
               /* keep trying addresses */
             }
           else if (result == DBUS_SERVER_LISTEN_DID_NOT_CONNECT)
             {
               _dbus_assert (server == NULL);
-              _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+              _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&tmp_error);
               if (!dbus_error_is_set (&first_connect_error))
                 dbus_move_error (&tmp_error, &first_connect_error);
               else
@@ -647,7 +647,7 @@ dbus_server_listen (const char     *address,
           dbus_move_error (&first_connect_error, error);
         }
 
-      _DBUS_ASSERT_ERROR_IS_CLEAR (&first_connect_error); /* be sure we freed it */
+      _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR (&first_connect_error); /* be sure we freed it */
       _DBUS_ASSERT_ERROR_IS_SET (error);
 
       return NULL;
