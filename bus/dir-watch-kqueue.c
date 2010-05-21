@@ -169,7 +169,7 @@ bus_set_watched_dirs (BusContext *context, DBusList **directories)
    */
   for (i = 0; new_dirs[i]; i++)
     {
-      for (j = 0; i < num_fds; j++)
+      for (j = 0; j < num_fds; j++)
         {
           if (dirs[j] && strcmp (new_dirs[i], dirs[j]) == 0)
             {
