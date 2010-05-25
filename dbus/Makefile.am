@@ -55,7 +55,7 @@ DBUS_LIB_arch_sources = 			\
 if DBUS_WINCE
 wince_source = dbus-sysdeps-wince-glue.h dbus-sysdeps-wince-glue.c
 else
-wince_source = 
+wince_source =
 endif
 
 DBUS_SHARED_arch_sources = 			\
@@ -88,7 +88,9 @@ DBUS_SHARED_arch_sources = 			\
 	dbus-transport-unix.c			\
 	dbus-transport-unix.h			\
 	dbus-userdb.c				\
-	dbus-userdb.h
+	dbus-userdb.h 				\
+	sd-daemon.c                             \
+	sd-daemon.h
 
 DBUS_UTIL_arch_sources = 			\
 	dbus-sysdeps-util-unix.c		\
@@ -180,8 +182,8 @@ DBUS_LIB_SOURCES=				\
 ##	dbus-md5.h				\
 
 ### source code that goes in the installed client library
-### AND is generic utility functionality used by the 
-### daemon or test programs (all symbols in here should 
+### AND is generic utility functionality used by the
+### daemon or test programs (all symbols in here should
 ### be underscore-prefixed)
 DBUS_SHARED_SOURCES=				\
 	dbus-dataslot.c				\
@@ -210,8 +212,8 @@ DBUS_SHARED_SOURCES=				\
 
 ### source code that is generic utility functionality used
 ### by the bus daemon or test apps, but is NOT included
-### in the D-Bus client library (all symbols in here 
-### should be underscore-prefixed but don't really need 
+### in the D-Bus client library (all symbols in here
+### should be underscore-prefixed but don't really need
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 DBUS_UTIL_SOURCES=				\
 	dbus-auth-util.c			\
@@ -259,7 +261,7 @@ libdbus_internal_la_LIBADD=$(DBUS_CLIENT_LIBS)
 libdbus_internal_la_LDFLAGS=$(export_symbols_internal) @R_DYNAMIC_LDFLAG@
 
 ## note that TESTS has special meaning (stuff to use in make check)
-## so if adding tests not to be run in make check, don't add them to 
+## so if adding tests not to be run in make check, don't add them to
 ## TESTS
 if DBUS_BUILD_TESTS
 TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
@@ -268,7 +270,7 @@ else
 TESTS=
 endif
 
-## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
+## we use noinst_PROGRAMS not check_PROGRAMS so that we build
 ## even when not doing "make check"
 noinst_PROGRAMS=$(TESTS)
 
@@ -281,3 +283,7 @@ dbus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 ## mop up the gcov files
 clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov .libs/*.da .libs/*.bbg || true
+
+update-systemd:
+	curl http://cgit.freedesktop.org/systemd/plain/src/sd-daemon.c > sd-daemon.c
+	curl http://cgit.freedesktop.org/systemd/plain/src/sd-daemon.h > sd-daemon.h
