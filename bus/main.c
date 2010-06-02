@@ -75,7 +75,7 @@ signal_handler (int sig)
 static void
 usage (void)
 {
-  fprintf (stderr, DBUS_DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect] [--address=ADDRESS]\n");
+  fprintf (stderr, DBUS_DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect] [--address=ADDRESS] [--systemd-activation]\n");
   exit (1);
 }
 
@@ -274,6 +274,7 @@ main (int argc, char **argv)
   dbus_bool_t print_pid;
   dbus_bool_t is_session_bus;
   int force_fork;
+  dbus_bool_t systemd_activation;
 
   if (!_dbus_string_init (&config_file))
     return 1;
@@ -291,6 +292,7 @@ main (int argc, char **argv)
   print_pid = FALSE;
   is_session_bus = FALSE;
   force_fork = FORK_FOLLOW_CONFIG_FILE;
+  systemd_activation = FALSE;
 
   prev_arg = NULL;
   i = 1;
@@ -310,6 +312,8 @@ main (int argc, char **argv)
         force_fork = FORK_NEVER;
       else if (strcmp (arg, "--fork") == 0)
         force_fork = FORK_ALWAYS;
+      else if (strcmp (arg, "--systemd-activation") == 0)
+        systemd_activation = TRUE;
       else if (strcmp (arg, "--system") == 0)
         {
           check_two_config_files (&config_file, "system");
@@ -488,6 +492,7 @@ main (int argc, char **argv)
   context = bus_context_new (&config_file, force_fork,
                              &print_addr_pipe, &print_pid_pipe,
                              _dbus_string_get_length(&address) > 0 ? &address : NULL,
+                             systemd_activation,
                              &error);
   _dbus_string_free (&config_file);
   if (context == NULL)

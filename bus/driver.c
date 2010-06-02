@@ -5,7 +5,7 @@
  * Copyright (C) 2003, 2004, 2005 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -15,7 +15,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
@@ -57,20 +57,20 @@ bus_driver_send_service_owner_changed (const char     *service_name,
 
   null_service = "";
   _dbus_verbose ("sending name owner changed: %s [%s -> %s]\n",
-                 service_name, 
-                 old_owner ? old_owner : null_service, 
+                 service_name,
+                 old_owner ? old_owner : null_service,
                  new_owner ? new_owner : null_service);
 
   message = dbus_message_new_signal (DBUS_PATH_DBUS,
                                      DBUS_INTERFACE_DBUS,
                                      "NameOwnerChanged");
-  
+
   if (message == NULL)
     {
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
   if (!dbus_message_set_sender (message, DBUS_SERVICE_DBUS))
     goto oom;
 
@@ -82,7 +82,7 @@ bus_driver_send_service_owner_changed (const char     *service_name,
     goto oom;
 
   _dbus_assert (dbus_message_has_signature (message, "sss"));
-  
+
   retval = bus_dispatch_matches (transaction, NULL, NULL, message, error);
   dbus_message_unref (message);
 
@@ -103,17 +103,17 @@ bus_driver_send_service_lost (DBusConnection *connection,
   DBusMessage *message;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   message = dbus_message_new_signal (DBUS_PATH_DBUS,
                                      DBUS_INTERFACE_DBUS,
                                      "NameLost");
-  
+
   if (message == NULL)
     {
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
   if (!dbus_message_set_destination (message, bus_connection_get_name (connection)) ||
       !dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, &service_name,
@@ -146,7 +146,7 @@ bus_driver_send_service_acquired (DBusConnection *connection,
   DBusMessage *message;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   message = dbus_message_new_signal (DBUS_PATH_DBUS,
                                      DBUS_INTERFACE_DBUS,
                                      "NameAcquired");
@@ -156,7 +156,7 @@ bus_driver_send_service_acquired (DBusConnection *connection,
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
   if (!dbus_message_set_destination (message, bus_connection_get_name (connection)) ||
       !dbus_message_append_args (message,
                                  DBUS_TYPE_STRING, &service_name,
@@ -194,9 +194,9 @@ create_unique_client_name (BusRegistry *registry,
   static int next_major_number = 0;
   static int next_minor_number = 0;
   int len;
-  
+
   len = _dbus_string_get_length (str);
-  
+
   while (TRUE)
     {
       /* start out with 1-0, go to 1-1, 1-2, 1-3,
@@ -214,21 +214,21 @@ create_unique_client_name (BusRegistry *registry,
       _dbus_assert (next_minor_number >= 0);
 
       /* appname:MAJOR-MINOR */
-      
+
       if (!_dbus_string_append (str, ":"))
         return FALSE;
-      
+
       if (!_dbus_string_append_int (str, next_major_number))
         return FALSE;
 
       if (!_dbus_string_append (str, "."))
         return FALSE;
-      
+
       if (!_dbus_string_append_int (str, next_minor_number))
         return FALSE;
 
       next_minor_number += 1;
-      
+
       /* Check if a client with the name exists */
       if (bus_registry_lookup (registry, str) == NULL)
 	break;
@@ -275,7 +275,7 @@ bus_driver_handle_hello (DBusConnection *connection,
       _DBUS_ASSERT_ERROR_IS_SET (error);
       return FALSE;
     }
-  
+
   if (!_dbus_string_init (&unique_name))
     {
       BUS_SET_OOM (error);
@@ -285,7 +285,7 @@ bus_driver_handle_hello (DBusConnection *connection,
   retval = FALSE;
 
   registry = bus_connection_get_registry (connection);
-  
+
   if (!create_unique_client_name (registry, &unique_name))
     {
       BUS_SET_OOM (error);
@@ -297,14 +297,14 @@ bus_driver_handle_hello (DBusConnection *connection,
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto out_0;
     }
-  
+
   if (!dbus_message_set_sender (message,
                                 bus_connection_get_name (connection)))
     {
       BUS_SET_OOM (error);
       goto out_0;
     }
-  
+
   if (!bus_driver_send_welcome_message (connection, message, transaction, error))
     goto out_0;
 
@@ -313,10 +313,10 @@ bus_driver_handle_hello (DBusConnection *connection,
                                  &unique_name, connection, 0, transaction, error);
   if (service == NULL)
     goto out_0;
-  
+
   _dbus_assert (bus_connection_is_active (connection));
   retval = TRUE;
-  
+
  out_0:
   _dbus_string_free (&unique_name);
   return retval;
@@ -332,17 +332,17 @@ bus_driver_send_welcome_message (DBusConnection *connection,
   const char *name;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   name = bus_connection_get_name (connection);
   _dbus_assert (name != NULL);
-  
+
   welcome = dbus_message_new_method_return (hello_message);
   if (welcome == NULL)
     {
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
   if (!dbus_message_append_args (welcome,
                                  DBUS_TYPE_STRING, &name,
                                  DBUS_TYPE_INVALID))
@@ -353,7 +353,7 @@ bus_driver_send_welcome_message (DBusConnection *connection,
     }
 
   _dbus_assert (dbus_message_has_signature (welcome, DBUS_TYPE_STRING_AS_STRING));
-  
+
   if (!bus_transaction_send_from_driver (transaction, connection, welcome))
     {
       dbus_message_unref (welcome);
@@ -382,9 +382,9 @@ bus_driver_handle_list_services (DBusConnection *connection,
   DBusMessageIter sub;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   registry = bus_connection_get_registry (connection);
-  
+
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     {
@@ -400,7 +400,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
     }
 
   dbus_message_iter_init_append (reply, &iter);
-  
+
   if (!dbus_message_iter_open_container (&iter, DBUS_TYPE_ARRAY,
                                          DBUS_TYPE_STRING_AS_STRING,
                                          &sub))
@@ -423,7 +423,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
         return FALSE;
       }
   }
-  
+
   i = 0;
   while (i < len)
     {
@@ -446,7 +446,7 @@ bus_driver_handle_list_services (DBusConnection *connection,
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
   if (!bus_transaction_send_from_driver (transaction, connection, reply))
     {
       dbus_message_unref (reply);
@@ -568,17 +568,17 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
   BusRegistry *registry;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   registry = bus_connection_get_registry (connection);
-  
+
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
                               DBUS_TYPE_UINT32, &flags,
                               DBUS_TYPE_INVALID))
     return FALSE;
-  
+
   _dbus_verbose ("Trying to own name %s with flags 0x%x\n", name, flags);
-  
+
   retval = FALSE;
   reply = NULL;
 
@@ -589,7 +589,7 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
                                      &service_reply, transaction,
                                      error))
     goto out;
-  
+
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     {
@@ -610,12 +610,12 @@ bus_driver_handle_acquire_service (DBusConnection *connection,
     }
 
   retval = TRUE;
-  
+
  out:
   if (reply)
     dbus_message_unref (reply);
   return retval;
-} 
+}
 
 static dbus_bool_t
 bus_driver_handle_release_service (DBusConnection *connection,
@@ -693,9 +693,9 @@ bus_driver_handle_service_exists (DBusConnection *connection,
   BusRegistry *registry;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   registry = bus_connection_get_registry (connection);
-  
+
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
                               DBUS_TYPE_INVALID))
@@ -713,7 +713,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
       service = bus_registry_lookup (registry, &service_name);
       service_exists = service != NULL;
     }
-  
+
   reply = dbus_message_new_method_return (message);
   if (reply == NULL)
     {
@@ -736,7 +736,7 @@ bus_driver_handle_service_exists (DBusConnection *connection,
     }
 
   retval = TRUE;
-  
+
  out:
   if (reply)
     dbus_message_unref (reply);
@@ -756,9 +756,9 @@ bus_driver_handle_activate_service (DBusConnection *connection,
   BusActivation *activation;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   activation = bus_connection_get_activation (connection);
-  
+
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &name,
                               DBUS_TYPE_UINT32, &flags,
@@ -780,7 +780,7 @@ bus_driver_handle_activate_service (DBusConnection *connection,
     }
 
   retval = TRUE;
-  
+
  out:
   return retval;
 }
@@ -811,7 +811,7 @@ send_ack_reply (DBusConnection *connection,
     }
 
   dbus_message_unref (reply);
-  
+
   return TRUE;
 }
 
@@ -952,7 +952,7 @@ bus_driver_handle_add_match (DBusConnection *connection,
   const char *text;
   DBusString str;
   BusMatchmaker *matchmaker;
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   text = NULL;
@@ -969,7 +969,7 @@ bus_driver_handle_add_match (DBusConnection *connection,
                       "(inactive)");
       goto failed;
     }
-  
+
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &text,
                               DBUS_TYPE_INVALID))
@@ -998,9 +998,9 @@ bus_driver_handle_add_match (DBusConnection *connection,
       bus_matchmaker_remove_rule (matchmaker, rule);
       goto failed;
     }
-  
+
   bus_match_rule_unref (rule);
-  
+
   return TRUE;
 
  failed:
@@ -1020,12 +1020,12 @@ bus_driver_handle_remove_match (DBusConnection *connection,
   const char *text;
   DBusString str;
   BusMatchmaker *matchmaker;
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   text = NULL;
   rule = NULL;
-  
+
   if (!dbus_message_get_args (message, error,
                               DBUS_TYPE_STRING, &text,
                               DBUS_TYPE_INVALID))
@@ -1046,14 +1046,14 @@ bus_driver_handle_remove_match (DBusConnection *connection,
   if (!send_ack_reply (connection, transaction,
                        message, error))
     goto failed;
-  
+
   matchmaker = bus_connection_get_matchmaker (connection);
 
   if (!bus_matchmaker_remove_rule_by_value (matchmaker, rule, error))
     goto failed;
 
   bus_match_rule_unref (rule);
-  
+
   return TRUE;
 
  failed:
@@ -1075,7 +1075,7 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
   BusRegistry *registry;
   BusService *service;
   DBusMessage *reply;
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   registry = bus_connection_get_registry (connection);
@@ -1098,7 +1098,7 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
     }
   else if (service == NULL)
     {
-      dbus_set_error (error, 
+      dbus_set_error (error,
                       DBUS_ERROR_NAME_HAS_NO_OWNER,
                       "Could not get owner of name '%s': no such name", text);
       goto failed;
@@ -1114,7 +1114,7 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
                           "Could not determine unique name for '%s'", text);
           goto failed;
         }
-      _dbus_assert (*base_name == ':');      
+      _dbus_assert (*base_name == ':');
     }
 
   _dbus_assert (base_name != NULL);
@@ -1123,11 +1123,11 @@ bus_driver_handle_get_service_owner (DBusConnection *connection,
   if (reply == NULL)
     goto oom;
 
-  if (! dbus_message_append_args (reply, 
+  if (! dbus_message_append_args (reply,
 				  DBUS_TYPE_STRING, &base_name,
 				  DBUS_TYPE_INVALID))
     goto oom;
-  
+
   if (! bus_transaction_send_from_driver (transaction, connection, reply))
     goto oom;
 
@@ -1160,7 +1160,7 @@ bus_driver_handle_list_queued_owners (DBusConnection *connection,
   DBusMessage *reply;
   DBusMessageIter iter, array_iter;
   char *dbus_service_name = DBUS_SERVICE_DBUS;
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   registry = bus_connection_get_registry (connection);
@@ -1185,14 +1185,14 @@ bus_driver_handle_list_queued_owners (DBusConnection *connection,
     }
   else if (service == NULL)
     {
-      dbus_set_error (error, 
+      dbus_set_error (error,
                       DBUS_ERROR_NAME_HAS_NO_OWNER,
                       "Could not get owners of name '%s': no such name", text);
       goto failed;
     }
   else
     {
-      if (!bus_service_list_queued_owners (service, 
+      if (!bus_service_list_queued_owners (service,
                                            &base_names,
                                            error))
         goto failed;
@@ -1210,7 +1210,7 @@ bus_driver_handle_list_queued_owners (DBusConnection *connection,
                                          DBUS_TYPE_STRING_AS_STRING,
                                          &array_iter))
     goto oom;
-  
+
   link = _dbus_list_get_first_link (&base_names);
   while (link != NULL)
     {
@@ -1218,8 +1218,8 @@ bus_driver_handle_list_queued_owners (DBusConnection *connection,
 
       _dbus_assert (link->data != NULL);
       uname = (char *)link->data;
-    
-      if (!dbus_message_iter_append_basic (&array_iter, 
+
+      if (!dbus_message_iter_append_basic (&array_iter,
                                            DBUS_TYPE_STRING,
                                            &uname))
         goto oom;
@@ -1229,8 +1229,8 @@ bus_driver_handle_list_queued_owners (DBusConnection *connection,
 
   if (! dbus_message_iter_close_container (&iter, &array_iter))
     goto oom;
-                                    
- 
+
+
   if (! bus_transaction_send_from_driver (transaction, connection, reply))
     goto oom;
 
@@ -1285,7 +1285,7 @@ bus_driver_handle_get_connection_unix_user (DBusConnection *connection,
   serv = bus_registry_lookup (registry, &str);
   if (serv == NULL)
     {
-      dbus_set_error (error, 
+      dbus_set_error (error,
 		      DBUS_ERROR_NAME_HAS_NO_OWNER,
 		      "Could not get UID of name '%s': no such name", service);
       goto failed;
@@ -1361,7 +1361,7 @@ bus_driver_handle_get_connection_unix_process_id (DBusConnection *connection,
   serv = bus_registry_lookup (registry, &str);
   if (serv == NULL)
     {
-      dbus_set_error (error, 
+      dbus_set_error (error,
 		      DBUS_ERROR_NAME_HAS_NO_OWNER,
 		      "Could not get PID of name '%s': no such name", service);
       goto failed;
@@ -1437,7 +1437,7 @@ bus_driver_handle_get_adt_audit_session_data (DBusConnection *connection,
   serv = bus_registry_lookup (registry, &str);
   if (serv == NULL)
     {
-      dbus_set_error (error, 
+      dbus_set_error (error,
 		      DBUS_ERROR_NAME_HAS_NO_OWNER,
 		      "Could not get audit session data for name '%s': no such name", service);
       goto failed;
@@ -1511,7 +1511,7 @@ bus_driver_handle_get_connection_selinux_security_context (DBusConnection *conne
   serv = bus_registry_lookup (registry, &str);
   if (serv == NULL)
     {
-      dbus_set_error (error, 
+      dbus_set_error (error,
 		      DBUS_ERROR_NAME_HAS_NO_OWNER,
 		      "Could not get security context of name '%s': no such name", service);
       goto failed;
@@ -1564,7 +1564,7 @@ bus_driver_handle_reload_config (DBusConnection *connection,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   reply = NULL;
-  
+
   context = bus_connection_get_context (connection);
   if (!bus_context_reload_config (context, error))
     goto failed;
@@ -1609,7 +1609,7 @@ bus_driver_handle_get_id (DBusConnection *connection,
     }
 
   reply = NULL;
-  
+
   context = bus_connection_get_context (connection);
   if (!bus_context_get_id (context, &uuid))
     goto oom;
@@ -1623,24 +1623,24 @@ bus_driver_handle_get_id (DBusConnection *connection,
                                  DBUS_TYPE_STRING, &v_STRING,
                                  DBUS_TYPE_INVALID))
     goto oom;
-  
+
   _dbus_assert (dbus_message_has_signature (reply, "s"));
-  
+
   if (! bus_transaction_send_from_driver (transaction, connection, reply))
     goto oom;
 
-  _dbus_string_free (&uuid);  
+  _dbus_string_free (&uuid);
   dbus_message_unref (reply);
   return TRUE;
 
  oom:
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   BUS_SET_OOM (error);
 
   if (reply)
     dbus_message_unref (reply);
-  _dbus_string_free (&uuid);  
+  _dbus_string_free (&uuid);
   return FALSE;
 }
 
@@ -1661,7 +1661,7 @@ static struct
   { "Hello",
     "",
     DBUS_TYPE_STRING_AS_STRING,
-    bus_driver_handle_hello },  
+    bus_driver_handle_hello },
   { "RequestName",
     DBUS_TYPE_STRING_AS_STRING DBUS_TYPE_UINT32_AS_STRING,
     DBUS_TYPE_UINT32_AS_STRING,
@@ -1740,10 +1740,10 @@ write_args_for_direction (DBusString *xml,
   DBusTypeReader typereader;
   DBusString sigstr;
   int current_type;
-  
+
   _dbus_string_init_const (&sigstr, signature);
   _dbus_type_reader_init_types_only (&typereader, &sigstr, 0);
-      
+
   while ((current_type = _dbus_type_reader_get_current_type (&typereader)) != DBUS_TYPE_INVALID)
     {
       const DBusString *subsig;
@@ -1794,7 +1794,7 @@ bus_driver_generate_introspect_string (DBusString *xml)
   i = 0;
   while (i < _DBUS_N_ELEMENTS (message_handlers))
     {
-	  
+
       if (!_dbus_string_append_printf (xml, "    <method name=\"%s\">\n",
                                        message_handlers[i].name))
         return FALSE;
@@ -1807,22 +1807,22 @@ bus_driver_generate_introspect_string (DBusString *xml)
 
       if (!_dbus_string_append (xml, "    </method>\n"))
 	return FALSE;
-      
+
       ++i;
     }
 
   if (!_dbus_string_append_printf (xml, "    <signal name=\"NameOwnerChanged\">\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append_printf (xml, "    </signal>\n"))
     return FALSE;
 
@@ -1830,10 +1830,10 @@ bus_driver_generate_introspect_string (DBusString *xml)
 
   if (!_dbus_string_append_printf (xml, "    <signal name=\"NameLost\">\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append_printf (xml, "    </signal>\n"))
     return FALSE;
 
@@ -1841,16 +1841,16 @@ bus_driver_generate_introspect_string (DBusString *xml)
 
   if (!_dbus_string_append_printf (xml, "    <signal name=\"NameAcquired\">\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append_printf (xml, "      <arg type=\"s\"/>\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append_printf (xml, "    </signal>\n"))
     return FALSE;
 
   if (!_dbus_string_append (xml, "  </interface>\n"))
     return FALSE;
-  
+
   if (!_dbus_string_append (xml, "</node>\n"))
     return FALSE;
 
@@ -1868,7 +1868,7 @@ bus_driver_handle_introspect (DBusConnection *connection,
   const char *v_STRING;
 
   _dbus_verbose ("Introspect() on bus driver\n");
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   reply = NULL;
@@ -1915,7 +1915,7 @@ bus_driver_handle_introspect (DBusConnection *connection,
     dbus_message_unref (reply);
 
   _dbus_string_free (&xml);
-  
+
   return FALSE;
 }
 
@@ -1930,6 +1930,14 @@ bus_driver_handle_message (DBusConnection *connection,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
+  if (dbus_message_is_signal (message, "org.freedesktop.systemd1.Activator", "ActivationFailure"))
+    {
+      BusContext *context;
+
+      context = bus_connection_get_context (connection);
+      return dbus_activation_systemd_failure(bus_context_get_activation(context), message);
+    }
+
   if (dbus_message_get_type (message) != DBUS_MESSAGE_TYPE_METHOD_CALL)
     {
       _dbus_verbose ("Driver got a non-method-call message, ignoring\n");
@@ -1940,16 +1948,16 @@ bus_driver_handle_message (DBusConnection *connection,
                                    DBUS_INTERFACE_INTROSPECTABLE,
                                    "Introspect"))
     return bus_driver_handle_introspect (connection, transaction, message, error);
-  
+
   interface = dbus_message_get_interface (message);
   if (interface == NULL)
     interface = DBUS_INTERFACE_DBUS;
-  
+
   _dbus_assert (dbus_message_get_member (message) != NULL);
-  
+
   name = dbus_message_get_member (message);
   sender = dbus_message_get_sender (message);
-  
+
   if (strcmp (interface,
               DBUS_INTERFACE_DBUS) != 0)
     {
@@ -1957,13 +1965,13 @@ bus_driver_handle_message (DBusConnection *connection,
                      interface);
       goto unknown;
     }
-  
+
   _dbus_verbose ("Driver got a method call: %s\n",
 		 dbus_message_get_member (message));
-  
+
   /* security checks should have kept this from getting here */
   _dbus_assert (sender != NULL || strcmp (name, "Hello") == 0);
-  
+
   i = 0;
   while (i < _DBUS_N_ELEMENTS (message_handlers))
     {
@@ -1977,7 +1985,7 @@ bus_driver_handle_message (DBusConnection *connection,
               _dbus_verbose ("Call to %s has wrong args (%s, expected %s)\n",
                              name, dbus_message_get_signature (message),
                              message_handlers[i].in_args);
-              
+
               dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
                               "Call to %s has wrong args (%s, expected %s)\n",
                               name, dbus_message_get_signature (message),
@@ -1985,7 +1993,7 @@ bus_driver_handle_message (DBusConnection *connection,
               _DBUS_ASSERT_ERROR_IS_SET (error);
               return FALSE;
             }
-          
+
           if ((* message_handlers[i].handler) (connection, transaction, message, error))
             {
               _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -1999,7 +2007,7 @@ bus_driver_handle_message (DBusConnection *connection,
               return FALSE;
             }
         }
-      
+
       ++i;
     }
 
@@ -2010,7 +2018,7 @@ bus_driver_handle_message (DBusConnection *connection,
   dbus_set_error (error, DBUS_ERROR_UNKNOWN_METHOD,
                   "%s does not understand message %s",
                   DBUS_SERVICE_DBUS, name);
-  
+
   return FALSE;
 }
 

@@ -60,6 +60,7 @@ struct BusContext
   unsigned int syslog : 1;
   unsigned int keep_umask : 1;
   unsigned int allow_anonymous : 1;
+  unsigned int systemd_activation : 1;
 };
 
 static dbus_int32_t server_data_slot = -1;
@@ -276,6 +277,7 @@ static dbus_bool_t
 process_config_first_time_only (BusContext       *context,
 				BusConfigParser  *parser,
                                 const DBusString *address,
+                                dbus_bool_t      systemd_activation,
 				DBusError        *error)
 {
   DBusString log_prefix;
@@ -291,6 +293,8 @@ process_config_first_time_only (BusContext       *context,
 
   retval = FALSE;
   auth_mechanisms = NULL;
+
+  context->systemd_activation = systemd_activation;
 
   /* Check for an existing pid file. Of course this is a race;
    * we'd have to use fcntl() locks on the pid file to
@@ -652,6 +656,7 @@ bus_context_new (const DBusString *config_file,
                  DBusPipe         *print_addr_pipe,
                  DBusPipe         *print_pid_pipe,
                  const DBusString *address,
+                 dbus_bool_t      systemd_activation,
                  DBusError        *error)
 {
   DBusString log_prefix;
@@ -706,7 +711,7 @@ bus_context_new (const DBusString *config_file,
       goto failed;
     }
 
-  if (!process_config_first_time_only (context, parser, address, error))
+  if (!process_config_first_time_only (context, parser, address, systemd_activation, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
@@ -1082,6 +1087,12 @@ const char*
 bus_context_get_servicehelper (BusContext *context)
 {
   return context->servicehelper;
+}
+
+dbus_bool_t
+bus_context_get_systemd_activation (BusContext *context)
+{
+  return context->systemd_activation;
 }
 
 BusRegistry*

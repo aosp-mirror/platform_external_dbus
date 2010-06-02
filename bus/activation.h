@@ -4,7 +4,7 @@
  * Copyright (C) 2003  CodeFactory AB
  *
  * Licensed under the Academic Free License version 2.1
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,7 +14,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
@@ -57,12 +57,13 @@ dbus_bool_t    bus_activation_service_created  (BusActivation     *activation,
 dbus_bool_t    bus_activation_list_services    (BusActivation     *registry,
 						char            ***listp,
 						int               *array_len);
+dbus_bool_t    dbus_activation_systemd_failure (BusActivation     *activation,
+                                                DBusMessage       *message);
 
 dbus_bool_t    bus_activation_send_pending_auto_activation_messages (BusActivation     *activation,
 								     BusService        *service,
 								     BusTransaction    *transaction,
 								     DBusError         *error);
-
 
 
 #endif /* BUS_ACTIVATION_H */
