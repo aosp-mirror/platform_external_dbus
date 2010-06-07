@@ -68,8 +68,6 @@ _dbus_file_read (HANDLE            hnd,
 
   data = _dbus_string_get_data_len (buffer, start, count);
 
- again:
-
   result = ReadFile (hnd, data, count, &bytes_read, NULL);
   if (result == 0)
     {
@@ -114,7 +112,7 @@ _dbus_file_get_contents (DBusString       *str,
   DWORD fsize;
   DWORD fsize_hi;
   int orig_len;
-  int total;
+  unsigned int total;
   const char *filename_c;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);

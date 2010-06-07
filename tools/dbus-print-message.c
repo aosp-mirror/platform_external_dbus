@@ -56,7 +56,7 @@ indent (int depth)
 static void
 print_hex (unsigned char *bytes, unsigned int len, int depth)
 {
-  int i, columns;
+  unsigned int i, columns;
 
   printf ("array of bytes [\n");
 
