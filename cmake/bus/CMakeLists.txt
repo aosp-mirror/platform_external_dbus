@@ -83,7 +83,7 @@ set_target_properties(dbus-daemon PROPERTIES OUTPUT_NAME ${DBUS_DAEMON_NAME})
 set_target_properties(dbus-daemon PROPERTIES COMPILE_FLAGS ${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 
 install_targets(/bin dbus-daemon)
-install_files(/etc FILES ${config_DATA})
+install_files(/etc/dbus-1 FILES ${config_DATA})
 
 if (DBUS_SERVICE)
 	set (dbus_service_SOURCES 
