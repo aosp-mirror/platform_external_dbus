@@ -326,6 +326,8 @@ static void               _dbus_connection_release_dispatch                  (DB
 static DBusDispatchStatus _dbus_connection_flush_unlocked                    (DBusConnection     *connection);
 static void               _dbus_connection_close_possibly_shared_and_unlock  (DBusConnection     *connection);
 static dbus_bool_t        _dbus_connection_get_is_connected_unlocked         (DBusConnection     *connection);
+static dbus_bool_t        _dbus_connection_peek_for_reply_unlocked           (DBusConnection     *connection,
+                                                                              dbus_uint32_t       client_serial);
 
 static DBusMessageFilter *
 _dbus_message_filter_ref (DBusMessageFilter *filter)
@@ -1143,14 +1145,22 @@ _dbus_connection_release_io_path (DBusConnection *connection)
  * you specify DBUS_ITERATION_BLOCK; in that case the function
  * returns immediately.
  *
+ * If pending is not NULL then a check is made if the pending call
+ * is completed after the io path has been required. If the call
+ * has been completed nothing is done. This must be done since
+ * the _dbus_connection_acquire_io_path releases the connection
+ * lock for a while.
+ *
  * Called with connection lock held.
  * 
  * @param connection the connection.
+ * @param pending the pending call that should be checked or NULL
  * @param flags iteration flags.
  * @param timeout_milliseconds maximum blocking time, or -1 for no limit.
  */
 void
 _dbus_connection_do_iteration_unlocked (DBusConnection *connection,
+                                        DBusPendingCall *pending,
                                         unsigned int    flags,
                                         int             timeout_milliseconds)
 {
@@ -1166,8 +1176,22 @@ _dbus_connection_do_iteration_unlocked (DBusConnection *connection,
     {
       HAVE_LOCK_CHECK (connection);
       
-      _dbus_transport_do_iteration (connection->transport,
-				    flags, timeout_milliseconds);
+      if ( (pending != NULL) && _dbus_pending_call_get_completed_unlocked(pending))
+        {
+          _dbus_verbose ("pending call completed while acquiring I/O path");
+        }
+      else if ( (pending != NULL) &&
+                _dbus_connection_peek_for_reply_unlocked (connection,
+                                                          _dbus_pending_call_get_reply_serial_unlocked (pending)))
+        {
+          _dbus_verbose ("pending call completed while acquiring I/O path (reply found in queue)");
+        }
+      else
+        {
+          _dbus_transport_do_iteration (connection->transport,
+                                        flags, timeout_milliseconds);
+        }
+
       _dbus_connection_release_io_path (connection);
     }
 
@@ -1995,6 +2019,7 @@ _dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *con
    * out immediately, and otherwise get them queued up
    */
   _dbus_connection_do_iteration_unlocked (connection,
+                                          NULL,
                                           DBUS_ITERATION_DO_WRITING,
                                           -1);
 
@@ -2163,6 +2188,32 @@ generate_local_error_message (dbus_uint32_t serial,
   return message;
 }
 
+/*
+ * Peek the incoming queue to see if we got reply for a specific serial
+ */
+static dbus_bool_t
+_dbus_connection_peek_for_reply_unlocked (DBusConnection *connection,
+                                          dbus_uint32_t   client_serial)
+{
+  DBusList *link;
+  HAVE_LOCK_CHECK (connection);
+
+  link = _dbus_list_get_first_link (&connection->incoming_messages);
+
+  while (link != NULL)
+    {
+      DBusMessage *reply = link->data;
+
+      if (dbus_message_get_reply_serial (reply) == client_serial)
+        {
+          _dbus_verbose ("%s reply to %d found in queue\n", _DBUS_FUNCTION_NAME, client_serial);
+          return TRUE;
+        }
+      link = _dbus_list_get_next_link (&connection->incoming_messages, link);
+    }
+
+  return FALSE;
+}
 
 /* This is slightly strange since we can pop a message here without
  * the dispatch lock.
@@ -2339,6 +2390,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
   /* Now we wait... */
   /* always block at least once as we know we don't have the reply yet */
   _dbus_connection_do_iteration_unlocked (connection,
+                                          pending,
                                           DBUS_ITERATION_DO_READING |
                                           DBUS_ITERATION_BLOCK,
                                           timeout_milliseconds);
@@ -2405,6 +2457,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
         {          
           /* block again, we don't have the reply buffered yet. */
           _dbus_connection_do_iteration_unlocked (connection,
+                                                  pending,
                                                   DBUS_ITERATION_DO_READING |
                                                   DBUS_ITERATION_BLOCK,
                                                   timeout_milliseconds - elapsed_milliseconds);
@@ -2432,6 +2485,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
         {          
           /* block again, we don't have the reply buffered yet. */
           _dbus_connection_do_iteration_unlocked (connection,
+                                                  NULL,
                                                   DBUS_ITERATION_DO_READING |
                                                   DBUS_ITERATION_BLOCK,
                                                   timeout_milliseconds - elapsed_milliseconds);
@@ -3515,6 +3569,7 @@ _dbus_connection_flush_unlocked (DBusConnection *connection)
       _dbus_verbose ("doing iteration in\n");
       HAVE_LOCK_CHECK (connection);
       _dbus_connection_do_iteration_unlocked (connection,
+                                              NULL,
                                               DBUS_ITERATION_DO_READING |
                                               DBUS_ITERATION_DO_WRITING |
                                               DBUS_ITERATION_BLOCK,
@@ -3601,6 +3656,7 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
         {
           _dbus_verbose ("doing iteration\n");
           _dbus_connection_do_iteration_unlocked (connection,
+                                                  NULL,
                                                   DBUS_ITERATION_DO_READING |
                                                   DBUS_ITERATION_DO_WRITING |
                                                   DBUS_ITERATION_BLOCK,
