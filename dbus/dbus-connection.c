@@ -815,7 +815,7 @@ retry:
   else
     {
       CONNECTION_UNLOCK (connection);
-      usleep(1000);
+      _dbus_sleep_milliseconds (1);
       CONNECTION_LOCK (connection);
       goto retry;
     }
