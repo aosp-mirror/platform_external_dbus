@@ -35,7 +35,9 @@
 
 DBUS_BEGIN_DECLS
 
+#ifndef DBUS_SESSION_BUS_DEFAULT_ADDRESS
 #define DBUS_SESSION_BUS_DEFAULT_ADDRESS	"autolaunch:"
+#endif
 
 void _dbus_warn               (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
