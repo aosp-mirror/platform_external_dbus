@@ -785,6 +785,7 @@ protected_change_timeout (DBusConnection           *connection,
    * drop lock and call out" one; but it has to be propagated up through all callers
    */
   
+retry:
   timeouts = connection->timeouts;
   if (timeouts)
     {
@@ -812,7 +813,12 @@ protected_change_timeout (DBusConnection           *connection,
       return retval;
     }
   else
-    return FALSE;
+    {
+      CONNECTION_UNLOCK (connection);
+      usleep(1000);
+      CONNECTION_LOCK (connection);
+      goto retry;
+    }
 }
 
 /**
