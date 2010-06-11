@@ -89,7 +89,7 @@ get_verbose_setting()
       RegCloseKey (key_handle);
       return NULL;
     }
-  if (RegQueryValueExW (key_handle, name, 0, &type, result_w, &nbytes))
+  if (RegQueryValueExW (key_handle, name, 0, &type, (LPBYTE) result_w, &nbytes))
     {
       RegCloseKey (key_handle);
       free (result_w);
@@ -1143,4 +1143,23 @@ SHGetSpecialFolderPathA (HWND hwndOwner, LPSTR lpszPath, int nFolder,
   dbus_free (path_c);
   lpszPath[MAX_PATH - 1] = '\0';
   return result;
+}
+
+
+void
+OutputDebugStringA (LPCSTR lpOutputString)
+{
+  wchar_t *str;
+  HANDLE result;
+  int err;
+
+  str = _dbus_win_utf8_to_utf16 (lpOutputString, NULL);
+  if (!str)
+    return;
+
+  OutputDebugStringW (str);
+
+  err = GetLastError ();
+  dbus_free (str);
+  SetLastError (err);
 }

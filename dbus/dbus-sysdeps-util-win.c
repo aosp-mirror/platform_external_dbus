@@ -307,7 +307,7 @@ _dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args
    
   sprintf(buf,"%s%s",s,msg);
   vsprintf(buf,buf,args);
-  OutputDebugString(buf);
+  OutputDebugStringA(buf);
   
   if (severity == DBUS_SYSTEM_LOG_FATAL)
     exit (1);

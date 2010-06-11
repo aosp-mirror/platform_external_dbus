@@ -443,7 +443,7 @@ _dbus_verbose_real (const char *format,
 #endif
   vsprintf (buf+strlen(buf),format, args);
   va_end (args);
-  OutputDebugString(buf);
+  OutputDebugStringA(buf);
   }
 #else
 #ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS

@@ -237,6 +237,10 @@ DWORD GetTempPathA(DWORD,LPSTR);
 BOOL SHGetSpecialFolderPathA(HWND,LPSTR,int,BOOL);
 
 
+#define OutputDebugStringA _dbus_wince_OutputDebugStringA
+void OutputDebugStringA(LPCSTR);
+
+
 DBUS_END_DECLS
 
 #endif /* DBUS_SYSDEPS_WINCE_GLUE_H */
