@@ -22,6 +22,7 @@
  */
 
 #include <config.h>
+#include "dbus-config.h"
 #include "dbus-memory.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
@@ -128,33 +129,33 @@ _dbus_initialize_malloc_debug (void)
     {
       debug_initialized = TRUE;
       
-      if (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH") != NULL)
+      if (_dbus_config_malloc_fail_nth () != NULL)
 	{
-	  fail_nth = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH"));
+	  fail_nth = atoi (_dbus_config_malloc_fail_nth ());
           fail_alloc_counter = fail_nth;
           _dbus_verbose ("Will fail malloc every %d times\n", fail_nth);
 	}
       
-      if (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN") != NULL)
+      if (_dbus_config_malloc_fail_greater_than () != NULL)
         {
-          fail_size = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN"));
+          fail_size = atoi (_dbus_config_malloc_fail_greater_than ());
           _dbus_verbose ("Will fail mallocs over %ld bytes\n",
                          (long) fail_size);
         }
 
-      if (_dbus_getenv ("DBUS_MALLOC_GUARDS") != NULL)
+      if (_dbus_config_malloc_guards () != NULL)
         {
           guards = TRUE;
           _dbus_verbose ("Will use malloc guards\n");
         }
 
-      if (_dbus_getenv ("DBUS_DISABLE_MEM_POOLS") != NULL)
+      if (_dbus_config_disable_mem_pools () != NULL)
         {
           disable_mem_pools = TRUE;
           _dbus_verbose ("Will disable memory pools\n");
         }
 
-      if (_dbus_getenv ("DBUS_MALLOC_BACKTRACES") != NULL)
+      if (_dbus_config_malloc_backtraces () != NULL)
         {
           backtrace_on_fail_alloc = TRUE;
           _dbus_verbose ("Will backtrace on failing a malloc\n");

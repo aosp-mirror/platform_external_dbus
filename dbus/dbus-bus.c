@@ -24,6 +24,7 @@
 
 #include <config.h>
 #include "dbus-bus.h"
+#include "dbus-config.h"
 #include "dbus-protocol.h"
 #include "dbus-internals.h"
 #include "dbus-message.h"
@@ -278,7 +279,7 @@ init_connections_unlocked (void)
 
       if (bus_connection_addresses[DBUS_BUS_STARTER] != NULL)
         {
-          s = _dbus_getenv ("DBUS_STARTER_BUS_TYPE");
+          s = _dbus_config_starter_bus_type();
               
           if (s != NULL)
             {

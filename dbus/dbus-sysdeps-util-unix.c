@@ -115,7 +115,7 @@ _dbus_become_daemon (const DBusString *pidfile,
           dup2 (dev_null_fd, 0);
           dup2 (dev_null_fd, 1);
           
-          s = _dbus_getenv ("DBUS_DEBUG_OUTPUT");
+          s = _dbus_config_debug_output ();
           if (s == NULL || *s == '\0')
             dup2 (dev_null_fd, 2);
           else

@@ -184,6 +184,8 @@ DBUS_LIB_SOURCES=				\
 ### daemon or test programs (all symbols in here should 
 ### be underscore-prefixed)
 DBUS_SHARED_SOURCES=				\
+	dbus-config.c				\
+	dbus-config.h				\
 	dbus-dataslot.c				\
 	dbus-dataslot.h				\
 	dbus-file.c                 \
