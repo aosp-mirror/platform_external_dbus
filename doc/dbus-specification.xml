@@ -4172,7 +4172,7 @@
         <para>
           As a method:
           <programlisting>
-            UINT32 GetConnectionUnixUser (in STRING connection_name)
+            UINT32 GetConnectionUnixUser (in STRING bus_name)
           </programlisting>
           Message arguments:
           <informaltable>
@@ -4188,7 +4188,9 @@
                 <row>
                   <entry>0</entry>
                   <entry>STRING</entry>
-                  <entry>Name of the connection to query</entry>
+                  <entry>Unique or well-known bus name of the connection to
+                    query, such as <literal>:12.34</literal> or
+                    <literal>com.example.tea</literal></entry>
                 </row>
               </tbody>
             </tgroup>
@@ -4207,14 +4209,14 @@
               <row>
                 <entry>0</entry>
                 <entry>UINT32</entry>
-                <entry>unix user id</entry>
+                <entry>Unix user ID</entry>
               </row>
             </tbody>
           </tgroup>
         </informaltable>
-        Returns the unix uid of the process connected to the server. If unable to
-	determine it, a <literal>org.freedesktop.DBus.Error.Failed</literal>
-	error is returned.
+        Returns the Unix user ID of the process connected to the server. If
+        unable to determine it (for instance, because the process is not on the
+        same machine as the bus daemon), an error is returned.
        </para>
       </sect3>
 
