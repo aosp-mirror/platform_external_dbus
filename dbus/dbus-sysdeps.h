@@ -25,6 +25,8 @@
 #ifndef DBUS_SYSDEPS_H
 #define DBUS_SYSDEPS_H
 
+#include "config.h"
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -38,10 +40,6 @@
  */
 #include <string.h>
 #include <stdarg.h>
-
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
 
 /* AIX sys/poll.h does #define events reqevents, and other
  * wonderousness, so must include sys/poll before declaring
