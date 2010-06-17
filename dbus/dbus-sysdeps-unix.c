@@ -24,7 +24,6 @@
 
 #include <config.h>
 
-#include "dbus-config.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-sysdeps-unix.h"
@@ -3256,8 +3255,8 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
   if (!_dbus_string_init (&servicedir_path))
     return FALSE;
 
-  xdg_data_home = _dbus_config_xdg_data_home ();
-  xdg_data_dirs = _dbus_config_xdg_data_dirs ();
+  xdg_data_home = _dbus_getenv ("XDG_DATA_HOME");
+  xdg_data_dirs = _dbus_getenv ("XDG_DATA_DIRS");
 
   if (xdg_data_dirs != NULL)
     {
@@ -3344,7 +3343,7 @@ _dbus_get_standard_system_servicedirs (DBusList **dirs)
   if (!_dbus_string_init (&servicedir_path))
     return FALSE;
 
-  xdg_data_dirs = _dbus_config_xdg_data_dirs ();
+  xdg_data_dirs = _dbus_getenv ("XDG_DATA_DIRS");
 
   if (xdg_data_dirs != NULL)
     {
@@ -3458,7 +3457,7 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
   {
     const char *override;
     
-    override = _dbus_config_test_homedir ();
+    override = _dbus_getenv ("DBUS_TEST_HOMEDIR");
     if (override != NULL && *override != '\0')
       {
         _dbus_string_set_length (&homedir, 0);

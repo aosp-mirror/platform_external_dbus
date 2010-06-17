@@ -121,7 +121,6 @@ endif(UNIX)
 ### daemon or test programs (all symbols in here should 
 ### be underscore-prefixed)
 set (DBUS_SHARED_SOURCES
-	${DBUS_DIR}/dbus-config.c
 	${DBUS_DIR}/dbus-dataslot.c
 	${DBUS_DIR}/dbus-file.c
 	${DBUS_DIR}/dbus-hash.c
@@ -156,7 +155,6 @@ set (DBUS_SHARED_HEADERS
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 set (DBUS_UTIL_SOURCES
 	${DBUS_DIR}/dbus-auth-util.c
-	${DBUS_DIR}/dbus-config.h
 	${DBUS_DIR}/dbus-credentials-util.c
 	${DBUS_DIR}/dbus-mainloop.c
 	${DBUS_DIR}/dbus-marshal-byteswap-util.c

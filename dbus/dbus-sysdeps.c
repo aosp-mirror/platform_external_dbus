@@ -23,7 +23,6 @@
  */
 
 #include <config.h>
-#include "dbus-config.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
@@ -84,7 +83,7 @@ _dbus_abort (void)
   
   _dbus_print_backtrace ();
   
-  s = _dbus_config_block_on_abort ();
+  s = _dbus_getenv ("DBUS_BLOCK_ON_ABORT");
   if (s && *s)
     {
       /* don't use _dbus_warn here since it can _dbus_abort() */

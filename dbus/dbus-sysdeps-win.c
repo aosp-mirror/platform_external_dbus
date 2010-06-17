@@ -36,7 +36,6 @@
 #endif
 #endif
 
-#include "dbus-config.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
@@ -2803,7 +2802,7 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
 #ifdef DBUS_WINCE
   {
     /* On Windows CE, we adjust datadir dynamically to installation location.  */
-    const char *data_dir = _dbus_config_datadir ();
+    const char *data_dir = _dbus_getenv ("DBUS_DATADIR");
 
     if (data_dir != NULL)
       {
@@ -3103,13 +3102,13 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
   if (!_dbus_string_init (&homedir))
     return FALSE;
 
-  homedrive = _dbus_config_homedrive ();
+  homedrive = _dbus_getenv("HOMEDRIVE");
   if (homedrive != NULL && *homedrive != '\0')
     {
       _dbus_string_append(&homedir,homedrive);
     }
 
-  homepath = _dbus_config_homepath ();
+  homepath = _dbus_getenv("HOMEPATH");
   if (homepath != NULL && *homepath != '\0')
     {
       _dbus_string_append(&homedir,homepath);
@@ -3119,7 +3118,7 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
   {
     const char *override;
     
-    override = _dbus_config_test_homedir ();
+    override = _dbus_getenv ("DBUS_TEST_HOMEDIR");
     if (override != NULL && *override != '\0')
       {
         _dbus_string_set_length (&homedir, 0);

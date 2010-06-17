@@ -22,7 +22,6 @@
  */
 
 #include <config.h>
-#include "dbus-config.h"
 #include "dbus-test.h"
 #include "dbus-sysdeps.h"
 #include "dbus-internals.h"
@@ -104,7 +103,7 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir, const char *speci
     die ("debug threads init");
   
   if (test_data_dir == NULL)
-    test_data_dir = _dbus_config_test_data ();
+    test_data_dir = _dbus_getenv ("DBUS_TEST_DATA");
 
   if (test_data_dir != NULL)
     printf ("Test data in %s\n", test_data_dir);

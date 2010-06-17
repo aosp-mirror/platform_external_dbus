@@ -22,7 +22,6 @@
  */
 
 #include <config.h>
-#include "dbus-config.h"
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
 #include "dbus-marshal-basic.h"
@@ -208,7 +207,7 @@ init_warnings(void)
   if (!warn_initted)
     {
       const char *s;
-      s = _dbus_config_fatal_warnings ();
+      s = _dbus_getenv ("DBUS_FATAL_WARNINGS");
       if (s && *s)
         {
           if (*s == '0')
@@ -314,7 +313,7 @@ _dbus_verbose_init (void)
 {
   if (!verbose_initted)
     {
-      const char *p = _dbus_config_verbose ();
+      const char *p = _dbus_getenv ("DBUS_VERBOSE");
       verbose = p != NULL && *p == '1';
       verbose_initted = TRUE;
 #ifdef DBUS_USE_OUTPUT_DEBUG_STRING
@@ -1004,7 +1003,7 @@ _dbus_test_oom_handling (const char             *description,
   _dbus_verbose ("\n=================\n%s: about %d mallocs total\n=================\n",
                  description, approx_mallocs);
 
-  setting = _dbus_config_test_malloc_failures ();
+  setting = _dbus_getenv ("DBUS_TEST_MALLOC_FAILURES");
   if (setting != NULL)
     {
       DBusString str;
