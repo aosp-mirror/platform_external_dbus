@@ -131,6 +131,25 @@ bus_config_parser_unref (BusConfigParser *parser)
 }
 
 dbus_bool_t
+bus_config_parser_check_doctype (BusConfigParser   *parser,
+                                 const char        *doctype,
+                                 DBusError         *error)
+{
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (strcmp (doctype, "busconfig") != 0)
+    {
+      dbus_set_error (error,
+                      DBUS_ERROR_FAILED,
+                      "Configuration file has the wrong document type %s",
+                      doctype);
+      return FALSE;
+    }
+  else
+    return TRUE;
+}
+
+dbus_bool_t
 bus_config_parser_start_element (BusConfigParser   *parser,
                                  const char        *element_name,
                                  const char       **attribute_names,
