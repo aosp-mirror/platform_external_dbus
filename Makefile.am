@@ -58,3 +58,6 @@ check-coverage:
 	echo "Need to reconfigure with --enable-gcov"
 
 endif
+
+update-authors:
+	git shortlog -s -e | cut -c 8- | sort > AUTHORS
