@@ -74,7 +74,7 @@ BUS_SOURCES=					\
 
 dbus_daemon_SOURCES=				\
 	$(BUS_SOURCES)				\
-	main.c					
+	main.c
 
 dbus_daemon_CPPFLAGS = -DDBUS_STATIC_BUILD
 dbus_daemon_LDADD=					\
@@ -151,7 +151,7 @@ extra_inst_programs+=dbus-daemon
 endif
 
 ## note that TESTS has special meaning (stuff to use in make check)
-## so if adding tests not to be run in make check, don't add them to 
+## so if adding tests not to be run in make check, don't add them to
 ## TESTS
 if DBUS_BUILD_TESTS
 TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus DBUS_FATAL_WARNINGS=1 DBUS_BLOCK_ON_ABORT=1
@@ -160,7 +160,7 @@ else
 TESTS=
 endif
 
-## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
+## we use noinst_PROGRAMS not check_PROGRAMS so that we build
 ## even when not doing "make check"
 noinst_PROGRAMS=$(TESTS) $(extra_noinst_programs)
 bin_PROGRAMS=$(extra_inst_programs)
@@ -219,6 +219,11 @@ if DBUS_UNIX
 	fi \
 	fi
 endif
+if HAVE_SYSTEMD
+# Install dbus.socket as default implementation of a D-Bus stack
+	$(mkinstalldirs) $(DESTDIR)$(systemdsystemunitdir)/dbus.target.wants
+	$(LN_S) ../dbus.socket $(DESTDIR)$(systemdsystemunitdir)/dbus.target.wants/dbus.socket
+endif
 
 #### Init scripts fun
 SCRIPT_IN_FILES=messagebus.in \
@@ -246,9 +251,19 @@ initd_SCRIPTS= 	\
 endif
 ## Slackware end
 
+if HAVE_SYSTEMD
+SCRIPT_IN_FILES += \
+	dbus.service.in \
+	dbus.socket.in
+
+systemdsystemunit_DATA = \
+	dbus.service \
+	dbus.socket
+endif
+
 MAN_IN_FILES=dbus-daemon.1.in
 man_MANS = dbus-daemon.1
 
-#### Extra dist 
+#### Extra dist
 
 EXTRA_DIST=$(CONFIG_IN_FILES) $(SCRIPT_IN_FILES) $(man_MANS) $(MAN_IN_FILES)
