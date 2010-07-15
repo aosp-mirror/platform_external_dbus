@@ -1080,6 +1080,7 @@ _dbus_decompose_path (const char*     data,
   int i, j, comp;
 
   _dbus_assert (data != NULL);
+  _dbus_assert (path != NULL);
   
 #if VERBOSE_DECOMPOSE
   _dbus_verbose ("Decomposing path \"%s\"\n",
@@ -1092,6 +1093,7 @@ _dbus_decompose_path (const char*     data,
       i = 0;
       while (i < len)
         {
+          _dbus_assert (data[i] != '\0');
           if (data[i] == '/')
             n_components += 1;
           ++i;
