@@ -999,6 +999,7 @@ _dbus_message_test (const char *test_data_dir)
 #ifdef HAVE_UNIX_FD_PASSING
   int v_UNIX_FD;
 #endif
+  char **decomposed;
 
   message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
                                           "/org/freedesktop/TestPath",
@@ -1093,6 +1094,34 @@ _dbus_message_test (const char *test_data_dir)
     _dbus_assert_not_reached ("out of memory");
   _dbus_assert (strcmp (dbus_message_get_member (message),
                         "Bar") == 0);
+
+  /* Path decomposing */
+  dbus_message_set_path (message, NULL);
+  dbus_message_get_path_decomposed (message, &decomposed);
+  _dbus_assert (decomposed == NULL);
+  dbus_free_string_array (decomposed);
+
+  dbus_message_set_path (message, "/");
+  dbus_message_get_path_decomposed (message, &decomposed);
+  _dbus_assert (decomposed != NULL);
+  _dbus_assert (decomposed[0] == NULL);
+  dbus_free_string_array (decomposed);
+
+  dbus_message_set_path (message, "/a/b");
+  dbus_message_get_path_decomposed (message, &decomposed);
+  _dbus_assert (decomposed != NULL);
+  _dbus_assert (strcmp (decomposed[0], "a") == 0);
+  _dbus_assert (strcmp (decomposed[1], "b") == 0);
+  _dbus_assert (decomposed[2] == NULL);
+  dbus_free_string_array (decomposed);
+
+  dbus_message_set_path (message, "/spam/eggs");
+  dbus_message_get_path_decomposed (message, &decomposed);
+  _dbus_assert (decomposed != NULL);
+  _dbus_assert (strcmp (decomposed[0], "spam") == 0);
+  _dbus_assert (strcmp (decomposed[1], "eggs") == 0);
+  _dbus_assert (decomposed[2] == NULL);
+  dbus_free_string_array (decomposed);
 
   dbus_message_unref (message);
 
