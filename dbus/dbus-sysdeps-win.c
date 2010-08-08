@@ -1294,6 +1294,7 @@ _dbus_connect_tcp_socket_with_nonce (const char     *host,
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
                       "Unknown address family %s", family);
+      closesocket (fd);
       return -1;
     }
   hints.ai_protocol = IPPROTO_TCP;
@@ -1313,6 +1314,9 @@ _dbus_connect_tcp_socket_with_nonce (const char     *host,
       closesocket (fd);
       return -1;
     }
+
+  closesocket (fd);
+  fd = -1;
 
   tmp = ai;
   while (tmp)
