@@ -72,6 +72,7 @@ AC_PROG_MKDIR_P
 
 # Set some internal variables depending on the platform for later use.
 dbus_win=no
+dbus_cygwin=no
 dbus_unix=no
 case "${host}" in
     *-mingw32ce*)
@@ -80,6 +81,10 @@ case "${host}" in
         ;;
     *-mingw32*)
         dbus_win=yes
+        ;;
+    *-cygwin*)
+        dbus_cygwin=yes
+        dbus_unix=yes
         ;;
     *)
         dbus_unix=yes
@@ -1084,7 +1089,7 @@ ld_supports_flag() {
 }
 
 # Don't bother with -Werror on Windows for now, too many warnings
-if test x$dbus_win != xyes -a x$USE_MAINTAINER_MODE = xyes; then
+if test x$dbus_win != xyes -a x$dbus_cygwin != xyes -a x$USE_MAINTAINER_MODE = xyes; then
   if cc_supports_flag "-Werror"; then
     CFLAGS="$CFLAGS -Werror"
   fi
