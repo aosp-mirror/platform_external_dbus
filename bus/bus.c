@@ -36,6 +36,7 @@
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-credentials.h>
 #include <dbus/dbus-internals.h>
+#include <signal.h>
 
 struct BusContext
 {
@@ -311,10 +312,29 @@ process_config_first_time_only (BusContext       *context,
 
       if (_dbus_stat (&u, &stbuf, NULL))
         {
+#ifdef DBUS_CYGWIN
+          DBusString p;
+          long /* int */ pid;
+
+          _dbus_string_init (&p);
+          _dbus_file_get_contents(&p, &u, NULL);
+          _dbus_string_parse_int(&p, 0, &pid, NULL);
+          _dbus_string_free(&p);
+
+          if ((kill((int)pid, 0))) {
+            dbus_set_error(NULL, DBUS_ERROR_FILE_EXISTS,
+                           "pid %ld not running, removing stale pid file\n",
+                           pid);
+            _dbus_delete_file(&u, NULL);
+          } else {
+#endif
           dbus_set_error (error, DBUS_ERROR_FAILED,
 		                  "The pid file \"%s\" exists, if the message bus is not running, remove this file",
                           pidfile);
 	      goto failed;
+#ifdef DBUS_CYGWIN
+          }
+#endif
         }
     }
 
