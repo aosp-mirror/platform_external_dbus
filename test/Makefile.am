@@ -107,7 +107,7 @@ TESTDIRS=					\
 	data/equiv-config-files/entities/basic.d
 
 
-FIND_TESTS=find . -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt" -o -name "*.conf" -o -name "*.service"
+FIND_TESTS=find . -type f -a \( -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt" -o -name "*.conf" -o -name "*.service" \)
 
 dist-hook:
 	for D in $(TESTDIRS); do						\

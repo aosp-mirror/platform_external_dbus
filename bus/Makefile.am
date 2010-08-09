@@ -206,13 +206,13 @@ if DBUS_UNIX
 		$(mkinstalldirs) $(DESTDIR)$(DBUS_DAEMONDIR); \
 		chmod 755 $(DESTDIR)$(DBUS_DAEMONDIR); \
 	fi
-	$(INSTALL_PROGRAM) dbus-daemon$(EXEEXT) $(DESTDIR)$(DBUS_DAEMONDIR)
+	$(LIBTOOL) --mode=install $(INSTALL_PROGRAM) dbus-daemon$(EXEEXT) $(DESTDIR)$(DBUS_DAEMONDIR)
 	$(mkinstalldirs) $(DESTDIR)$(libexecdir)/dbus-1
 	if test -f dbus-daemon-launch-helper$(EXEEXT) ; then \
-	$(INSTALL_PROGRAM) dbus-daemon-launch-helper$(EXEEXT) $(DESTDIR)$(libexecdir); \
+	$(LIBTOOL) --mode=install $(INSTALL_PROGRAM) dbus-daemon-launch-helper$(EXEEXT) $(DESTDIR)$(libexecdir); \
 	if test `id -u` -eq 0; then \
-		chown root:$(DBUS_USER) $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper; \
-		chmod 4750 $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper; \
+		chown root:$(DBUS_USER) $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper$(EXEEXT); \
+		chmod 4750 $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper$(EXEEXT); \
 	else \
 		echo "Not installing $(DESTDIR)$(libexecdir)/dbus-daemon-launch-helper binary setuid!"; \
 		echo "You'll need to manually set permissions to root:$(DBUS_USER) and permissions 4750"; \
@@ -227,6 +227,7 @@ endif
 
 #### Init scripts fun
 SCRIPT_IN_FILES=messagebus.in \
+		messagebus-config.in \
 		rc.messagebus.in
 
 ## Red Hat start
@@ -250,6 +251,15 @@ initd_SCRIPTS= 	\
 
 endif
 ## Slackware end
+
+## Cygwin start
+if DBUS_INIT_SCRIPTS_CYGWIN
+
+bin_SCRIPTS= 	\
+	messagebus-config
+
+endif
+## Cygwin end
 
 if HAVE_SYSTEMD
 SCRIPT_IN_FILES += \
