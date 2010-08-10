@@ -36,7 +36,9 @@
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-credentials.h>
 #include <dbus/dbus-internals.h>
+#ifdef DBUS_CYGWIN
 #include <signal.h>
+#endif
 
 struct BusContext
 {
