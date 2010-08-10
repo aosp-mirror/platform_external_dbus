@@ -1573,6 +1573,7 @@ dbus/dbus-arch-deps.h
 bus/system.conf
 bus/session.conf
 bus/messagebus
+bus/messagebus-config
 bus/rc.messagebus
 bus/dbus-daemon.1
 bus/dbus.service
