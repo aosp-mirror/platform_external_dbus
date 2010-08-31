@@ -1079,7 +1079,8 @@ babysit (pid_t grandchild_pid,
       else if (pfds[1].revents & _DBUS_POLLIN)
         {
           char b;
-          read (sigchld_pipe[READ_END], &b, 1);
+          if (read (sigchld_pipe[READ_END], &b, 1) == -1)
+            /* ignore */;
           /* do waitpid check */
           check_babysit_events (grandchild_pid, parent_pipe, 0);
         }

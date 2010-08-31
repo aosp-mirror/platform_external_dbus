@@ -365,9 +365,9 @@ print_variables (const char *bus_address, pid_t bus_pid, long bus_wid,
 {
   if (binary_syntax)
     {
-      write (1, bus_address, strlen (bus_address) + 1);
-      write (1, &bus_pid, sizeof bus_pid);
-      write (1, &bus_wid, sizeof bus_wid);
+      do_write (1, bus_address, strlen (bus_address) + 1);
+      do_write (1, &bus_pid, sizeof bus_pid);
+      do_write (1, &bus_wid, sizeof bus_wid);
       return;
     }
   else if (c_shell_syntax)
