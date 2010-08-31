@@ -980,9 +980,8 @@ _dbus_listen_unix_socket (const char     *path,
   reuseaddr = 1;
   if (setsockopt  (listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr))==-1)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to set socket option\"%s\": %s",
-                      path, _dbus_strerror (errno));
+      _dbus_warn ("Failed to set socket option\"%s\": %s",
+                  path, _dbus_strerror (errno));
     }
 
   if (bind (listen_fd, (struct sockaddr*) &addr, _DBUS_STRUCT_OFFSET (struct sockaddr_un, sun_path) + path_len) < 0)
@@ -1335,9 +1334,8 @@ _dbus_listen_tcp_socket (const char     *host,
       reuseaddr = 1;
       if (setsockopt (fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr))==-1)
         {
-          dbus_set_error (error, _dbus_error_from_errno (errno),
-                          "Failed to set socket option \"%s:%s\": %s",
-                          host ? host : "*", port, _dbus_strerror (errno));
+          _dbus_warn ("Failed to set socket option \"%s:%s\": %s",
+                      host ? host : "*", port, _dbus_strerror (errno));
         }
 
       if (bind (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) < 0)
