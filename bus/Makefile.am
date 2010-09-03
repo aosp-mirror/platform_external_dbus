@@ -223,6 +223,11 @@ if HAVE_SYSTEMD
 # Install dbus.socket as default implementation of a D-Bus stack
 	$(mkinstalldirs) $(DESTDIR)$(systemdsystemunitdir)/dbus.target.wants
 	$(LN_S) ../dbus.socket $(DESTDIR)$(systemdsystemunitdir)/dbus.target.wants/dbus.socket
+# Unconditionally enable D-Bus on systemd installations
+	$(mkinstalldirs) $(DESTDIR)$(systemdsystemunitdir)/sockets.target.wants
+	$(LN_S) ../dbus.socket $(DESTDIR)$(systemdsystemunitdir)/sockets.target.wants/dbus.socket
+	$(mkinstalldirs) $(DESTDIR)$(systemdsystemunitdir)/multi-user.target.wants
+	$(LN_S) ../dbus.service $(DESTDIR)$(systemdsystemunitdir)/multi-user.target.wants/dbus.service
 endif
 
 #### Init scripts fun
