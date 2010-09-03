@@ -605,7 +605,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
         }
       
       if (!_dbus_string_save_to_file (&contents, &keyring->filename,
-                                      error))
+                                      FALSE, error))
         goto out;
     }
 

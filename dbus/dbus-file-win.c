@@ -204,12 +204,14 @@ _dbus_file_get_contents (DBusString       *str,
  *
  * @param str the string to write out
  * @param filename the file to save string to
+ * @param world_readable if true, ensure file is world readable
  * @param error error to be filled in on failure
  * @returns #FALSE on failure
  */
 dbus_bool_t
 _dbus_string_save_to_file (const DBusString *str,
                            const DBusString *filename,
+                           dbus_bool_t       world_readable,
                            DBusError        *error)
 {
   HANDLE hnd;
@@ -259,6 +261,7 @@ _dbus_string_save_to_file (const DBusString *str,
   filename_c = _dbus_string_get_const_data (filename);
   tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
 
+  /* TODO - support world-readable in an atomic fashion */
   hnd = CreateFileA (tmp_filename_c, GENERIC_WRITE,
                      FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL,
@@ -271,6 +274,8 @@ _dbus_string_save_to_file (const DBusString *str,
       _dbus_win_free_error_string (emsg);
       goto out;
     }
+  if (world_readable)
+    _dbus_make_file_world_readable (tmp_filename_c);
 
   _dbus_verbose ("tmp file %s hnd %p opened\n", tmp_filename_c, hnd);
 

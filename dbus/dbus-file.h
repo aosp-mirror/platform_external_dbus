@@ -45,6 +45,7 @@ dbus_bool_t _dbus_file_get_contents   (DBusString       *str,
                                        DBusError        *error);
 dbus_bool_t _dbus_string_save_to_file (const DBusString *str,
                                        const DBusString *filename,
+                                       dbus_bool_t       world_readable,
                                        DBusError        *error);
 
 dbus_bool_t _dbus_make_file_world_readable   (const DBusString *filename,

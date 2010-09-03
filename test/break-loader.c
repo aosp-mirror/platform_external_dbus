@@ -161,7 +161,7 @@ try_mutated_data (const DBusString *data)
           printf ("Child failed, writing %s\n", _dbus_string_get_const_data (&filename));
 
           dbus_error_init (&error);
-          if (!_dbus_string_save_to_file (data, &filename, &error))
+          if (!_dbus_string_save_to_file (data, &filename, FALSE, &error))
             {
               fprintf (stderr, "Failed to save failed message data: %s\n",
                        error.message);

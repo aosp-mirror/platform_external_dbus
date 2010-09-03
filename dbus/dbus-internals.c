@@ -719,27 +719,13 @@ _dbus_create_uuid_file_exclusively (const DBusString *filename,
       goto error;
     }
   
-  /* FIXME this is racy; we need a save_file_exclusively
-   * function. But in practice this should be fine for now.
-   *
-   * - first be sure we can create the file and it
-   *   doesn't exist by creating it empty with O_EXCL
-   * - then create it by creating a temporary file and
-   *   overwriting atomically with rename()
-   */
-  if (!_dbus_create_file_exclusively (filename, error))
-    goto error;
-
   if (!_dbus_string_append_byte (&encoded, '\n'))
     {
       _DBUS_SET_OOM (error);
       goto error;
     }
   
-  if (!_dbus_string_save_to_file (&encoded, filename, error))
-    goto error;
-
-  if (!_dbus_make_file_world_readable (filename, error))
+  if (!_dbus_string_save_to_file (&encoded, filename, TRUE, error))
     goto error;
 
   _dbus_string_free (&encoded);

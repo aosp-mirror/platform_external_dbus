@@ -156,12 +156,14 @@ _dbus_file_get_contents (DBusString       *str,
  *
  * @param str the string to write out
  * @param filename the file to save string to
+ * @param world_readable If set, ensure the file is world readable
  * @param error error to be filled in on failure
  * @returns #FALSE on failure
  */
 dbus_bool_t
 _dbus_string_save_to_file (const DBusString *str,
                            const DBusString *filename,
+                           dbus_bool_t      world_readable,
                            DBusError        *error)
 {
   int fd;
@@ -211,13 +213,27 @@ _dbus_string_save_to_file (const DBusString *str,
   tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
 
   fd = open (tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-             0600);
+             world_readable ? 0644 : 0600);
   if (fd < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not create %s: %s", tmp_filename_c,
                       _dbus_strerror (errno));
       goto out;
+    }
+  if (world_readable)
+    {
+      /* Ensure the file is world readable even in the presence of
+       * possibly restrictive umasks;
+       * see http://lists.freedesktop.org/archives/dbus/2010-September/013367.html
+       */
+      if (fchmod (fd, 0644) < 0)
+        {
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Could not chmod %s: %s", tmp_filename_c,
+                          _dbus_strerror (errno));
+          goto out;
+        }
     }
 
   _dbus_verbose ("tmp file fd %d opened\n", fd);

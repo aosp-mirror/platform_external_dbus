@@ -170,7 +170,7 @@ generate_and_write_nonce (const DBusString *filename, DBusError *error)
       return FALSE;
     }
 
-  ret = _dbus_string_save_to_file (&nonce, filename, error);
+  ret = _dbus_string_save_to_file (&nonce, filename, FALSE, error);
 
   _dbus_string_free (&nonce);
 
