@@ -46,6 +46,12 @@
 #include <errno.h>
 #endif
 
+/* This is Android-specific atomic operation header.
+ */
+#ifdef ANDROID
+#include <cutils/atomic.h>
+#endif
+
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
@@ -675,6 +681,8 @@ _dbus_atomic_inc (DBusAtomic *atomic)
 {
 #ifdef DBUS_USE_ATOMIC_INT_486
   return atomic_exchange_and_add (atomic, 1);
+#elif defined(ANDROID)
+  return android_atomic_inc (&(atomic->value));
 #else
   dbus_int32_t res;
   _DBUS_LOCK (atomic);
@@ -698,6 +706,8 @@ _dbus_atomic_dec (DBusAtomic *atomic)
 {
 #ifdef DBUS_USE_ATOMIC_INT_486
   return atomic_exchange_and_add (atomic, -1);
+#elif defined(ANDROID)
+  return android_atomic_dec (&(atomic->value));
 #else
   dbus_int32_t res;
   
