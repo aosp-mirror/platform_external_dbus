@@ -869,7 +869,8 @@ bus_context_new (const DBusString *config_file,
       {
         if (!_dbus_become_daemon (NULL,
                                   0,
-                                  error))
+                                  error,
+                                  context->keep_umask))
           {
             _DBUS_ASSERT_ERROR_IS_SET (error);
             goto failed;

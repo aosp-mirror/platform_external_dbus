@@ -12,8 +12,11 @@ dbus-address.c \
 dbus-auth.c \
 dbus-bus.c \
 dbus-connection.c \
+dbus-credentials.c \
 dbus-dataslot.c \
 dbus-errors.c \
+dbus-file.c \
+dbus-file-unix.c \
 dbus-hash.c \
 dbus-internals.c \
 dbus-keyring.c \
@@ -27,7 +30,10 @@ dbus-marshal-validate.c \
 dbus-mempool.c \
 dbus-memory.c \
 dbus-message.c \
+dbus-nonce.c \
 dbus-pending-call.c \
+dbus-pipe.c \
+dbus-pipe-unix.c \
 dbus-resources.c \
 dbus-server.c \
 dbus-server-socket.c \
@@ -50,7 +56,8 @@ dbus-transport-unix.c \
 dbus-object-tree.c \
 dbus-userdb.c \
 dbus-userdb-util.c \
-dbus-watch.c
+dbus-watch.c \
+sd-daemon.c \
 
 LOCAL_C_INCLUDES+= \
 	$(call include-path-for, dbus)
@@ -60,7 +67,10 @@ LOCAL_MODULE:=libdbus
 LOCAL_CFLAGS+= \
 	-DDBUS_COMPILATION \
 	-DANDROID_MANAGED_SOCKET \
-	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\"
+	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\" \
+    -DDBUS_SYSTEM_CONFIG_FILE=\"/system/etc/dbus.conf\" \
+    -DDBUS_SESSION_CONFIG_FILE=\"/system/etc/session.conf\"
+
 
 ifeq ($(LOG_TO_ANDROID_LOGCAT),true)
 LOCAL_CFLAGS+= -DDBUS_ANDROID_LOG
