@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-recursive-util.c  Would be in dbus-marshal-recursive.c, but only used in bus/tests
  *
  * Copyright (C) 2004, 2005 Red Hat, Inc.
@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -986,7 +986,7 @@ node_read_value (TestTypeNode   *node,
                  DBusTypeReader *reader,
                  int             seed)
 {
-  DBusTypeReader restored;
+  /* DBusTypeReader restored; */
 
   if (!(* node->klass->read_value) (node, reader, seed))
     return FALSE;
@@ -1090,7 +1090,7 @@ run_test_copy (NodeIterationData *nid)
   DBusTypeReader reader;
   DBusTypeWriter writer;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   src = nid->block;
 
@@ -1153,7 +1153,7 @@ run_test_values_only_write (NodeIterationData *nid)
   dbus_bool_t retval;
   int sig_len;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 
@@ -1221,7 +1221,7 @@ run_test_set_values (NodeIterationData *nid)
   dbus_bool_t retval;
   int i;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 
@@ -1278,7 +1278,7 @@ run_test_delete_values (NodeIterationData *nid)
   dbus_bool_t retval;
   int t;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
 
   retval = FALSE;
 
@@ -2651,8 +2651,8 @@ double_read_value (TestTypeNode   *node,
 
   if (!_DBUS_DOUBLES_BITWISE_EQUAL (v, expected))
     {
-#ifdef DBUS_HAVE_INT64
-      _dbus_warn ("Expected double %g got %g\n bits = 0x%llx vs.\n bits = 0x%llx)\n",
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+      _dbus_warn ("Expected double %g got %g\n bits = 0x%" DBUS_INT64_PRINTF_MODIFIER "x vs.\n bits = 0x%" DBUS_INT64_PRINTF_MODIFIER "x)\n",
                   expected, v,
                   *(dbus_uint64_t*)(char*)&expected,
                   *(dbus_uint64_t*)(char*)&v);

@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-userdb.c User database abstraction
  * 
  * Copyright (C) 2003, 2004  Red Hat, Inc.
@@ -17,15 +17,17 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include <config.h>
 #define DBUS_USERDB_INCLUDES_PRIVATE 1
 #include "dbus-userdb.h"
 #include "dbus-hash.h"
 #include "dbus-test.h"
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
+#include "dbus-credentials.h"
 #include <string.h>
 
 /**
@@ -66,6 +68,30 @@ _dbus_group_info_free_allocated (DBusGroupInfo *info)
 }
 
 /**
+ * Frees the members of info
+ * (but not info itself)
+ * @param info the user info struct
+ */
+void
+_dbus_user_info_free (DBusUserInfo *info)
+{
+  dbus_free (info->group_ids);
+  dbus_free (info->username);
+  dbus_free (info->homedir);
+}
+
+/**
+ * Frees the members of info (but not info itself).
+ *
+ * @param info the group info
+ */
+void
+_dbus_group_info_free (DBusGroupInfo    *info)
+{
+  dbus_free (info->groupname);
+}
+
+/**
  * Checks if a given string is actually a number 
  * and converts it if it is 
  *
@@ -79,7 +105,7 @@ _dbus_is_a_number (const DBusString *str,
 {
   int end;
 
-  if (_dbus_string_parse_int (str, 0, num, &end) &&
+  if (_dbus_string_parse_uint (str, 0, num, &end) &&
       end == _dbus_string_get_length (str))
     return TRUE;
   else
@@ -118,11 +144,12 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
         uid = n;
     }
 
+#ifdef DBUS_ENABLE_USERDB_CACHE  
   if (uid != DBUS_UID_UNSET)
-    info = _dbus_hash_table_lookup_ulong (db->users, uid);
+    info = _dbus_hash_table_lookup_uintptr (db->users, uid);
   else
     info = _dbus_hash_table_lookup_string (db->users_by_name, _dbus_string_get_const_data (username));
-  
+
   if (info)
     {
       _dbus_verbose ("Using cache for UID "DBUS_UID_FORMAT" information\n",
@@ -130,6 +157,9 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
       return info;
     }
   else
+#else 
+  if (1)
+#endif
     {
       if (uid != DBUS_UID_UNSET)
 	_dbus_verbose ("No cache for UID "DBUS_UID_FORMAT"\n",
@@ -169,7 +199,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
       username = NULL;
 
       /* insert into hash */
-      if (!_dbus_hash_table_insert_ulong (db->users, info->uid, info))
+      if (!_dbus_hash_table_insert_uintptr (db->users, info->uid, info))
         {
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           _dbus_user_info_free_allocated (info);
@@ -180,7 +210,7 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
                                            info->username,
                                            info))
         {
-          _dbus_hash_table_remove_ulong (db->users, info->uid);
+          _dbus_hash_table_remove_uintptr (db->users, info->uid);
           dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
           return NULL;
         }
@@ -189,7 +219,6 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
     }
 }
 
-_DBUS_DEFINE_GLOBAL_LOCK(system_users);
 static dbus_bool_t database_locked = FALSE;
 static DBusUserDatabase *system_db = NULL;
 static DBusString process_username;
@@ -198,7 +227,8 @@ static DBusString process_homedir;
 static void
 shutdown_system_db (void *data)
 {
-  _dbus_user_database_unref (system_db);
+  if (system_db != NULL)
+    _dbus_user_database_unref (system_db);
   system_db = NULL;
   _dbus_string_free (&process_username);
   _dbus_string_free (&process_homedir);
@@ -211,14 +241,12 @@ init_system_db (void)
     
   if (system_db == NULL)
     {
-      DBusError error;
+      DBusError error = DBUS_ERROR_INIT;
       const DBusUserInfo *info;
       
       system_db = _dbus_user_database_new ();
       if (system_db == NULL)
         return FALSE;
-
-      dbus_error_init (&error);
 
       if (!_dbus_user_database_get_uid (system_db,
                                         _dbus_getuid (),
@@ -312,6 +340,20 @@ _dbus_user_database_get_system (void)
 }
 
 /**
+ * Flushes the system global user database;
+ */
+void
+_dbus_user_database_flush_system (void)
+{
+  _dbus_user_database_lock_system ();
+   
+   if (system_db != NULL)
+    _dbus_user_database_flush (system_db);
+
+  _dbus_user_database_unlock_system ();
+}
+
+/**
  * Gets username of user owning current process.  The returned string
  * is valid until dbus_shutdown() is called.
  *
@@ -395,18 +437,65 @@ _dbus_homedir_from_username (const DBusString *username,
 }
 
 /**
- * Gets the credentials corresponding to the given username.
+ * Gets the home directory for the given user.
  *
- * @param username the username
- * @param credentials credentials to fill in
- * @returns #TRUE if the username existed and we got some credentials
+ * @param uid the uid
+ * @param homedir string to append home directory to
+ * @returns #TRUE if user existed and we appended their homedir
  */
 dbus_bool_t
-_dbus_credentials_from_username (const DBusString *username,
-                                 DBusCredentials  *credentials)
+_dbus_homedir_from_uid (dbus_uid_t         uid,
+                        DBusString        *homedir)
 {
   DBusUserDatabase *db;
   const DBusUserInfo *info;
+  _dbus_user_database_lock_system ();
+
+  db = _dbus_user_database_get_system ();
+  if (db == NULL)
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+
+  if (!_dbus_user_database_get_uid (db, uid,
+                                    &info, NULL))
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+
+  if (!_dbus_string_append (homedir, info->homedir))
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
+  
+  _dbus_user_database_unlock_system ();
+  return TRUE;
+}
+
+/**
+ * Adds the credentials corresponding to the given username.
+ *
+ * Used among other purposes to parses a desired identity provided
+ * from a client in the auth protocol. On UNIX this means parsing a
+ * UID, on Windows probably parsing an SID string.
+ * 
+ * @todo this is broken because it treats OOM and parse error
+ * the same way. Needs a #DBusError.
+ * 
+ * @param credentials credentials to fill in 
+ * @param username the username
+ * @returns #TRUE if the username existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_credentials_add_from_user (DBusCredentials  *credentials,
+                                 const DBusString *username)
+{
+  DBusUserDatabase *db;
+  const DBusUserInfo *info;
+
   _dbus_user_database_lock_system ();
 
   db = _dbus_user_database_get_system ();
@@ -423,9 +512,11 @@ _dbus_credentials_from_username (const DBusString *username,
       return FALSE;
     }
 
-  credentials->pid = DBUS_PID_UNSET;
-  credentials->uid = info->uid;
-  credentials->gid = info->primary_gid;
+  if (!_dbus_credentials_add_unix_uid(credentials, info->uid))
+    {
+      _dbus_user_database_unlock_system ();
+      return FALSE;
+    }
   
   _dbus_user_database_unlock_system ();
   return TRUE;
@@ -447,13 +538,13 @@ _dbus_user_database_new (void)
 
   db->refcount = 1;
 
-  db->users = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  db->users = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                     NULL, (DBusFreeFunction) _dbus_user_info_free_allocated);
   
   if (db->users == NULL)
     goto failed;
 
-  db->groups = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  db->groups = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                      NULL, (DBusFreeFunction) _dbus_group_info_free_allocated);
   
   if (db->groups == NULL)

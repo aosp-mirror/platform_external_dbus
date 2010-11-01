@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-transport-socket.h Socket subclasses of DBusTransport
  *
  * Copyright (C) 2002, 2006  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_TRANSPORT_SOCKET_H
@@ -31,7 +31,9 @@ DBusTransport*          _dbus_transport_new_for_socket     (int                f
                                                             const DBusString  *server_guid,
                                                             const DBusString  *address);
 DBusTransport*          _dbus_transport_new_for_tcp_socket (const char        *host,
-                                                            dbus_int32_t       port,
+                                                            const char        *port,
+                                                            const char        *family,
+                                                            const char        *noncefile,
                                                             DBusError         *error);
 DBusTransportOpenResult _dbus_transport_open_socket        (DBusAddressEntry  *entry,
                                                             DBusTransport    **transport_p,

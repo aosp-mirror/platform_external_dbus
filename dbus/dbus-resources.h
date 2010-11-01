@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-resources.h Resource tracking/limits
  *
  * Copyright (C) 2003  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_RESOURCES_H
@@ -37,14 +37,19 @@ typedef void (* DBusCounterNotifyFunction) (DBusCounter *counter,
 DBusCounter* _dbus_counter_new       (void);
 DBusCounter* _dbus_counter_ref       (DBusCounter *counter);
 void         _dbus_counter_unref     (DBusCounter *counter);
-void         _dbus_counter_adjust    (DBusCounter *counter,
-                                      long         delta);
-long         _dbus_counter_get_value (DBusCounter *counter);
 
-void _dbus_counter_set_notify (DBusCounter               *counter,
-                               long                       guard_value,
-                               DBusCounterNotifyFunction  function,
-                               void                      *user_data);
+void         _dbus_counter_adjust_size       (DBusCounter *counter,
+                                              long         delta);
+void         _dbus_counter_adjust_unix_fd    (DBusCounter *counter,
+                                              long         delta);
+long         _dbus_counter_get_size_value    (DBusCounter *counter);
+long         _dbus_counter_get_unix_fd_value (DBusCounter *counter);
+
+void _dbus_counter_set_notify    (DBusCounter               *counter,
+                                  long                       size_guard_value,
+                                  long                       unix_fd_guard_value,
+                                  DBusCounterNotifyFunction  function,
+                                  void                      *user_data);
 
 
 DBUS_END_DECLS

@@ -1,10 +1,10 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-server-unix.c Server implementation for Unix network protocols.
  *
  * Copyright (C) 2002, 2003, 2004  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,13 +14,14 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-server-unix.h"
 #include "dbus-server-socket.h"
@@ -41,12 +42,12 @@
  * Tries to interpret the address entry in a platform-specific
  * way, creating a platform-specific server type if appropriate.
  * Sets error if the result is not OK.
- * 
+ *
  * @param entry an address entry
  * @param server_p location to store a new DBusServer, or #NULL on failure.
  * @param error location to store rationale for failure on bad address
  * @returns the outcome
- * 
+ *
  */
 DBusServerListenResult
 _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
@@ -56,7 +57,7 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
   const char *method;
 
   *server_p = NULL;
-  
+
   method = dbus_address_entry_get_method (entry);
 
   if (strcmp (method, "unix") == 0)
@@ -64,7 +65,7 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
       const char *path = dbus_address_entry_get_value (entry, "path");
       const char *tmpdir = dbus_address_entry_get_value (entry, "tmpdir");
       const char *abstract = dbus_address_entry_get_value (entry, "abstract");
-          
+
       if (path == NULL && tmpdir == NULL && abstract == NULL)
         {
           _dbus_set_bad_address(error, "unix",
@@ -86,20 +87,20 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
         {
           DBusString full_path;
           DBusString filename;
-              
+
           if (!_dbus_string_init (&full_path))
             {
               dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
               return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
             }
-                  
+
           if (!_dbus_string_init (&filename))
             {
               _dbus_string_free (&full_path);
               dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
               return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
             }
-              
+
           if (!_dbus_string_append (&filename,
                                     "dbus-") ||
               !_dbus_generate_random_ascii (&filename, 10) ||
@@ -111,9 +112,9 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
               dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
               return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
             }
-              
+
           /* Always use abstract namespace if possible with tmpdir */
-              
+
           *server_p =
             _dbus_server_new_for_domain_socket (_dbus_string_get_const_data (&full_path),
 #ifdef HAVE_ABSTRACT_SOCKETS
@@ -145,6 +146,39 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
           return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
         }
     }
+  else if (strcmp (method, "systemd") == 0)
+    {
+      int n, *fds;
+      DBusString address;
+
+      n = _dbus_listen_systemd_sockets (&fds, error);
+      if (n < 0)
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
+        }
+
+      _dbus_string_init_const (&address, "systemd:");
+
+      *server_p = _dbus_server_new_for_socket (fds, n, &address, NULL);
+      if (*server_p == NULL)
+        {
+          int i;
+
+          for (i = 0; i < n; i++)
+            {
+              _dbus_close_socket (fds[i], NULL);
+            }
+          dbus_free (fds);
+
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
+        }
+
+      dbus_free (fds);
+
+      return DBUS_SERVER_LISTEN_OK;
+    }
   else
     {
       /* If we don't handle the method, we return NULL with the
@@ -173,7 +207,7 @@ _dbus_server_new_for_domain_socket (const char     *path,
   DBusString address;
   char *path_copy;
   DBusString path_str;
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   if (!_dbus_string_init (&address))
@@ -199,17 +233,16 @@ _dbus_server_new_for_domain_socket (const char     *path,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       goto failed_0;
     }
-  
+
   listen_fd = _dbus_listen_unix_socket (path, abstract, error);
-  _dbus_fd_set_close_on_exec (listen_fd);
-  
+
   if (listen_fd < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed_1;
     }
-  
-  server = _dbus_server_new_for_socket (listen_fd, &address);
+
+  server = _dbus_server_new_for_socket (&listen_fd, 1, &address, 0);
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -217,9 +250,9 @@ _dbus_server_new_for_domain_socket (const char     *path,
     }
 
   _dbus_server_socket_own_filename(server, path_copy);
-  
+
   _dbus_string_free (&address);
-  
+
   return server;
 
  failed_2:
@@ -233,4 +266,3 @@ _dbus_server_new_for_domain_socket (const char     *path,
 }
 
 /** @} */
-

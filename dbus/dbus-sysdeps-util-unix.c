@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sysdeps-util-unix.c Would be in dbus-sysdeps-unix.c, but not used in libdbus
  * 
  * Copyright (C) 2002, 2003, 2004, 2005  Red Hat, Inc.
@@ -18,12 +18,15 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-sysdeps.h"
 #include "dbus-sysdeps-unix.h"
 #include "dbus-internals.h"
+#include "dbus-pipe.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
 #define DBUS_USERDB_INCLUDES_PRIVATE 1
@@ -43,6 +46,7 @@
 #include <sys/socket.h>
 #include <dirent.h>
 #include <sys/un.h>
+#include <syslog.h>
 
 #ifdef HAVE_SYS_SYSLIMITS_H
 #include <sys/syslimits.h>
@@ -57,18 +61,21 @@
  * @{
  */
 
+
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.
  *
  * @param pidfile #NULL, or pidfile to create
- * @param print_pid_fd file descriptor to print daemon's pid to, or -1 for none
+ * @param print_pid_pipe pipe to print daemon's pid to, or -1 for none
  * @param error return location for errors
+ * @param keep_umask #TRUE to keep the original umask
  * @returns #FALSE on failure
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
-		     int               print_pid_fd,
-                     DBusError        *error)
+                     DBusPipe         *print_pid_pipe,
+                     DBusError        *error,
+                     dbus_bool_t       keep_umask)
 {
   const char *s;
   pid_t child_pid;
@@ -115,68 +122,33 @@ _dbus_become_daemon (const DBusString *pidfile,
             _dbus_verbose ("keeping stderr open due to DBUS_DEBUG_OUTPUT\n");
         }
 
-      /* Get a predictable umask */
-      _dbus_verbose ("setting umask\n");
-      umask (022);
+      if (!keep_umask)
+        {
+          /* Get a predictable umask */
+          _dbus_verbose ("setting umask\n");
+          umask (022);
+        }
+
+      _dbus_verbose ("calling setsid()\n");
+      if (setsid () == -1)
+        _dbus_assert_not_reached ("setsid() failed");
+      
       break;
 
     default:
-      if (pidfile)
+      if (!_dbus_write_pid_to_file_and_pipe (pidfile, print_pid_pipe,
+                                             child_pid, error))
         {
-          _dbus_verbose ("parent writing pid file\n");
-          if (!_dbus_write_pid_file (pidfile,
-                                     child_pid,
-                                     error))
-            {
-              _dbus_verbose ("pid file write failed, killing child\n");
-              kill (child_pid, SIGTERM);
-              return FALSE;
-            }
+          _dbus_verbose ("pid file or pipe write failed: %s\n",
+                         error->message);
+          kill (child_pid, SIGTERM);
+          return FALSE;
         }
 
-      /* Write PID if requested */
-      if (print_pid_fd >= 0)
-	{
-	  DBusString pid;
-	  int bytes;
-	  
-	  if (!_dbus_string_init (&pid))
-	    {
-	      _DBUS_SET_OOM (error);
-              kill (child_pid, SIGTERM);
-	      return FALSE;
-	    }
-	  
-	  if (!_dbus_string_append_int (&pid, child_pid) ||
-	      !_dbus_string_append (&pid, "\n"))
-	    {
-	      _dbus_string_free (&pid);
-	      _DBUS_SET_OOM (error);
-              kill (child_pid, SIGTERM);
-	      return FALSE;
-	    }
-	  
-	  bytes = _dbus_string_get_length (&pid);
-	  if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
-	    {
-	      dbus_set_error (error, DBUS_ERROR_FAILED,
-			      "Printing message bus PID: %s\n",
-			      _dbus_strerror (errno));
-	      _dbus_string_free (&pid);
-              kill (child_pid, SIGTERM);
-	      return FALSE;
-	    }
-	  
-	  _dbus_string_free (&pid);
-	}
       _dbus_verbose ("parent exiting\n");
       _exit (0);
       break;
     }
-
-  _dbus_verbose ("calling setsid()\n");
-  if (setsid () == -1)
-    _dbus_assert_not_reached ("setsid() failed");
   
   return TRUE;
 }
@@ -190,7 +162,7 @@ _dbus_become_daemon (const DBusString *pidfile,
  * @param error return location for errors
  * @returns #FALSE on failure
  */
-dbus_bool_t
+static dbus_bool_t
 _dbus_write_pid_file (const DBusString *filename,
                       unsigned long     pid,
 		      DBusError        *error)
@@ -240,20 +212,129 @@ _dbus_write_pid_file (const DBusString *filename,
   return TRUE;
 }
 
+/**
+ * Writes the given pid_to_write to a pidfile (if non-NULL) and/or to a
+ * pipe (if non-NULL). Does nothing if pidfile and print_pid_pipe are both
+ * NULL.
+ *
+ * @param pidfile the file to write to or #NULL
+ * @param print_pid_pipe the pipe to write to or #NULL
+ * @param pid_to_write the pid to write out
+ * @param error error on failure
+ * @returns FALSE if error is set
+ */
+dbus_bool_t
+_dbus_write_pid_to_file_and_pipe (const DBusString *pidfile,
+                                  DBusPipe         *print_pid_pipe,
+                                  dbus_pid_t        pid_to_write,
+                                  DBusError        *error)
+{
+  if (pidfile)
+    {
+      _dbus_verbose ("writing pid file %s\n", _dbus_string_get_const_data (pidfile));
+      if (!_dbus_write_pid_file (pidfile,
+                                 pid_to_write,
+                                 error))
+        {
+          _dbus_verbose ("pid file write failed\n");
+          _DBUS_ASSERT_ERROR_IS_SET(error);
+          return FALSE;
+        }
+    }
+  else
+    {
+      _dbus_verbose ("No pid file requested\n");
+    }
 
+  if (print_pid_pipe != NULL && _dbus_pipe_is_valid (print_pid_pipe))
+    {
+      DBusString pid;
+      int bytes;
+
+      _dbus_verbose ("writing our pid to pipe %"PRIuPTR"\n",
+                     print_pid_pipe->fd_or_handle);
+      
+      if (!_dbus_string_init (&pid))
+        {
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+	  
+      if (!_dbus_string_append_int (&pid, pid_to_write) ||
+          !_dbus_string_append (&pid, "\n"))
+        {
+          _dbus_string_free (&pid);
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+	  
+      bytes = _dbus_string_get_length (&pid);
+      if (_dbus_pipe_write (print_pid_pipe, &pid, 0, bytes, error) != bytes)
+        {
+          /* _dbus_pipe_write sets error only on failure, not short write */
+          if (error != NULL && !dbus_error_is_set(error))
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Printing message bus PID: did not write enough bytes\n");
+            }
+          _dbus_string_free (&pid);
+          return FALSE;
+        }
+	  
+      _dbus_string_free (&pid);
+    }
+  else
+    {
+      _dbus_verbose ("No pid pipe to write to\n");
+    }
+
+  return TRUE;
+}
+
+/**
+ * Verify that after the fork we can successfully change to this user.
+ *
+ * @param user the username given in the daemon configuration
+ * @returns #TRUE if username is valid
+ */
+dbus_bool_t
+_dbus_verify_daemon_user (const char *user)
+{
+  DBusString u;
+
+  _dbus_string_init_const (&u, user);
+
+  return _dbus_get_user_id_and_primary_group (&u, NULL, NULL);
+}
+
+
+/* The HAVE_LIBAUDIT case lives in selinux.c */
+#ifndef HAVE_LIBAUDIT
 /**
  * Changes the user and group the bus is running as.
  *
- * @param uid the new user ID
- * @param gid the new group ID
+ * @param user the user to become
  * @param error return location for errors
  * @returns #FALSE on failure
  */
 dbus_bool_t
-_dbus_change_identity  (dbus_uid_t     uid,
-                        dbus_gid_t     gid,
-                        DBusError     *error)
+_dbus_change_to_daemon_user  (const char    *user,
+                              DBusError     *error)
 {
+  dbus_uid_t uid;
+  dbus_gid_t gid;
+  DBusString u;
+
+  _dbus_string_init_const (&u, user);
+
+  if (!_dbus_get_user_id_and_primary_group (&u, &uid, &gid))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "User '%s' does not appear to exist?",
+                      user);
+      return FALSE;
+    }
+
   /* setgroups() only works if we are a privileged process,
    * so we don't return error on failure; the only possible
    * failure is that we don't have perms to do it.
@@ -264,7 +345,7 @@ _dbus_change_identity  (dbus_uid_t     uid,
   if (setgroups (0, NULL) < 0)
     _dbus_warn ("Failed to drop supplementary groups: %s\n",
                 _dbus_strerror (errno));
-  
+
   /* Set GID first, or the setuid may remove our permission
    * to change the GID
    */
@@ -275,7 +356,7 @@ _dbus_change_identity  (dbus_uid_t     uid,
                       _dbus_strerror (errno));
       return FALSE;
     }
-  
+
   if (setuid (uid) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -283,8 +364,68 @@ _dbus_change_identity  (dbus_uid_t     uid,
                       _dbus_strerror (errno));
       return FALSE;
     }
-  
+
   return TRUE;
+}
+#endif /* !HAVE_LIBAUDIT */
+
+void 
+_dbus_init_system_log (void)
+{
+  openlog ("dbus", LOG_PID, LOG_DAEMON);
+}
+/**
+ * Log a message to the system log file (e.g. syslog on Unix).
+ *
+ * @param severity a severity value
+ * @param msg a printf-style format string
+ * @param args arguments for the format string
+ *
+ */
+void
+_dbus_system_log (DBusSystemLogSeverity severity, const char *msg, ...)
+{
+  va_list args;
+
+  va_start (args, msg);
+
+  _dbus_system_logv (severity, msg, args);
+
+  va_end (args);
+}
+
+/**
+ * Log a message to the system log file (e.g. syslog on Unix).
+ *
+ * @param severity a severity value
+ * @param msg a printf-style format string
+ * @param args arguments for the format string
+ *
+ * If the FATAL severity is given, this function will terminate the program
+ * with an error code.
+ */
+void
+_dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list args)
+{
+  int flags;
+  switch (severity)
+    {
+      case DBUS_SYSTEM_LOG_INFO:
+        flags =  LOG_DAEMON | LOG_NOTICE;
+        break;
+      case DBUS_SYSTEM_LOG_SECURITY:
+        flags = LOG_AUTH | LOG_NOTICE;
+        break;
+      case DBUS_SYSTEM_LOG_FATAL:
+        flags = LOG_DAEMON|LOG_CRIT;
+      default:
+        return;
+    }
+
+  vsyslog (flags, msg, args);
+
+  if (severity == DBUS_SYSTEM_LOG_FATAL)
+    exit (1);
 }
 
 /** Installs a UNIX signal handler
@@ -304,35 +445,6 @@ _dbus_set_signal_handler (int               sig,
   act.sa_mask    = empty_mask;
   act.sa_flags   = 0;
   sigaction (sig,  &act, NULL);
-}
-
-
-/**
- * Removes a directory; Directory must be empty
- * 
- * @param filename directory filename
- * @param error initialized error object
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_delete_directory (const DBusString *filename,
-			DBusError        *error)
-{
-  const char *filename_c;
-  
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  filename_c = _dbus_string_get_const_data (filename);
-
-  if (rmdir (filename_c) != 0)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-		      "Failed to remove directory %s: %s\n",
-		      filename_c, _dbus_strerror (errno));
-      return FALSE;
-    }
-  
-  return TRUE;
 }
 
 /** Checks if a file exists
@@ -636,31 +748,69 @@ fill_group_info (DBusGroupInfo    *info,
   {
     struct group *g;
     int result;
-    char buf[1024];
+    size_t buflen;
+    char *buf;
     struct group g_str;
+    dbus_bool_t b;
 
-    g = NULL;
+    /* retrieve maximum needed size for buf */
+    buflen = sysconf (_SC_GETGR_R_SIZE_MAX);
+
+    /* sysconf actually returns a long, but everything else expects size_t,
+     * so just recast here.
+     * https://bugs.freedesktop.org/show_bug.cgi?id=17061
+     */
+    if ((long) buflen <= 0)
+      buflen = 1024;
+
+    result = -1;
+    while (1)
+      {
+        buf = dbus_malloc (buflen);
+        if (buf == NULL)
+          {
+            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+            return FALSE;
+          }
+
+        g = NULL;
 #ifdef HAVE_POSIX_GETPWNAM_R
-
-    if (group_c_str)
-      result = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf),
-                           &g);
-    else
-      result = getgrgid_r (gid, &g_str, buf, sizeof (buf),
-                           &g);
+        if (group_c_str)
+          result = getgrnam_r (group_c_str, &g_str, buf, buflen,
+                               &g);
+        else
+          result = getgrgid_r (gid, &g_str, buf, buflen,
+                               &g);
 #else
-    g = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
-    result = 0;
+        g = getgrnam_r (group_c_str, &g_str, buf, buflen);
+        result = 0;
 #endif /* !HAVE_POSIX_GETPWNAM_R */
+        /* Try a bigger buffer if ERANGE was returned:
+           https://bugs.freedesktop.org/show_bug.cgi?id=16727
+        */
+        if (result == ERANGE && buflen < 512 * 1024)
+          {
+            dbus_free (buf);
+            buflen *= 2;
+          }
+        else
+          {
+            break;
+          }
+      }
+
     if (result == 0 && g == &g_str)
       {
-        return fill_user_info_from_group (g, info, error);
+        b = fill_user_info_from_group (g, info, error);
+        dbus_free (buf);
+        return b;
       }
     else
       {
         dbus_set_error (error, _dbus_error_from_errno (errno),
                         "Group %s unknown or failed to look it up\n",
                         group_c_str ? group_c_str : "???");
+        dbus_free (buf);
         return FALSE;
       }
   }
@@ -722,6 +872,98 @@ _dbus_group_info_fill_gid (DBusGroupInfo *info,
   return fill_group_info (info, gid, NULL, error);
 }
 
+/**
+ * Parse a UNIX user from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param username the username text
+ * @param uid_p place to return the uid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_user_from_config (const DBusString  *username,
+                                   dbus_uid_t        *uid_p)
+{
+  return _dbus_get_user_id (username, uid_p);
+
+}
+
+/**
+ * Parse a UNIX group from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param groupname the groupname text
+ * @param gid_p place to return the gid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_group_from_config (const DBusString  *groupname,
+                                    dbus_gid_t        *gid_p)
+{
+  return _dbus_get_group_id (groupname, gid_p);
+}
+
+/**
+ * Gets all groups corresponding to the given UNIX user ID. On UNIX,
+ * just calls _dbus_groups_from_uid(). On Windows, should always
+ * fail since we don't know any UNIX groups.
+ *
+ * @param uid the UID
+ * @param group_ids return location for array of group IDs
+ * @param n_group_ids return location for length of returned array
+ * @returns #TRUE if the UID existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_unix_groups_from_uid (dbus_uid_t            uid,
+                            dbus_gid_t          **group_ids,
+                            int                  *n_group_ids)
+{
+  return _dbus_groups_from_uid (uid, group_ids, n_group_ids);
+}
+
+/**
+ * Checks to see if the UNIX user ID is at the console.
+ * Should always fail on Windows (set the error to
+ * #DBUS_ERROR_NOT_SUPPORTED).
+ *
+ * @param uid UID of person to check 
+ * @param error return location for errors
+ * @returns #TRUE if the UID is the same as the console user and there are no errors
+ */
+dbus_bool_t
+_dbus_unix_user_is_at_console (dbus_uid_t         uid,
+                               DBusError         *error)
+{
+  return _dbus_is_console_user (uid, error);
+
+}
+
+/**
+ * Checks to see if the UNIX user ID matches the UID of
+ * the process. Should always return #FALSE on Windows.
+ *
+ * @param uid the UNIX user ID
+ * @returns #TRUE if this uid owns the process.
+ */
+dbus_bool_t
+_dbus_unix_user_is_process_owner (dbus_uid_t uid)
+{
+  return uid == _dbus_geteuid ();
+}
+
+/**
+ * Checks to see if the Windows user SID matches the owner of
+ * the process. Should always return #FALSE on UNIX.
+ *
+ * @param windows_sid the Windows user SID
+ * @returns #TRUE if this user owns the process.
+ */
+dbus_bool_t
+_dbus_windows_user_is_process_owner (const char *windows_sid)
+{
+  return FALSE;
+}
+
 /** @} */ /* End of DBusInternalsUtils functions */
 
 /**
@@ -778,3 +1020,102 @@ _dbus_string_get_dirname  (const DBusString *filename,
 }
 /** @} */ /* DBusString stuff */
 
+static void
+string_squash_nonprintable (DBusString *str)
+{
+  unsigned char *buf;
+  int i, len; 
+  
+  buf = _dbus_string_get_data (str);
+  len = _dbus_string_get_length (str);
+  
+  for (i = 0; i < len; i++)
+    {
+	  unsigned char c = (unsigned char) buf[i];
+      if (c == '\0')
+        c = ' ';
+      else if (c < 0x20 || c > 127)
+        c = '?';
+    }
+}
+
+/**
+ * Get a printable string describing the command used to execute
+ * the process with pid.  This string should only be used for
+ * informative purposes such as logging; it may not be trusted.
+ * 
+ * The command is guaranteed to be printable ASCII and no longer
+ * than max_len.
+ * 
+ * @param pid Process id
+ * @param str Append command to this string
+ * @param max_len Maximum length of returned command
+ * @param error return location for errors
+ * @returns #FALSE on error
+ */
+dbus_bool_t 
+_dbus_command_for_pid (unsigned long  pid,
+                       DBusString    *str,
+                       int            max_len,
+                       DBusError     *error)
+{
+  /* This is all Linux-specific for now */
+  DBusString path;
+  DBusString cmdline;
+  int fd;
+  
+  if (!_dbus_string_init (&path)) 
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+  
+  if (!_dbus_string_init (&cmdline))
+    {
+      _DBUS_SET_OOM (error);
+      _dbus_string_free (&path);
+      return FALSE;
+    }
+  
+  if (!_dbus_string_append_printf (&path, "/proc/%ld/cmdline", pid))
+    goto oom;
+  
+  fd = open (_dbus_string_get_const_data (&path), O_RDONLY);
+  if (fd < 0) 
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to open \"%s\": %s",
+                      _dbus_string_get_const_data (&path),
+                      _dbus_strerror (errno));
+      goto fail;
+    }
+  
+  if (!_dbus_read (fd, &cmdline, max_len))
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to read from \"%s\": %s",
+                      _dbus_string_get_const_data (&path),
+                      _dbus_strerror (errno));      
+      goto fail;
+    }
+  
+  if (!_dbus_close (fd, error))
+    goto fail;
+  
+  string_squash_nonprintable (&cmdline);  
+  
+  if (!_dbus_string_copy (&cmdline, 0, str, _dbus_string_get_length (str)))
+    goto oom;
+  
+  _dbus_string_free (&cmdline);  
+  _dbus_string_free (&path);
+  return TRUE;
+oom:
+  _DBUS_SET_OOM (error);
+fail:
+  _dbus_string_free (&cmdline);
+  _dbus_string_free (&path);
+  return FALSE;
+}

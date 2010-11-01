@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-threads.h  D-Bus threads handling
  *
  * Copyright (C) 2002, 2003, 2006 Red Hat Inc.
@@ -17,9 +17,10 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include <config.h>
 #include "dbus-threads.h"
 #include "dbus-internals.h"
 #include "dbus-threads-internal.h"
@@ -424,7 +425,9 @@ init_locks (void)
     LOCK_ADDR (pending_call_slots),
     LOCK_ADDR (server_slots),
     LOCK_ADDR (message_slots),
+#if !DBUS_USE_SYNC
     LOCK_ADDR (atomic),
+#endif
     LOCK_ADDR (bus),
     LOCK_ADDR (bus_datas),
     LOCK_ADDR (shutdown_funcs),
@@ -810,7 +813,11 @@ dbus_fake_condvar_wake_all (DBusCondVar *cond)
 dbus_bool_t
 _dbus_threads_init_debug (void)
 {
+#ifdef DBUS_WIN
+  return _dbus_threads_init_platform_specific();
+#else
   return dbus_threads_init (&fake_functions);
+#endif
 }
 
 #endif /* DBUS_BUILD_TESTS */

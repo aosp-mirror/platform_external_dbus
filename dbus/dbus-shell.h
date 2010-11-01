@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-shell.h Shell command line utility functions.
  *
  * Copyright (C) 2002, 2003  Red Hat, Inc.
@@ -18,7 +18,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -28,7 +28,6 @@
 
 DBUS_BEGIN_DECLS
 
-char*       _dbus_shell_quote      (const char *unquoted_string);
 char*       _dbus_shell_unquote    (const char *quoted_string);
 dbus_bool_t _dbus_shell_parse_argv (const char *command_line,
                                     int        *argcp,

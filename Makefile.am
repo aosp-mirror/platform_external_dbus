@@ -2,7 +2,7 @@ SUBDIRS=dbus bus doc tools test
 DIST_SUBDIRS=dbus bus doc tools test
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = dbus-1.pc 
+pkgconfig_DATA = dbus-1.pc
 
 DISTCLEANFILES = 		\
 	dbus-1.pc
@@ -10,7 +10,12 @@ DISTCLEANFILES = 		\
 EXTRA_DIST =			\
 	HACKING			\
 	dbus-1.pc.in		\
-	cleanup-man-pages.sh
+	cleanup-man-pages.sh    \
+        ChangeLog.pre-1-0       \
+        NEWS.pre-1-0            \
+	ChangeLog.pre-1-2       \
+        NEWS.pre-1-2		\
+	README.windbus
 
 all-local: Doxyfile
 
@@ -53,3 +58,9 @@ check-coverage:
 	echo "Need to reconfigure with --enable-gcov"
 
 endif
+
+update-authors:
+	git shortlog -s -e | cut -c 8- | sort > AUTHORS
+
+DISTCHECK_CONFIGURE_FLAGS = \
+	--with-systemdsystemunitdir=$$dc_install_base/$(systemdsystemunitdir)

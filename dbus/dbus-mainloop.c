@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-mainloop.c  Main loop utility
  *
  * Copyright (C) 2003, 2004  Red Hat, Inc.
@@ -17,10 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-mainloop.h"
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
@@ -598,7 +599,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
 
 #if MAINLOOP_SPEW
               _dbus_verbose ("  skipping watch on fd %d as it was out of memory last time\n",
-                             dbus_watch_get_fd (wcb->watch));
+                             dbus_watch_get_socket (wcb->watch));
 #endif
             }
           else if (dbus_watch_get_enabled (wcb->watch))
@@ -609,7 +610,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
                   
               flags = dbus_watch_get_flags (wcb->watch);
                   
-              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
+              fds[n_fds].fd = dbus_watch_get_socket (wcb->watch);
               fds[n_fds].revents = 0;
               fds[n_fds].events = 0;
               if (flags & DBUS_WATCH_READABLE)
@@ -628,7 +629,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
             {
 #if MAINLOOP_SPEW
               _dbus_verbose ("  skipping disabled watch on fd %d  %s\n",
-                             dbus_watch_get_fd (wcb->watch),
+                             dbus_watch_get_socket (wcb->watch),
                              watch_flags_to_string (dbus_watch_get_flags (wcb->watch)));
 #endif
             }

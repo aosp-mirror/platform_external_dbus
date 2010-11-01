@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-validate.h  Validation routines for marshaled data
  *
  * Copyright (C) 2005  Red Hat, Inc.
@@ -17,18 +17,12 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
 #ifndef DBUS_MARSHAL_VALIDATE_H
 #define DBUS_MARSHAL_VALIDATE_H
-
-#include <config.h>
-
-#ifndef PACKAGE
-#error "config.h not included here"
-#endif
 
 /**
  * @addtogroup DBusMarshal
@@ -117,6 +111,7 @@ typedef enum
   DBUS_INVALID_DICT_ENTRY_HAS_TOO_MANY_FIELDS = 53,
   DBUS_INVALID_DICT_ENTRY_NOT_INSIDE_ARRAY = 54,
   DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE = 55,
+  DBUS_INVALID_MISSING_UNIX_FDS = 56,
   DBUS_VALIDITY_LAST
 } DBusValidity;
 
@@ -130,6 +125,8 @@ DBusValidity _dbus_validate_body_with_reason      (const DBusString *expected_si
                                                    const DBusString *value_str,
                                                    int               value_pos,
                                                    int               len);
+
+const char *_dbus_validity_to_error_message (DBusValidity validity);
 
 dbus_bool_t _dbus_validate_path       (const DBusString *str,
                                        int               start,

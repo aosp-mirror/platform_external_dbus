@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-message-private.h header shared between dbus-message.c and dbus-message-util.c
  *
  * Copyright (C) 2005  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_MESSAGE_PRIVATE_H
@@ -66,12 +66,21 @@ struct DBusMessageLoader
   DBusList *messages;  /**< Complete messages. */
 
   long max_message_size; /**< Maximum size of a message */
+  long max_message_unix_fds; /**< Maximum unix fds in a message */
 
-  unsigned int buffer_outstanding : 1; /**< Someone is using the buffer to read */
+  DBusValidity corruption_reason; /**< why we were corrupted */
 
   unsigned int corrupted : 1; /**< We got broken data, and are no longer working */
 
-  DBusValidity corruption_reason; /**< why we were corrupted */
+  unsigned int buffer_outstanding : 1; /**< Someone is using the buffer to read */
+
+#ifdef HAVE_UNIX_FD_PASSING
+  unsigned int unix_fds_outstanding : 1; /**< Someone is using the unix fd array to read */
+
+  int *unix_fds; /**< File descriptors that have been read from the transport but not yet been handed to any message. Array will be allocated at first use. */
+  unsigned n_unix_fds_allocated; /**< Number of file descriptors this array has space for */
+  unsigned n_unix_fds; /**< Number of valid file descriptors in array */
+#endif
 };
 
 
@@ -100,8 +109,8 @@ struct DBusMessage
 #ifndef DBUS_DISABLE_CHECKS
   unsigned int in_cache : 1; /**< Has been "freed" since it's in the cache (this is a debug feature) */
 #endif
-  
-  DBusList *size_counters;   /**< 0-N DBusCounter used to track message size. */
+
+  DBusList *counters;   /**< 0-N DBusCounter used to track message size/unix fds. */
   long size_counter_delta;   /**< Size we incremented the size counters by.   */
 
   dbus_uint32_t changed_stamp : CHANGED_STAMP_BITS; /**< Incremented when iterators are invalidated. */
@@ -111,12 +120,26 @@ struct DBusMessage
 #ifndef DBUS_DISABLE_CHECKS
   int generation; /**< _dbus_current_generation when message was created */
 #endif
+
+#ifdef HAVE_UNIX_FD_PASSING
+  int *unix_fds;
+  /**< Unix file descriptors associated with this message. These are
+     closed when the message is destroyed, hence make sure to dup()
+     them when adding or removing them here. */
+  unsigned n_unix_fds; /**< Number of valid fds in the array */
+  unsigned n_unix_fds_allocated; /**< Allocated size of the array */
+
+  long unix_fd_counter_delta; /**< Size we incremented the unix fd counter by */
+#endif
 };
 
 dbus_bool_t _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
                                                 DBusError       *error,
                                                 int              first_arg_type,
                                                 va_list          var_args);
+
+
+void _dbus_check_fdleaks(void);
 
 /** @} */
 

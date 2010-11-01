@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-transport-socket.c  Socket subclasses of DBusTransport
  *
  * Copyright (C) 2002, 2003, 2004, 2006  Red Hat Inc.
@@ -17,16 +17,18 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-connection-internal.h"
+#include "dbus-nonce.h"
 #include "dbus-transport-socket.h"
 #include "dbus-transport-protected.h"
 #include "dbus-watch.h"
-
+#include "dbus-credentials.h"
 
 /**
  * @defgroup DBusTransportSocket DBusTransport implementations for sockets
@@ -71,7 +73,7 @@ free_watches (DBusTransport *transport)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
 
-  _dbus_verbose ("%s start\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("start\n");
   
   if (socket_transport->read_watch)
     {
@@ -93,7 +95,7 @@ free_watches (DBusTransport *transport)
       socket_transport->write_watch = NULL;
     }
 
-  _dbus_verbose ("%s end\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("end\n");
 }
 
 static void
@@ -101,7 +103,7 @@ socket_finalize (DBusTransport *transport)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
   
   free_watches (transport);
 
@@ -175,8 +177,7 @@ check_read_watch (DBusTransport *transport)
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
   dbus_bool_t need_read_watch;
 
-  _dbus_verbose ("%s: fd = %d\n",
-                 _DBUS_FUNCTION_NAME, socket_transport->fd);
+  _dbus_verbose ("fd = %d\n",socket_transport->fd);
   
   if (transport->connection == NULL)
     return;
@@ -191,7 +192,8 @@ check_read_watch (DBusTransport *transport)
 
   if (_dbus_transport_get_is_authenticated (transport))
     need_read_watch =
-      _dbus_counter_get_value (transport->live_messages_size) < transport->max_live_messages_size;
+      (_dbus_counter_get_size_value (transport->live_messages) < transport->max_live_messages_size) &&
+      (_dbus_counter_get_unix_fd_value (transport->live_messages) < transport->max_live_messages_unix_fds);
   else
     {
       if (transport->receive_credentials_pending)
@@ -266,17 +268,16 @@ read_data_into_auth (DBusTransport *transport,
     {
       /* EINTR already handled for us */
 
-      if (errno == ENOMEM)
+      if (_dbus_get_is_errno_enomem ())
         {
           *oom = TRUE;
         }
-      else if (errno == EAGAIN ||
-               errno == EWOULDBLOCK)
+      else if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         ; /* do nothing, just return FALSE below */
       else
         {
           _dbus_verbose ("Error reading from remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
         }
 
@@ -318,13 +319,12 @@ write_data_from_auth (DBusTransport *transport)
     {
       /* EINTR already handled for us */
       
-      if (errno == EAGAIN ||
-          errno == EWOULDBLOCK)
+      if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         ;
       else
         {
           _dbus_verbose ("Error writing to remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
         }
     }
@@ -332,22 +332,22 @@ write_data_from_auth (DBusTransport *transport)
   return FALSE;
 }
 
-static void
+/* FALSE on OOM */
+static dbus_bool_t
 exchange_credentials (DBusTransport *transport,
                       dbus_bool_t    do_reading,
                       dbus_bool_t    do_writing)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
   _dbus_verbose ("exchange_credentials: do_reading = %d, do_writing = %d\n",
                   do_reading, do_writing);
 
-  dbus_error_init (&error);
   if (do_writing && transport->send_credentials_pending)
     {
-      if (_dbus_send_credentials_unix_socket (socket_transport->fd,
-                                              &error))
+      if (_dbus_send_credentials_socket (socket_transport->fd,
+                                         &error))
         {
           transport->send_credentials_pending = FALSE;
         }
@@ -361,9 +361,16 @@ exchange_credentials (DBusTransport *transport,
   
   if (do_reading && transport->receive_credentials_pending)
     {
-      if (_dbus_read_credentials_unix_socket (socket_transport->fd,
-                                              &transport->credentials,
-                                              &error))
+      /* FIXME this can fail due to IO error _or_ OOM, broken
+       * (somewhat tricky to fix since the OOM error can be set after
+       * we already read the credentials byte, so basically we need to
+       * separate reading the byte and storing it in the
+       * transport->credentials). Does not really matter for now
+       * because storing in credentials never actually fails on unix.
+       */      
+      if (_dbus_read_credentials_socket (socket_transport->fd,
+                                         transport->credentials,
+                                         &error))
         {
           transport->receive_credentials_pending = FALSE;
         }
@@ -378,9 +385,12 @@ exchange_credentials (DBusTransport *transport,
   if (!(transport->send_credentials_pending ||
         transport->receive_credentials_pending))
     {
-      _dbus_auth_set_credentials (transport->auth,
-                                  &transport->credentials);
+      if (!_dbus_auth_set_credentials (transport->auth,
+                                       transport->credentials))
+        return FALSE;
     }
+
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -412,7 +422,12 @@ do_authentication (DBusTransport *transport,
   while (!_dbus_transport_get_is_authenticated (transport) &&
          _dbus_transport_get_is_connected (transport))
     {      
-      exchange_credentials (transport, do_reading, do_writing);
+      if (!exchange_credentials (transport, do_reading, do_writing))
+        {
+          /* OOM */
+          oom = TRUE;
+          goto out;
+        }
       
       if (transport->send_credentials_pending ||
           transport->receive_credentials_pending)
@@ -523,7 +538,7 @@ do_writing (DBusTransport *transport)
       
       message = _dbus_connection_get_message_to_send (transport->connection);
       _dbus_assert (message != NULL);
-      _dbus_message_lock (message);
+      dbus_message_lock (message);
 
 #if 0
       _dbus_verbose ("writing message %p\n", message);
@@ -537,6 +552,9 @@ do_writing (DBusTransport *transport)
 
       if (_dbus_auth_needs_encoding (transport->auth))
         {
+          /* Does fd passing even make sense with encoded data? */
+          _dbus_assert(!DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport));
+
           if (_dbus_string_get_length (&socket_transport->encoded_outgoing) == 0)
             {
               if (!_dbus_auth_encode_data (transport->auth,
@@ -574,27 +592,53 @@ do_writing (DBusTransport *transport)
 
 #if 0
           _dbus_verbose ("message is %d bytes\n",
-                         total_bytes_to_write);          
+                         total_bytes_to_write);
 #endif
-          
-          if (socket_transport->message_bytes_written < header_len)
+
+#ifdef HAVE_UNIX_FD_PASSING
+          if (socket_transport->message_bytes_written <= 0 && DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport))
             {
+              /* Send the fds along with the first byte of the message */
+              const int *unix_fds;
+              unsigned n;
+
+              _dbus_message_get_unix_fds(message, &unix_fds, &n);
+
               bytes_written =
-                _dbus_write_socket_two (socket_transport->fd,
-                                        header,
-                                        socket_transport->message_bytes_written,
-                                        header_len - socket_transport->message_bytes_written,
-                                        body,
-                                        0, body_len);
+                _dbus_write_socket_with_unix_fds_two (socket_transport->fd,
+                                                      header,
+                                                      socket_transport->message_bytes_written,
+                                                      header_len - socket_transport->message_bytes_written,
+                                                      body,
+                                                      0, body_len,
+                                                      unix_fds,
+                                                      n);
+
+              if (bytes_written > 0 && n > 0)
+                _dbus_verbose("Wrote %i unix fds\n", n);
             }
           else
+#endif
             {
-              bytes_written =
-                _dbus_write_socket (socket_transport->fd,
-                                    body,
-                                    (socket_transport->message_bytes_written - header_len),
-                                    body_len -
-                                    (socket_transport->message_bytes_written - header_len));
+              if (socket_transport->message_bytes_written < header_len)
+                {
+                  bytes_written =
+                    _dbus_write_socket_two (socket_transport->fd,
+                                            header,
+                                            socket_transport->message_bytes_written,
+                                            header_len - socket_transport->message_bytes_written,
+                                            body,
+                                            0, body_len);
+                }
+              else
+                {
+                  bytes_written =
+                    _dbus_write_socket (socket_transport->fd,
+                                        body,
+                                        (socket_transport->message_bytes_written - header_len),
+                                        body_len -
+                                        (socket_transport->message_bytes_written - header_len));
+                }
             }
         }
 
@@ -602,13 +646,16 @@ do_writing (DBusTransport *transport)
         {
           /* EINTR already handled for us */
           
-          if (errno == EAGAIN ||
-              errno == EWOULDBLOCK)
+          /* For some discussion of why we also ignore EPIPE here, see
+           * http://lists.freedesktop.org/archives/dbus/2008-March/009526.html
+           */
+          
+          if (_dbus_get_is_errno_eagain_or_ewouldblock () || _dbus_get_is_errno_epipe ())
             goto out;
           else
             {
               _dbus_verbose ("Error writing to remote app: %s\n",
-                             _dbus_strerror (errno));
+                             _dbus_strerror_from_errno ());
               do_io_error (transport);
               goto out;
             }
@@ -628,6 +675,7 @@ do_writing (DBusTransport *transport)
             {
               socket_transport->message_bytes_written = 0;
               _dbus_string_set_length (&socket_transport->encoded_outgoing, 0);
+              _dbus_string_compact (&socket_transport->encoded_outgoing, 2048);
 
               _dbus_connection_message_sent (transport->connection,
                                              message);
@@ -652,8 +700,7 @@ do_reading (DBusTransport *transport)
   int total;
   dbus_bool_t oom;
 
-  _dbus_verbose ("%s: fd = %d\n", _DBUS_FUNCTION_NAME,
-                 socket_transport->fd);
+  _dbus_verbose ("fd = %d\n",socket_transport->fd);
   
   /* No messages without authentication! */
   if (!_dbus_transport_get_is_authenticated (transport))
@@ -686,6 +733,9 @@ do_reading (DBusTransport *transport)
   
   if (_dbus_auth_needs_decoding (transport->auth))
     {
+      /* Does fd passing even make sense with encoded data? */
+      _dbus_assert(!DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport));
+
       if (_dbus_string_get_length (&socket_transport->encoded_incoming) > 0)
         bytes_read = _dbus_string_get_length (&socket_transport->encoded_incoming);
       else
@@ -710,6 +760,10 @@ do_reading (DBusTransport *transport)
                                        buffer))
             {
               _dbus_verbose ("Out of memory decoding incoming data\n");
+              _dbus_message_loader_return_buffer (transport->loader,
+                                              buffer,
+                                              _dbus_string_get_length (buffer) - orig_len);
+
               oom = TRUE;
               goto out;
             }
@@ -719,16 +773,44 @@ do_reading (DBusTransport *transport)
                                               _dbus_string_get_length (buffer) - orig_len);
 
           _dbus_string_set_length (&socket_transport->encoded_incoming, 0);
+          _dbus_string_compact (&socket_transport->encoded_incoming, 2048);
         }
     }
   else
     {
       _dbus_message_loader_get_buffer (transport->loader,
                                        &buffer);
-      
-      bytes_read = _dbus_read_socket (socket_transport->fd,
-                                      buffer, socket_transport->max_bytes_read_per_iteration);
-      
+
+#ifdef HAVE_UNIX_FD_PASSING
+      if (DBUS_TRANSPORT_CAN_SEND_UNIX_FD(transport))
+        {
+          int *fds, n_fds;
+
+          if (!_dbus_message_loader_get_unix_fds(transport->loader, &fds, &n_fds))
+            {
+              _dbus_verbose ("Out of memory reading file descriptors\n");
+              _dbus_message_loader_return_buffer (transport->loader, buffer, 0);
+              oom = TRUE;
+              goto out;
+            }
+
+          bytes_read = _dbus_read_socket_with_unix_fds(socket_transport->fd,
+                                                       buffer,
+                                                       socket_transport->max_bytes_read_per_iteration,
+                                                       fds, &n_fds);
+
+          if (bytes_read >= 0 && n_fds > 0)
+            _dbus_verbose("Read %i unix fds\n", n_fds);
+
+          _dbus_message_loader_return_unix_fds(transport->loader, fds, bytes_read < 0 ? 0 : n_fds);
+        }
+      else
+#endif
+        {
+          bytes_read = _dbus_read_socket (socket_transport->fd,
+                                          buffer, socket_transport->max_bytes_read_per_iteration);
+        }
+
       _dbus_message_loader_return_buffer (transport->loader,
                                           buffer,
                                           bytes_read < 0 ? 0 : bytes_read);
@@ -738,19 +820,18 @@ do_reading (DBusTransport *transport)
     {
       /* EINTR already handled for us */
 
-      if (errno == ENOMEM)
+      if (_dbus_get_is_errno_enomem ())
         {
           _dbus_verbose ("Out of memory in read()/do_reading()\n");
           oom = TRUE;
           goto out;
         }
-      else if (errno == EAGAIN ||
-               errno == EWOULDBLOCK)
+      else if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         goto out;
       else
         {
           _dbus_verbose ("Error reading from remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
           goto out;
         }
@@ -789,6 +870,25 @@ do_reading (DBusTransport *transport)
 }
 
 static dbus_bool_t
+unix_error_with_read_to_come (DBusTransport *itransport,
+                              DBusWatch     *watch,
+                              unsigned int   flags)
+{
+  DBusTransportSocket *transport = (DBusTransportSocket *) itransport;
+
+  if (!(flags & DBUS_WATCH_HANGUP || flags & DBUS_WATCH_ERROR))
+    return FALSE;
+   
+  /* If we have a read watch enabled ...
+     we -might have data incoming ... => handle the HANGUP there */
+  if (watch != transport->read_watch &&
+      _dbus_watch_get_enabled (transport->read_watch))
+    return FALSE;
+      
+  return TRUE; 
+}
+
+static dbus_bool_t
 socket_handle_watch (DBusTransport *transport,
                    DBusWatch     *watch,
                    unsigned int   flags)
@@ -799,14 +899,11 @@ socket_handle_watch (DBusTransport *transport,
                 watch == socket_transport->write_watch);
   _dbus_assert (watch != NULL);
   
-  /* Disconnect in case of an error.  In case of hangup do not
-   * disconnect the transport because data can still be in the buffer
-   * and do_reading may need several iteration to read it all (because
-   * of its max_bytes_read_per_iteration limit).  The condition where
-   * flags == HANGUP (without READABLE) probably never happen in fact.
+  /* If we hit an error here on a write watch, don't disconnect the transport yet because data can
+   * still be in the buffer and do_reading may need several iteration to read
+   * it all (because of its max_bytes_read_per_iteration limit). 
    */
-  if ((flags & DBUS_WATCH_ERROR) ||
-      ((flags & DBUS_WATCH_HANGUP) && !(flags & DBUS_WATCH_READABLE)))
+  if (!(flags & DBUS_WATCH_READABLE) && unix_error_with_read_to_come (transport, watch, flags))
     {
       _dbus_verbose ("Hang up or error on watch\n");
       _dbus_transport_disconnect (transport);
@@ -873,7 +970,7 @@ socket_handle_watch (DBusTransport *transport,
                        flags);
       else
         _dbus_verbose ("asked to handle watch %p on fd %d that we don't recognize\n",
-                       watch, dbus_watch_get_fd (watch));
+                       watch, dbus_watch_get_socket (watch));
     }
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
 
@@ -885,7 +982,7 @@ socket_disconnect (DBusTransport *transport)
 {
   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
 
-  _dbus_verbose ("%s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("\n");
   
   free_watches (transport);
   
@@ -1020,19 +1117,19 @@ socket_do_iteration (DBusTransport *transport,
        */
       if (flags & DBUS_ITERATION_BLOCK)
         {
-          _dbus_verbose ("unlock %s pre poll\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("unlock pre poll\n");
           _dbus_connection_unlock (transport->connection);
         }
       
     again:
       poll_res = _dbus_poll (&poll_fd, 1, poll_timeout);
 
-      if (poll_res < 0 && errno == EINTR)
+      if (poll_res < 0 && _dbus_get_is_errno_eintr ())
 	goto again;
 
       if (flags & DBUS_ITERATION_BLOCK)
         {
-          _dbus_verbose ("lock %s post poll\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("lock post poll\n");
           _dbus_connection_lock (transport->connection);
         }
       
@@ -1070,7 +1167,7 @@ socket_do_iteration (DBusTransport *transport,
       else
         {
           _dbus_verbose ("Error from _dbus_poll(): %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
         }
     }
 
@@ -1161,12 +1258,16 @@ _dbus_transport_new_for_socket (int               fd,
                                                 NULL, NULL, NULL);
   if (socket_transport->read_watch == NULL)
     goto failed_3;
-  
+
   if (!_dbus_transport_init_base (&socket_transport->base,
                                   &socket_vtable,
                                   server_guid, address))
     goto failed_4;
-  
+
+#ifdef HAVE_UNIX_FD_PASSING
+  _dbus_auth_set_unix_fd_possible(socket_transport->base.auth, _dbus_socket_can_pass_unix_fd(fd));
+#endif
+
   socket_transport->fd = fd;
   socket_transport->message_bytes_written = 0;
   
@@ -1191,15 +1292,20 @@ _dbus_transport_new_for_socket (int               fd,
 
 /**
  * Creates a new transport for the given hostname and port.
+ * If host is NULL, it will default to localhost
  *
  * @param host the host to connect to
  * @param port the port to connect to
+ * @param family the address family to connect to
+ * @param path to nonce file
  * @param error location to store reason for failure.
  * @returns a new transport, or #NULL on failure.
  */
 DBusTransport*
 _dbus_transport_new_for_tcp_socket (const char     *host,
-                                    dbus_int32_t    port,
+                                    const char     *port,
+                                    const char     *family,
+                                    const char     *noncefile,
                                     DBusError      *error)
 {
   int fd;
@@ -1213,20 +1319,32 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       return NULL;
     }
-  
-  if (!_dbus_string_append (&address, "tcp:"))
+
+  if (host == NULL)
+    host = "localhost";
+
+  if (!_dbus_string_append (&address, noncefile ? "nonce-tcp:" : "tcp:"))
     goto error;
 
-  if (host != NULL && 
-       (!_dbus_string_append (&address, "host=") ||
-        !_dbus_string_append (&address, host)))
+  if (!_dbus_string_append (&address, "host=") ||
+      !_dbus_string_append (&address, host))
     goto error;
 
   if (!_dbus_string_append (&address, ",port=") ||
-      !_dbus_string_append_int (&address, port))
+      !_dbus_string_append (&address, port))
     goto error;
 
-  fd = _dbus_connect_tcp_socket (host, port, error);
+  if (family != NULL &&
+      (!_dbus_string_append (&address, "family=") ||
+       !_dbus_string_append (&address, family)))
+    goto error;
+
+  if (noncefile != NULL &&
+      (!_dbus_string_append (&address, "noncefile=") ||
+       !_dbus_string_append (&address, noncefile)))
+    goto error;
+
+  fd = _dbus_connect_tcp_socket_with_nonce (host, port, family, noncefile, error);
   if (fd < 0)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -1234,22 +1352,18 @@ _dbus_transport_new_for_tcp_socket (const char     *host,
       return NULL;
     }
 
-  _dbus_fd_set_close_on_exec (fd);
-  
-  _dbus_verbose ("Successfully connected to tcp socket %s:%d\n",
+  _dbus_verbose ("Successfully connected to tcp socket %s:%s\n",
                  host, port);
   
   transport = _dbus_transport_new_for_socket (fd, NULL, &address);
+  _dbus_string_free (&address);
   if (transport == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
       _dbus_close_socket (fd, NULL);
-      _dbus_string_free (&address);
       fd = -1;
     }
 
-  _dbus_string_free (&address);
-  
   return transport;
 
 error:
@@ -1272,36 +1386,34 @@ _dbus_transport_open_socket(DBusAddressEntry  *entry,
                             DBusError         *error)
 {
   const char *method;
+  dbus_bool_t isTcp;
+  dbus_bool_t isNonceTcp;
   
   method = dbus_address_entry_get_method (entry);
   _dbus_assert (method != NULL);
 
-  if (strcmp (method, "tcp") == 0)
+  isTcp = strcmp (method, "tcp") == 0;
+  isNonceTcp = strcmp (method, "nonce-tcp") == 0;
+
+  if (isTcp || isNonceTcp)
     {
       const char *host = dbus_address_entry_get_value (entry, "host");
       const char *port = dbus_address_entry_get_value (entry, "port");
-      DBusString  str;
-      long lport;
-      dbus_bool_t sresult;
-          
+      const char *family = dbus_address_entry_get_value (entry, "family");
+      const char *noncefile = dbus_address_entry_get_value (entry, "noncefile");
+
+      if ((isNonceTcp == TRUE) != (noncefile != NULL)) {
+          _dbus_set_bad_address (error, method, "noncefile", NULL);
+          return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
+      }
+
       if (port == NULL)
         {
-          _dbus_set_bad_address (error, "tcp", "port", NULL);
+          _dbus_set_bad_address (error, method, "port", NULL);
           return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
         }
 
-      _dbus_string_init_const (&str, port);
-      sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-      _dbus_string_free (&str);
-          
-      if (sresult == FALSE || lport <= 0 || lport > 65535)
-        {
-          _dbus_set_bad_address (error, NULL, NULL,
-                                 "Port is not an integer between 0 and 65535");
-          return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
-        }
-          
-      *transport_p = _dbus_transport_new_for_tcp_socket (host, lport, error);
+      *transport_p = _dbus_transport_new_for_tcp_socket (host, port, family, noncefile, error);
       if (*transport_p == NULL)
         {
           _DBUS_ASSERT_ERROR_IS_SET (error);

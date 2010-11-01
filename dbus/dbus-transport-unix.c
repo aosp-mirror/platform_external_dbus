@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-transport-unix.c UNIX socket subclasses of DBusTransport
  *
  * Copyright (C) 2002, 2003, 2004  Red Hat Inc.
@@ -17,10 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-connection-internal.h"
 #include "dbus-transport-unix.h"
@@ -85,8 +86,6 @@ _dbus_transport_new_for_domain_socket (const char     *path,
       goto failed_0;
     }
 
-  _dbus_fd_set_close_on_exec (fd);
-  
   _dbus_verbose ("Successfully connected to unix socket %s\n",
                  path);
 

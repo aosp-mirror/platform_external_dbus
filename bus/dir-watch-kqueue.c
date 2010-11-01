@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dir-watch-kqueue.c  OS specific directory change notification for message bus
  *
  * Copyright (C) 2003 Red Hat, Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -29,16 +29,22 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
 #include "bus.h"
 #include <dbus/dbus-watch.h>
 
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-list.h>
 #include "dir-watch.h"
 
 #define MAX_DIRS_TO_WATCH 128
 
 static int kq = -1;
 static int fds[MAX_DIRS_TO_WATCH];
+static char *dirs[MAX_DIRS_TO_WATCH];
 static int num_fds = 0;
 static DBusWatch *watch = NULL;
 static DBusLoop *loop = NULL;
@@ -86,13 +92,10 @@ _handle_kqueue_watch (DBusWatch *watch, unsigned int flags, void *data)
   return TRUE;
 }
 
-void
-bus_watch_directory (const char *dir, BusContext *context)
+static int
+_init_kqueue (BusContext *context)
 {
-  int fd;
-  struct kevent ev;
-
-  _dbus_assert (dir != NULL);
+  int ret = 0;
 
   if (kq < 0)
     {
@@ -129,49 +132,124 @@ bus_watch_directory (const char *dir, BusContext *context)
 	  }
     }
 
-  if (num_fds >= MAX_DIRS_TO_WATCH )
-    {
-      _dbus_warn ("Cannot watch config directory '%s'. Already watching %d directories\n", dir, MAX_DIRS_TO_WATCH);
-      goto out;
-    }
+  ret = 1;
 
-  fd = open (dir, O_RDONLY);
-  if (fd < 0)
-    {
-      _dbus_warn ("Cannot open directory '%s'; error '%s'\n", dir, _dbus_strerror (errno));
-      goto out;
-    }
-
-  EV_SET (&ev, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_CLEAR,
-          NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_RENAME, 0, 0);
-  if (kevent (kq, &ev, 1, NULL, 0, NULL) == -1)
-    {
-      _dbus_warn ("Cannot setup a kevent for '%s'; error '%s'\n", dir, _dbus_strerror (errno));
-      close (fd);
-      goto out;
-    }
-
-  fds[num_fds++] = fd;
-  _dbus_verbose ("Added kqueue watch on config directory '%s'\n", dir);
-
- out:
-  ;
+out:
+  return ret;
 }
 
 void
-bus_drop_all_directory_watches (void)
+bus_set_watched_dirs (BusContext *context, DBusList **directories)
 {
-  int i;
+  int new_fds[MAX_DIRS_TO_WATCH];
+  char *new_dirs[MAX_DIRS_TO_WATCH];
+  DBusList *link;
+  int i, j, f, fd;
+  struct kevent ev;
 
-  _dbus_verbose ("Dropping all watches on config directories\n");
+  if (!_init_kqueue (context))
+    goto out;
 
-  for (i = 0; i < num_fds; i++)
+  for (i = 0; i < MAX_DIRS_TO_WATCH; i++)
     {
-      if (close (fds[i]) != 0)
+      new_fds[i] = -1;
+      new_dirs[i] = NULL;
+    }
+
+  i = 0;
+  link = _dbus_list_get_first_link (directories);
+  while (link != NULL)
+    {
+      new_dirs[i++] = (char *)link->data;
+      link = _dbus_list_get_next_link (directories, link);
+    }
+
+  /* Look for directories in both the old and new sets, if
+   * we find one, move its data into the new set.
+   */
+  for (i = 0; new_dirs[i]; i++)
+    {
+      for (j = 0; j < num_fds; j++)
         {
-          _dbus_verbose ("Error closing fd %d for config directory watch\n", fds[i]);
+          if (dirs[j] && strcmp (new_dirs[i], dirs[j]) == 0)
+            {
+              new_fds[i] = fds[j];
+	      new_dirs[i] = dirs[j];
+	      fds[j] = -1;
+	      dirs[j] = NULL;
+	      break;
+	    }
 	}
     }
 
-  num_fds = 0;
+  /* Any directory we find in "fds" with a nonzero fd must
+   * not be in the new set, so perform cleanup now.
+   */
+  for (j = 0; j < num_fds; j++)
+    {
+      if (fds[j] != -1)
+        {
+          close (fds[j]);
+	  dbus_free (dirs[j]);
+	  fds[j] = -1;
+	  dirs[j] = NULL;
+	}
+    }
+
+  for (i = 0; new_dirs[i]; i++)
+    {
+      if (new_fds[i] == -1)
+        {
+          /* FIXME - less lame error handling for failing to add a watch;
+	   * we may need to sleep.
+	   */
+          fd = open (new_dirs[i], O_RDONLY);
+          if (fd < 0)
+            {
+              if (errno != ENOENT)
+                {
+                  _dbus_warn ("Cannot open directory '%s'; error '%s'\n", new_dirs[i], _dbus_strerror (errno));
+                  goto out;
+                }
+              else
+                {
+                  new_fds[i] = -1;
+                  new_dirs[i] = NULL;
+                  continue;
+                }
+            }
+
+          EV_SET (&ev, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_CLEAR,
+                  NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_RENAME, 0, 0);
+          if (kevent (kq, &ev, 1, NULL, 0, NULL) == -1)
+            {
+              _dbus_warn ("Cannot setup a kevent for '%s'; error '%s'\n", new_dirs[i], _dbus_strerror (errno));
+              close (fd);
+              goto out;
+            }
+
+	  new_fds[i] = fd;
+	  new_dirs[i] = _dbus_strdup (new_dirs[i]);
+	  if (!new_dirs[i])
+            {
+              /* FIXME have less lame handling for OOM, we just silently fail to
+	       * watch.  (In reality though, the whole OOM handling in dbus is
+	       * stupid but we won't go into that in this comment =) )
+	       */
+              close (fd);
+	      new_fds[i] = -1;
+	    }
+	}
+    }
+
+  num_fds = i;
+
+  for (i = 0; i < MAX_DIRS_TO_WATCH; i++)
+    {
+      fds[i] = new_fds[i];
+      dirs[i] = new_dirs[i];
+    }
+
+ out:
+  ;
 }

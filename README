@@ -60,24 +60,34 @@ Development snapshots make no ABI stability guarantees for new ABI
 introduced since the last stable release. Development snapshots are
 likely to have more bugs than stable releases, obviously.
 
+Configuration 
+===
+
+dbus could be build by using autotools or cmake. 
+
+When using autotools the configure step is initiated by running ./configure 
+with our without additional configuration flags. 
+
+When using cmake the configure step is initiated by running the cmake 
+program with our without additional configuration flags. 
+
 Configuration flags
 ===
 
-These are the dbus-specific configuration flags that can be given to
-the ./configure program.
+When using autools the dbus-specific configuration flags that can be given to
+the ./configure program are these 
 
-  --enable-tests          enable unit test code
-  --enable-verbose-mode   support verbose debug mode
-  --enable-asserts        include assertion checks
-  --enable-checks         include sanity checks on public API
-  --enable-xml-docs       build XML documentation (requires xmlto)
-  --enable-doxygen-docs   build DOXYGEN documentation (requires Doxygen)
-  --enable-gcov           compile with coverage profiling instrumentation (gcc only)
-  --enable-abstract-sockets
-                          use abstract socket namespace (linux only)
-  --enable-selinux        build with SELinux support
-  --enable-dnotify        build with dnotify support (linux only)
-  --enable-kqueue         build with kqueue support (*BSD only)
+  --enable-tests             enable unit test code
+  --enable-verbose-mode      support verbose debug mode
+  --enable-asserts           include assertion checks
+  --enable-checks            include sanity checks on public API
+  --enable-xml-docs          build XML documentation (requires xmlto)
+  --enable-doxygen-docs      build DOXYGEN documentation (requires Doxygen)
+  --enable-gcov              compile with coverage profiling instrumentation (gcc only)
+  --enable-abstract-sockets  use abstract socket namespace (linux only)
+  --enable-selinux           build with SELinux support
+  --enable-dnotify           build with dnotify support (linux only)
+  --enable-kqueue            build with kqueue support (*BSD only)
   --with-xml=libxml/expat           XML library to use
   --with-init-scripts=redhat        Style of init scripts to install
   --with-session-socket-dir=dirname Where to put sockets for the per-login-session message bus
@@ -90,7 +100,29 @@ the ./configure program.
   --with-tags[=TAGS]                include additional configurations [automatic]
   --with-x                          use the X Window System
 
+When using the cmake build system the dbus-specific configuration flags that can be given 
+to the cmake program are these (use -D<key>=<value> on command line)
 
+    CMAKE_BUILD_TYPE                   set dbus build mode - one of Debug|Release|RelWithDebInfo|MinSizeRel
+    DBUS_BUILD_TESTS                   enable unit test code  default=ON
+    DBUS_BUILD_X11                     Build X11-dependent code default=ON
+    HAVE_CONSOLE_OWNER_FILE            enable console owner file (solaris only) ) default=ON
+    DBUS_DISABLE_ASSERTS               Disable assertion checking default=OFF
+    DBUS_DISABLE_CHECKS                Disable public API sanity checking default=OFF
+    DBUS_ENABLE_ABSTRACT_SOCKETS       enable support for abstract sockets (linux only) default=ON
+    DBUS_ENABLE_ANSI                   enable -ansi -pedantic gcc flags default=OFF
+    DBUS_ENABLE_DNOTIFY                build with dnotify support (linux only) default=ON
+    DBUS_ENABLE_VERBOSE_MODE           support verbose debug mode default=ON
+    DBUS_ENABLE_DOXYGEN_DOCS           build DOXYGEN documentation (requires Doxygen) default=ON
+    DBUS_GCOV_ENABLED                  compile with coverage profiling instrumentation (gcc only) default=OFF
+    DBUS_INSTALL_SYSTEM_LIBS           install required system libraries default (windows only) =OFF
+    DBUS_USE_EXPAT                     Use expat (== ON) or libxml2 (==OFF) default=ON [1]
+    DBUS_USE_NONCE_TCP_DEFAULT_ADDRESS Use nonce tcp default address default=OFF
+    DBUS_USE_OUTPUT_DEBUG_STRING       enable win32 debug port for message output default=OFF
+    
+    [1] requires installed development package of the related dependency 
+
+    
 API/ABI Policy
 ===
 

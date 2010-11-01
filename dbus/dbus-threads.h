@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-threads.h  D-Bus threads handling
  *
  * Copyright (C) 2002  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
@@ -186,7 +186,9 @@ typedef struct
   
 } DBusThreadFunctions;
 
+DBUS_EXPORT
 dbus_bool_t  dbus_threads_init         (const DBusThreadFunctions *functions);
+DBUS_EXPORT
 dbus_bool_t  dbus_threads_init_default (void);
 
 /** @} */

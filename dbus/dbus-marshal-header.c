@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-header.c  Managing marshaling/demarshaling of message headers
  *
  * Copyright (C) 2005  Red Hat, Inc.
@@ -17,10 +17,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus/dbus-shared.h"
 #include "dbus-marshal-header.h"
 #include "dbus-marshal-recursive.h"
@@ -81,7 +82,8 @@ _dbus_header_field_types[DBUS_HEADER_FIELD_LAST+1] = {
   { DBUS_HEADER_FIELD_REPLY_SERIAL, DBUS_TYPE_UINT32 },
   { DBUS_HEADER_FIELD_DESTINATION, DBUS_TYPE_STRING },
   { DBUS_HEADER_FIELD_SENDER, DBUS_TYPE_STRING },
-  { DBUS_HEADER_FIELD_SIGNATURE, DBUS_TYPE_SIGNATURE }
+  { DBUS_HEADER_FIELD_SIGNATURE, DBUS_TYPE_SIGNATURE },
+  { DBUS_HEADER_FIELD_UNIX_FDS, DBUS_TYPE_UINT32 }
 };
 
 /** Macro to look up the correct type for a field */
@@ -886,6 +888,10 @@ load_and_validate_field (DBusHeader     *header,
         {
           return DBUS_INVALID_BAD_SERIAL;
         }
+      break;
+
+    case DBUS_HEADER_FIELD_UNIX_FDS:
+      /* Every value makes sense */
       break;
 
     case DBUS_HEADER_FIELD_SIGNATURE:

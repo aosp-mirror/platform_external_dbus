@@ -1,7 +1,8 @@
 #ifndef TEST_UTILS_H
 #define TEST_UTILS_H
-#include <config.h>
+#ifndef DBUS_COMPILATION
 #define DBUS_COMPILATION /* Cheat and use private stuff */
+#endif
 #include <dbus/dbus.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,5 +17,9 @@ void        test_connection_shutdown              (DBusLoop       *loop,
 void        test_connection_dispatch_all_messages (DBusConnection *connection);
 dbus_bool_t test_connection_dispatch_one_message  (DBusConnection *connection);
 
+dbus_bool_t test_server_setup                     (DBusLoop      *loop,
+                                                   DBusServer    *server);
+void        test_server_shutdown                  (DBusLoop      *loop,
+                                                   DBusServer    *server);
 
 #endif

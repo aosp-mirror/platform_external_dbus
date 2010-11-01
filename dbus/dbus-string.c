@@ -1,7 +1,8 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-string.c String utility class (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003, 2004, 2005 Red Hat, Inc.
+ * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -17,10 +18,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-string.h"
 /* we allow a system header here, for speed/convenience */
@@ -270,6 +272,32 @@ _dbus_string_free (DBusString *str)
   real->invalid = TRUE;
 }
 
+static dbus_bool_t
+compact (DBusRealString *real,
+         int             max_waste)
+{
+  unsigned char *new_str;
+  int new_allocated;
+  int waste;
+
+  waste = real->allocated - (real->len + _DBUS_STRING_ALLOCATION_PADDING);
+
+  if (waste <= max_waste)
+    return TRUE;
+
+  new_allocated = real->len + _DBUS_STRING_ALLOCATION_PADDING;
+
+  new_str = dbus_realloc (real->str - real->align_offset, new_allocated);
+  if (_DBUS_UNLIKELY (new_str == NULL))
+    return FALSE;
+
+  real->str = new_str + real->align_offset;
+  real->allocated = new_allocated;
+  fixup_alignment (real);
+
+  return TRUE;
+}
+
 #ifdef DBUS_BUILD_TESTS
 /* Not using this feature at the moment,
  * so marked DBUS_BUILD_TESTS-only
@@ -294,22 +322,7 @@ _dbus_string_lock (DBusString *str)
    * we know we won't change the string further
    */
 #define MAX_WASTE 48
-  if (real->allocated - MAX_WASTE > real->len)
-    {
-      unsigned char *new_str;
-      int new_allocated;
-
-      new_allocated = real->len + _DBUS_STRING_ALLOCATION_PADDING;
-
-      new_str = dbus_realloc (real->str - real->align_offset,
-                              new_allocated);
-      if (new_str != NULL)
-        {
-          real->str = new_str + real->align_offset;
-          real->allocated = new_allocated;
-          fixup_alignment (real);
-        }
-    }
+  compact (real, MAX_WASTE);
 }
 #endif /* DBUS_BUILD_TESTS */
 
@@ -358,6 +371,26 @@ reallocate_for_length (DBusRealString *real,
   fixup_alignment (real);
 
   return TRUE;
+}
+
+/**
+ * Compacts the string to avoid wasted memory.  Wasted memory is
+ * memory that is allocated but not actually required to store the
+ * current length of the string.  The compact is only done if more
+ * than the given amount of memory is being wasted (otherwise the
+ * waste is ignored and the call does nothing).
+ *
+ * @param str the string
+ * @param max_waste the maximum amount of waste to ignore
+ * @returns #FALSE if the compact failed due to realloc failure
+ */
+dbus_bool_t
+_dbus_string_compact (DBusString *str,
+                      int         max_waste)
+{
+  DBUS_STRING_PREAMBLE (str);
+
+  return compact (real, max_waste);
 }
 
 static dbus_bool_t
@@ -709,8 +742,9 @@ _dbus_string_copy_data (const DBusString  *str,
 }
 
 /**
- * Copies the contents of a DBusString into a different
- * buffer. The resulting buffer will be nul-terminated.
+ * Copies the contents of a DBusString into a different buffer. It is
+ * a bug if avail_len is too short to hold the string contents. nul
+ * termination is not copied, just the supplied bytes.
  * 
  * @param str a string
  * @param buffer a C buffer to copy data to
@@ -721,15 +755,34 @@ _dbus_string_copy_to_buffer (const DBusString  *str,
 			     char              *buffer,
 			     int                avail_len)
 {
-  int copy_len;
   DBUS_CONST_STRING_PREAMBLE (str);
 
   _dbus_assert (avail_len >= 0);
+  _dbus_assert (avail_len >= real->len);
+  
+  memcpy (buffer, real->str, real->len);
+}
 
-  copy_len = MIN (avail_len, real->len+1);
-  memcpy (buffer, real->str, copy_len);
-  if (avail_len > 0 && avail_len == copy_len)
-    buffer[avail_len-1] = '\0';
+/**
+ * Copies the contents of a DBusString into a different buffer. It is
+ * a bug if avail_len is too short to hold the string contents plus a
+ * nul byte. 
+ * 
+ * @param str a string
+ * @param buffer a C buffer to copy data to
+ * @param avail_len maximum length of C buffer
+ */
+void
+_dbus_string_copy_to_buffer_with_nul (const DBusString  *str,
+                                      char              *buffer,
+                                      int                avail_len)
+{
+  DBUS_CONST_STRING_PREAMBLE (str);
+
+  _dbus_assert (avail_len >= 0);
+  _dbus_assert (avail_len > real->len);
+  
+  memcpy (buffer, real->str, real->len+1);
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -1629,6 +1682,48 @@ _dbus_string_replace_len (const DBusString *source,
   return TRUE;
 }
 
+/**
+ * Looks for the first occurance of a byte, deletes that byte,
+ * and moves everything after the byte to the beginning of a
+ * separate string.  Both strings must be initialized, valid
+ * strings.
+ *
+ * @param source the source string
+ * @param byte the byte to remove and split the string at
+ * @param tail the split off string
+ * @returns #FALSE if not enough memory or if byte could not be found
+ *
+ */
+dbus_bool_t
+_dbus_string_split_on_byte (DBusString        *source,
+                            unsigned char      byte,
+                            DBusString        *tail)
+{
+  int byte_position;
+  char byte_string[2] = "";
+  int head_length;
+  int tail_length;
+
+  byte_string[0] = (char) byte;
+
+  if (!_dbus_string_find (source, 0, byte_string, &byte_position))
+    return FALSE;
+
+  head_length = byte_position;
+  tail_length = _dbus_string_get_length (source) - head_length - 1;
+
+  if (!_dbus_string_move_len (source, byte_position + 1, tail_length,
+                              tail, 0))
+    return FALSE;
+
+  /* remove the trailing delimiter byte from the head now.
+   */
+  if (!_dbus_string_set_length (source, head_length))
+    return FALSE;
+
+  return TRUE;
+}
+
 /* Unicode macros and utf8_validate() from GLib Owen Taylor, Havoc
  * Pennington, and Tom Tromey are the authors and authorized relicense.
  */
@@ -1709,7 +1804,18 @@ _dbus_string_replace_len (const DBusString *source,
     }
 
 /**
- * Check whether a unicode char is in a valid range.
+ * Check whether a Unicode (5.2) char is in a valid range.
+ *
+ * The first check comes from the Unicode guarantee to never encode
+ * a point above 0x0010ffff, since UTF-16 couldn't represent it.
+ *
+ * The second check covers surrogate pairs (category Cs).
+ *
+ * The last two checks cover "Noncharacter": defined as:
+ *   "A code point that is permanently reserved for
+ *    internal use, and that should never be interchanged. In
+ *    Unicode 3.1, these consist of the values U+nFFFE and U+nFFFF
+ *    (where n is from 0 to 10_16) and the values U+FDD0..U+FDEF."
  *
  * @param Char the character
  */
@@ -1717,7 +1823,7 @@ _dbus_string_replace_len (const DBusString *source,
     ((Char) < 0x110000 &&                     \
      (((Char) & 0xFFFFF800) != 0xD800) &&     \
      ((Char) < 0xFDD0 || (Char) > 0xFDEF) &&  \
-     ((Char) & 0xFFFF) != 0xFFFF)
+     ((Char) & 0xFFFE) != 0xFFFE)
 
 #ifdef DBUS_BUILD_TESTS
 /**
@@ -1791,6 +1897,72 @@ _dbus_string_find (const DBusString *str,
   return _dbus_string_find_to (str, start,
                                ((const DBusRealString*)str)->len,
                                substr, found);
+}
+
+/**
+ * Finds end of line ("\r\n" or "\n") in the string,
+ * returning #TRUE and filling in the byte index
+ * where the eol string was found, if it was found.
+ * Returns #FALSE if eol wasn't found.
+ *
+ * @param str the string
+ * @param start where to start looking
+ * @param found return location for where eol was found or string length otherwise
+ * @param found_len return length of found eol string or zero otherwise
+ * @returns #TRUE if found
+ */
+dbus_bool_t
+_dbus_string_find_eol (const DBusString *str,
+                       int               start,
+                       int              *found,
+                       int              *found_len)
+{
+  int i;
+
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
+  
+  i = start;
+  while (i < real->len)
+    {
+      if (real->str[i] == '\r') 
+        {
+          if ((i+1) < real->len && real->str[i+1] == '\n') /* "\r\n" */
+            {
+              if (found) 
+                *found = i;
+              if (found_len)
+                *found_len = 2;
+              return TRUE;
+            } 
+          else /* only "\r" */
+            {
+              if (found) 
+                *found = i;
+              if (found_len)
+                *found_len = 1;
+              return TRUE;
+            }
+        } 
+      else if (real->str[i] == '\n')  /* only "\n" */
+        {
+          if (found) 
+            *found = i;
+          if (found_len)
+            *found_len = 1;
+          return TRUE;
+        }
+      ++i;
+    }
+
+  if (found)
+    *found = real->len;
+
+  if (found_len)
+    *found_len = 0;
+  
+  return FALSE;
 }
 
 /**
@@ -2025,51 +2197,37 @@ dbus_bool_t
 _dbus_string_pop_line (DBusString *source,
                        DBusString *dest)
 {
-  int eol;
-  dbus_bool_t have_newline;
+  int eol, eol_len;
   
   _dbus_string_set_length (dest, 0);
   
   eol = 0;
-  if (_dbus_string_find (source, 0, "\n", &eol))
+  eol_len = 0;
+  if (!_dbus_string_find_eol (source, 0, &eol, &eol_len))
     {
-      have_newline = TRUE;
-      eol += 1; /* include newline */
-    }
-  else
-    {
-      eol = _dbus_string_get_length (source);
-      have_newline = FALSE;
+      _dbus_assert (eol == _dbus_string_get_length (source));
+      if (eol == 0)
+        {
+          /* If there's no newline and source has zero length, we're done */
+          return FALSE;
+        }
+      /* otherwise, the last line of the file has no eol characters */
     }
 
-  if (eol == 0)
-    return FALSE; /* eof */
+  /* remember eol can be 0 if it's an empty line, but eol_len should not be zero also
+   * since find_eol returned TRUE
+   */
   
-  if (!_dbus_string_move_len (source, 0, eol,
-                              dest, 0))
+  if (!_dbus_string_move_len (source, 0, eol + eol_len, dest, 0))
+    return FALSE;
+  
+  /* remove line ending */
+  if (!_dbus_string_set_length (dest, eol))
     {
+      _dbus_assert_not_reached ("out of memory when shortening a string");
       return FALSE;
     }
 
-  /* dump the newline and the \r if we have one */
-  if (have_newline)
-    {
-      dbus_bool_t have_cr;
-      
-      _dbus_assert (_dbus_string_get_length (dest) > 0);
-
-      if (_dbus_string_get_length (dest) > 1 &&
-          _dbus_string_get_byte (dest,
-                                 _dbus_string_get_length (dest) - 2) == '\r')
-        have_cr = TRUE;
-      else
-        have_cr = FALSE;
-        
-      _dbus_string_set_length (dest,
-                               _dbus_string_get_length (dest) -
-                               (have_cr ? 2 : 1));
-    }
-  
   return TRUE;
 }
 
@@ -2169,7 +2327,6 @@ _dbus_string_equal (const DBusString *a,
   return TRUE;
 }
 
-#ifdef DBUS_BUILD_TESTS
 /**
  * Tests two DBusString for equality up to the given length.
  * The strings may be shorter than the given length.
@@ -2214,7 +2371,6 @@ _dbus_string_equal_len (const DBusString *a,
 
   return TRUE;
 }
-#endif /* DBUS_BUILD_TESTS */
 
 /**
  * Tests two sub-parts of two DBusString for equality.  The specified
@@ -2606,6 +2762,68 @@ _dbus_string_validate_ascii (const DBusString *str,
     }
   
   return TRUE;
+}
+
+/**
+ * Converts the given range of the string to lower case.
+ *
+ * @param str the string
+ * @param start first byte index to convert
+ * @param len number of bytes to convert
+ */
+void
+_dbus_string_tolower_ascii (const DBusString *str,
+                            int               start,
+                            int               len)
+{
+  unsigned char *s;
+  unsigned char *end;
+  DBUS_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len >= 0);
+  _dbus_assert (len <= real->len - start);
+
+  s = real->str + start;
+  end = s + len;
+
+  while (s != end)
+    {
+      if (*s >= 'A' && *s <= 'Z')
+          *s += 'a' - 'A';
+      ++s;
+    }
+}
+
+/**
+ * Converts the given range of the string to upper case.
+ *
+ * @param str the string
+ * @param start first byte index to convert
+ * @param len number of bytes to convert
+ */
+void
+_dbus_string_toupper_ascii (const DBusString *str,
+                            int               start,
+                            int               len)
+{
+  unsigned char *s;
+  unsigned char *end;
+  DBUS_STRING_PREAMBLE (str);
+  _dbus_assert (start >= 0);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (len >= 0);
+  _dbus_assert (len <= real->len - start);
+
+  s = real->str + start;
+  end = s + len;
+
+  while (s != end)
+    {
+      if (*s >= 'a' && *s <= 'z')
+          *s += 'A' - 'a';
+      ++s;
+    }
 }
 
 /**

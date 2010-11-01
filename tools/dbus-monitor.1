@@ -8,7 +8,7 @@ dbus-monitor \- debug probe to print message bus messages
 .SH SYNOPSIS
 .PP
 .B dbus-monitor
-[\-\-system | \-\-session] [\-\-profile | \-\-monitor]
+[\-\-system | \-\-session | \-\-address ADDRESS] [\-\-profile | \-\-monitor]
 [watch expressions]
 
 .SH DESCRIPTION
@@ -37,7 +37,7 @@ and monitoring output format respectively. If neither is specified,
 .PP
 In order to get \fIdbus-monitor\fP to see the messages you are interested
 in, you should specify a set of watch expressions as you would expect to
-be passed to the \fIdbus_bus_add_watch\fP function.
+be passed to the \fIdbus_bus_add_match\fP function.
 
 .PP 
 The message bus configuration may keep \fIdbus-monitor\fP from seeing
@@ -50,6 +50,9 @@ Monitor the system message bus.
 .TP
 .I "--session"
 Monitor the session message bus.  (This is the default.)
+.TP
+.I "--address ADDRESS"
+Monitor an arbitrary message bus given at ADDRESS.
 .TP
 .I "--profile"
 Use the profiling output format.

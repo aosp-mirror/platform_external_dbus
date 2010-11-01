@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* test-main.c  main() for make check
  *
  * Copyright (C) 2003 Red Hat, Inc.
@@ -17,16 +17,18 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "test.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <dbus/dbus-string.h>
 #include <dbus/dbus-sysdeps.h>
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-message-private.h>
 #include "selinux.h"
 
 #ifdef DBUS_BUILD_TESTS
@@ -69,6 +71,7 @@ test_post_hook (void)
   if (_dbus_getenv ("DBUS_TEST_SELINUX"))
     bus_selinux_shutdown ();
   check_memleaks (progname);
+  _dbus_check_fdleaks();
 }
 
 int
@@ -137,6 +140,14 @@ main (int argc, char **argv)
   if (!bus_activation_service_reload_test (&test_data_dir))
     die ("service reload");
   test_post_hook ();
+
+#ifdef HAVE_UNIX_FD_PASSING
+  test_pre_hook ();
+  printf ("%s: Running unix fd passing test\n", argv[0]);
+  if (!bus_unix_fds_passing_test (&test_data_dir))
+    die ("unix fd passing");
+  test_post_hook ();
+#endif
 
   printf ("%s: Success\n", argv[0]);
 

@@ -2,7 +2,10 @@
 
 SERVER
 NO_CREDENTIALS
+## verify that prior to doing anything, we haven't authed as anyone
+EXPECT_HAVE_NO_CREDENTIALS
 SEND 'AUTH EXTERNAL USERID_HEX'
 EXPECT_COMMAND REJECTED
 EXPECT_STATE WAITING_FOR_INPUT
-
+## verify that we still haven't authed as anyone
+EXPECT_HAVE_NO_CREDENTIALS

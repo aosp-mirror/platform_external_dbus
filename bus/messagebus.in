@@ -2,13 +2,23 @@
 #
 # messagebus:   The D-BUS systemwide message bus
 #
-# chkconfig: 345 97 03
+# chkconfig: 345 22 85
 # description:  This is a daemon which broadcasts notifications of system events \
 #               and other messages. See http://www.freedesktop.org/software/dbus/
 #
 # processname: dbus-daemon
 # pidfile: @DBUS_SYSTEM_PID_FILE@
 #
+### BEGIN INIT INFO
+# Provides: messagebus
+# Required-Start: $syslog $local_fs
+# Required-Stop: $syslog $local_fs
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: The D-Bus systemwide message bus
+# Description: This is a daemon which broadcasts notifications of system 
+#  events and other messages. See http://www.freedesktop.org/software/dbus
+### END INIT INFO
 
 # Sanity checks.
 [ -x @EXPANDED_BINDIR@/dbus-daemon ] || exit 0
@@ -58,7 +68,7 @@ case "$1" in
         stop
         ;;
     status)
-        status $processname
+        status $servicename
         RETVAL=$?
         ;;
     restart)

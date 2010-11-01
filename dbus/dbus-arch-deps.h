@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
@@ -33,11 +33,11 @@ DBUS_BEGIN_DECLS
 
 #if 1
 #define DBUS_HAVE_INT64 1
-typedef long long dbus_int64_t;
-typedef unsigned long long dbus_uint64_t;
+_DBUS_GNUC_EXTENSION typedef long dbus_int64_t;
+_DBUS_GNUC_EXTENSION typedef unsigned long dbus_uint64_t;
 
-#define DBUS_INT64_CONSTANT(val)  (val##LL)
-#define DBUS_UINT64_CONSTANT(val) (val##ULL)
+#define DBUS_INT64_CONSTANT(val)  (_DBUS_GNUC_EXTENSION (val##L))
+#define DBUS_UINT64_CONSTANT(val) (_DBUS_GNUC_EXTENSION (val##UL))
 
 #else
 #undef DBUS_HAVE_INT64
@@ -50,6 +50,17 @@ typedef unsigned int dbus_uint32_t;
 
 typedef short dbus_int16_t;
 typedef unsigned short dbus_uint16_t;
+
+/* This is not really arch-dependent, but it's not worth
+ * creating an additional generated header just for this
+ */
+#define DBUS_MAJOR_VERSION 1
+#define DBUS_MINOR_VERSION 4
+#define DBUS_MICRO_VERSION 0
+
+#define DBUS_VERSION_STRING "1.4.0"
+
+#define DBUS_VERSION ((1 << 16) | (4 << 8) | (0)) 
 
 DBUS_END_DECLS
 

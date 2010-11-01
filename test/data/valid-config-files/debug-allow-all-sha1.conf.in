@@ -5,7 +5,7 @@
 <busconfig>
   <listen>debug-pipe:name=test-server</listen>
   <listen>unix:tmpdir=@TEST_SOCKET_DIR@</listen>
-  <servicedir>@TEST_SERVICE_DIR@</servicedir>
+  <servicedir>@TEST_VALID_SERVICE_DIR@</servicedir>
   <auth>DBUS_COOKIE_SHA1</auth>
   <policy context="default">
     <allow send_interface="*"/>

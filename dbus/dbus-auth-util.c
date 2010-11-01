@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-auth-util.c Would be in dbus-auth.c, but only used for tests/bus
  *
  * Copyright (C) 2002, 2003, 2004 Red Hat Inc.
@@ -17,9 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-test.h"
 #include "dbus-auth.h"
@@ -44,7 +46,7 @@ process_test_subdir (const DBusString          *test_base_dir,
   DBusString filename;
   DBusDirIter *dir;
   dbus_bool_t retval;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
   retval = FALSE;
   dir = NULL;
@@ -65,7 +67,6 @@ process_test_subdir (const DBusString          *test_base_dir,
   if (!_dbus_string_init (&filename))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
 
-  dbus_error_init (&error);
   dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {

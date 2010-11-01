@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sysdeps-util.c Tests for dbus-sysdeps.h API
  * 
  * Copyright (C) 2002, 2003, 2004, 2005  Red Hat, Inc.
@@ -18,9 +18,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-sysdeps.h"
 #include "dbus-internals.h"
 #include "dbus-string.h"
@@ -81,7 +83,28 @@ _dbus_sysdeps_test (void)
   DBusString str;
   double val;
   int pos;
-  
+
+#ifdef DBUS_WIN
+  check_dirname ("foo\\bar", "foo");
+  check_dirname ("foo\\\\bar", "foo");
+  check_dirname ("foo/\\/bar", "foo");
+  check_dirname ("foo\\bar/", "foo");
+  check_dirname ("foo//bar\\", "foo");
+  check_dirname ("foo\\bar/", "foo");
+  check_dirname ("foo/bar\\\\", "foo");
+  check_dirname ("\\foo", "\\");
+  check_dirname ("\\\\foo", "\\");
+  check_dirname ("\\", "\\");
+  check_dirname ("\\\\", "\\");
+  check_dirname ("\\/", "\\");
+  check_dirname ("/\\/", "/");
+  check_dirname ("c:\\foo\\bar", "c:\\foo");
+  check_dirname ("c:\\foo", "c:\\");
+  check_dirname ("c:/foo", "c:/");
+  check_dirname ("c:\\", "c:\\");
+  check_dirname ("c:/", "c:/");
+  check_dirname ("", ".");  
+#else  
   check_dirname ("foo", ".");
   check_dirname ("foo/bar", "foo");
   check_dirname ("foo//bar", "foo");
@@ -100,7 +123,7 @@ _dbus_sysdeps_test (void)
   check_dirname ("/", "/");
   check_dirname ("///", "/");
   check_dirname ("", ".");  
-
+#endif
 
   _dbus_string_init_const (&str, "3.5");
   if (!_dbus_string_parse_double (&str,
@@ -121,28 +144,34 @@ _dbus_sysdeps_test (void)
     }
 
   _dbus_string_init_const (&str, "0xff");
-  if (!_dbus_string_parse_double (&str,
-				  0, &val, &pos))
+  if (_dbus_string_parse_double (&str,
+                                 0, &val, &pos))
     {
-      _dbus_warn ("Failed to parse double");
+      _dbus_warn ("Should not have parsed hex as double\n");
       exit (1);
     }
-  if (ABS (0xff - val) > 1e-6)
-    {
-      _dbus_warn ("Failed to parse 0xff correctly, got: %f\n", val);
-      exit (1);
-    }
-  if (pos != 4)
-    {
-      _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
-      exit (1);
-    }
-  
+
+#ifdef DBUS_WIN
+  check_path_absolute ("c:/", TRUE);
+  check_path_absolute ("c:/foo", TRUE);
+  check_path_absolute ("", FALSE);
+  check_path_absolute ("foo", FALSE);
+  check_path_absolute ("foo/bar", FALSE);
+  check_path_absolute ("", FALSE);
+  check_path_absolute ("foo\\bar", FALSE);
+  check_path_absolute ("c:\\", TRUE);
+  check_path_absolute ("c:\\foo", TRUE);
+  check_path_absolute ("c:", TRUE);
+  check_path_absolute ("c:\\foo\\bar", TRUE);
+  check_path_absolute ("\\", TRUE);
+  check_path_absolute ("/", TRUE);
+#else  
   check_path_absolute ("/", TRUE);
   check_path_absolute ("/foo", TRUE);
   check_path_absolute ("", FALSE);
   check_path_absolute ("foo", FALSE);
   check_path_absolute ("foo/bar", FALSE);
+#endif
   
   return TRUE;
 }

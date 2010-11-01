@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-protocol.h  D-Bus protocol constants
  *
  * Copyright (C) 2002, 2003  CodeFactory AB
@@ -18,7 +18,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -110,6 +110,10 @@ extern "C" {
 #define DBUS_TYPE_SIGNATURE     ((int) 'g')
 /** #DBUS_TYPE_SIGNATURE as a string literal instead of a int literal */
 #define DBUS_TYPE_SIGNATURE_AS_STRING      "g"
+/** Type code marking a unix file descriptor */
+#define DBUS_TYPE_UNIX_FD      ((int) 'h')
+/** #DBUS_TYPE_UNIX_FD as a string literal instead of a int literal */
+#define DBUS_TYPE_UNIX_FD_AS_STRING        "h"
 
 /* Compound types */
 /** Type code marking a D-Bus array type */
@@ -207,6 +211,14 @@ extern "C" {
 /** Number of bits you need in an unsigned to store the max message size */
 #define DBUS_MAXIMUM_MESSAGE_LENGTH_BITS 27
 
+/** The maximum total number of unix fds in a message. Similar
+ * rationale as DBUS_MAXIMUM_MESSAGE_LENGTH. However we divide by four
+ * given that one fd is an int and hence at least 32 bits.
+ */
+#define DBUS_MAXIMUM_MESSAGE_UNIX_FDS (DBUS_MAXIMUM_MESSAGE_LENGTH/4)
+/** Number of bits you need in an unsigned to store the max message unix fds */
+#define DBUS_MAXIMUM_MESSAGE_UNIX_FDS_BITS (DBUS_MAXIMUM_MESSAGE_LENGTH_BITS-2)
+
 /** Depth of recursion in the type tree. This is automatically limited
  * to DBUS_MAXIMUM_SIGNATURE_LENGTH since you could only have an array
  * of array of array of ... that fit in the max signature.  But that's
@@ -226,6 +238,8 @@ extern "C" {
 #define DBUS_MESSAGE_TYPE_ERROR         3
 /** Message type of a signal message, see dbus_message_get_type() */
 #define DBUS_MESSAGE_TYPE_SIGNAL        4
+
+#define DBUS_NUM_MESSAGE_TYPES          5
 
 /* Header flags */
 
@@ -276,6 +290,12 @@ extern "C" {
  * Header field code for the type signature of a message.
  */
 #define DBUS_HEADER_FIELD_SIGNATURE      8
+/**
+ * Header field code for the number of unix file descriptors associated
+ * with this message.
+ */
+#define DBUS_HEADER_FIELD_UNIX_FDS       9
+
 
 /**
  * Value of the highest-numbered header field code, can be used to determine
@@ -283,7 +303,7 @@ extern "C" {
  * that unknown codes must be ignored, so check for that before
  * indexing the array.
  */
-#define DBUS_HEADER_FIELD_LAST DBUS_HEADER_FIELD_SIGNATURE
+#define DBUS_HEADER_FIELD_LAST DBUS_HEADER_FIELD_UNIX_FDS
 
 /** Header format is defined as a signature:
  *   byte                            byte order
@@ -389,6 +409,20 @@ extern "C" {
 #define DBUS_ERROR_SPAWN_CHILD_SIGNALED       "org.freedesktop.DBus.Error.Spawn.ChildSignaled"
 /** While starting a new process, something went wrong. */
 #define DBUS_ERROR_SPAWN_FAILED               "org.freedesktop.DBus.Error.Spawn.Failed"
+/** We failed to setup the environment correctly. */
+#define DBUS_ERROR_SPAWN_SETUP_FAILED         "org.freedesktop.DBus.Error.Spawn.FailedToSetup"
+/** We failed to setup the config parser correctly. */
+#define DBUS_ERROR_SPAWN_CONFIG_INVALID       "org.freedesktop.DBus.Error.Spawn.ConfigInvalid"
+/** Bus name was not valid. */
+#define DBUS_ERROR_SPAWN_SERVICE_INVALID      "org.freedesktop.DBus.Error.Spawn.ServiceNotValid"
+/** Service file not found in system-services directory. */
+#define DBUS_ERROR_SPAWN_SERVICE_NOT_FOUND    "org.freedesktop.DBus.Error.Spawn.ServiceNotFound"
+/** Permissions are incorrect on the setuid helper. */
+#define DBUS_ERROR_SPAWN_PERMISSIONS_INVALID  "org.freedesktop.DBus.Error.Spawn.PermissionsInvalid"
+/** Service file invalid (Name, User or Exec missing). */
+#define DBUS_ERROR_SPAWN_FILE_INVALID         "org.freedesktop.DBus.Error.Spawn.FileInvalid"
+/** Tried to get a UNIX process ID and it wasn't available. */
+#define DBUS_ERROR_SPAWN_NO_MEMORY            "org.freedesktop.DBus.Error.Spawn.NoMemory"
 /** Tried to get a UNIX process ID and it wasn't available. */
 #define DBUS_ERROR_UNIX_PROCESS_ID_UNKNOWN    "org.freedesktop.DBus.Error.UnixProcessIdUnknown"
 /** A type signature is not valid. */
@@ -397,6 +431,13 @@ extern "C" {
 #define DBUS_ERROR_INVALID_FILE_CONTENT       "org.freedesktop.DBus.Error.InvalidFileContent"
 /** Asked for SELinux security context and it wasn't available. */
 #define DBUS_ERROR_SELINUX_SECURITY_CONTEXT_UNKNOWN    "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"
+/** Asked for ADT audit data and it wasn't available. */
+#define DBUS_ERROR_ADT_AUDIT_DATA_UNKNOWN     "org.freedesktop.DBus.Error.AdtAuditDataUnknown"
+/** There's already an object with the requested object path. */
+#define DBUS_ERROR_OBJECT_PATH_IN_USE         "org.freedesktop.DBus.Error.ObjectPathInUse"
+/** The message meta data does not match the payload. e.g. expected
+    number of file descriptors were not sent over the socket this message was received on. */
+#define DBUS_ERROR_INCONSISTENT_MESSAGE       "org.freedesktop.DBus.Error.InconsistentMessage"
 
 /* XML introspection format */
 

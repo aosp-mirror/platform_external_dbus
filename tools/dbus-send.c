@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-send.c  Utility program to send messages from the command line
  *
  * Copyright (C) 2003 Philip Blundell <philb@gnu.org>
@@ -15,15 +15,34 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <dbus/dbus.h>
+
+#ifndef HAVE_STRTOLL
+#undef strtoll
+#define strtoll mystrtoll
+#include "strtoll.c"
+#endif
+
+#ifndef HAVE_STRTOULL
+#undef strtoull
+#define strtoull mystrtoull
+#include "strtoull.c"
+#endif
+
+#ifdef DBUS_WINCE
+#ifndef strdup
+#define strdup _strdup
+#endif
+#endif
 
 #include "dbus-print-message.h"
 
@@ -32,7 +51,7 @@ static const char *appname;
 static void
 usage (int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session] [--dest=NAME] [--type=TYPE] [--print-reply=(literal)] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session | --address=ADDRESS] [--dest=NAME] [--type=TYPE] [--print-reply=(literal)] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
   exit (ecode);
 }
 
@@ -149,14 +168,10 @@ append_dict (DBusMessageIter *iter, int keytype, int valtype, const char *value)
   while (val != NULL)
     {
       DBusMessageIter subiter;
-      char sig[3];
-      sig[0] = keytype;
-      sig[1] = valtype;
-      sig[2] = '\0';
       
       dbus_message_iter_open_container (iter,
 					DBUS_TYPE_DICT_ENTRY,
-					sig,
+					NULL,
 					&subiter);
 
       append_arg (&subiter, keytype, val);
@@ -225,6 +240,8 @@ main (int argc, char *argv[])
   const char *path = NULL;
   int message_type = DBUS_MESSAGE_TYPE_SIGNAL;
   const char *type_str = NULL;
+  const char *address = NULL;
+  int session_or_system = FALSE;
 
   appname = argv[0];
   
@@ -240,9 +257,29 @@ main (int argc, char *argv[])
       char *arg = argv[i];
 
       if (strcmp (arg, "--system") == 0)
-	type = DBUS_BUS_SYSTEM;
+        {
+	  type = DBUS_BUS_SYSTEM;
+          session_or_system = TRUE;
+        }
       else if (strcmp (arg, "--session") == 0)
-	type = DBUS_BUS_SESSION;
+        {
+	  type = DBUS_BUS_SESSION;
+          session_or_system = TRUE;
+        }
+      else if (strstr (arg, "--address") == arg)
+        {
+          address = strchr (arg, '=');
+
+          if (address == NULL) 
+            {
+              fprintf (stderr, "\"--address=\" requires an ADDRESS\n");
+              usage (1);
+            }
+          else
+            {
+              address = address + 1;
+            }
+        }
       else if (strncmp (arg, "--print-reply", 13) == 0)
 	{
 	  print_reply = TRUE;
@@ -274,6 +311,13 @@ main (int argc, char *argv[])
   if (name == NULL)
     usage (1);
 
+  if (session_or_system &&
+      (address != NULL))
+    {
+      fprintf (stderr, "\"--address\" may not be used with \"--system\" or \"--session\"\n");
+      usage (1);
+    }
+
   if (type_str != NULL)
     {
       message_type = dbus_message_type_from_string (type_str);
@@ -287,11 +331,21 @@ main (int argc, char *argv[])
     }
   
   dbus_error_init (&error);
-  connection = dbus_bus_get (type, &error);
+
+  if (address != NULL)
+    {
+      connection = dbus_connection_open (address, &error);
+    }
+  else
+    {
+      connection = dbus_bus_get (type, &error);
+    }
+
   if (connection == NULL)
     {
-      fprintf (stderr, "Failed to open connection to %s message bus: %s\n",
-	       (type == DBUS_BUS_SYSTEM) ? "system" : "session",
+      fprintf (stderr, "Failed to open connection to \"%s\" message bus: %s\n",
+               (address != NULL) ? address :
+                 ((type == DBUS_BUS_SYSTEM) ? "system" : "session"),
                error.message);
       dbus_error_free (&error);
       exit (1);

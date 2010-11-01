@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-internals.c  random utility stuff (internal to D-Bus implementation)
  *
  * Copyright (C) 2002, 2003  Red Hat, Inc.
@@ -17,9 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
 #include "dbus-marshal-basic.h"
@@ -28,6 +30,10 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
+#ifdef DBUS_USE_OUTPUT_DEBUG_STRING
+#include <windows.h>
+#include <mbstring.h>
+#endif
 
 #ifdef DBUS_ANDROID_LOG
 #define LOG_TAG "libdbus"
@@ -194,7 +200,7 @@
  * making up a different string every time and wasting
  * space.
  */
-const char _dbus_no_memory_message[] = "Not enough memory";
+const char *_dbus_no_memory_message = "Not enough memory";
 
 static dbus_bool_t warn_initted = FALSE;
 static dbus_bool_t fatal_warnings = FALSE;
@@ -280,7 +286,7 @@ _dbus_warn_check_failed(const char *format,
   if (!warn_initted)
     init_warnings ();
 
-  fprintf (stderr, "process %lu: ", _dbus_getpid ());
+  fprintf (stderr, "process %lu: ", _dbus_pid_for_log ());
   
   va_start (args, format);
 #ifdef DBUS_ANDROID_LOG
@@ -308,6 +314,13 @@ static dbus_bool_t verbose = TRUE;
 #include <pthread.h>
 #endif
 
+#ifdef _MSC_VER
+#define inline
+#endif
+#ifdef DBUS_USE_OUTPUT_DEBUG_STRING
+static char module_name[1024];
+#endif
+
 static inline void
 _dbus_verbose_init (void)
 {
@@ -322,7 +335,60 @@ _dbus_verbose_init (void)
       verbose = p != NULL && *p == '1';
 #endif
       verbose_initted = TRUE;
+#ifdef DBUS_USE_OUTPUT_DEBUG_STRING
+      {
+        char *last_period, *last_slash;
+        GetModuleFileName(0,module_name,sizeof(module_name)-1);
+        last_period = _mbsrchr(module_name,'.');
+        if (last_period)
+          *last_period ='\0';
+        last_slash = _mbsrchr(module_name,'\\');
+        if (last_slash)
+          strcpy(module_name,last_slash+1);
+        strcat(module_name,": ");
+      }
+#endif
     }
+}
+
+/** @def DBUS_IS_DIR_SEPARATOR(c)
+ * macro for checking if character c is a patch separator
+ * 
+ * @todo move to a header file so that others can use this too
+ */
+#ifdef DBUS_WIN 
+#define DBUS_IS_DIR_SEPARATOR(c) (c == '\\' || c == '/')
+#else
+#define DBUS_IS_DIR_SEPARATOR(c) (c == '/')
+#endif
+
+/** 
+ remove source root from file path 
+ the source root is determined by 
+*/ 
+static char *_dbus_file_path_extract_elements_from_tail(const char *file,int level)
+{
+  static int prefix = -1;
+  char *p;
+
+  if (prefix == -1) 
+    {
+      char *p = (char *)file + strlen(file);
+      int i = 0;
+      prefix = 0;
+      for (;p >= file;p--)
+        {
+          if (DBUS_IS_DIR_SEPARATOR(*p))
+            {
+              if (++i >= level) 
+                {
+                  prefix = p-file+1;
+                  break;
+                }
+           }
+        }
+    }
+  return (char *)file+prefix;
 }
 
 /**
@@ -346,7 +412,14 @@ _dbus_is_verbose_real (void)
  * @param format printf-style format string.
  */
 void
+#ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+_dbus_verbose_real (const char *file, 
+                    const int line, 
+                    const char *function, 
+                    const char *format,
+#else
 _dbus_verbose_real (const char *format,
+#endif
                     ...)
 {
   va_list args;
@@ -360,16 +433,17 @@ _dbus_verbose_real (const char *format,
   if (!_dbus_is_verbose_real())
     return;
 
+#ifndef DBUS_USE_OUTPUT_DEBUG_STRING
   /* Print out pid before the line */
   if (need_pid)
     {
 #if PTHREAD_IN_VERBOSE
-      fprintf (stderr, "%lu: 0x%lx: ", _dbus_getpid (), pthread_self ());
+      fprintf (stderr, "%lu: 0x%lx: ", _dbus_pid_for_log (), pthread_self ());
 #else
-      fprintf (stderr, "%lu: ", _dbus_getpid ());
+      fprintf (stderr, "%lu: ", _dbus_pid_for_log ());
 #endif
     }
-      
+#endif
 
   /* Only print pid again if the next line is a new line */
   len = strlen (format);
@@ -377,8 +451,24 @@ _dbus_verbose_real (const char *format,
     need_pid = TRUE;
   else
     need_pid = FALSE;
-  
+
   va_start (args, format);
+#ifdef DBUS_USE_OUTPUT_DEBUG_STRING
+  {
+  char buf[1024];
+  strcpy(buf,module_name);
+#ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+  sprintf (buf+strlen(buf), "[%s(%d):%s] ",_dbus_file_path_extract_elements_from_tail(file,2),line,function);
+#endif
+  vsprintf (buf+strlen(buf),format, args);
+  va_end (args);
+  OutputDebugStringA(buf);
+  }
+#else
+#ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+  fprintf (stderr, "[%s(%d):%s] ",_dbus_file_path_extract_elements_from_tail(file,2),line,function);
+#endif
+
 #ifdef DBUS_ANDROID_LOG
   LOG_PRI_VA(ANDROID_LOG_DEBUG, LOG_TAG, format, args);
 #else
@@ -387,6 +477,7 @@ _dbus_verbose_real (const char *format,
   va_end (args);
 
   fflush (stderr);
+#endif
 }
 
 /**
@@ -562,8 +653,18 @@ _dbus_read_uuid_file_without_creating (const DBusString *filename,
   DBusString decoded;
   int end;
   
-  _dbus_string_init (&contents);
-  _dbus_string_init (&decoded);
+  if (!_dbus_string_init (&contents))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (!_dbus_string_init (&decoded))
+    {
+      _dbus_string_free (&contents);
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
   
   if (!_dbus_file_get_contents (&contents, filename, error))
     goto error;
@@ -627,7 +728,11 @@ _dbus_create_uuid_file_exclusively (const DBusString *filename,
 {
   DBusString encoded;
 
-  _dbus_string_init (&encoded);
+  if (!_dbus_string_init (&encoded))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
 
   _dbus_generate_uuid (uuid);
   
@@ -637,27 +742,13 @@ _dbus_create_uuid_file_exclusively (const DBusString *filename,
       goto error;
     }
   
-  /* FIXME this is racy; we need a save_file_exclusively
-   * function. But in practice this should be fine for now.
-   *
-   * - first be sure we can create the file and it
-   *   doesn't exist by creating it empty with O_EXCL
-   * - then create it by creating a temporary file and
-   *   overwriting atomically with rename()
-   */
-  if (!_dbus_create_file_exclusively (filename, error))
-    goto error;
-
   if (!_dbus_string_append_byte (&encoded, '\n'))
     {
       _DBUS_SET_OOM (error);
       goto error;
     }
   
-  if (!_dbus_string_save_to_file (&encoded, filename, error))
-    goto error;
-
-  if (!_dbus_make_file_world_readable (filename, error))
+  if (!_dbus_string_save_to_file (&encoded, filename, TRUE, error))
     goto error;
 
   _dbus_string_free (&encoded);
@@ -687,9 +778,7 @@ _dbus_read_uuid_file (const DBusString *filename,
                       dbus_bool_t       create_if_not_found,
                       DBusError        *error)
 {
-  DBusError read_error;
-
-  dbus_error_init (&read_error);
+  DBusError read_error = DBUS_ERROR_INIT;
 
   if (_dbus_read_uuid_file_without_creating (filename, uuid, &read_error))
     return TRUE;
@@ -738,8 +827,8 @@ _dbus_get_local_machine_uuid_encoded (DBusString *uuid_str)
   _DBUS_LOCK (machine_uuid);
   if (machine_uuid_initialized_generation != _dbus_current_generation)
     {
-      DBusError error;
-      dbus_error_init (&error);
+      DBusError error = DBUS_ERROR_INIT;
+
       if (!_dbus_read_local_machine_uuid (&machine_uuid, FALSE,
                                           &error))
         {          
@@ -804,7 +893,7 @@ _dbus_header_field_to_string (int header_field)
 
 #ifndef DBUS_DISABLE_CHECKS
 /** String used in _dbus_return_if_fail macro */
-const char _dbus_return_if_fail_warning_format[] =
+const char *_dbus_return_if_fail_warning_format =
 "arguments to %s() were incorrect, assertion \"%s\" failed in file %s line %d.\n"
 "This is normally a bug in some application using the D-Bus library.\n";
 #endif
@@ -832,7 +921,7 @@ _dbus_real_assert (dbus_bool_t  condition,
   if (_DBUS_UNLIKELY (!condition))
     {
       _dbus_warn ("%lu: assertion failed \"%s\" file \"%s\" line %d function %s\n",
-                  _dbus_getpid (), condition_text, file, line, func);
+                  _dbus_pid_for_log (), condition_text, file, line, func);
       _dbus_abort ();
     }
 }
@@ -853,7 +942,7 @@ _dbus_real_assert_not_reached (const char *explanation,
                                int         line)
 {
   _dbus_warn ("File \"%s\" line %d process %lu should not have been reached: %s\n",
-              file, line, _dbus_getpid (), explanation);
+              file, line, _dbus_pid_for_log (), explanation);
   _dbus_abort ();
 }
 #endif /* DBUS_DISABLE_ASSERT */

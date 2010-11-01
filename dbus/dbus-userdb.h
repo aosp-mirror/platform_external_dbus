@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-userdb.h User database abstraction
  * 
  * Copyright (C) 2003  Red Hat, Inc.
@@ -17,14 +17,18 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
 #ifndef DBUS_USERDB_H
 #define DBUS_USERDB_H
 
-#include <dbus/dbus-sysdeps.h>
+#include <dbus/dbus-sysdeps-unix.h>
+
+#ifdef DBUS_WIN
+#error "Don't include this on Windows"
+#endif
 
 DBUS_BEGIN_DECLS
 
@@ -47,17 +51,11 @@ struct DBusUserDatabase
 
 };
 
-#endif /* DBUS_USERDB_INCLUDES_PRIVATE */
 
 DBusUserDatabase* _dbus_user_database_new           (void);
 DBusUserDatabase* _dbus_user_database_ref           (DBusUserDatabase     *db);
 void              _dbus_user_database_flush         (DBusUserDatabase     *db);
 void              _dbus_user_database_unref         (DBusUserDatabase     *db);
-dbus_bool_t       _dbus_user_database_get_groups    (DBusUserDatabase     *db,
-                                                     dbus_uid_t            uid,
-                                                     dbus_gid_t          **group_ids,
-                                                     int                  *n_group_ids,
-                                                     DBusError            *error);
 dbus_bool_t       _dbus_user_database_get_uid       (DBusUserDatabase     *db,
                                                      dbus_uid_t            uid,
                                                      const DBusUserInfo  **info,
@@ -75,7 +73,6 @@ dbus_bool_t       _dbus_user_database_get_groupname (DBusUserDatabase     *db,
                                                      const DBusGroupInfo **info,
                                                      DBusError            *error);
 
-#ifdef DBUS_USERDB_INCLUDES_PRIVATE
 DBusUserInfo*  _dbus_user_database_lookup       (DBusUserDatabase *db,
                                                  dbus_uid_t        uid,
                                                  const DBusString *username,
@@ -91,25 +88,33 @@ void           _dbus_group_info_free_allocated  (DBusGroupInfo    *info);
 DBusUserDatabase* _dbus_user_database_get_system    (void);
 void              _dbus_user_database_lock_system   (void);
 void              _dbus_user_database_unlock_system (void);
+void              _dbus_user_database_flush_system  (void);
 
-dbus_bool_t _dbus_username_from_current_process (const DBusString **username);
-dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);
-dbus_bool_t _dbus_homedir_from_username         (const DBusString  *username,
-                                                 DBusString        *homedir);
 dbus_bool_t _dbus_get_user_id                   (const DBusString  *username,
                                                  dbus_uid_t        *uid);
 dbus_bool_t _dbus_get_group_id                  (const DBusString  *group_name,
                                                  dbus_gid_t        *gid);
-dbus_bool_t _dbus_credentials_from_username     (const DBusString  *username,
-                                                 DBusCredentials   *credentials);
+dbus_bool_t _dbus_get_user_id_and_primary_group (const DBusString  *username,
+                                                 dbus_uid_t        *uid_p,
+                                                 dbus_gid_t        *gid_p);
 dbus_bool_t _dbus_credentials_from_uid          (dbus_uid_t         user_id,
                                                  DBusCredentials   *credentials);
+dbus_bool_t _dbus_groups_from_uid		(dbus_uid_t            uid,
+                                                 dbus_gid_t          **group_ids,
+                                                 int                  *n_group_ids);
 dbus_bool_t _dbus_is_console_user               (dbus_uid_t         uid,
                                                  DBusError         *error);
 
 dbus_bool_t _dbus_is_a_number                   (const DBusString *str, 
                                                  unsigned long    *num);
 
+dbus_bool_t _dbus_username_from_current_process (const DBusString **username);
+dbus_bool_t _dbus_homedir_from_current_process  (const DBusString **homedir);
+dbus_bool_t _dbus_homedir_from_username         (const DBusString  *username,
+                                                 DBusString        *homedir);
+
+dbus_bool_t _dbus_homedir_from_uid              (dbus_uid_t         uid,
+                                                 DBusString        *homedir);
 
 DBUS_END_DECLS
 

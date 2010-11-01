@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-shell.c Shell command line utility functions.
  *
  * Copyright (C) 2002, 2003  Red Hat, Inc.
@@ -18,10 +18,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include <string.h>
 #include "dbus-internals.h"
 #include "dbus-list.h"
@@ -138,72 +139,6 @@ unquote_string_inplace (char* str, char** end)
   
   *end = s;
   return FALSE;
-}
-
-/**
- * Quotes a string so that the shell (/bin/sh) will interpret the
- * quoted string to mean @unquoted_string. If you pass a filename to
- * the shell, for example, you should first quote it with this
- * function.  The return value must be freed with dbus_free(). The
- * quoting style used is undefined (single or double quotes may be
- * used).
- * 
- * @unquoted_string: a literal string
- **/
-char*
-_dbus_shell_quote (const char *unquoted_string)
-{
-  /* We always use single quotes, because the algorithm is cheesier.
-   * We could use double if we felt like it, that might be more
-   * human-readable.
-   */
-
-  const char *p;
-  char *ret;
-  DBusString dest;
-  
-  _dbus_string_init (&dest);
-
-  p = unquoted_string;
-
-  /* could speed this up a lot by appending chunks of text at a
-   * time.
-   */
-  while (*p)
-    {
-      /* Replace literal ' with a close ', a \', and a open ' */
-      if (*p == '\'')
-	{
-	  if (!_dbus_string_append (&dest, "'\\''"))
-	    {
-	      _dbus_string_free (&dest);
-	      return NULL;
-	    }
-	}
-      else
-	{
-	  if (!_dbus_string_append_byte (&dest, *p))
-	    {
-	      _dbus_string_free (&dest);
-	      return NULL;
-	    }
-	}
-
-      ++p;
-    }
-
-  /* close the quote */
-  if (_dbus_string_append_byte (&dest, '\''))
-    {
-      ret = _dbus_strdup (_dbus_string_get_data (&dest));
-      _dbus_string_free (&dest);
-
-      return ret;
-    }
-
-  _dbus_string_free (&dest);
-
-  return NULL;
 }
 
 /** 

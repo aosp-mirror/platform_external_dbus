@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dir-watch-dnotify.c  OS specific directory change notification for message bus
  *
  * Copyright (C) 2003 Red Hat, Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -27,6 +27,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
 
 #include <dbus/dbus-internals.h>
 #include "dir-watch.h"
@@ -57,7 +60,7 @@ bus_watch_directory (const char *dir, BusContext *context)
       goto out;
     }
 
-  if (fcntl (fd, F_NOTIFY, DN_DELETE|DN_RENAME|DN_MODIFY) == -1)
+  if (fcntl (fd, F_NOTIFY, DN_CREATE|DN_DELETE|DN_RENAME|DN_MODIFY) == -1)
     {
       _dbus_warn ("Cannot setup D_NOTIFY for '%s' error '%s'\n", dir, _dbus_strerror (errno));
       close (fd);

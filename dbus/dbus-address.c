@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-address.c  Server address parser.
  *
  * Copyright (C) 2003  CodeFactory AB
@@ -18,7 +18,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -89,6 +89,7 @@ _dbus_set_bad_address (DBusError  *error,
           (b) == '_' ||                                 \
           (b) == '/' ||                                 \
           (b) == '\\' ||                                \
+          (b) == '*' ||                                \
           (b) == '.')
 
 /**
@@ -376,6 +377,13 @@ dbus_parse_address (const char         *address,
   entries = NULL;
   pos = 0;
   len = _dbus_string_get_length (&str);
+
+  if (len == 0)
+  {
+    dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
+                    "Empty address '%s'", address);
+    goto error;
+  }
   
   while (pos < len)
     {
@@ -684,18 +692,15 @@ static const char* invalid_escaped_values[] = {
   "%",
   "$",
   " ",
-  "*"
 };
 
 dbus_bool_t
 _dbus_address_test (void)
 {
   DBusAddressEntry **entries;
-  int len;  
-  DBusError error;
+  int len;
+  DBusError error = DBUS_ERROR_INIT;
   int i;
-
-  dbus_error_init (&error);
 
   i = 0;
   while (i < _DBUS_N_ELEMENTS (escape_tests))
@@ -768,6 +773,11 @@ _dbus_address_test (void)
   dbus_address_entries_free (entries);
 
   /* Different possible errors */
+  if (dbus_parse_address ("", &entries, &len, &error))
+    _dbus_assert_not_reached ("Parsed incorrect address.");
+  else
+    dbus_error_free (&error);
+
   if (dbus_parse_address ("foo", &entries, &len, &error))
     _dbus_assert_not_reached ("Parsed incorrect address.");
   else

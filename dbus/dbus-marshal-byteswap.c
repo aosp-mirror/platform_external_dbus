@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-byteswap.c  Swap a block of marshaled data
  *
  * Copyright (C) 2005 Red Hat, Inc.
@@ -17,10 +17,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-marshal-byteswap.h"
 #include "dbus-marshal-basic.h"
 #include "dbus-signature.h"
@@ -189,6 +190,11 @@ byteswap_body_helper (DBusTypeReader       *reader,
             
             byteswap_body_helper (&sub, TRUE, old_byte_order, new_byte_order, p, &p);
           }
+          break;
+
+        case DBUS_TYPE_UNIX_FD:
+          /* fds can only be passed on a local machine, so byte order must always match */
+          _dbus_assert_not_reached("attempted to byteswap unix fds which makes no sense");
           break;
 
         default:

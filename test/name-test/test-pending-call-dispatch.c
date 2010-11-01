@@ -7,6 +7,7 @@
 * and blocking.
 **/
 
+#include <config.h>
 #include <dbus/dbus.h>
 #include <dbus/dbus-sysdeps.h>
 #include <stdio.h>

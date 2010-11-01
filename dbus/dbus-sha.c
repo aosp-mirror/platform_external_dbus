@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sha.c SHA-1 implementation
  *
  * Copyright (C) 2003 Red Hat Inc.
@@ -18,10 +18,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-sha.h"
 #include "dbus-marshal-basic.h" /* for byteswap routines */
@@ -465,7 +466,7 @@ _dbus_sha_final (DBusSHAContext   *context,
   /* some kind of security paranoia, though it seems pointless
    * to me given the nonzeroed stuff flying around
    */
-  memset ((void*)context, '\0', sizeof (DBusSHAContext));
+  _DBUS_ZERO(*context);
 
   return TRUE;
 }
@@ -745,8 +746,8 @@ process_test_data (const char *test_data_dir)
   int line_no;
   dbus_bool_t retval;
   int success_count;
-  DBusError error;
-  
+  DBusError error = DBUS_ERROR_INIT;
+
   retval = FALSE;
   
   if (!_dbus_string_init (&tests_file))
@@ -778,7 +779,6 @@ process_test_data (const char *test_data_dir)
   if (!_dbus_concat_dir_and_file (&results_file, &tmp))
     _dbus_assert_not_reached ("no memory");
 
-  dbus_error_init (&error);
   if (!_dbus_file_get_contents (&tests, &tests_file, &error))
     {
       fprintf (stderr, "could not load test data file %s: %s\n",

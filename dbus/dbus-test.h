@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-test.h  Declarations of test functions.
  *
  * Copyright (C) 2002  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -54,6 +54,7 @@ dbus_bool_t _dbus_userdb_test            (const char *test_data_dir);
 dbus_bool_t _dbus_memory_test            (void);
 dbus_bool_t _dbus_object_tree_test       (void);
 dbus_bool_t _dbus_pending_call_test      (const char *test_data_dir);
+dbus_bool_t _dbus_credentials_test       (const char *test_data_dir);
 
 void        dbus_internal_do_not_use_run_tests         (const char          *test_data_dir,
 							const char          *specific_test);

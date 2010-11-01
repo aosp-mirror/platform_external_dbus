@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* connection.c  Client connections
  *
  * Copyright (C) 2003  Red Hat, Inc.
@@ -17,9 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "connection.h"
 #include "dispatch.h"
 #include "policy.h"
@@ -31,6 +33,9 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-timeout.h>
+
+/* Trim executed commands to this length; we want to keep logs readable */
+#define MAX_LOG_COMMAND_LEN 50
 
 static void bus_connection_remove_transactions (DBusConnection *connection);
 
@@ -76,6 +81,7 @@ typedef struct
   DBusPreallocatedSend *oom_preallocated;
   BusClientPolicy *policy;
 
+  char *cached_loginfo_string;
   BusSELinuxID *selinux_id;
 
   long connection_tv_sec;  /**< Time when we connected (seconds component) */
@@ -114,7 +120,7 @@ get_connections_for_uid (BusConnections *connections,
 
   /* val is NULL is 0 when it isn't in the hash yet */
   
-  val = _dbus_hash_table_lookup_ulong (connections->completed_by_user,
+  val = _dbus_hash_table_lookup_uintptr (connections->completed_by_user,
                                        uid);
 
   current_count = _DBUS_POINTER_TO_INT (val);
@@ -143,14 +149,14 @@ adjust_connections_for_uid (BusConnections *connections,
 
   if (current_count == 0)
     {
-      _dbus_hash_table_remove_ulong (connections->completed_by_user, uid);
+      _dbus_hash_table_remove_uintptr (connections->completed_by_user, uid);
       return TRUE;
     }
   else
     {
       dbus_bool_t retval;
       
-      retval = _dbus_hash_table_insert_ulong (connections->completed_by_user,
+      retval = _dbus_hash_table_insert_uintptr (connections->completed_by_user,
                                               uid, _DBUS_INT_TO_POINTER (current_count));
 
       /* only positive adjustment can fail as otherwise
@@ -242,7 +248,9 @@ bus_connection_disconnected (DBusConnection *connection)
   
   dbus_connection_set_unix_user_function (connection,
                                           NULL, NULL, NULL);
-
+  dbus_connection_set_windows_user_function (connection,
+                                             NULL, NULL, NULL);
+  
   dbus_connection_set_dispatch_status_function (connection,
                                                 NULL, NULL, NULL);
   
@@ -368,9 +376,9 @@ dispatch_status_function (DBusConnection    *connection,
 }
 
 static dbus_bool_t
-allow_user_function (DBusConnection *connection,
-                     unsigned long   uid,
-                     void           *data)
+allow_unix_user_function (DBusConnection *connection,
+                          unsigned long   uid,
+                          void           *data)
 {
   BusConnectionData *d;
     
@@ -378,7 +386,7 @@ allow_user_function (DBusConnection *connection,
 
   _dbus_assert (d != NULL);
   
-  return bus_context_allow_user (d->connections->context, uid);
+  return bus_context_allow_unix_user (d->connections->context, uid);
 }
 
 static void
@@ -403,6 +411,8 @@ free_connection_data (void *data)
 
   if (d->selinux_id)
     bus_selinux_id_unref (d->selinux_id);
+  
+  dbus_free (d->cached_loginfo_string);
   
   dbus_free (d->name);
   
@@ -429,7 +439,7 @@ bus_connections_new (BusContext *context)
   if (connections == NULL)
     goto failed_1;
 
-  connections->completed_by_user = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  connections->completed_by_user = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                                          NULL, NULL);
   if (connections->completed_by_user == NULL)
     goto failed_2;
@@ -535,13 +545,72 @@ bus_connections_unref (BusConnections *connections)
     }
 }
 
+/* Used for logging */
+static dbus_bool_t
+cache_peer_loginfo_string (BusConnectionData *d, 
+                           DBusConnection    *connection)
+{
+  DBusString loginfo_buf;
+  unsigned long uid;
+  unsigned long pid;
+  char *windows_sid;
+  dbus_bool_t prev_added;
+
+  if (!_dbus_string_init (&loginfo_buf))
+    return FALSE;
+  
+  prev_added = FALSE;
+  if (dbus_connection_get_unix_user (connection, &uid))
+    {
+      if (!_dbus_string_append_printf (&loginfo_buf, "uid=%ld", uid))
+        goto oom;
+      else
+        prev_added = TRUE;
+    }
+
+  if (dbus_connection_get_unix_process_id (connection, &pid))
+    {
+      if (prev_added)
+        {
+          if (!_dbus_string_append_byte (&loginfo_buf, ' '))
+            goto oom;
+        }
+      if (!_dbus_string_append_printf (&loginfo_buf, "pid=%ld comm=\"", pid))
+        goto oom;
+      /* Ignore errors here; we may not have permissions to read the
+       * proc file. */
+      _dbus_command_for_pid (pid, &loginfo_buf, MAX_LOG_COMMAND_LEN, NULL);
+      if (!_dbus_string_append_byte (&loginfo_buf, '"'))
+        goto oom;
+    }
+
+  if (dbus_connection_get_windows_user (connection, &windows_sid))
+    {
+      if (!_dbus_string_append_printf (&loginfo_buf, "sid=\"%s\" ", windows_sid))
+        goto oom;
+      dbus_free (windows_sid);
+    }
+
+  if (!_dbus_string_steal_data (&loginfo_buf, &(d->cached_loginfo_string)))
+    goto oom;
+
+  _dbus_string_free (&loginfo_buf); 
+
+  return TRUE;
+oom:
+   _dbus_string_free (&loginfo_buf);
+   return FALSE;
+}
+
 dbus_bool_t
 bus_connections_setup_connection (BusConnections *connections,
                                   DBusConnection *connection)
 {
+
   BusConnectionData *d;
   dbus_bool_t retval;
   DBusError error;
+
   
   d = dbus_new0 (BusConnectionData, 1);
   
@@ -581,7 +650,7 @@ bus_connections_setup_connection (BusConnections *connections,
       dbus_error_free (&error);
       goto out;
     }
-  
+
   if (!dbus_connection_set_watch_functions (connection,
                                             add_connection_watch,
                                             remove_connection_watch,
@@ -596,9 +665,14 @@ bus_connections_setup_connection (BusConnections *connections,
                                               NULL,
                                               connection, NULL))
     goto out;
-  
+
+  /* For now we don't need to set a Windows user function because
+   * there are no policies in the config file controlling what
+   * Windows users can connect. The default 'same user that owns the
+   * bus can connect' behavior of DBusConnection is fine on Windows.
+   */
   dbus_connection_set_unix_user_function (connection,
-                                          allow_user_function,
+                                          allow_unix_user_function,
                                           NULL, NULL);
 
   dbus_connection_set_dispatch_status_function (connection,
@@ -678,6 +752,9 @@ bus_connections_setup_connection (BusConnections *connections,
       dbus_connection_set_unix_user_function (connection,
                                               NULL, NULL, NULL);
 
+      dbus_connection_set_windows_user_function (connection,
+                                                 NULL, NULL, NULL);
+      
       dbus_connection_set_dispatch_status_function (connection,
                                                     NULL, NULL, NULL);
 
@@ -762,7 +839,7 @@ expire_incomplete_timeout (void *data)
 {
   BusConnections *connections = data;
 
-  _dbus_verbose ("Running %s\n", _DBUS_FUNCTION_NAME);
+  _dbus_verbose ("Running\n");
   
   /* note that this may remove the timeout */
   bus_connections_expire_incomplete (connections);
@@ -771,31 +848,25 @@ expire_incomplete_timeout (void *data)
 }
 
 dbus_bool_t
-bus_connection_get_groups  (DBusConnection   *connection,
-                            unsigned long   **groups,
-                            int              *n_groups,
-                            DBusError        *error)
+bus_connection_get_unix_groups  (DBusConnection   *connection,
+                                 unsigned long   **groups,
+                                 int              *n_groups,
+                                 DBusError        *error)
 {
   BusConnectionData *d;
   unsigned long uid;
-  DBusUserDatabase *user_database;
   
   d = BUS_CONNECTION_DATA (connection);
 
   _dbus_assert (d != NULL);
 
-  user_database = bus_context_get_user_database (d->connections->context);
-  
   *groups = NULL;
   *n_groups = 0;
 
   if (dbus_connection_get_unix_user (connection, &uid))
     {
-      if (!_dbus_user_database_get_groups (user_database,
-                                           uid, groups, n_groups,
-                                           error))
+      if (!_dbus_unix_groups_from_uid (uid, groups, n_groups))
         {
-          _DBUS_ASSERT_ERROR_IS_SET (error);
           _dbus_verbose ("Did not get any groups for UID %lu\n",
                          uid);
           return FALSE;
@@ -812,15 +883,15 @@ bus_connection_get_groups  (DBusConnection   *connection,
 }
 
 dbus_bool_t
-bus_connection_is_in_group (DBusConnection *connection,
-                            unsigned long   gid)
+bus_connection_is_in_unix_group (DBusConnection *connection,
+                                 unsigned long   gid)
 {
   int i;
   unsigned long *group_ids;
   int n_group_ids;
 
-  if (!bus_connection_get_groups (connection, &group_ids, &n_group_ids,
-                                  NULL))
+  if (!bus_connection_get_unix_groups (connection, &group_ids, &n_group_ids,
+                                       NULL))
     return FALSE;
 
   i = 0;
@@ -836,6 +907,18 @@ bus_connection_is_in_group (DBusConnection *connection,
 
   dbus_free (group_ids);
   return FALSE;
+}
+
+const char *
+bus_connection_get_loginfo (DBusConnection        *connection)
+{
+  BusConnectionData *d;
+    
+  d = BUS_CONNECTION_DATA (connection);
+
+  if (!bus_connection_is_active (connection))
+    return "inactive";
+  return d->cached_loginfo_string;  
 }
 
 BusClientPolicy*
@@ -1298,14 +1381,15 @@ bus_connection_complete (DBusConnection   *connection,
     {
       if (!adjust_connections_for_uid (d->connections,
                                        uid, 1))
-        {
-          BUS_SET_OOM (error);
-          dbus_free (d->name);
-          d->name = NULL;
-          return FALSE;
-        }
+        goto fail;
     }
-  
+
+  /* Create and cache a string which holds information about the 
+   * peer process; used for logging purposes.
+   */
+  if (!cache_peer_loginfo_string (d, connection))
+    goto fail;
+
   /* Now the connection is active, move it between lists */
   _dbus_list_unlink (&d->connections->incomplete,
                      d->link_in_connection_list);
@@ -1323,6 +1407,14 @@ bus_connection_complete (DBusConnection   *connection,
   _dbus_assert (bus_connection_is_active (connection));
   
   return TRUE;
+fail:
+  BUS_SET_OOM (error);
+  dbus_free (d->name);
+  d->name = NULL;
+  if (d->policy)
+    bus_client_policy_unref (d->policy);
+  d->policy = NULL;
+  return FALSE;
 }
 
 const char *
@@ -1461,9 +1553,9 @@ bus_pending_reply_expired (BusExpireList *list,
       bus_transaction_cancel_and_free (transaction);
       return FALSE;
     }
-  
-  _dbus_list_remove_link (&connections->pending_replies->items,
-                          link);
+
+  bus_expire_list_remove_link (connections->pending_replies, link);
+
   bus_pending_reply_free (pending);
   bus_transaction_execute_and_free (transaction);
 
@@ -1482,14 +1574,14 @@ bus_connection_drop_pending_replies (BusConnections  *connections,
   _dbus_verbose ("Dropping pending replies that involve connection %p\n",
                  connection);
   
-  link = _dbus_list_get_first_link (&connections->pending_replies->items);
+  link = bus_expire_list_get_first_link (connections->pending_replies);
   while (link != NULL)
     {
       DBusList *next;
       BusPendingReply *pending;
 
-      next = _dbus_list_get_next_link (&connections->pending_replies->items,
-                                       link);
+      next = bus_expire_list_get_next_link (connections->pending_replies,
+                                            link);
       pending = link->data;
 
       if (pending->will_get_reply == connection)
@@ -1502,8 +1594,8 @@ bus_connection_drop_pending_replies (BusConnections  *connections,
                          pending->will_get_reply,
                          pending->reply_serial);
           
-          _dbus_list_remove_link (&connections->pending_replies->items,
-                                  link);
+          bus_expire_list_remove_link (connections->pending_replies,
+                                       link);
           bus_pending_reply_free (pending);
         }
       else if (pending->will_send_reply == connection)
@@ -1521,8 +1613,7 @@ bus_connection_drop_pending_replies (BusConnections  *connections,
           pending->expire_item.added_tv_sec = 0;
           pending->expire_item.added_tv_usec = 0;
 
-          bus_expire_timeout_set_interval (connections->pending_replies->timeout,
-                                           0);
+          bus_expire_list_recheck_immediately (connections->pending_replies);
         }
       
       link = next;
@@ -1541,10 +1632,10 @@ cancel_pending_reply (void *data)
 {
   CancelPendingReplyData *d = data;
 
-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  _dbus_verbose ("d = %p\n", d);
   
-  if (!_dbus_list_remove (&d->connections->pending_replies->items,
-                          d->pending))
+  if (!bus_expire_list_remove (d->connections->pending_replies,
+                               &d->pending->expire_item))
     _dbus_assert_not_reached ("pending reply did not exist to be cancelled");
 
   bus_pending_reply_free (d->pending); /* since it's been cancelled */
@@ -1555,7 +1646,7 @@ cancel_pending_reply_data_free (void *data)
 {
   CancelPendingReplyData *d = data;
 
-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  _dbus_verbose ("d = %p\n", d);
   
   /* d->pending should be either freed or still
    * in the list of pending replies (owned by someone
@@ -1591,7 +1682,7 @@ bus_connections_expect_reply (BusConnections  *connections,
   
   reply_serial = dbus_message_get_serial (reply_to_this);
 
-  link = _dbus_list_get_first_link (&connections->pending_replies->items);
+  link = bus_expire_list_get_first_link (connections->pending_replies);
   count = 0;
   while (link != NULL)
     {
@@ -1606,8 +1697,8 @@ bus_connections_expect_reply (BusConnections  *connections,
           return FALSE;
         }
       
-      link = _dbus_list_get_next_link (&connections->pending_replies->items,
-                                       link);
+      link = bus_expire_list_get_next_link (connections->pending_replies,
+                                            link);
       if (pending->will_get_reply == will_get_reply)
         ++count;
     }
@@ -1645,8 +1736,8 @@ bus_connections_expect_reply (BusConnections  *connections,
       return FALSE;
     }
   
-  if (!_dbus_list_prepend (&connections->pending_replies->items,
-                           pending))
+  if (!bus_expire_list_add (connections->pending_replies,
+                            &pending->expire_item))
     {
       BUS_SET_OOM (error);
       dbus_free (cprd);
@@ -1660,7 +1751,7 @@ bus_connections_expect_reply (BusConnections  *connections,
                                         cancel_pending_reply_data_free))
     {
       BUS_SET_OOM (error);
-      _dbus_list_remove (&connections->pending_replies->items, pending);
+      bus_expire_list_remove (connections->pending_replies, &pending->expire_item);
       dbus_free (cprd);
       bus_pending_reply_free (pending);
       return FALSE;
@@ -1692,10 +1783,10 @@ cancel_check_pending_reply (void *data)
 {
   CheckPendingReplyData *d = data;
 
-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-  
-  _dbus_list_prepend_link (&d->connections->pending_replies->items,
-                           d->link);
+  _dbus_verbose ("d = %p\n",d);
+
+  bus_expire_list_add_link (d->connections->pending_replies,
+                            d->link);
   d->link = NULL;
 }
 
@@ -1704,14 +1795,14 @@ check_pending_reply_data_free (void *data)
 {
   CheckPendingReplyData *d = data;
 
-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+  _dbus_verbose ("d = %p\n",d);
   
   if (d->link != NULL)
     {
       BusPendingReply *pending = d->link->data;
       
-      _dbus_assert (_dbus_list_find_last (&d->connections->pending_replies->items,
-                                          pending) == NULL);
+      _dbus_assert (!bus_expire_list_contains_item (d->connections->pending_replies,
+                                                    &pending->expire_item));
       
       bus_pending_reply_free (pending);
       _dbus_list_free_link (d->link);
@@ -1741,7 +1832,7 @@ bus_connections_check_reply (BusConnections *connections,
 
   reply_serial = dbus_message_get_reply_serial (reply);
 
-  link = _dbus_list_get_first_link (&connections->pending_replies->items);
+  link = bus_expire_list_get_first_link (connections->pending_replies);
   while (link != NULL)
     {
       BusPendingReply *pending = link->data;
@@ -1754,8 +1845,8 @@ bus_connections_check_reply (BusConnections *connections,
           break;
         }
       
-      link = _dbus_list_get_next_link (&connections->pending_replies->items,
-                                       link);
+      link = bus_expire_list_get_next_link (connections->pending_replies,
+                                            link);
     }
 
   if (link == NULL)
@@ -1785,11 +1876,10 @@ bus_connections_check_reply (BusConnections *connections,
   cprd->link = link;
   cprd->connections = connections;
   
-  _dbus_list_unlink (&connections->pending_replies->items,
-                     link);
+  bus_expire_list_unlink (connections->pending_replies,
+                          link);
   
-  _dbus_assert (_dbus_list_find_last (&connections->pending_replies->items,
-                                      link->data) == NULL);
+  _dbus_assert (!bus_expire_list_contains_item (connections->pending_replies, link->data));
 
   return TRUE;
 }

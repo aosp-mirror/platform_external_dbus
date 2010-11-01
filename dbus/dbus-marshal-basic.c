@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-basic.c  Marshalling routines for basic (primitive) types
  *
  * Copyright (C) 2002 CodeFactory AB
@@ -18,10 +18,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-marshal-basic.h"
 #include "dbus-signature.h"
@@ -414,6 +415,7 @@ _dbus_marshal_set_basic (DBusString       *str,
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       pos = _DBUS_ALIGN_VALUE (pos, 4);
       set_4_octets (str, pos, vp->u32, byte_order);
       if (old_end_pos)
@@ -508,59 +510,75 @@ _dbus_marshal_read_basic (const DBusString      *str,
                           int                   *new_pos)
 {
   const char *str_data;
-  DBusBasicValue *vp;
 
   _dbus_assert (dbus_type_is_basic (type));
 
   str_data = _dbus_string_get_const_data (str);
-  vp = value;
 
+  /* Below we volatile types to avoid aliasing issues;
+   * see http://bugs.freedesktop.org/show_bug.cgi?id=20137
+   */
+  
   switch (type)
     {
     case DBUS_TYPE_BYTE:
-      vp->byt = _dbus_string_get_byte (str, pos);
+      {
+      volatile unsigned char *vp = value;
+      *vp = (unsigned char) _dbus_string_get_byte (str, pos);
       (pos)++;
+      }
       break;
     case DBUS_TYPE_INT16:
     case DBUS_TYPE_UINT16:
+      {
+      volatile dbus_uint16_t *vp = value;
       pos = _DBUS_ALIGN_VALUE (pos, 2);
-      vp->u16 = *(dbus_uint16_t *)(str_data + pos);
+      *vp = *(dbus_uint16_t *)(str_data + pos);
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-	vp->u16 = DBUS_UINT16_SWAP_LE_BE (vp->u16);
+	*vp = DBUS_UINT16_SWAP_LE_BE (*vp);
       pos += 2;
+      }
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_BOOLEAN:
+    case DBUS_TYPE_UNIX_FD:
+      {
+      volatile dbus_uint32_t *vp = value;
       pos = _DBUS_ALIGN_VALUE (pos, 4);
-      vp->u32 = *(dbus_uint32_t *)(str_data + pos);
+      *vp = *(dbus_uint32_t *)(str_data + pos);
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-	vp->u32 = DBUS_UINT32_SWAP_LE_BE (vp->u32);
+	*vp = DBUS_UINT32_SWAP_LE_BE (*vp);
       pos += 4;
+      }
       break;
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
+      {
+      volatile dbus_uint64_t *vp = value;
       pos = _DBUS_ALIGN_VALUE (pos, 8);
 #ifdef DBUS_HAVE_INT64
       if (byte_order != DBUS_COMPILER_BYTE_ORDER)
-        vp->u64 = DBUS_UINT64_SWAP_LE_BE (*(dbus_uint64_t*)(str_data + pos));
+        *vp = DBUS_UINT64_SWAP_LE_BE (*(dbus_uint64_t*)(str_data + pos));
       else
-        vp->u64 = *(dbus_uint64_t*)(str_data + pos);
+        *vp = *(dbus_uint64_t*)(str_data + pos);
 #else
-      vp->u64 = *(DBus8ByteStruct*) (str_data + pos);
+      *vp = *(DBus8ByteStruct*) (str_data + pos);
       swap_8_octets (vp, byte_order);
 #endif
       pos += 8;
+      }
       break;
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
       {
         int len;
+        volatile char **vp = value;
 
         len = _dbus_marshal_read_uint32 (str, pos, byte_order, &pos);
 
-        vp->str = (char*) str_data + pos;
+        *vp = (char*) str_data + pos;
 
         pos += len + 1; /* length plus nul */
       }
@@ -568,11 +586,12 @@ _dbus_marshal_read_basic (const DBusString      *str,
     case DBUS_TYPE_SIGNATURE:
       {
         int len;
+        volatile char **vp = value;
 
         len = _dbus_string_get_byte (str, pos);
         pos += 1;
 
-        vp->str = (char*) str_data + pos;
+        *vp = (char*) str_data + pos;
 
         pos += len + 1; /* length plus nul */
       }
@@ -823,6 +842,7 @@ _dbus_marshal_write_basic (DBusString *str,
       break;
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       return marshal_4_octets (str, insert_at, vp->u32,
                                byte_order, pos_after);
       break;
@@ -1050,6 +1070,7 @@ _dbus_marshal_write_fixed_multi (DBusString *str,
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       return marshal_fixed_multi (str, insert_at, vp, n_elements, byte_order, 4, pos_after);
       break;
     case DBUS_TYPE_INT64:
@@ -1098,6 +1119,7 @@ _dbus_marshal_skip_basic (const DBusString      *str,
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       *pos = _DBUS_ALIGN_VALUE (*pos, 4);
       *pos += 4;
       break;
@@ -1186,6 +1208,7 @@ _dbus_type_get_alignment (int typecode)
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_UNIX_FD:
       /* this stuff is 4 since it starts with a length */
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
@@ -1240,6 +1263,7 @@ _dbus_type_is_valid (int typecode)
     case DBUS_TYPE_STRUCT:
     case DBUS_TYPE_DICT_ENTRY:
     case DBUS_TYPE_VARIANT:
+    case DBUS_TYPE_UNIX_FD:
       return TRUE;
 
     default:
@@ -1300,6 +1324,8 @@ _dbus_type_to_string (int typecode)
       return "begin_dict_entry";
     case DBUS_DICT_ENTRY_END_CHAR:
       return "end_dict_entry";
+    case DBUS_TYPE_UNIX_FD:
+      return "unix_fd";
     default:
       return "unknown";
     }
@@ -1333,7 +1359,7 @@ _dbus_verbose_bytes (const unsigned char *data,
 
   if (aligned != data)
     {
-      _dbus_verbose ("%4d\t%p: ", - (data - aligned), aligned);
+      _dbus_verbose ("%4ld\t%p: ", - (long)(data - aligned), aligned);
       while (aligned != data)
         {
           _dbus_verbose ("    ");
@@ -1370,15 +1396,9 @@ _dbus_verbose_bytes (const unsigned char *data,
           if (i > 7 &&
               _DBUS_ALIGN_ADDRESS (&data[i], 8) == &data[i])
             {
-#ifdef DBUS_HAVE_INT64
-              /* I think I probably mean "GNU libc printf" and not "GNUC"
-               * but we'll wait until someone complains. If you hit this,
-               * just turn off verbose mode as a workaround.
-               */
-#if __GNUC__
-              _dbus_verbose (" u64: 0x%llx",
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+              _dbus_verbose (" u64: 0x%" DBUS_INT64_PRINTF_MODIFIER "x",
                              *(dbus_uint64_t*)&data[i-8]);
-#endif
 #endif
               _dbus_verbose (" dbl: %g",
                              *(double*)&data[i-8]);

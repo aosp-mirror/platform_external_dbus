@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-pending-call.h Object representing a call in progress.
  *
  * Copyright (C) 2002, 2003 Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
@@ -38,23 +38,34 @@ DBUS_BEGIN_DECLS
  * @{
  */
 
+DBUS_EXPORT
 DBusPendingCall* dbus_pending_call_ref       (DBusPendingCall               *pending);
+DBUS_EXPORT
 void         dbus_pending_call_unref         (DBusPendingCall               *pending);
+DBUS_EXPORT
 dbus_bool_t  dbus_pending_call_set_notify    (DBusPendingCall               *pending,
                                               DBusPendingCallNotifyFunction  function,
                                               void                          *user_data,
                                               DBusFreeFunction               free_user_data);
+DBUS_EXPORT
 void         dbus_pending_call_cancel        (DBusPendingCall               *pending);
+DBUS_EXPORT
 dbus_bool_t  dbus_pending_call_get_completed (DBusPendingCall               *pending);
+DBUS_EXPORT
 DBusMessage* dbus_pending_call_steal_reply   (DBusPendingCall               *pending);
+DBUS_EXPORT
 void         dbus_pending_call_block         (DBusPendingCall               *pending);
 
+DBUS_EXPORT
 dbus_bool_t dbus_pending_call_allocate_data_slot (dbus_int32_t     *slot_p);
+DBUS_EXPORT
 void        dbus_pending_call_free_data_slot     (dbus_int32_t     *slot_p);
+DBUS_EXPORT
 dbus_bool_t dbus_pending_call_set_data           (DBusPendingCall  *pending,
                                                   dbus_int32_t      slot,
                                                   void             *data,
                                                   DBusFreeFunction  free_data_func);
+DBUS_EXPORT
 void*       dbus_pending_call_get_data           (DBusPendingCall  *pending,
                                                   dbus_int32_t      slot);
 

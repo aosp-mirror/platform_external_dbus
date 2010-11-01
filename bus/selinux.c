@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*-
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*-
  * selinux.c  SELinux security checks for D-Bus
  *
  * Author: Matthew Rickard <mjricka@epoch.ncsc.mil>
@@ -17,19 +17,29 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-string.h>
+#ifndef DBUS_WIN
+#include <dbus/dbus-userdb.h>
+#endif
 #include "selinux.h"
 #include "services.h"
 #include "policy.h"
 #include "utils.h"
 #include "config-parser.h"
 
-#ifdef HAVE_SELINUX
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
+#ifdef HAVE_SELINUX
+#include <sys/types.h>
+#include <unistd.h>
+#include <limits.h>
 #include <pthread.h>
 #include <syslog.h>
 #include <selinux/selinux.h>
@@ -38,7 +48,13 @@
 #include <selinux/flask.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <grp.h>
 #endif /* HAVE_SELINUX */
+#ifdef HAVE_LIBAUDIT
+#include <cap-ng.h>
+#include <libaudit.h>
+#endif /* HAVE_LIBAUDIT */
 
 #define BUS_SID_FROM_SELINUX(sid)  ((BusSELinuxID*) (sid))
 #define SELINUX_SID_FROM_BUS(sid)  ((security_id_t) (sid))
@@ -100,11 +116,54 @@ static const struct avc_lock_callback lock_cb =
  * @param variable argument list
  */
 #ifdef HAVE_SELINUX
+
+#ifdef HAVE_LIBAUDIT
+static int audit_fd = -1;
+#endif
+
+void
+bus_selinux_audit_init(void)
+{
+#ifdef HAVE_LIBAUDIT  
+  audit_fd = audit_open ();
+
+  if (audit_fd < 0)
+    {
+      /* If kernel doesn't support audit, bail out */
+      if (errno == EINVAL || errno == EPROTONOSUPPORT || errno == EAFNOSUPPORT)
+        return;
+      /* If user bus, bail out */
+      if (errno == EPERM && getuid() != 0)
+        return;
+      _dbus_warn ("Failed opening connection to the audit subsystem");
+    }
+#endif /* HAVE_LIBAUDIT */
+}
+
 static void 
 log_callback (const char *fmt, ...) 
 {
   va_list ap;
+
   va_start(ap, fmt);
+
+#ifdef HAVE_LIBAUDIT
+  if (audit_fd >= 0)
+  {
+    capng_get_caps_process();
+    if (capng_have_capability(CAPNG_EFFECTIVE, CAP_AUDIT_WRITE))
+    {
+      char buf[PATH_MAX*2];
+    
+      /* FIXME: need to change this to show real user */
+      vsnprintf(buf, sizeof(buf), fmt, ap);
+      audit_log_user_avc_message(audit_fd, AUDIT_USER_AVC, buf, NULL, NULL,
+                               NULL, getuid());
+      return;
+    }
+  }
+#endif /* HAVE_LIBAUDIT */
+  
   vsyslog (LOG_INFO, fmt, ap);
   va_end(ap);
 }
@@ -131,7 +190,20 @@ static void
 log_audit_callback (void *data, security_class_t class, char *buf, size_t bufleft)
 {
   DBusString *audmsg = data;
-  _dbus_string_copy_to_buffer (audmsg, buf, bufleft);
+
+  if (bufleft > (size_t) _dbus_string_get_length(audmsg))
+    {
+      _dbus_string_copy_to_buffer_with_nul (audmsg, buf, bufleft);
+    }
+  else
+    {
+      DBusString s;
+
+      _dbus_string_init_const(&s, "Buffer too small for audit message");
+
+      if (bufleft > (size_t) _dbus_string_get_length(&s))
+        _dbus_string_copy_to_buffer_with_nul (&s, buf, bufleft);
+    }
 }
 
 /**
@@ -303,10 +375,8 @@ bus_selinux_full_init (void)
 
   freecon (bus_context);
   
-  return TRUE;
-#else
-  return TRUE;
 #endif /* HAVE_SELINUX */
+  return TRUE;
 }
 
 /**
@@ -374,8 +444,18 @@ bus_selinux_check (BusSELinuxID        *sender_sid,
                     SELINUX_SID_FROM_BUS (bus_sid), 
                     target_class, requested, &aeref, auxdata) < 0)
     {
-      _dbus_verbose ("SELinux denying due to security policy.\n");
-      return FALSE;
+    switch (errno)
+      {
+      case EACCES:
+        _dbus_verbose ("SELinux denying due to security policy.\n");
+        return FALSE;
+      case EINVAL:
+        _dbus_verbose ("SELinux denying due to invalid security context.\n");
+        return FALSE;
+      default:
+        _dbus_verbose ("SELinux denying due to: %s\n", _dbus_strerror (errno));
+        return FALSE;
+      }
     }
   else
     return TRUE;
@@ -925,13 +1005,90 @@ bus_selinux_shutdown (void)
     {
       sidput (bus_sid);
       bus_sid = SECSID_WILD;
-      
+
 #ifdef DBUS_ENABLE_VERBOSE_MODE
-      bus_avc_print_stats ();
+ 
+      if (_dbus_is_verbose()) 
+        bus_avc_print_stats ();
+ 
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
 
       avc_destroy ();
+#ifdef HAVE_LIBAUDIT
+      audit_close (audit_fd);
+#endif /* HAVE_LIBAUDIT */
     }
 #endif /* HAVE_SELINUX */
 }
 
+/* The !HAVE_LIBAUDIT case lives in dbus-sysdeps-util-unix.c */
+#ifdef HAVE_LIBAUDIT
+/**
+ * Changes the user and group the bus is running as.
+ *
+ * @param user the user to become
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_change_to_daemon_user  (const char    *user,
+                              DBusError     *error)
+{
+  dbus_uid_t uid;
+  dbus_gid_t gid;
+  DBusString u;
+
+  _dbus_string_init_const (&u, user);
+
+  if (!_dbus_get_user_id_and_primary_group (&u, &uid, &gid))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "User '%s' does not appear to exist?",
+                      user);
+      return FALSE;
+    }
+
+  /* If we were root */
+  if (_dbus_geteuid () == 0)
+    {
+      int rc;
+
+      capng_clear (CAPNG_SELECT_BOTH);
+      capng_update (CAPNG_ADD, CAPNG_EFFECTIVE | CAPNG_PERMITTED,
+                    CAP_AUDIT_WRITE);
+      rc = capng_change_id (uid, gid, 0);
+      if (rc)
+        {
+          switch (rc) {
+            default:
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Failed to drop capabilities: %s\n",
+                              _dbus_strerror (errno));
+              break;
+            case -4:
+              dbus_set_error (error, _dbus_error_from_errno (errno),
+                              "Failed to set GID to %lu: %s", gid,
+                              _dbus_strerror (errno));
+              break;
+            case -5:
+              _dbus_warn ("Failed to drop supplementary groups: %s\n",
+                          _dbus_strerror (errno));
+              break;
+            case -6:
+              dbus_set_error (error, _dbus_error_from_errno (errno),
+                              "Failed to set UID to %lu: %s", uid,
+                              _dbus_strerror (errno));
+              break;
+            case -7:
+              dbus_set_error (error, _dbus_error_from_errno (errno),
+                              "Failed to unset keep-capabilities: %s\n",
+                              _dbus_strerror (errno));
+              break;
+          }
+          return FALSE;
+        }
+    }
+
+ return TRUE;
+}
+#endif

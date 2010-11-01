@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-message-util.c Would be in dbus-message.c, but only used by bus/tests
  *
  * Copyright (C) 2002, 2003, 2004, 2005  Red Hat Inc.
@@ -18,15 +18,27 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-test.h"
 #include "dbus-message-private.h"
 #include "dbus-marshal-recursive.h"
 #include "dbus-string.h"
+#ifdef HAVE_UNIX_FD_PASSING
+#include "dbus-sysdeps-unix.h"
+#endif
+
+#ifdef __linux__
+/* Necessary for the Linux-specific fd leak checking code only */
+#include <sys/types.h>
+#include <dirent.h>
+#include <stdlib.h>
+#include <errno.h>
+#endif
 
 /**
  * @addtogroup DBusMessage
@@ -124,6 +136,50 @@ check_memleaks (void)
                   _dbus_get_malloc_blocks_outstanding (), __FILE__);
       _dbus_assert_not_reached ("memleaks");
     }
+}
+
+void
+_dbus_check_fdleaks(void)
+{
+
+#ifdef __linux__
+
+  DIR *d;
+
+  /* This works on Linux only */
+
+  if ((d = opendir("/proc/self/fd")))
+    {
+      struct dirent *de;
+
+      while ((de = readdir(d)))
+        {
+          long l;
+          char *e = NULL;
+          int fd;
+
+          if (de->d_name[0] == '.')
+            continue;
+
+          errno = 0;
+          l = strtol(de->d_name, &e, 10);
+          _dbus_assert(errno == 0 && e && !*e);
+
+          fd = (int) l;
+
+          if (fd < 3)
+            continue;
+
+          if (fd == dirfd(d))
+            continue;
+
+          _dbus_warn("file descriptor %i leaked in %s.\n", fd, __FILE__);
+          _dbus_assert_not_reached("fdleaks");
+        }
+
+      closedir(d);
+    }
+#endif
 }
 
 static dbus_bool_t
@@ -276,12 +332,11 @@ dbus_internal_do_not_use_load_message_file (const DBusString    *filename,
                                             DBusString          *data)
 {
   dbus_bool_t retval;
-  DBusError error;
-  
+  DBusError error = DBUS_ERROR_INIT;
+
   retval = FALSE;
 
   _dbus_verbose ("Loading raw %s\n", _dbus_string_get_const_data (filename));
-  dbus_error_init (&error);
   if (!_dbus_file_get_contents (data, filename, &error))
     {
       _dbus_warn ("Could not load message file %s: %s\n",
@@ -450,7 +505,7 @@ process_test_subdir (const DBusString          *test_base_dir,
   DBusString filename;
   DBusDirIter *dir;
   dbus_bool_t retval;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
 
   retval = FALSE;
   dir = NULL;
@@ -471,7 +526,6 @@ process_test_subdir (const DBusString          *test_base_dir,
   if (!_dbus_string_init (&filename))
     _dbus_assert_not_reached ("didn't allocate filename string\n");
 
-  dbus_error_init (&error);
   dir = _dbus_directory_open (&test_directory, &error);
   if (dir == NULL)
     {
@@ -701,7 +755,7 @@ static void
 verify_test_message (DBusMessage *message)
 {
   DBusMessageIter iter;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
   dbus_int16_t our_int16;
   dbus_uint16_t our_uint16;
   dbus_int32_t our_int;
@@ -734,7 +788,6 @@ verify_test_message (DBusMessage *message)
 
   dbus_message_iter_init (message, &iter);
 
-  dbus_error_init (&error);
   if (!dbus_message_iter_get_args (&iter, &error,
                                    DBUS_TYPE_INT16, &our_int16,
                                    DBUS_TYPE_UINT16, &our_uint16,
@@ -898,7 +951,7 @@ verify_test_message (DBusMessage *message)
 dbus_bool_t
 _dbus_message_test (const char *test_data_dir)
 {
-  DBusMessage *message;
+  DBusMessage *message, *message_without_unix_fds;
   DBusMessageLoader *loader;
   int i;
   const char *data;
@@ -942,6 +995,11 @@ _dbus_message_test (const char *test_data_dir)
   unsigned char v_BYTE;
   unsigned char v2_BYTE;
   dbus_bool_t v_BOOLEAN;
+  DBusMessageIter iter, array_iter, struct_iter;
+#ifdef HAVE_UNIX_FD_PASSING
+  int v_UNIX_FD;
+#endif
+  char **decomposed;
 
   message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
                                           "/org/freedesktop/TestPath",
@@ -952,7 +1010,7 @@ _dbus_message_test (const char *test_data_dir)
                                              "TestMethod"));
   _dbus_assert (strcmp (dbus_message_get_path (message),
                         "/org/freedesktop/TestPath") == 0);
-  _dbus_message_set_serial (message, 1234);
+  dbus_message_set_serial (message, 1234);
 
   /* string length including nul byte not a multiple of 4 */
   if (!dbus_message_set_sender (message, "org.foo.bar1"))
@@ -1037,6 +1095,34 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_assert (strcmp (dbus_message_get_member (message),
                         "Bar") == 0);
 
+  /* Path decomposing */
+  dbus_message_set_path (message, NULL);
+  dbus_message_get_path_decomposed (message, &decomposed);
+  _dbus_assert (decomposed == NULL);
+  dbus_free_string_array (decomposed);
+
+  dbus_message_set_path (message, "/");
+  dbus_message_get_path_decomposed (message, &decomposed);
+  _dbus_assert (decomposed != NULL);
+  _dbus_assert (decomposed[0] == NULL);
+  dbus_free_string_array (decomposed);
+
+  dbus_message_set_path (message, "/a/b");
+  dbus_message_get_path_decomposed (message, &decomposed);
+  _dbus_assert (decomposed != NULL);
+  _dbus_assert (strcmp (decomposed[0], "a") == 0);
+  _dbus_assert (strcmp (decomposed[1], "b") == 0);
+  _dbus_assert (decomposed[2] == NULL);
+  dbus_free_string_array (decomposed);
+
+  dbus_message_set_path (message, "/spam/eggs");
+  dbus_message_get_path_decomposed (message, &decomposed);
+  _dbus_assert (decomposed != NULL);
+  _dbus_assert (strcmp (decomposed[0], "spam") == 0);
+  _dbus_assert (strcmp (decomposed[1], "eggs") == 0);
+  _dbus_assert (decomposed[2] == NULL);
+  dbus_free_string_array (decomposed);
+
   dbus_message_unref (message);
 
   /* Test the vararg functions */
@@ -1044,7 +1130,7 @@ _dbus_message_test (const char *test_data_dir)
                                           "/org/freedesktop/TestPath",
                                           "Foo.TestInterface",
                                           "TestMethod");
-  _dbus_message_set_serial (message, 1);
+  dbus_message_set_serial (message, 1);
   dbus_message_set_reply_serial (message, 5678);
 
   v_INT16 = -0x123;
@@ -1060,6 +1146,9 @@ _dbus_message_test (const char *test_data_dir)
   v_BOOLEAN = TRUE;
   v_BYTE = 42;
   v2_BYTE = 24;
+#ifdef HAVE_UNIX_FD_PASSING
+  v_UNIX_FD = 1;
+#endif
 
   dbus_message_append_args (message,
                             DBUS_TYPE_INT16, &v_INT16,
@@ -1093,6 +1182,7 @@ _dbus_message_test (const char *test_data_dir)
                             _DBUS_N_ELEMENTS (our_boolean_array),
                             DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &v_ARRAY_STRING,
                             _DBUS_N_ELEMENTS (our_string_array),
+
 			    DBUS_TYPE_INVALID);
 
   i = 0;
@@ -1127,7 +1217,16 @@ _dbus_message_test (const char *test_data_dir)
   sig[i++] = DBUS_TYPE_BOOLEAN;
   sig[i++] = DBUS_TYPE_ARRAY;
   sig[i++] = DBUS_TYPE_STRING;
-  sig[i++] = DBUS_TYPE_INVALID;  
+
+  message_without_unix_fds = dbus_message_copy(message);
+  _dbus_assert(message_without_unix_fds);
+#ifdef HAVE_UNIX_FD_PASSING
+  dbus_message_append_args (message,
+                            DBUS_TYPE_UNIX_FD, &v_UNIX_FD,
+			    DBUS_TYPE_INVALID);
+  sig[i++] = DBUS_TYPE_UNIX_FD;
+#endif
+  sig[i++] = DBUS_TYPE_INVALID;
 
   _dbus_assert (i < (int) _DBUS_N_ELEMENTS (sig));
 
@@ -1175,7 +1274,7 @@ _dbus_message_test (const char *test_data_dir)
   dbus_message_unref (copy);
 
   /* Message loader test */
-  _dbus_message_lock (message);
+  dbus_message_lock (message);
   loader = _dbus_message_loader_new ();
   
   /* check ref/unref */
@@ -1204,6 +1303,20 @@ _dbus_message_test (const char *test_data_dir)
       _dbus_message_loader_return_buffer (loader, buffer, 1);
     }
 
+#ifdef HAVE_UNIX_FD_PASSING
+  {
+    int *unix_fds;
+    unsigned n_unix_fds;
+    /* Write unix fd */
+    _dbus_message_loader_get_unix_fds(loader, &unix_fds, &n_unix_fds);
+    _dbus_assert(n_unix_fds > 0);
+    _dbus_assert(message->n_unix_fds == 1);
+    unix_fds[0] = _dbus_dup(message->unix_fds[0], NULL);
+    _dbus_assert(unix_fds[0] >= 0);
+    _dbus_message_loader_return_unix_fds(loader, unix_fds, 1);
+  }
+#endif
+
   dbus_message_unref (message);
 
   /* Now pop back the message */
@@ -1220,12 +1333,96 @@ _dbus_message_test (const char *test_data_dir)
   if (dbus_message_get_reply_serial (message) != 5678)
     _dbus_assert_not_reached ("reply serial fields differ");
 
-  verify_test_message (message);
-
   dbus_message_unref (message);
+
+  /* ovveride the serial, since it was reset by dbus_message_copy() */
+  dbus_message_set_serial(message_without_unix_fds, 8901);
+
+  dbus_message_lock (message_without_unix_fds);
+
+  verify_test_message (message_without_unix_fds);
+
+    {
+      /* Marshal and demarshal the message. */
+
+      DBusMessage *message2;
+      DBusError error = DBUS_ERROR_INIT;
+      char *marshalled = NULL;
+      int len = 0;
+      char garbage_header[DBUS_MINIMUM_HEADER_SIZE] = "xxx";
+
+      if (!dbus_message_marshal (message_without_unix_fds, &marshalled, &len))
+        _dbus_assert_not_reached ("failed to marshal message");
+
+      _dbus_assert (len != 0);
+      _dbus_assert (marshalled != NULL);
+
+      _dbus_assert (dbus_message_demarshal_bytes_needed (marshalled, len) == len);
+      message2 = dbus_message_demarshal (marshalled, len, &error);
+
+      _dbus_assert (message2 != NULL);
+      _dbus_assert (!dbus_error_is_set (&error));
+      verify_test_message (message2);
+
+      dbus_message_unref (message2);
+      dbus_free (marshalled);
+
+      /* Demarshal invalid message. */
+
+      message2 = dbus_message_demarshal ("invalid", 7, &error);
+      _dbus_assert (message2 == NULL);
+      _dbus_assert (dbus_error_is_set (&error));
+      dbus_error_free (&error);
+
+      /* Demarshal invalid (empty) message. */
+
+      message2 = dbus_message_demarshal ("", 0, &error);
+      _dbus_assert (message2 == NULL);
+      _dbus_assert (dbus_error_is_set (&error));
+      dbus_error_free (&error);
+
+      /* Bytes needed to demarshal empty message: 0 (more) */
+
+      _dbus_assert (dbus_message_demarshal_bytes_needed ("", 0) == 0);
+      
+      /* Bytes needed to demarshal invalid message: -1 (error). */
+
+      _dbus_assert (dbus_message_demarshal_bytes_needed (garbage_header, DBUS_MINIMUM_HEADER_SIZE) == -1);
+    }
+
+  dbus_message_unref (message_without_unix_fds);
   _dbus_message_loader_unref (loader);
 
   check_memleaks ();
+  _dbus_check_fdleaks();
+
+  /* Check that we can abandon a container */
+  message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
+		  			  "/org/freedesktop/TestPath",
+					  "Foo.TestInterface",
+					  "Method");
+
+  dbus_message_iter_init_append (message, &iter);
+
+  _dbus_assert (dbus_message_iter_open_container (&iter, DBUS_TYPE_ARRAY,
+			  			  (DBUS_STRUCT_BEGIN_CHAR_AS_STRING
+						   DBUS_TYPE_STRING_AS_STRING
+						   DBUS_TYPE_STRING_AS_STRING
+						   DBUS_STRUCT_END_CHAR_AS_STRING),
+						  &array_iter));
+  _dbus_assert (dbus_message_iter_open_container (&array_iter, DBUS_TYPE_STRUCT,
+			  			  NULL, &struct_iter));
+
+  s = "peaches";
+  _dbus_assert (dbus_message_iter_append_basic (&struct_iter, DBUS_TYPE_STRING,
+			  			&s));
+
+  /* uh-oh, error, try and unwind */
+
+  dbus_message_iter_abandon_container (&array_iter, &struct_iter);
+  dbus_message_iter_abandon_container (&array_iter, &iter);
+
+  dbus_message_unref (message);
 
   /* Load all the sample messages from the message factory */
   {
@@ -1259,9 +1456,10 @@ _dbus_message_test (const char *test_data_dir)
     print_validities_seen (FALSE);
     print_validities_seen (TRUE);
   }
-  
+
   check_memleaks ();
-  
+  _dbus_check_fdleaks();
+
   /* Now load every message in test_data_dir if we have one */
   if (test_data_dir == NULL)
     return TRUE;

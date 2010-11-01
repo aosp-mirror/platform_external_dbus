@@ -9,7 +9,7 @@ LOCAL_C_INCLUDES:= \
 LOCAL_CFLAGS:=-O3
 LOCAL_CFLAGS+=-DDBUS_COMPILATION
 #LOCAL_CFLAGS+=-DDBUS_MACHINE_UUID_FILE=\"/system/etc/machine-id\"
-LOCAL_CFLAGS+=-DDAEMON_NAME=\"dbus-daemon\"
+LOCAL_CFLAGS+=-DDBUS_DAEMON_NAME=\"dbus-daemon\"
 LOCAL_CFLAGS+=-DDBUS_SYSTEM_CONFIG_FILE=\"/system/etc/dbus.conf\"
 LOCAL_CFLAGS+=-DDBUS_SESSION_CONFIG_FILE=\"/system/etc/session.conf\"
 
@@ -19,6 +19,7 @@ LOCAL_SRC_FILES:= \
 	bus.c \
 	config-loader-expat.c \
 	config-parser.c \
+    config-parser-common.c \
 	connection.c \
 	desktop-file.c \
 	dir-watch-default.c \

@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-test.c  Program to run all tests
  *
  * Copyright (C) 2002, 2003, 2004, 2005  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -156,9 +156,15 @@ dbus_internal_do_not_use_run_tests (const char *test_data_dir, const char *speci
   
   run_test ("hash", specific_test, _dbus_hash_test);
 
+#if !defined(DBUS_WINCE)
   run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
+#endif
   
+  run_data_test ("credentials", specific_test, _dbus_credentials_test, test_data_dir);
+
+#ifdef DBUS_UNIX
   run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
+#endif
   
   run_test ("keyring", specific_test, _dbus_keyring_test);
   

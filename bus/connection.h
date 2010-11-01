@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* connection.h  Client connections
  *
  * Copyright (C) 2003, 2004  Red Hat, Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -50,6 +50,7 @@ BusConnections* bus_connection_get_connections    (DBusConnection               
 BusRegistry*    bus_connection_get_registry       (DBusConnection               *connection);
 BusActivation*  bus_connection_get_activation     (DBusConnection               *connection);
 BusMatchmaker*  bus_connection_get_matchmaker     (DBusConnection               *connection);
+const char *    bus_connection_get_loginfo        (DBusConnection        *connection);
 BusSELinuxID*   bus_connection_get_selinux_id     (DBusConnection               *connection);
 dbus_bool_t     bus_connections_check_limits      (BusConnections               *connections,
                                                    DBusConnection               *requesting_completion,
@@ -105,12 +106,12 @@ dbus_bool_t bus_connection_complete (DBusConnection               *connection,
 /* called by dispatch.c when the connection is dropped */
 void        bus_connection_disconnected (DBusConnection *connection);
 
-dbus_bool_t      bus_connection_is_in_group (DBusConnection       *connection,
-                                             unsigned long         gid);
-dbus_bool_t      bus_connection_get_groups  (DBusConnection       *connection,
-                                             unsigned long       **groups,
-                                             int                  *n_groups,
-                                             DBusError            *error);
+dbus_bool_t      bus_connection_is_in_unix_group (DBusConnection       *connection,
+                                                  unsigned long         gid);
+dbus_bool_t      bus_connection_get_unix_groups  (DBusConnection       *connection,
+                                                  unsigned long       **groups,
+                                                  int                  *n_groups,
+                                                  DBusError            *error);
 BusClientPolicy* bus_connection_get_policy  (DBusConnection       *connection);
 
 /* transaction API so we can send or not send a block of messages as a whole */

@@ -2,6 +2,7 @@
  * Test to make sure late thread initialization works
  */
 
+#include <config.h>
 #include <dbus/dbus.h>
 #include <dbus/dbus-sysdeps.h>
 #include <stdio.h>

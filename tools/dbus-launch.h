@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-launch.h  dbus-launch utility
  *
  * Copyright (C) 2006 Thiago Macieira <thiago@kde.org>
@@ -17,14 +17,13 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
 #ifndef DBUS_LAUNCH_H
 #define DBUS_LAUNCH_H
 
-#include <config.h>
 #include <sys/types.h>
 
 #ifndef TRUE

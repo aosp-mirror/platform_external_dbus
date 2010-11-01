@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-server-socket.h Server implementation for sockets
  *
  * Copyright (C) 2002, 2006  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_SERVER_SOCKET_H
@@ -25,14 +25,20 @@
 
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-server-protected.h>
+#include <dbus/dbus-nonce.h>
 
 DBUS_BEGIN_DECLS
 
-DBusServer* _dbus_server_new_for_socket           (int               fd,
-                                                   const DBusString *address);
+DBusServer* _dbus_server_new_for_socket           (int              *fds,
+                                                   int               n_fds,
+                                                   const DBusString *address,
+                                                   DBusNonceFile    *noncefile);
 DBusServer* _dbus_server_new_for_tcp_socket       (const char       *host,
-                                                   dbus_uint32_t     port,
-                                                   DBusError        *error);
+                                                   const char       *bind,
+                                                   const char       *port,
+                                                   const char       *family,
+                                                   DBusError        *error,
+                                                   dbus_bool_t      use_nonce);
 DBusServerListenResult _dbus_server_listen_socket (DBusAddressEntry  *entry,
                                                    DBusServer       **server_p,
                                                    DBusError         *error);

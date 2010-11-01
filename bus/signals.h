@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* signals.h  Bus signal connection implementation
  *
  * Copyright (C) 2003  Red Hat, Inc.
@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -44,21 +44,22 @@ BusMatchRule* bus_match_rule_new   (DBusConnection *matches_go_to);
 BusMatchRule* bus_match_rule_ref   (BusMatchRule   *rule);
 void          bus_match_rule_unref (BusMatchRule   *rule);
 
-dbus_bool_t bus_match_rule_set_message_type (BusMatchRule *rule,
-                                             int           type);
-dbus_bool_t bus_match_rule_set_interface    (BusMatchRule *rule,
-                                             const char   *interface);
-dbus_bool_t bus_match_rule_set_member       (BusMatchRule *rule,
-                                             const char   *member);
-dbus_bool_t bus_match_rule_set_sender       (BusMatchRule *rule,
-                                             const char   *sender);
-dbus_bool_t bus_match_rule_set_destination  (BusMatchRule *rule,
-                                             const char   *destination);
-dbus_bool_t bus_match_rule_set_path         (BusMatchRule *rule,
-                                             const char   *path);
-dbus_bool_t bus_match_rule_set_arg          (BusMatchRule *rule,
-                                             int           arg,
-                                             const char   *value);
+dbus_bool_t bus_match_rule_set_message_type (BusMatchRule     *rule,
+                                             int               type);
+dbus_bool_t bus_match_rule_set_interface    (BusMatchRule     *rule,
+                                             const char       *interface);
+dbus_bool_t bus_match_rule_set_member       (BusMatchRule     *rule,
+                                             const char       *member);
+dbus_bool_t bus_match_rule_set_sender       (BusMatchRule     *rule,
+                                             const char       *sender);
+dbus_bool_t bus_match_rule_set_destination  (BusMatchRule     *rule,
+                                             const char       *destination);
+dbus_bool_t bus_match_rule_set_path         (BusMatchRule     *rule,
+                                             const char       *path);
+dbus_bool_t bus_match_rule_set_arg          (BusMatchRule     *rule,
+                                             int               arg,
+                                             const DBusString *value,
+                                             dbus_bool_t       is_path);
 
 BusMatchRule* bus_match_rule_parse (DBusConnection   *matches_go_to,
                                     const DBusString *rule_text,
@@ -76,7 +77,7 @@ dbus_bool_t bus_matchmaker_remove_rule_by_value (BusMatchmaker   *matchmaker,
 void        bus_matchmaker_remove_rule          (BusMatchmaker   *matchmaker,
                                                  BusMatchRule    *rule);
 void        bus_matchmaker_disconnected         (BusMatchmaker   *matchmaker,
-                                                 DBusConnection  *disconnected);
+                                                 DBusConnection  *connection);
 dbus_bool_t bus_matchmaker_get_recipients       (BusMatchmaker   *matchmaker,
                                                  BusConnections  *connections,
                                                  DBusConnection  *sender,

@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-macros.h  generic macros
  *
  * Copyright (C) 2002  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
@@ -51,10 +51,36 @@
 #endif
 
 #if  __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
-#define DBUS_GNUC_DEPRECATED __attribute__((__deprecated__))
+#  define DBUS_DEPRECATED __attribute__ ((__deprecated__))
+#elif defined(_MSC_VER) && (_MSC_VER >= 1300)
+#  define DBUS_DEPRECATED __declspec(deprecated)
 #else
-#define DBUS_GNUC_DEPRECATED
+#  define DBUS_DEPRECATED
 #endif
+
+#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 8)
+#  define _DBUS_GNUC_EXTENSION __extension__
+#else
+#  define _DBUS_GNUC_EXTENSION
+#endif
+
+#if     __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
+#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )    \
+  __attribute__((__format__ (__printf__, format_idx, arg_idx)))
+#define _DBUS_GNUC_NORETURN                         \
+  __attribute__((__noreturn__))
+#else   /* !__GNUC__ */
+#define _DBUS_GNUC_PRINTF( format_idx, arg_idx )
+#define _DBUS_GNUC_NORETURN
+#endif  /* !__GNUC__ */
+
+/** @def _DBUS_GNUC_PRINTF
+ * used to tell gcc about printf format strings
+ */
+/** @def _DBUS_GNUC_NORETURN
+ * used to tell gcc about functions that never return, such as _dbus_abort()
+ */
+
 
 /* Normally docs are in .c files, but there isn't a .c file for this. */
 /**
@@ -103,9 +129,9 @@
  * A null pointer, defined appropriately for C or C++.
  */
 /**
- * @def DBUS_GNUC_DEPRECATED
+ * @def DBUS_DEPRECATED
  *
- * Tells gcc to warn about a function or type if it's used.
+ * Tells the compiler to warn about a function or type if it's used.
  * Code marked in this way should also be enclosed in
  * @code
  * #ifndef DBUS_DISABLE_DEPRECATED
@@ -116,6 +142,32 @@
  * Please don't use this in your own code, consider it
  * D-Bus internal.
  */
+/**
+ * @def _DBUS_GNUC_EXTENSION
+ *
+ * Tells gcc not to warn about extensions to the C standard in the
+ * following expression, even if compiling with -pedantic. Do not use
+ * this macro in your own code; please consider it to be internal to libdbus.
+ */
+
+/*
+ * @def DBUS_EXPORT
+ *
+ * Declare the following symbol as public.  This is currently a noop on
+ * platforms other than Windows.
+ */
+
+#if defined(_WIN32)
+#  if defined(DBUS_STATIC_BUILD)
+#  define DBUS_EXPORT
+#  elif defined(dbus_1_EXPORTS)
+#  define DBUS_EXPORT __declspec(dllexport)
+#  else
+#  define DBUS_EXPORT __declspec(dllimport)
+#  endif
+#else
+#define DBUS_EXPORT
+#endif
 
 /** @} */
 

@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-errors.h Error reporting
  *
  * Copyright (C) 2002  Red Hat Inc.
@@ -18,7 +18,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #if !defined (DBUS_INSIDE_DBUS_H) && !defined (DBUS_COMPILATION)
@@ -30,6 +30,7 @@
 
 #include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
+#include <dbus/dbus-protocol.h>
 
 DBUS_BEGIN_DECLS
 
@@ -58,19 +59,28 @@ struct DBusError
   void *padding1; /**< placeholder */
 };
 
+#define DBUS_ERROR_INIT { NULL, NULL, TRUE, 0, 0, 0, 0, NULL }
+
+DBUS_EXPORT
 void        dbus_error_init      (DBusError       *error);
+DBUS_EXPORT
 void        dbus_error_free      (DBusError       *error);
+DBUS_EXPORT
 void        dbus_set_error       (DBusError       *error,
                                   const char      *name,
                                   const char      *message,
                                   ...);
+DBUS_EXPORT
 void        dbus_set_error_const (DBusError       *error,
                                   const char      *name,
                                   const char      *message);
+DBUS_EXPORT
 void        dbus_move_error      (DBusError       *src,
                                   DBusError       *dest);
+DBUS_EXPORT
 dbus_bool_t dbus_error_has_name  (const DBusError *error,
                                   const char      *name);
+DBUS_EXPORT
 dbus_bool_t dbus_error_is_set    (const DBusError *error);
 
 /** @} */

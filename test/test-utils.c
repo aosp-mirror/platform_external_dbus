@@ -1,3 +1,4 @@
+#include <config.h>
 #include "test-utils.h"
 
 typedef struct
@@ -186,4 +187,158 @@ test_connection_shutdown (DBusLoop       *loop,
     _dbus_assert_not_reached ("setting timeout functions to NULL failed");
 
   dbus_connection_set_dispatch_status_function (connection, NULL, NULL, NULL);
+}
+
+typedef struct
+{
+  DBusLoop *loop;
+  DBusServer *server;
+} ServerData;
+
+static void
+serverdata_free (void *data)
+{
+  ServerData *sd = data;
+
+  dbus_server_unref (sd->server);
+  _dbus_loop_unref (sd->loop);
+  
+  dbus_free (sd);
+}
+
+static ServerData*
+serverdata_new (DBusLoop       *loop,
+                DBusServer     *server)
+{
+  ServerData *sd;
+
+  sd = dbus_new0 (ServerData, 1);
+  if (sd == NULL)
+    return NULL;
+
+  sd->loop = loop;
+  sd->server = server;
+
+  dbus_server_ref (sd->server);
+  _dbus_loop_ref (sd->loop);
+
+  return sd;
+}
+
+static dbus_bool_t
+server_watch_callback (DBusWatch     *watch,
+                       unsigned int   condition,
+                       void          *data)
+{
+  /* FIXME this can be done in dbus-mainloop.c
+   * if the code in activation.c for the babysitter
+   * watch handler is fixed.
+   */
+
+  return dbus_watch_handle (watch, condition);
+}
+
+static dbus_bool_t
+add_server_watch (DBusWatch  *watch,
+                  void       *data)
+{
+  ServerData *context = data;
+
+  return _dbus_loop_add_watch (context->loop,
+                               watch, server_watch_callback, context,
+                               NULL);
+}
+
+static void
+remove_server_watch (DBusWatch  *watch,
+                     void       *data)
+{
+  ServerData *context = data;
+  
+  _dbus_loop_remove_watch (context->loop,
+                           watch, server_watch_callback, context);
+}
+
+static void
+server_timeout_callback (DBusTimeout   *timeout,
+                         void          *data)
+{
+  /* can return FALSE on OOM but we just let it fire again later */
+  dbus_timeout_handle (timeout);
+}
+
+static dbus_bool_t
+add_server_timeout (DBusTimeout *timeout,
+                    void        *data)
+{
+  ServerData *context = data;
+
+  return _dbus_loop_add_timeout (context->loop,
+                                 timeout, server_timeout_callback, context, NULL);
+}
+
+static void
+remove_server_timeout (DBusTimeout *timeout,
+                       void        *data)
+{
+  ServerData *context = data;
+  
+  _dbus_loop_remove_timeout (context->loop,
+                             timeout, server_timeout_callback, context);
+}
+
+dbus_bool_t
+test_server_setup (DBusLoop      *loop,
+                   DBusServer    *server)
+{
+  ServerData *sd;
+
+  sd = serverdata_new (loop, server);
+  if (sd == NULL)
+    goto nomem;
+
+  if (!dbus_server_set_watch_functions (server,
+                                        add_server_watch,
+                                        remove_server_watch,
+                                        NULL,
+                                        sd,
+                                        serverdata_free))
+    {
+      return FALSE;
+    }
+
+  if (!dbus_server_set_timeout_functions (server,
+                                          add_server_timeout,
+                                          remove_server_timeout,
+                                          NULL,
+                                          sd, serverdata_free))
+    {
+      return FALSE;
+    }   
+  return TRUE;
+
+ nomem:
+  if (sd)
+    serverdata_free (sd);
+  
+  test_server_shutdown (loop, server);
+  
+  return FALSE;
+}
+
+void
+test_server_shutdown (DBusLoop         *loop,
+                      DBusServer       *server)
+{
+  if (!dbus_server_set_watch_functions (server,
+                                        NULL, NULL, NULL,
+                                        NULL,
+                                        NULL))
+    _dbus_assert_not_reached ("setting watch functions to NULL failed");
+  
+  if (!dbus_server_set_timeout_functions (server,
+                                          NULL, NULL, NULL,
+                                          NULL,
+                                          NULL))
+    _dbus_assert_not_reached ("setting timeout functions to NULL failed");  
 }

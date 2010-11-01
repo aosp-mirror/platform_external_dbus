@@ -1,7 +1,8 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-string.h String utility class (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003 Red Hat, Inc.
+ * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -17,18 +18,16 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
 #ifndef DBUS_STRING_H
 #define DBUS_STRING_H
 
-#include <config.h>
-
-#include <dbus/dbus-memory.h>
+#include <dbus/dbus-macros.h>
 #include <dbus/dbus-types.h>
-#include <dbus/dbus-sysdeps.h>
+#include <dbus/dbus-memory.h>
 
 #include <stdarg.h>
 
@@ -37,9 +36,16 @@ DBUS_BEGIN_DECLS
 /**
  * DBusString object
  */
+
+typedef struct DBusString DBusString;
+
 struct DBusString
 {
+#if defined(DBUS_WIN) && defined(_DEBUG)
+  const char *dummy1; /**< placeholder */
+#else
   const void *dummy1; /**< placeholder */
+#endif
   int   dummy2;       /**< placeholder */
   int   dummy3;       /**< placeholder */
   int   dummy4;       /**< placeholder */
@@ -72,6 +78,8 @@ dbus_bool_t   _dbus_string_init_preallocated     (DBusString        *str,
                                                   int                allocate_size);
 void          _dbus_string_free                  (DBusString        *str);
 void          _dbus_string_lock                  (DBusString        *str);
+dbus_bool_t   _dbus_string_compact               (DBusString        *str,
+                                                  int                max_waste);
 #ifndef _dbus_string_get_data
 char*         _dbus_string_get_data              (DBusString        *str);
 #endif /* _dbus_string_get_data */
@@ -117,6 +125,9 @@ dbus_bool_t   _dbus_string_copy_data_len         (const DBusString  *str,
 void          _dbus_string_copy_to_buffer        (const DBusString  *str,
                                                   char              *buffer,
 						  int                len);
+void          _dbus_string_copy_to_buffer_with_nul (const DBusString  *str,
+                                                    char              *buffer,
+                                                    int                avail_len);
 #ifndef _dbus_string_get_length
 int           _dbus_string_get_length            (const DBusString  *str);
 #endif /* !_dbus_string_get_length */
@@ -195,6 +206,9 @@ dbus_bool_t   _dbus_string_replace_len           (const DBusString  *source,
                                                   DBusString        *dest,
                                                   int                replace_at,
                                                   int                replace_len);
+dbus_bool_t   _dbus_string_split_on_byte         (DBusString        *source,
+                                                  unsigned char      byte,
+                                                  DBusString        *tail);
 void          _dbus_string_get_unichar           (const DBusString  *str,
                                                   int                start,
                                                   dbus_unichar_t    *ch_return,
@@ -215,6 +229,10 @@ dbus_bool_t   _dbus_string_find                  (const DBusString  *str,
                                                   int                start,
                                                   const char        *substr,
                                                   int               *found);
+dbus_bool_t   _dbus_string_find_eol               (const DBusString *str,
+                                                  int               start,
+                                                  int               *found,
+                                                  int               *found_len);
 dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
                                                   int                start,
                                                   int                end,
@@ -268,6 +286,12 @@ dbus_bool_t   _dbus_string_hex_decode            (const DBusString  *source,
 						  int               *end_return,
                                                   DBusString        *dest,
                                                   int                insert_at);
+void          _dbus_string_tolower_ascii         (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
+void          _dbus_string_toupper_ascii         (const DBusString  *str,
+                                                  int                start,
+                                                  int                len);
 dbus_bool_t   _dbus_string_validate_ascii        (const DBusString  *str,
                                                   int                start,
                                                   int                len);

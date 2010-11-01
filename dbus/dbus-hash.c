@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-hash.c Generic hash table utility (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002  Red Hat, Inc.
@@ -24,7 +24,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 /* 
@@ -74,6 +74,7 @@
  * accordance with the terms specified in this license.
  */
 
+#include <config.h>
 #include "dbus-hash.h"
 #include "dbus-internals.h"
 #include "dbus-mempool.h"
@@ -119,7 +120,7 @@
  * 
  */
 #define RANDOM_INDEX(table, i) \
-    (((((long) (i))*1103515245) >> (table)->down_shift) & (table)->mask)
+    (((((intptr_t) (i))*1103515245) >> (table)->down_shift) & (table)->mask)
 
 /**
  * Initial number of buckets in hash table (hash table statically
@@ -327,7 +328,7 @@ _dbus_hash_table_new (DBusHashType     type,
     {
     case DBUS_HASH_INT:
     case DBUS_HASH_POINTER:
-    case DBUS_HASH_ULONG:
+    case DBUS_HASH_UINTPTR:
       table->find_function = find_direct_function;
       break;
     case DBUS_HASH_STRING:
@@ -683,12 +684,12 @@ _dbus_hash_iter_get_int_key (DBusHashIter *iter)
 
 /**
  * Gets the key for the current entry.
- * Only works for hash tables of type #DBUS_HASH_ULONG.
+ * Only works for hash tables of type #DBUS_HASH_UINTPTR.
  *
  * @param iter the hash table iterator.
  */
-unsigned long
-_dbus_hash_iter_get_ulong_key (DBusHashIter *iter)
+uintptr_t
+_dbus_hash_iter_get_uintptr_key (DBusHashIter *iter)
 {
   DBusRealHashIter *real;
 
@@ -697,7 +698,7 @@ _dbus_hash_iter_get_ulong_key (DBusHashIter *iter)
   _dbus_assert (real->table != NULL);
   _dbus_assert (real->entry != NULL);
 
-  return (unsigned long) real->entry->key;
+  return (uintptr_t) real->entry->key;
 }
 
 /**
@@ -1115,7 +1116,7 @@ rebuild_table (DBusHashTable *table)
 #endif
               break;
             case DBUS_HASH_INT:
-            case DBUS_HASH_ULONG:
+            case DBUS_HASH_UINTPTR:
             case DBUS_HASH_POINTER:
               idx = RANDOM_INDEX (table, entry->key);
               break;
@@ -1244,7 +1245,7 @@ _dbus_hash_table_lookup_pointer (DBusHashTable *table,
 
 /**
  * Looks up the value for a given integer in a hash table
- * of type #DBUS_HASH_ULONG. Returns %NULL if the value
+ * of type #DBUS_HASH_UINTPTR. Returns %NULL if the value
  * is not present. (A not-present entry is indistinguishable
  * from an entry with a value of %NULL.)
  * @param table the hash table.
@@ -1252,12 +1253,12 @@ _dbus_hash_table_lookup_pointer (DBusHashTable *table,
  * @returns the value of the hash entry.
  */
 void*
-_dbus_hash_table_lookup_ulong (DBusHashTable *table,
-                               unsigned long  key)
+_dbus_hash_table_lookup_uintptr (DBusHashTable *table,
+                                 uintptr_t      key)
 {
   DBusHashEntry *entry;
 
-  _dbus_assert (table->key_type == DBUS_HASH_ULONG);
+  _dbus_assert (table->key_type == DBUS_HASH_UINTPTR);
   
   entry = (* table->find_function) (table, (void*) key, FALSE, NULL, NULL);
 
@@ -1393,13 +1394,13 @@ _dbus_hash_table_remove_pointer (DBusHashTable *table,
  * @returns #TRUE if the entry existed
  */
 dbus_bool_t
-_dbus_hash_table_remove_ulong (DBusHashTable *table,
-                               unsigned long  key)
+_dbus_hash_table_remove_uintptr (DBusHashTable *table,
+                                 uintptr_t      key)
 {
   DBusHashEntry *entry;
   DBusHashEntry **bucket;
   
-  _dbus_assert (table->key_type == DBUS_HASH_ULONG);
+  _dbus_assert (table->key_type == DBUS_HASH_UINTPTR);
   
   entry = (* table->find_function) (table, (void*) key, FALSE, &bucket, NULL);
   
@@ -1590,13 +1591,13 @@ _dbus_hash_table_insert_pointer (DBusHashTable *table,
  * @param value the hash entry value.
  */
 dbus_bool_t
-_dbus_hash_table_insert_ulong (DBusHashTable *table,
-                               unsigned long  key,
-                               void          *value)
+_dbus_hash_table_insert_uintptr (DBusHashTable *table,
+                                 uintptr_t      key,
+                                 void          *value)
 {
   DBusHashEntry *entry;
 
-  _dbus_assert (table->key_type == DBUS_HASH_ULONG);
+  _dbus_assert (table->key_type == DBUS_HASH_UINTPTR);
   
   entry = (* table->find_function) (table, (void*) key, TRUE, NULL, NULL);
 
@@ -1809,7 +1810,7 @@ _dbus_hash_test (void)
   if (table2 == NULL)
     goto out;
 
-  table3 = _dbus_hash_table_new (DBUS_HASH_ULONG,
+  table3 = _dbus_hash_table_new (DBUS_HASH_UINTPTR,
                                  NULL, dbus_free);
   if (table3 == NULL)
     goto out;
@@ -1852,7 +1853,7 @@ _dbus_hash_test (void)
       if (value == NULL)
         goto out;
       
-      if (!_dbus_hash_table_insert_ulong (table3,
+      if (!_dbus_hash_table_insert_uintptr (table3,
                                           i, value))
         goto out;
 
@@ -1880,7 +1881,7 @@ _dbus_hash_test (void)
       _dbus_assert (value != NULL);
       _dbus_assert (strcmp (value, keys[i]) == 0);
 
-      value = _dbus_hash_table_lookup_ulong (table3, i);
+      value = _dbus_hash_table_lookup_uintptr (table3, i);
       _dbus_assert (value != NULL);
       _dbus_assert (strcmp (value, keys[i]) == 0);
 
@@ -1899,7 +1900,7 @@ _dbus_hash_test (void)
 
       _dbus_hash_table_remove_int (table2, i);
 
-      _dbus_hash_table_remove_ulong (table3, i); 
+      _dbus_hash_table_remove_uintptr (table3, i);
 
       _dbus_hash_table_remove_two_strings (table4,
                                            keys[i]);

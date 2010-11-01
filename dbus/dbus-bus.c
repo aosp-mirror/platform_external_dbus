@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-bus.c  Convenience functions for communicating with the bus.
  *
  * Copyright (C) 2003  CodeFactory AB
@@ -18,10 +18,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-bus.h"
 #include "dbus-protocol.h"
 #include "dbus-internals.h"
@@ -29,7 +30,7 @@
 #include "dbus-marshal-validate.h"
 #include "dbus-threads-internal.h"
 #include "dbus-connection-internal.h"
-#include <string.h>
+#include "dbus-string.h"
 
 /**
  * @defgroup DBusBus Message bus APIs
@@ -124,6 +125,8 @@ addresses_shutdown_func (void *data)
     }
 
   activation_bus_type = DBUS_BUS_STARTER;
+
+  initialized = FALSE;
 }
 
 static dbus_bool_t
@@ -142,6 +145,63 @@ get_from_env (char           **connection_p,
       *connection_p = _dbus_strdup (s);
       return *connection_p != NULL;
     }
+}
+
+static dbus_bool_t
+init_session_address (void)
+{
+  dbus_bool_t retval;
+ 
+  retval = FALSE;
+
+  /* First, look in the environment.  This is the normal case on 
+   * freedesktop.org/Unix systems. */
+  get_from_env (&bus_connection_addresses[DBUS_BUS_SESSION],
+                     "DBUS_SESSION_BUS_ADDRESS");
+  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+    {
+      dbus_bool_t supported;
+      DBusString addr;
+      DBusError error = DBUS_ERROR_INIT;
+
+      if (!_dbus_string_init (&addr))
+        return FALSE;
+
+      supported = FALSE;
+      /* So it's not in the environment - let's try a platform-specific method.
+       * On MacOS, this involves asking launchd.  On Windows (not specified yet)
+       * we might do a COM lookup.
+       * Ignore errors - if we failed, fall back to autolaunch. */
+      retval = _dbus_lookup_session_address (&supported, &addr, &error);
+      if (supported && retval)
+        {
+          retval =_dbus_string_steal_data (&addr, &bus_connection_addresses[DBUS_BUS_SESSION]);
+        }
+      else if (supported && !retval)
+        {
+          if (dbus_error_is_set(&error))
+            _dbus_warn ("Dynamic session lookup supported but failed: %s\n", error.message);
+          else
+            _dbus_warn ("Dynamic session lookup supported but failed silently\n");
+        }
+      _dbus_string_free (&addr);
+    }
+  else
+    retval = TRUE;
+
+  if (!retval)
+    return FALSE;
+
+  /* The DBUS_SESSION_BUS_DEFAULT_ADDRESS should have really been named
+   * DBUS_SESSION_BUS_FALLBACK_ADDRESS. 
+   */
+  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+    bus_connection_addresses[DBUS_BUS_SESSION] =
+      _dbus_strdup (DBUS_SESSION_BUS_DEFAULT_ADDRESS);
+  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
+    return FALSE;
+
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -196,16 +256,8 @@ init_connections_unlocked (void)
         {
           _dbus_verbose ("Filling in session bus address...\n");
           
-          if (!get_from_env (&bus_connection_addresses[DBUS_BUS_SESSION],
-                             "DBUS_SESSION_BUS_ADDRESS"))
+          if (!init_session_address ())
             return FALSE;
-
-	  if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
-	    bus_connection_addresses[DBUS_BUS_SESSION] =
-	      _dbus_strdup (DBUS_SESSION_BUS_DEFAULT_ADDRESS);
-          
-          if (bus_connection_addresses[DBUS_BUS_SESSION] == NULL)
-             return FALSE;
 
           _dbus_verbose ("  \"%s\"\n", bus_connection_addresses[DBUS_BUS_SESSION] ?
                          bus_connection_addresses[DBUS_BUS_SESSION] : "none set");
@@ -436,12 +488,6 @@ internal_bus_get (DBusBusType  type,
       return NULL;
     }
 
-  /* By default we're bound to the lifecycle of
-   * the message bus.
-   */
-  dbus_connection_set_exit_on_disconnect (connection,
-                                          TRUE);
-  
   if (!dbus_bus_register (connection, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -461,6 +507,12 @@ internal_bus_get (DBusBusType  type,
       bus_connections[type] = connection;
     }
 
+  /* By default we're bound to the lifecycle of
+   * the message bus.
+   */
+  dbus_connection_set_exit_on_disconnect (connection,
+                                          TRUE);
+ 
   _DBUS_LOCK (bus_datas);
   bd = ensure_bus_data (connection);
   _dbus_assert (bd != NULL); /* it should have been created on
@@ -865,6 +917,85 @@ dbus_bus_get_unix_user (DBusConnection *connection,
   return (unsigned long) uid;
 }
 
+/**
+ * Asks the bus to return its globally unique ID, as described in the
+ * D-Bus specification. For the session bus, this is useful as a way
+ * to uniquely identify each user session. For the system bus,
+ * probably the bus ID is not useful; instead, use the machine ID
+ * since it's accessible without necessarily connecting to the bus and
+ * may be persistent beyond a single bus instance (across reboots for
+ * example). See dbus_get_local_machine_id().
+ *
+ * In addition to an ID for each bus and an ID for each machine, there is
+ * an ID for each address that the bus is listening on; that can
+ * be retrieved with dbus_connection_get_server_id(), though it is
+ * probably not very useful.
+ * 
+ * @param connection the connection
+ * @param error location to store the error
+ * @returns the bus ID or #NULL if error is set
+ */ 
+char*
+dbus_bus_get_id (DBusConnection *connection,
+                 DBusError      *error)
+{
+  DBusMessage *message, *reply;
+  char *id;
+  const char *v_STRING;
+
+  _dbus_return_val_if_fail (connection != NULL, NULL);
+  _dbus_return_val_if_error_is_set (error, NULL);
+  
+  message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                          DBUS_PATH_DBUS,
+                                          DBUS_INTERFACE_DBUS,
+                                          "GetId");
+  
+  if (message == NULL)
+    {
+      _DBUS_SET_OOM (error);
+      return NULL;
+    }
+  
+  reply = dbus_connection_send_with_reply_and_block (connection, message, -1,
+                                                     error);
+  
+  dbus_message_unref (message);
+  
+  if (reply == NULL)
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      return NULL;
+    }  
+
+  if (dbus_set_error_from_message (error, reply))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return NULL;
+    }
+
+  v_STRING = NULL;
+  if (!dbus_message_get_args (reply, error,
+                              DBUS_TYPE_STRING, &v_STRING,
+                              DBUS_TYPE_INVALID))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (error);
+      dbus_message_unref (reply);
+      return NULL;
+    }
+
+  id = _dbus_strdup (v_STRING); /* may be NULL */
+  
+  dbus_message_unref (reply);
+
+  if (id == NULL)
+    _DBUS_SET_OOM (error);
+
+  /* FIXME it might be nice to cache the ID locally */
+  
+  return id;
+}
 
 /**
  * Asks the bus to assign the given name to this connection by invoking
@@ -1344,6 +1475,13 @@ send_no_return_values (DBusConnection *connection,
  * match the string "5" not the integer 5.
  *
  * Currently there is no way to match against non-string arguments.
+ *
+ * A specialised form of wildcard matching on arguments is
+ * supported for path-like namespaces.  If your argument match has
+ * a 'path' suffix (eg: "arg0path='/some/path/'") then it is
+ * considered a match if the argument exactly matches the given
+ * string or if one of them ends in a '/' and is a prefix of the
+ * other.
  *
  * Matching on interface is tricky because method call
  * messages only optionally specify the interface.

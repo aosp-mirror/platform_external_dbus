@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-errors.c Error reporting
  *
  * Copyright (C) 2002, 2004  Red Hat Inc.
@@ -18,9 +18,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-errors.h"
 #include "dbus-internals.h"
 #include "dbus-string.h"
@@ -34,7 +36,29 @@
  * @brief Error reporting internals
  * @{
  */
- 
+
+/**
+ * @def DBUS_ERROR_INIT
+ *
+ * Expands to a suitable initializer for a DBusError on the stack.
+ * Declaring a DBusError with:
+ *
+ * @code
+ * DBusError error = DBUS_ERROR_INIT;
+ *
+ * do_things_with (&error);
+ * @endcode
+ *
+ * is a more concise form of:
+ *
+ * @code
+ * DBusError error;
+ *
+ * dbus_error_init (&error);
+ * do_things_with (&error);
+ * @endcode
+ */
+
 /**
  * Internals of DBusError
  */
@@ -97,6 +121,8 @@ message_from_error (const char *error)
     return "Did not get a reply message.";
   else if (strcmp (error, DBUS_ERROR_FILE_NOT_FOUND) == 0)
     return "File doesn't exist.";
+  else if (strcmp (error, DBUS_ERROR_OBJECT_PATH_IN_USE) == 0)
+    return "Object path already in use";
   else
     return error;
 }
@@ -351,6 +377,7 @@ dbus_set_error (DBusError  *error,
                                 message_from_error (name)))
         {
           _dbus_string_free (&str);
+          va_end (args);
           goto nomem;
         }
     }
@@ -360,6 +387,7 @@ dbus_set_error (DBusError  *error,
       if (!_dbus_string_append_printf_valist (&str, format, args))
         {
           _dbus_string_free (&str);
+          va_end (args);
           goto nomem;
         }
       va_end (args);

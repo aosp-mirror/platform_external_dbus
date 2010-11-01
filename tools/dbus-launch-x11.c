@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-launch.h  dbus-launch utility
  *
  * Copyright (C) 2006 Thiago Macieira <thiago@kde.org>
@@ -17,9 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-launch.h"
 
 #ifdef DBUS_BUILD_X11
@@ -341,8 +343,8 @@ static Window
 set_address_in_x11(char *address, pid_t pid)
 {
   char *current_address;
-  Window wid;
-  int pid32;
+  Window wid = None;
+  unsigned long pid32; /* Xlib property functions want _long_ not 32-bit for format "32" */
   
   /* lock the X11 display to make sure we're doing this atomically */
   XGrabServer (xdisplay);
@@ -350,42 +352,37 @@ set_address_in_x11(char *address, pid_t pid)
   if (!x11_get_address (&current_address, NULL, NULL))
     {
       /* error! */
-      XUngrabServer (xdisplay);
-      return None;
+      goto out;
     }
 
   if (current_address != NULL)
     {
       /* someone saved the address in the meantime */
-      XUngrabServer (xdisplay);
       free (current_address);
-      return None;
+      goto out;
     }
 
   /* Create our window */
-  wid = XCreateSimpleWindow (xdisplay, RootWindow (xdisplay, 0), -20, -20, 10, 10,
-                             0, WhitePixel (xdisplay, 0),
-                             BlackPixel (xdisplay, 0));
+  wid = XCreateWindow (xdisplay, RootWindow (xdisplay, 0), -20, -20, 10, 10,
+                       0, CopyFromParent, InputOnly, CopyFromParent,
+                       0, NULL);
   verbose ("Created window %d\n", wid);
 
   /* Save the property in the window */
   XChangeProperty (xdisplay, wid, address_atom, XA_STRING, 8, PropModeReplace,
                    (unsigned char *)address, strlen (address));
   pid32 = pid;
-  if (sizeof(pid32) != 4)
-    {
-      fprintf (stderr, "int is not 32 bits!\n");
-      exit (1);
-    }
   XChangeProperty (xdisplay, wid, pid_atom, XA_CARDINAL, 32, PropModeReplace,
                    (unsigned char *)&pid32, 1);
 
   /* Now grab the selection */
   XSetSelectionOwner (xdisplay, selection_atom, wid, CurrentTime);
 
+ out:
   /* Ungrab the server to let other people use it too */
   XUngrabServer (xdisplay);
 
+  /* And make sure that the ungrab gets sent to X11 */
   XFlush (xdisplay);
 
   return wid;
@@ -464,5 +461,7 @@ x11_handle_event (void)
 }  
 
 #else
+void dummy_dbus_launch_x11 (void);
+
 void dummy_dbus_launch_x11 (void) { }
 #endif

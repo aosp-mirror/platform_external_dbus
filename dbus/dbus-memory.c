@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-memory.c  D-Bus memory handling
  *
  * Copyright (C) 2002, 2003  Red Hat Inc.
@@ -17,10 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-memory.h"
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
@@ -232,6 +233,7 @@ _dbus_get_fail_alloc_failures (void)
 }
 
 #ifdef DBUS_BUILD_TESTS
+static dbus_bool_t called = 0;
 /**
  * Called when about to alloc some memory; if
  * it returns #TRUE, then the allocation should
@@ -244,7 +246,17 @@ dbus_bool_t
 _dbus_decrement_fail_alloc_counter (void)
 {
   _dbus_initialize_malloc_debug ();
-  
+#ifdef DBUS_WIN_FIXME
+  {
+    if (!called)
+      {
+        _dbus_verbose("TODO: memory allocation testing errors disabled for now\n");
+        called = 1;
+      }
+    return FALSE;
+  }
+#endif
+
   if (fail_alloc_counter <= 0)
     {
       if (backtrace_on_fail_alloc)

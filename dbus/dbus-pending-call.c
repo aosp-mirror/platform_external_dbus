@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-pending-call.c Object representing a call in progress.
  *
  * Copyright (C) 2002, 2003 Red Hat Inc.
@@ -17,10 +17,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-connection-internal.h"
 #include "dbus-pending-call-internal.h"
@@ -83,7 +84,7 @@ static dbus_int32_t notify_user_data_slot = -1;
  * Creates a new pending reply object.
  *
  * @param connection connection where reply will arrive
- * @param timeout_milliseconds length of timeout, -1 for default
+ * @param timeout_milliseconds length of timeout, -1 for default, INT_MAX for no timeout
  * @param timeout_handler timeout handler, takes pending call as data
  * @returns a new #DBusPendingCall or #NULL if no memory.
  */
@@ -100,14 +101,6 @@ _dbus_pending_call_new_unlocked (DBusConnection    *connection,
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
 
-  /* it would probably seem logical to pass in _DBUS_INT_MAX for
-   * infinite timeout, but then math in
-   * _dbus_connection_block_for_reply would get all overflow-prone, so
-   * smack that down.
-   */
-  if (timeout_milliseconds > _DBUS_ONE_HOUR_IN_MILLISECONDS * 6)
-    timeout_milliseconds = _DBUS_ONE_HOUR_IN_MILLISECONDS * 6;
-  
   if (!dbus_pending_call_allocate_data_slot (&notify_user_data_slot))
     return NULL;
   
@@ -119,23 +112,29 @@ _dbus_pending_call_new_unlocked (DBusConnection    *connection,
       return NULL;
     }
 
-  timeout = _dbus_timeout_new (timeout_milliseconds,
-                               timeout_handler,
-			       pending, NULL);  
-
-  if (timeout == NULL)
+  if (timeout_milliseconds != _DBUS_INT_MAX)
     {
-      dbus_pending_call_free_data_slot (&notify_user_data_slot);
-      dbus_free (pending);
-      return NULL;
+      timeout = _dbus_timeout_new (timeout_milliseconds,
+                                   timeout_handler,
+                                   pending, NULL);  
+
+      if (timeout == NULL)
+        {
+          dbus_pending_call_free_data_slot (&notify_user_data_slot);
+          dbus_free (pending);
+          return NULL;
+        }
+
+      pending->timeout = timeout;
     }
-  
+  else
+    {
+      pending->timeout = NULL;
+    }
+      
   pending->refcount.value = 1;
   pending->connection = connection;
   _dbus_connection_ref_unlocked (pending->connection);
-
-  pending->timeout = timeout;
-
 
   _dbus_data_slot_list_init (&pending->slot_list);
   
@@ -255,7 +254,7 @@ _dbus_pending_call_set_timeout_added_unlocked (DBusPendingCall  *pending,
  * Retrives the timeout
  *
  * @param pending the pending_call
- * @returns a timeout object 
+ * @returns a timeout object or NULL if call has no timeout
  */
 DBusTimeout *
 _dbus_pending_call_get_timeout_unlocked (DBusPendingCall  *pending)

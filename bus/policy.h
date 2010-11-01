@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* policy.h  Bus security policy
  *
  * Copyright (C) 2003  Red Hat, Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -63,7 +63,9 @@ struct BusPolicyRule
       char *member;
       char *error;
       char *destination;
+      unsigned int eavesdrop : 1;
       unsigned int requested_reply : 1;
+      unsigned int log : 1;
     } send;
 
     struct
@@ -112,9 +114,10 @@ void             bus_policy_unref                 (BusPolicy        *policy);
 BusClientPolicy* bus_policy_create_client_policy  (BusPolicy        *policy,
                                                    DBusConnection   *connection,
                                                    DBusError        *error);
-dbus_bool_t      bus_policy_allow_user            (BusPolicy        *policy,
-                                                   DBusUserDatabase *user_database,
+dbus_bool_t      bus_policy_allow_unix_user       (BusPolicy        *policy,
                                                    unsigned long     uid);
+dbus_bool_t      bus_policy_allow_windows_user    (BusPolicy        *policy,
+                                                   const char       *windows_sid);
 dbus_bool_t      bus_policy_append_default_rule   (BusPolicy        *policy,
                                                    BusPolicyRule    *rule);
 dbus_bool_t      bus_policy_append_mandatory_rule (BusPolicy        *policy,
@@ -139,14 +142,17 @@ dbus_bool_t      bus_client_policy_check_can_send    (BusClientPolicy  *policy,
                                                       BusRegistry      *registry,
                                                       dbus_bool_t       requested_reply,
                                                       DBusConnection   *receiver,
-                                                      DBusMessage      *message);
+                                                      DBusMessage      *message,
+                                                      dbus_int32_t     *toggles,
+                                                      dbus_bool_t      *log);
 dbus_bool_t      bus_client_policy_check_can_receive (BusClientPolicy  *policy,
                                                       BusRegistry      *registry,
                                                       dbus_bool_t       requested_reply,
                                                       DBusConnection   *sender,
                                                       DBusConnection   *addressed_recipient,
                                                       DBusConnection   *proposed_recipient,
-                                                      DBusMessage      *message);
+                                                      DBusMessage      *message,
+                                                      dbus_int32_t     *toggles);
 dbus_bool_t      bus_client_policy_check_can_own     (BusClientPolicy  *policy,
                                                       DBusConnection   *connection,
                                                       const DBusString *service_name);

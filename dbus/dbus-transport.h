@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-transport.h DBusTransport object (internal to D-BUS implementation)
  *
  * Copyright (C) 2002, 2004  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_TRANSPORT_H
@@ -39,7 +39,11 @@ void               _dbus_transport_unref                  (DBusTransport        
 void               _dbus_transport_disconnect             (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_get_is_connected       (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_get_is_authenticated   (DBusTransport              *transport);
+dbus_bool_t        _dbus_transport_get_is_anonymous       (DBusTransport              *transport);
+dbus_bool_t        _dbus_transport_can_pass_unix_fd       (DBusTransport              *transport);
+
 const char*        _dbus_transport_get_address            (DBusTransport              *transport);
+const char*        _dbus_transport_get_server_id          (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_handle_watch           (DBusTransport              *transport,
                                                            DBusWatch                  *watch,
                                                            unsigned int                condition);
@@ -50,28 +54,48 @@ void               _dbus_transport_do_iteration           (DBusTransport        
                                                            int                         timeout_milliseconds);
 DBusDispatchStatus _dbus_transport_get_dispatch_status    (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_queue_messages         (DBusTransport              *transport);
+
 void               _dbus_transport_set_max_message_size   (DBusTransport              *transport,
                                                            long                        size);
 long               _dbus_transport_get_max_message_size   (DBusTransport              *transport);
 void               _dbus_transport_set_max_received_size  (DBusTransport              *transport,
                                                            long                        size);
 long               _dbus_transport_get_max_received_size  (DBusTransport              *transport);
+
+void               _dbus_transport_set_max_message_unix_fds (DBusTransport              *transport,
+                                                             long                        n);
+long               _dbus_transport_get_max_message_unix_fds (DBusTransport              *transport);
+void               _dbus_transport_set_max_received_unix_fds(DBusTransport              *transport,
+                                                             long                        n);
+long               _dbus_transport_get_max_received_unix_fds(DBusTransport              *transport);
+
 dbus_bool_t        _dbus_transport_get_socket_fd          (DBusTransport              *transport,
                                                            int                        *fd_p);
 dbus_bool_t        _dbus_transport_get_unix_user          (DBusTransport              *transport,
                                                            unsigned long              *uid);
 dbus_bool_t        _dbus_transport_get_unix_process_id     (DBusTransport              *transport,
                                                            unsigned long              *pid);
+dbus_bool_t        _dbus_transport_get_adt_audit_session_data (DBusTransport              *transport,
+                                                               void                      **data,
+                                                               int                        *data_size);
 void               _dbus_transport_set_unix_user_function (DBusTransport              *transport,
                                                            DBusAllowUnixUserFunction   function,
                                                            void                       *data,
                                                            DBusFreeFunction            free_data_function,
                                                            void                      **old_data,
                                                            DBusFreeFunction           *old_free_data_function);
+dbus_bool_t        _dbus_transport_get_windows_user       (DBusTransport              *transport,
+                                                           char                      **windows_sid_p);
+void               _dbus_transport_set_windows_user_function (DBusTransport              *transport,
+                                                              DBusAllowWindowsUserFunction   function,
+                                                              void                       *data,
+                                                              DBusFreeFunction            free_data_function,
+                                                              void                      **old_data,
+                                                              DBusFreeFunction           *old_free_data_function);
 dbus_bool_t        _dbus_transport_set_auth_mechanisms    (DBusTransport              *transport,
                                                            const char                **mechanisms);
-
-
+void               _dbus_transport_set_allow_anonymous    (DBusTransport              *transport,
+                                                           dbus_bool_t                 value);
 
 
 DBUS_END_DECLS

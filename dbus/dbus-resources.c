@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-resources.c Resource tracking/limits
  *
  * Copyright (C) 2003  Red Hat Inc.
@@ -17,9 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include <dbus/dbus-resources.h>
 #include <dbus/dbus-internals.h>
 
@@ -29,7 +31,7 @@
  * @brief DBusCounter and other stuff related to resource limits
  *
  * Types and functions related to tracking resource limits,
- * such as the maximum amount of memory a connection can use
+ * such as the maximum amount of memory/unix fds a connection can use
  * for messages, etc.
  */
 
@@ -53,9 +55,12 @@ struct DBusCounter
 {
   int refcount;  /**< reference count */
 
-  long value;    /**< current counter value */
+  long size_value;       /**< current size counter value */
+  long unix_fd_value;    /**< current unix fd counter value */
 
-  long notify_guard_value; /**< call notify function when crossing this value */
+  long notify_size_guard_value;    /**< call notify function when crossing this size value */
+  long notify_unix_fd_guard_value; /**< call notify function when crossing this unix fd value */
+
   DBusCounterNotifyFunction notify_function; /**< notify function */
   void *notify_data; /**< data for notify function */
 };
@@ -83,9 +88,11 @@ _dbus_counter_new (void)
     return NULL;
   
   counter->refcount = 1;
-  counter->value = 0;
+  counter->size_value = 0;
+  counter->unix_fd_value = 0;
 
-  counter->notify_guard_value = 0;
+  counter->notify_size_guard_value = 0;
+  counter->notify_unix_fd_guard_value = 0;
   counter->notify_function = NULL;
   counter->notify_data = NULL;
   
@@ -129,64 +136,109 @@ _dbus_counter_unref (DBusCounter *counter)
 }
 
 /**
- * Adjusts the value of the counter by the given
+ * Adjusts the value of the size counter by the given
  * delta which may be positive or negative.
  * Calls the notify function from _dbus_counter_set_notify()
  * if that function has been specified.
  *
  * @param counter the counter
- * @param delta value to add to the counter's current value
+ * @param delta value to add to the size counter's current value
  */
 void
-_dbus_counter_adjust (DBusCounter *counter,
-                      long         delta)
+_dbus_counter_adjust_size (DBusCounter *counter,
+                           long         delta)
 {
-  long old = counter->value;
-  
-  counter->value += delta;
+  long old = counter->size_value;
+
+  counter->size_value += delta;
 
 #if 0
   _dbus_verbose ("Adjusting counter %ld by %ld = %ld\n",
-                 old, delta, counter->value);
+                 old, delta, counter->size_value);
 #endif
-  
+
   if (counter->notify_function != NULL &&
-      ((old < counter->notify_guard_value &&
-        counter->value >= counter->notify_guard_value) ||
-       (old >= counter->notify_guard_value &&
-        counter->value < counter->notify_guard_value)))
+      ((old < counter->notify_size_guard_value &&
+        counter->size_value >= counter->notify_size_guard_value) ||
+       (old >= counter->notify_size_guard_value &&
+        counter->size_value < counter->notify_size_guard_value)))
     (* counter->notify_function) (counter, counter->notify_data);
 }
 
 /**
- * Gets the current value of the counter.
+ * Adjusts the value of the unix fd counter by the given
+ * delta which may be positive or negative.
+ * Calls the notify function from _dbus_counter_set_notify()
+ * if that function has been specified.
  *
  * @param counter the counter
- * @returns its current value
+ * @param delta value to add to the unix fds counter's current value
+ */
+void
+_dbus_counter_adjust_unix_fd (DBusCounter *counter,
+                              long         delta)
+{
+  long old = counter->unix_fd_value;
+  
+  counter->unix_fd_value += delta;
+
+#if 0
+  _dbus_verbose ("Adjusting counter %ld by %ld = %ld\n",
+                 old, delta, counter->unix_fd_value);
+#endif
+  
+  if (counter->notify_function != NULL &&
+      ((old < counter->notify_unix_fd_guard_value &&
+        counter->unix_fd_value >= counter->notify_unix_fd_guard_value) ||
+       (old >= counter->notify_unix_fd_guard_value &&
+        counter->unix_fd_value < counter->notify_unix_fd_guard_value)))
+    (* counter->notify_function) (counter, counter->notify_data);
+}
+
+/**
+ * Gets the current value of the size counter.
+ *
+ * @param counter the counter
+ * @returns its current size value
  */
 long
-_dbus_counter_get_value (DBusCounter *counter)
+_dbus_counter_get_size_value (DBusCounter *counter)
 {
-  return counter->value;
+  return counter->size_value;
+}
+
+/**
+ * Gets the current value of the unix fd counter.
+ *
+ * @param counter the counter
+ * @returns its current unix fd value
+ */
+long
+_dbus_counter_get_unix_fd_value (DBusCounter *counter)
+{
+  return counter->unix_fd_value;
 }
 
 /**
  * Sets the notify function for this counter; the notify function is
- * called whenever the counter's value crosses the guard value in
+ * called whenever the counter's values cross the guard values in
  * either direction (moving up, or moving down).
  *
  * @param counter the counter
- * @param guard_value the value we're notified if the counter crosses
+ * @param size_guard_value the value we're notified if the size counter crosses
+ * @param unix_fd_guard_value the value we're notified if the unix fd counter crosses
  * @param function function to call in order to notify
  * @param user_data data to pass to the function
  */
 void
 _dbus_counter_set_notify (DBusCounter               *counter,
-                          long                       guard_value,
+                          long                       size_guard_value,
+                          long                       unix_fd_guard_value,
                           DBusCounterNotifyFunction  function,
                           void                      *user_data)
 {
-  counter->notify_guard_value = guard_value;
+  counter->notify_size_guard_value = size_guard_value;
+  counter->notify_unix_fd_guard_value = unix_fd_guard_value;
   counter->notify_function = function;
   counter->notify_data = user_data;
 }

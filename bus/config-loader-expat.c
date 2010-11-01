@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* config-loader-expat.c  expat XML loader
  *
  * Copyright (C) 2003 Red Hat, Inc.
@@ -17,20 +17,16 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "config-parser.h"
 #include <dbus/dbus-internals.h>
 #include <expat.h>
 
-static XML_Memory_Handling_Suite memsuite =
-{
-  dbus_malloc,
-  dbus_realloc,
-  dbus_free
-};
+static XML_Memory_Handling_Suite memsuite;
 
 typedef struct
 {
@@ -195,7 +191,11 @@ bus_config_load (const DBusString      *file,
       _dbus_string_free (&context.content);
       return NULL;
     }
-  
+
+  memsuite.malloc_fcn = dbus_malloc;
+  memsuite.realloc_fcn = dbus_realloc;
+  memsuite.free_fcn = dbus_free;
+
   expat = XML_ParserCreate_MM ("UTF-8", &memsuite, NULL);
   if (expat == NULL)
     {

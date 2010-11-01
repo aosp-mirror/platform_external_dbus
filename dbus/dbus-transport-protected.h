@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-transport-protected.h Used by subclasses of DBusTransport object (internal to D-Bus implementation)
  *
  * Copyright (C) 2002, 2004  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_TRANSPORT_PROTECTED_H
@@ -89,12 +89,12 @@ struct DBusTransport
 
   DBusAuth *auth;                             /**< Authentication conversation */
 
-  DBusCredentials credentials;                /**< Credentials of other end */  
+  DBusCredentials *credentials;               /**< Credentials of other end read from the socket */  
 
   long max_live_messages_size;                /**< Max total size of received messages. */
+  long max_live_messages_unix_fds;            /**< Max total unix fds of received messages. */
 
-  DBusCounter *live_messages_size;            /**< Counter for size of all live messages. */
-
+  DBusCounter *live_messages;                 /**< Counter for size/unix fds of all live messages. */
 
   char *address;                              /**< Address of the server we are connecting to (#NULL for the server side of a transport) */
 
@@ -104,6 +104,11 @@ struct DBusTransport
   void *unix_user_data;                         /**< Data for unix_user_function */
   
   DBusFreeFunction free_unix_user_data;         /**< Function to free unix_user_data */
+
+  DBusAllowWindowsUserFunction windows_user_function; /**< Function for checking whether a user is authorized. */
+  void *windows_user_data;                            /**< Data for windows_user_function */
+  
+  DBusFreeFunction free_windows_user_data;            /**< Function to free windows_user_data */
   
   unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */
   unsigned int authenticated : 1;             /**< Cache of auth state; use _dbus_transport_get_is_authenticated() to query value */
@@ -111,6 +116,7 @@ struct DBusTransport
   unsigned int receive_credentials_pending : 1; /**< #TRUE if we need to receive credentials */
   unsigned int is_server : 1;                 /**< #TRUE if on the server side */
   unsigned int unused_bytes_recovered : 1;    /**< #TRUE if we've recovered unused bytes from auth */
+  unsigned int allow_anonymous : 1;           /**< #TRUE if an anonymous client can connect */
 };
 
 dbus_bool_t _dbus_transport_init_base     (DBusTransport             *transport,
@@ -131,6 +137,9 @@ typedef enum
 DBusTransportOpenResult _dbus_transport_open_platform_specific (DBusAddressEntry  *entry,
                                                                 DBusTransport    **transport_p,
                                                                 DBusError         *error);
+
+#define DBUS_TRANSPORT_CAN_SEND_UNIX_FD(x)      \
+  _dbus_auth_get_unix_fd_negotiated((x)->auth)
 
 DBUS_END_DECLS
 

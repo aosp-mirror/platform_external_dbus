@@ -1,10 +1,12 @@
 <!ELEMENT busconfig (user |
                      type |
                      fork |
+                     keep_umask |
                      listen | 
                      pidfile |
                      includedir |
                      servicedir |
+                     servicehelper |
                      auth |
                      include |
                      policy |
@@ -15,10 +17,12 @@
 <!ELEMENT listen (#PCDATA)>
 <!ELEMENT includedir (#PCDATA)>
 <!ELEMENT servicedir (#PCDATA)>
+<!ELEMENT servicehelper (#PCDATA)>
 <!ELEMENT auth (#PCDATA)>
 <!ELEMENT type (#PCDATA)>
 <!ELEMENT pidfile (#PCDATA)>
 <!ELEMENT fork EMPTY>
+<!ELEMENT keep_umask EMPTY>
 
 <!ELEMENT include (#PCDATA)>
 <!ATTLIST include 

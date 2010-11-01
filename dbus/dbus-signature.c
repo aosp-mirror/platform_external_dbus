@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-signature.c  Routines for reading recursive type signatures
  *
  * Copyright (C) 2005 Red Hat, Inc.
@@ -17,9 +17,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 
 #include "dbus-signature.h"
 #include "dbus-marshal-recursive.h"
@@ -233,12 +235,18 @@ dbus_signature_validate (const char       *signature,
 			 
 {
   DBusString str;
+  DBusValidity reason;
 
   _dbus_string_init_const (&str, signature);
-  if (_dbus_validate_signature (&str, 0, _dbus_string_get_length (&str)))
+  reason = _dbus_validate_signature_with_reason (&str, 0, _dbus_string_get_length (&str));
+
+  if (reason == DBUS_VALID)
     return TRUE;
-  dbus_set_error (error, DBUS_ERROR_INVALID_SIGNATURE, "Corrupt type signature");
-  return FALSE;
+  else
+    {
+      dbus_set_error (error, DBUS_ERROR_INVALID_SIGNATURE, _dbus_validity_to_error_message (reason));
+      return FALSE;
+    }
 }
 
 /**
@@ -349,6 +357,7 @@ dbus_type_is_fixed (int typecode)
     case DBUS_TYPE_INT64:
     case DBUS_TYPE_UINT64:
     case DBUS_TYPE_DOUBLE:
+    case DBUS_TYPE_UNIX_FD:
       return TRUE;
     default:
       return FALSE;

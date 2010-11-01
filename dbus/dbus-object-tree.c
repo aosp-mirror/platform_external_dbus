@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-object-tree.c  DBusObjectTree (internals of DBusConnection)
  *
  * Copyright (C) 2003, 2005  Red Hat Inc.
@@ -17,9 +17,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-object-tree.h"
 #include "dbus-connection-internal.h"
 #include "dbus-internals.h"
@@ -371,6 +373,8 @@ ensure_subtree (DBusObjectTree *tree,
   return find_subtree_recurse (tree->root, path, TRUE, NULL, NULL);
 }
 
+static char *flatten_path (const char **path);
+
 /**
  * Registers a new subtree in the global object tree.
  *
@@ -379,14 +383,17 @@ ensure_subtree (DBusObjectTree *tree,
  * @param path NULL-terminated array of path elements giving path to subtree
  * @param vtable the vtable used to traverse this subtree
  * @param user_data user data to pass to methods in the vtable
- * @returns #FALSE if not enough memory
+ * @param error address where an error can be returned
+ * @returns #FALSE if an error (#DBUS_ERROR_NO_MEMORY or
+ *    #DBUS_ERROR_OBJECT_PATH_IN_USE) is reported
  */
 dbus_bool_t
 _dbus_object_tree_register (DBusObjectTree              *tree,
                             dbus_bool_t                  fallback,
                             const char                 **path,
                             const DBusObjectPathVTable  *vtable,
-                            void                        *user_data)
+                            void                        *user_data,
+                            DBusError                   *error)
 {
   DBusObjectSubtree  *subtree;
 
@@ -396,24 +403,33 @@ _dbus_object_tree_register (DBusObjectTree              *tree,
 
   subtree = ensure_subtree (tree, path);
   if (subtree == NULL)
-    return FALSE;
-
-#ifndef DBUS_DISABLE_CHECKS
-  if (subtree->message_function != NULL)
     {
-      _dbus_warn ("A handler is already registered for the path starting with path[0] = \"%s\"\n",
-                  path[0] ? path[0] : "null");
+      _DBUS_SET_OOM (error);
       return FALSE;
     }
-#else
-  _dbus_assert (subtree->message_function == NULL);
-#endif
+
+  if (subtree->message_function != NULL)
+    {
+      if (error != NULL)
+        {
+          char *complete_path = flatten_path (path);
+
+          dbus_set_error (error, DBUS_ERROR_OBJECT_PATH_IN_USE,
+                          "A handler is already registered for %s",
+                          complete_path ? complete_path
+                                        : "(cannot represent path: out of memory!)");
+
+          dbus_free (complete_path);
+        }
+
+      return FALSE;
+    }
 
   subtree->message_function = vtable->message_function;
   subtree->unregister_function = vtable->unregister_function;
   subtree->user_data = user_data;
   subtree->invoke_as_fallback = fallback != FALSE;
-  
+
   return TRUE;
 }
 
@@ -492,7 +508,7 @@ unlock:
 #endif
     {
       _dbus_connection_ref_unlocked (connection);
-      _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("unlock\n");
       _dbus_connection_unlock (connection);
     }
 
@@ -626,7 +642,7 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
       
@@ -641,7 +657,7 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
 
@@ -701,7 +717,7 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
     {
       if (!already_unlocked)
         {
-          _dbus_verbose ("unlock %s %d\n", _DBUS_FUNCTION_NAME, __LINE__);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
     }
@@ -749,7 +765,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
       
@@ -764,7 +780,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
       
@@ -830,7 +846,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
           if (tree->connection)
 #endif
             {
-              _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+              _dbus_verbose ("unlock\n");
               _dbus_connection_unlock (tree->connection);
             }
 
@@ -870,7 +886,7 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
       if (tree->connection)
 #endif
         {
-          _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+          _dbus_verbose ("unlock\n");
           _dbus_connection_unlock (tree->connection);
         }
     }
@@ -910,8 +926,7 @@ _dbus_object_tree_get_user_data_unlocked (DBusObjectTree *tree,
 
   if ((subtree == NULL) || !exact_match)
     {
-      _dbus_verbose ("%s: No object at specified path found\n",
-                     _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("No object at specified path found\n");
       return NULL;
     }
 
@@ -1033,7 +1048,7 @@ _dbus_object_tree_list_registered_and_unlock (DBusObjectTree *tree,
   if (tree->connection)
 #endif
     {
-      _dbus_verbose ("unlock %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_verbose ("unlock\n");
       _dbus_connection_unlock (tree->connection);
     }
 
@@ -1065,6 +1080,7 @@ _dbus_decompose_path (const char*     data,
   int i, j, comp;
 
   _dbus_assert (data != NULL);
+  _dbus_assert (path != NULL);
   
 #if VERBOSE_DECOMPOSE
   _dbus_verbose ("Decomposing path \"%s\"\n",
@@ -1077,6 +1093,7 @@ _dbus_decompose_path (const char*     data,
       i = 0;
       while (i < len)
         {
+          _dbus_assert (data[i] != '\0');
           if (data[i] == '/')
             n_components += 1;
           ++i;
@@ -1140,13 +1157,6 @@ _dbus_decompose_path (const char*     data,
 
 /** @} */
 
-#ifdef DBUS_BUILD_TESTS
-
-#ifndef DOXYGEN_SHOULD_SKIP_THIS
-
-#include "dbus-test.h"
-#include <stdio.h>
-
 static char*
 flatten_path (const char **path)
 {
@@ -1190,6 +1200,13 @@ flatten_path (const char **path)
   return NULL;
 }
 
+
+#ifdef DBUS_BUILD_TESTS
+
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
+#include "dbus-test.h"
+#include <stdio.h>
 
 typedef enum 
 {
@@ -1314,7 +1331,7 @@ do_register (DBusObjectTree *tree,
 {
   DBusObjectPathVTable vtable = { test_unregister_function,
                                   test_message_function, NULL };
-  
+
   tree_test_data[i].message_handled = FALSE;
   tree_test_data[i].handler_unregistered = FALSE;
   tree_test_data[i].handler_fallback = fallback;
@@ -1322,7 +1339,8 @@ do_register (DBusObjectTree *tree,
 
   if (!_dbus_object_tree_register (tree, fallback, path,
                                    &vtable,
-                                   &tree_test_data[i]))
+                                   &tree_test_data[i],
+                                   NULL))
     return FALSE;
 
   _dbus_assert (_dbus_object_tree_get_user_data_unlocked (tree, path) ==

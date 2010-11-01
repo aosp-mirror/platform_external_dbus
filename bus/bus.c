@@ -1,10 +1,10 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* bus.c  message bus context object
  *
  * Copyright (C) 2003, 2004 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,13 +14,14 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "bus.h"
 #include "activation.h"
 #include "connection.h"
@@ -33,18 +34,25 @@
 #include "dir-watch.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
+#include <dbus/dbus-credentials.h>
 #include <dbus/dbus-internals.h>
+#ifdef DBUS_CYGWIN
+#include <signal.h>
+#endif
 
 struct BusContext
 {
   int refcount;
+  DBusGUID uuid;
   char *config_file;
   char *type;
+  char *servicehelper;
   char *address;
 #ifdef WANT_PIDFILE
   char *pidfile;
 #endif
   char *user;
+  char *log_prefix;
   DBusLoop *loop;
   DBusList *servers;
   BusConnections *connections;
@@ -52,9 +60,12 @@ struct BusContext
   BusRegistry *registry;
   BusPolicy *policy;
   BusMatchmaker *matchmaker;
-  DBusUserDatabase *user_database;
   BusLimits limits;
   unsigned int fork : 1;
+  unsigned int syslog : 1;
+  unsigned int keep_umask : 1;
+  unsigned int allow_anonymous : 1;
+  unsigned int systemd_activation : 1;
 };
 
 static dbus_int32_t server_data_slot = -1;
@@ -71,7 +82,7 @@ server_get_context (DBusServer *server)
 {
   BusContext *context;
   BusServerData *bd;
-  
+
   if (!dbus_server_allocate_data_slot (&server_data_slot))
     return NULL;
 
@@ -98,7 +109,7 @@ server_watch_callback (DBusWatch     *watch,
    * if the code in activation.c for the babysitter
    * watch handler is fixed.
    */
-  
+
   return dbus_watch_handle (watch, condition);
 }
 
@@ -108,9 +119,9 @@ add_server_watch (DBusWatch  *watch,
 {
   DBusServer *server = data;
   BusContext *context;
-  
+
   context = server_get_context (server);
-  
+
   return _dbus_loop_add_watch (context->loop,
                                watch, server_watch_callback, server,
                                NULL);
@@ -122,9 +133,9 @@ remove_server_watch (DBusWatch  *watch,
 {
   DBusServer *server = data;
   BusContext *context;
-  
+
   context = server_get_context (server);
-  
+
   _dbus_loop_remove_watch (context->loop,
                            watch, server_watch_callback, server);
 }
@@ -144,7 +155,7 @@ add_server_timeout (DBusTimeout *timeout,
 {
   DBusServer *server = data;
   BusContext *context;
-  
+
   context = server_get_context (server);
 
   return _dbus_loop_add_timeout (context->loop,
@@ -157,9 +168,9 @@ remove_server_timeout (DBusTimeout *timeout,
 {
   DBusServer *server = data;
   BusContext *context;
-  
+
   context = server_get_context (server);
-  
+
   _dbus_loop_remove_timeout (context->loop,
                              timeout, server_timeout_callback, server);
 }
@@ -170,7 +181,7 @@ new_connection_callback (DBusServer     *server,
                          void           *data)
 {
   BusContext *context = data;
-  
+
   if (!bus_connections_setup_connection (context->connections, new_connection))
     {
       _dbus_verbose ("No memory to setup new connection\n");
@@ -188,15 +199,24 @@ new_connection_callback (DBusServer     *server,
 
   dbus_connection_set_max_message_size (new_connection,
                                         context->limits.max_message_size);
-  
+
+  dbus_connection_set_max_received_unix_fds (new_connection,
+                                         context->limits.max_incoming_unix_fds);
+
+  dbus_connection_set_max_message_unix_fds (new_connection,
+                                        context->limits.max_message_unix_fds);
+
+  dbus_connection_set_allow_anonymous (new_connection,
+                                       context->allow_anonymous);
+
   /* on OOM, we won't have ref'd the connection so it will die. */
 }
 
 static void
 free_server_data (void *data)
 {
-  BusServerData *bd = data;  
-  
+  BusServerData *bd = data;
+
   dbus_free (bd);
 }
 
@@ -209,9 +229,9 @@ setup_server (BusContext *context,
   BusServerData *bd;
 
   bd = dbus_new0 (BusServerData, 1);
-  if (!dbus_server_set_data (server,
-                             server_data_slot,
-                             bd, free_server_data))
+  if (bd == NULL || !dbus_server_set_data (server,
+                                           server_data_slot,
+                                           bd, free_server_data))
     {
       dbus_free (bd);
       BUS_SET_OOM (error);
@@ -219,17 +239,17 @@ setup_server (BusContext *context,
     }
 
   bd->context = context;
-  
+
   if (!dbus_server_set_auth_mechanisms (server, (const char**) auth_mechanisms))
     {
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
   dbus_server_set_new_connection_function (server,
                                            new_connection_callback,
                                            context, NULL);
-  
+
   if (!dbus_server_set_watch_functions (server,
                                         add_server_watch,
                                         remove_server_watch,
@@ -250,18 +270,22 @@ setup_server (BusContext *context,
       BUS_SET_OOM (error);
       return FALSE;
     }
-  
+
   return TRUE;
 }
 
 /* This code only gets executed the first time the
-   config files are parsed.  It is not executed
-   when config files are reloaded.*/
+ * config files are parsed.  It is not executed
+ * when config files are reloaded.
+ */
 static dbus_bool_t
-process_config_first_time_only (BusContext      *context,
-				BusConfigParser *parser,
-				DBusError       *error)
+process_config_first_time_only (BusContext       *context,
+				BusConfigParser  *parser,
+                                const DBusString *address,
+                                dbus_bool_t      systemd_activation,
+				DBusError        *error)
 {
+  DBusString log_prefix;
   DBusList *link;
   DBusList **addresses;
   const char *user, *pidfile;
@@ -275,6 +299,8 @@ process_config_first_time_only (BusContext      *context,
   retval = FALSE;
   auth_mechanisms = NULL;
 
+  context->systemd_activation = systemd_activation;
+
 #ifdef WANT_PIDFILE
   /* Check for an existing pid file. Of course this is a race;
    * we'd have to use fcntl() locks on the pid file to
@@ -286,24 +312,83 @@ process_config_first_time_only (BusContext      *context,
     {
       DBusString u;
       DBusStat stbuf;
-      
+
       _dbus_string_init_const (&u, pidfile);
-      
+
       if (_dbus_stat (&u, &stbuf, NULL))
-	{
-	  dbus_set_error (error, DBUS_ERROR_FAILED,
-			  "The pid file \"%s\" exists, if the message bus is not running, remove this file",
-			  pidfile);
-	  goto failed;
-	}
+        {
+#ifdef DBUS_CYGWIN
+          DBusString p;
+          long /* int */ pid;
+
+          _dbus_string_init (&p);
+          _dbus_file_get_contents(&p, &u, NULL);
+          _dbus_string_parse_int(&p, 0, &pid, NULL);
+          _dbus_string_free(&p);
+
+          if ((kill((int)pid, 0))) {
+            dbus_set_error(NULL, DBUS_ERROR_FILE_EXISTS,
+                           "pid %ld not running, removing stale pid file\n",
+                           pid);
+            _dbus_delete_file(&u, NULL);
+          } else {
+#endif
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+		                  "The pid file \"%s\" exists, if the message bus is not running, remove this file",
+                          pidfile);
+	      goto failed;
+#ifdef DBUS_CYGWIN
+          }
+#endif
+        }
     }
-  
+
   /* keep around the pid filename so we can delete it later */
   context->pidfile = _dbus_strdup (pidfile);
 #endif
 
+  /* note that type may be NULL */
+  context->type = _dbus_strdup (bus_config_parser_get_type (parser));
+  if (bus_config_parser_get_type (parser) != NULL && context->type == NULL)
+    goto oom;
+
+  user = bus_config_parser_get_user (parser);
+  if (user != NULL)
+    {
+      context->user = _dbus_strdup (user);
+      if (context->user == NULL)
+        goto oom;
+    }
+
+  /* Set up the prefix for syslog messages */
+  if (!_dbus_string_init (&log_prefix))
+    goto oom;
+  if (context->type && !strcmp (context->type, "system"))
+    {
+      if (!_dbus_string_append (&log_prefix, "[system] "))
+        goto oom;
+    }
+  else if (context->type && !strcmp (context->type, "session"))
+    {
+      DBusCredentials *credentials;
+
+      credentials = _dbus_credentials_new_from_current_process ();
+      if (!credentials)
+        goto oom;
+      if (!_dbus_string_append (&log_prefix, "[session "))
+        goto oom;
+      if (!_dbus_credentials_to_string_append (credentials, &log_prefix))
+        goto oom;
+      if (!_dbus_string_append (&log_prefix, "] "))
+        goto oom;
+      _dbus_credentials_unref (credentials);
+    }
+  if (!_dbus_string_steal_data (&log_prefix, &context->log_prefix))
+    goto oom;
+  _dbus_string_free (&log_prefix);
+
   /* Build an array of auth mechanisms */
-  
+
   auth_mechanisms_list = bus_config_parser_get_mechanisms (parser);
   len = _dbus_list_get_length (auth_mechanisms_list);
 
@@ -313,21 +398,15 @@ process_config_first_time_only (BusContext      *context,
 
       auth_mechanisms = dbus_new0 (char*, len + 1);
       if (auth_mechanisms == NULL)
-	{
-	  BUS_SET_OOM (error);
-	  goto failed;
-	}
-      
+        goto oom;
+
       i = 0;
       link = _dbus_list_get_first_link (auth_mechanisms_list);
       while (link != NULL)
         {
           auth_mechanisms[i] = _dbus_strdup (link->data);
           if (auth_mechanisms[i] == NULL)
-	    {
-	      BUS_SET_OOM (error);
-	      goto failed;
-	    }
+            goto oom;
           link = _dbus_list_get_next_link (auth_mechanisms_list, link);
         }
     }
@@ -337,67 +416,78 @@ process_config_first_time_only (BusContext      *context,
     }
 
   /* Listen on our addresses */
-  
-  addresses = bus_config_parser_get_addresses (parser);  
-  
-  link = _dbus_list_get_first_link (addresses);
-  while (link != NULL)
+
+  if (address)
     {
       DBusServer *server;
-      
-      server = dbus_server_listen (link->data, error);
+
+      server = dbus_server_listen (_dbus_string_get_const_data(address), error);
       if (server == NULL)
-	{
-	  _DBUS_ASSERT_ERROR_IS_SET (error);
-	  goto failed;
-	}
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          goto failed;
+        }
       else if (!setup_server (context, server, auth_mechanisms, error))
-	{
-	  _DBUS_ASSERT_ERROR_IS_SET (error);
-	  goto failed;
-	}
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (error);
+          goto failed;
+        }
 
       if (!_dbus_list_append (&context->servers, server))
+        goto oom;
+    }
+  else
+    {
+      addresses = bus_config_parser_get_addresses (parser);
+
+      link = _dbus_list_get_first_link (addresses);
+      while (link != NULL)
         {
-          BUS_SET_OOM (error);
-          goto failed;
-        }          
-      
-      link = _dbus_list_get_next_link (addresses, link);
-    }
+          DBusServer *server;
 
-  /* note that type may be NULL */
-  context->type = _dbus_strdup (bus_config_parser_get_type (parser));
-  if (bus_config_parser_get_type (parser) != NULL && context->type == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
+          server = dbus_server_listen (link->data, error);
+          if (server == NULL)
+            {
+              _DBUS_ASSERT_ERROR_IS_SET (error);
+              goto failed;
+            }
+          else if (!setup_server (context, server, auth_mechanisms, error))
+            {
+              _DBUS_ASSERT_ERROR_IS_SET (error);
+              goto failed;
+            }
 
-  user = bus_config_parser_get_user (parser);
-  if (user != NULL)
-    {
-      context->user = _dbus_strdup (user);
-      if (context->user == NULL)
-	{
-	  BUS_SET_OOM (error);
-	  goto failed;
-	}
+          if (!_dbus_list_append (&context->servers, server))
+            goto oom;
+
+          link = _dbus_list_get_next_link (addresses, link);
+        }
     }
 
   context->fork = bus_config_parser_get_fork (parser);
-  
+  context->syslog = bus_config_parser_get_syslog (parser);
+  context->keep_umask = bus_config_parser_get_keep_umask (parser);
+  context->allow_anonymous = bus_config_parser_get_allow_anonymous (parser);
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
 
  failed:
   dbus_free_string_array (auth_mechanisms);
   return retval;
+
+ oom:
+  BUS_SET_OOM (error);
+  dbus_free_string_array (auth_mechanisms);
+  return FALSE;
 }
 
 /* This code gets executed every time the config files
-   are parsed: both during BusContext construction
-   and on reloads. */
+ * are parsed: both during BusContext construction
+ * and on reloads. This function is slightly screwy
+ * since it can do a "half reload" in out-of-memory
+ * situations. Realistically, unlikely to ever matter.
+ */
 static dbus_bool_t
 process_config_every_time (BusContext      *context,
 			   BusConfigParser *parser,
@@ -406,7 +496,11 @@ process_config_every_time (BusContext      *context,
 {
   DBusString full_address;
   DBusList *link;
+  DBusList **dirs;
+  BusActivation *new_activation;
   char *addr;
+  const char *servicehelper;
+  char *s;
 
   dbus_bool_t retval;
 
@@ -424,6 +518,8 @@ process_config_every_time (BusContext      *context,
   /* get our limits and timeout lengths */
   bus_config_parser_get_limits (parser, &context->limits);
 
+  if (context->policy)
+    bus_policy_unref (context->policy);
   context->policy = bus_config_parser_steal_policy (parser);
   _dbus_assert (context->policy != NULL);
 
@@ -470,35 +566,78 @@ process_config_every_time (BusContext      *context,
       goto failed;
     }
 
+  /* get the service directories */
+  dirs = bus_config_parser_get_service_dirs (parser);
+
+  /* and the service helper */
+  servicehelper = bus_config_parser_get_servicehelper (parser);
+
+  s = _dbus_strdup(servicehelper);
+  if (s == NULL && servicehelper != NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  else
+    {
+      dbus_free(context->servicehelper);
+      context->servicehelper = s;
+    }
+
   /* Create activation subsystem */
-  
-  if (is_reload)
-    bus_activation_unref (context->activation);
-  
-  context->activation = bus_activation_new (context, &full_address,
-                                            bus_config_parser_get_service_dirs (parser),
-                                            error);
+  if (context->activation)
+    {
+      if (!bus_activation_reload (context->activation, &full_address, dirs, error))
+        goto failed;
+    }
+  else
+    {
+      context->activation = bus_activation_new (context, &full_address, dirs, error);
+    }
+
   if (context->activation == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
     }
 
-  /* Drop existing conf-dir watches (if applicable) */
-
-  if (is_reload)
-    bus_drop_all_directory_watches ();
-
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = TRUE;
 
  failed:
   _dbus_string_free (&full_address);
-  
+
   if (addr)
     dbus_free (addr);
 
   return retval;
+}
+
+static dbus_bool_t
+list_concat_new (DBusList **a,
+                 DBusList **b,
+                 DBusList **result)
+{
+  DBusList *link;
+
+  *result = NULL;
+
+  link = _dbus_list_get_first_link (a);
+  for (link = _dbus_list_get_first_link (a); link; link = _dbus_list_get_next_link (a, link))
+    {
+      if (!_dbus_list_append (result, link->data))
+        goto oom;
+    }
+  for (link = _dbus_list_get_first_link (b); link; link = _dbus_list_get_next_link (b, link))
+    {
+      if (!_dbus_list_append (result, link->data))
+        goto oom;
+    }
+
+  return TRUE;
+oom:
+  _dbus_list_clear (result);
+  return FALSE;
 }
 
 static dbus_bool_t
@@ -507,6 +646,7 @@ process_config_postinit (BusContext      *context,
 			 DBusError       *error)
 {
   DBusHashTable *service_context_table;
+  DBusList *watched_dirs = NULL;
 
   service_context_table = bus_config_parser_steal_service_context_table (parser);
   if (!bus_registry_set_service_context_table (context->registry,
@@ -518,10 +658,20 @@ process_config_postinit (BusContext      *context,
 
   _dbus_hash_table_unref (service_context_table);
 
-  /* Watch all conf directories */
-  _dbus_list_foreach (bus_config_parser_get_conf_dirs (parser),
-		      (DBusForeachFunction) bus_watch_directory,
-		      context);
+  /* We need to monitor both the configuration directories and directories
+   * containing .service files.
+   */
+  if (!list_concat_new (bus_config_parser_get_conf_dirs (parser),
+                        bus_config_parser_get_service_dirs (parser),
+                        &watched_dirs))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  bus_set_watched_dirs (context, &watched_dirs);
+
+  _dbus_list_clear (&watched_dirs);
 
   return TRUE;
 }
@@ -529,13 +679,15 @@ process_config_postinit (BusContext      *context,
 BusContext*
 bus_context_new (const DBusString *config_file,
                  ForceForkSetting  force_fork,
-                 int               print_addr_fd,
-                 int               print_pid_fd,
+                 DBusPipe         *print_addr_pipe,
+                 DBusPipe         *print_pid_pipe,
+                 const DBusString *address,
+                 dbus_bool_t      systemd_activation,
                  DBusError        *error)
 {
+  DBusString log_prefix;
   BusContext *context;
   BusConfigParser *parser;
-  DBusCredentials creds;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -555,6 +707,8 @@ bus_context_new (const DBusString *config_file,
       goto failed;
     }
   context->refcount = 1;
+
+  _dbus_generate_uuid (&context->uuid);
 
   if (!_dbus_string_copy_data (config_file, &context->config_file))
     {
@@ -582,8 +736,8 @@ bus_context_new (const DBusString *config_file,
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
     }
-  
-  if (!process_config_first_time_only (context, parser, error))
+
+  if (!process_config_first_time_only (context, parser, address, systemd_activation, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
@@ -593,38 +747,31 @@ bus_context_new (const DBusString *config_file,
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
     }
-  
+
   /* we need another ref of the server data slot for the context
    * to own
    */
   if (!dbus_server_allocate_data_slot (&server_data_slot))
     _dbus_assert_not_reached ("second ref of server data slot failed");
 
-  context->user_database = _dbus_user_database_new ();
-  if (context->user_database == NULL)
-    {
-      BUS_SET_OOM (error);
-      goto failed;
-    }
-  
-  /* Note that we don't know whether the print_addr_fd is
+  /* Note that we don't know whether the print_addr_pipe is
    * one of the sockets we're using to listen on, or some
    * other random thing. But I think the answer is "don't do
    * that then"
    */
-  if (print_addr_fd >= 0)
+  if (print_addr_pipe != NULL && _dbus_pipe_is_valid (print_addr_pipe))
     {
       DBusString addr;
       const char *a = bus_context_get_address (context);
       int bytes;
-      
+
       _dbus_assert (a != NULL);
       if (!_dbus_string_init (&addr))
         {
           BUS_SET_OOM (error);
           goto failed;
         }
-      
+
       if (!_dbus_string_append (&addr, a) ||
           !_dbus_string_append (&addr, "\n"))
         {
@@ -634,21 +781,24 @@ bus_context_new (const DBusString *config_file,
         }
 
       bytes = _dbus_string_get_length (&addr);
-      if (_dbus_write_socket (print_addr_fd, &addr, 0, bytes) != bytes)
+      if (_dbus_pipe_write (print_addr_pipe, &addr, 0, bytes, error) != bytes)
         {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Printing message bus address: %s\n",
-                          _dbus_strerror (errno));
+          /* pipe write returns an error on failure but not short write */
+          if (error != NULL && !dbus_error_is_set (error))
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Printing message bus address: did not write all bytes\n");
+            }
           _dbus_string_free (&addr);
           goto failed;
         }
 
-      if (print_addr_fd > 2)
-        _dbus_close_socket (print_addr_fd, NULL);
+      if (!_dbus_pipe_is_stdout_or_stderr (print_addr_pipe))
+        _dbus_pipe_close (print_addr_pipe, NULL);
 
       _dbus_string_free (&addr);
     }
-  
+
   context->connections = bus_connections_new (context);
   if (context->connections == NULL)
     {
@@ -666,13 +816,7 @@ bus_context_new (const DBusString *config_file,
   /* check user before we fork */
   if (context->user != NULL)
     {
-      DBusString u;
-
-      _dbus_string_init_const (&u, context->user);
-
-      if (!_dbus_credentials_from_username (&u, &creds) ||
-          creds.uid < 0 ||
-          creds.gid < 0)
+      if (!_dbus_verify_daemon_user (context->user))
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Could not get UID and GID for username \"%s\"",
@@ -681,85 +825,67 @@ bus_context_new (const DBusString *config_file,
         }
     }
 
-  /* Now become a daemon if appropriate */
-  if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
-    {
-      DBusString u;
+  /* Now become a daemon if appropriate and write out pid file in any case */
+  {
 #ifdef WANT_PIDFILE
-      if (context->pidfile)
-        _dbus_string_init_const (&u, context->pidfile);
-      
-      if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
-				print_pid_fd,
-				error))
-# else
-      if (!_dbus_become_daemon (NULL, 
-				0,
-				error))
+    DBusString u;
+
+    if (context->pidfile)
+      _dbus_string_init_const (&u, context->pidfile);
+
+    if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
+      {
+        _dbus_verbose ("Forking and becoming daemon\n");
+
+        if (!_dbus_become_daemon (context->pidfile ? &u : NULL,
+                                  print_pid_pipe,
+                                  error,
+                                  context->keep_umask))
+
+          {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
+            goto failed;
+          }
+      }
+    else
+      {
+        _dbus_verbose ("Fork not requested\n");
+
+        /* Need to write PID file and to PID pipe for ourselves,
+         * not for the child process. This is a no-op if the pidfile
+         * is NULL and print_pid_pipe is NULL.
+         */
+        if (!_dbus_write_pid_to_file_and_pipe (context->pidfile ? &u : NULL,
+                                               print_pid_pipe,
+                                               _dbus_getpid (),
+                                               error))
+          {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
+            goto failed;
+          }
+      }
+#else
+    if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
+      {
+        if (!_dbus_become_daemon (NULL,
+                                  0,
+                                  error,
+                                  context->keep_umask))
+          {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
+            goto failed;
+          }
+      }
 #endif
-	{
-	  _DBUS_ASSERT_ERROR_IS_SET (error);
-	  goto failed;
-	}
-    }
-#ifdef WANT_PIDFILE
-  else
-    {
-      /* Need to write PID file for ourselves, not for the child process */
-      if (context->pidfile != NULL)
-        {
-          DBusString u;
+  }
 
-          _dbus_string_init_const (&u, context->pidfile);
-          
-          if (!_dbus_write_pid_file (&u, _dbus_getpid (), error))
-	    {
-	      _DBUS_ASSERT_ERROR_IS_SET (error);
-	      goto failed;
-	    }
-        }
-    }
-#endif
-
-  /* Write PID if requested */
-  if (print_pid_fd >= 0)
-    {
-      DBusString pid;
-      int bytes;
-
-      if (!_dbus_string_init (&pid))
-        {
-          BUS_SET_OOM (error);
-          goto failed;
-        }
-      
-      if (!_dbus_string_append_int (&pid, _dbus_getpid ()) ||
-          !_dbus_string_append (&pid, "\n"))
-        {
-          _dbus_string_free (&pid);
-          BUS_SET_OOM (error);
-          goto failed;
-        }
-
-      bytes = _dbus_string_get_length (&pid);
-      if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
-        {
-          dbus_set_error (error, DBUS_ERROR_FAILED,
-                          "Printing message bus PID: %s\n",
-                          _dbus_strerror (errno));
-          _dbus_string_free (&pid);
-          goto failed;
-        }
-
-      if (print_pid_fd > 2)
-        _dbus_close_socket (print_pid_fd, NULL);
-      
-      _dbus_string_free (&pid);
-    }
+  if (print_pid_pipe && _dbus_pipe_is_valid (print_pid_pipe) &&
+      !_dbus_pipe_is_stdout_or_stderr (print_pid_pipe))
+    _dbus_pipe_close (print_pid_pipe, NULL);
 
   if (!bus_selinux_full_init ())
     {
-      _dbus_warn ("SELinux initialization failed\n");
+      bus_context_log (context, DBUS_SYSTEM_LOG_FATAL, "SELinux enabled but AVC initialization failed; check system log\n");
     }
 
   if (!process_config_postinit (context, parser, error))
@@ -773,24 +899,29 @@ bus_context_new (const DBusString *config_file,
       bus_config_parser_unref (parser);
       parser = NULL;
     }
-  
+
   /* Here we change our credentials if required,
    * as soon as we've set up our sockets and pidfile
    */
   if (context->user != NULL)
     {
-      if (!_dbus_change_identity (creds.uid, creds.gid, error))
+      if (!_dbus_change_to_daemon_user (context->user, error))
 	{
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
 	  goto failed;
 	}
+
+#ifdef HAVE_SELINUX
+      /* FIXME - why not just put this in full_init() below? */
+      bus_selinux_audit_init ();
+#endif
     }
-  
+
   dbus_server_free_data_slot (&server_data_slot);
-  
+
   return context;
-  
- failed:  
+
+ failed:
   if (parser != NULL)
     bus_config_parser_unref (parser);
   if (context != NULL)
@@ -798,8 +929,15 @@ bus_context_new (const DBusString *config_file,
 
   if (server_data_slot >= 0)
     dbus_server_free_data_slot (&server_data_slot);
-  
+
   return NULL;
+}
+
+dbus_bool_t
+bus_context_get_id (BusContext       *context,
+                    DBusString       *uuid)
+{
+  return _dbus_uuid_encode (&context->uuid, uuid);
 }
 
 dbus_bool_t
@@ -811,7 +949,7 @@ bus_context_reload_config (BusContext *context,
   dbus_bool_t ret;
 
   /* Flush the user database cache */
-  _dbus_user_database_flush(context->user_database);
+  _dbus_flush_caches ();
 
   ret = FALSE;
   _dbus_string_init_const (&config_file, context->config_file);
@@ -821,7 +959,7 @@ bus_context_reload_config (BusContext *context,
       _DBUS_ASSERT_ERROR_IS_SET (error);
       goto failed;
     }
-  
+
   if (!process_config_every_time (context, parser, TRUE, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -834,7 +972,10 @@ bus_context_reload_config (BusContext *context,
     }
   ret = TRUE;
 
- failed:  
+  bus_context_log (context, DBUS_SYSTEM_LOG_INFO, "Reloaded configuration");
+ failed:
+  if (!ret)
+    bus_context_log (context, DBUS_SYSTEM_LOG_INFO, "Unable to reload configuration: %s", error->message);
   if (parser != NULL)
     bus_config_parser_unref (parser);
   return ret;
@@ -847,19 +988,19 @@ shutdown_server (BusContext *context,
   if (server == NULL ||
       !dbus_server_get_is_connected (server))
     return;
-  
+
   if (!dbus_server_set_watch_functions (server,
                                         NULL, NULL, NULL,
                                         context,
                                         NULL))
     _dbus_assert_not_reached ("setting watch functions to NULL failed");
-  
+
   if (!dbus_server_set_timeout_functions (server,
                                           NULL, NULL, NULL,
                                           context,
                                           NULL))
     _dbus_assert_not_reached ("setting timeout functions to NULL failed");
-  
+
   dbus_server_disconnect (server);
 }
 
@@ -895,9 +1036,9 @@ bus_context_unref (BusContext *context)
   if (context->refcount == 0)
     {
       DBusList *link;
-      
+
       _dbus_verbose ("Finalizing bus context %p\n", context);
-      
+
       bus_context_shutdown (context);
 
       if (context->connections)
@@ -905,13 +1046,13 @@ bus_context_unref (BusContext *context)
           bus_connections_unref (context->connections);
           context->connections = NULL;
         }
-      
+
       if (context->registry)
         {
           bus_registry_unref (context->registry);
           context->registry = NULL;
         }
-      
+
       if (context->activation)
         {
           bus_activation_unref (context->activation);
@@ -922,7 +1063,7 @@ bus_context_unref (BusContext *context)
       while (link != NULL)
         {
           dbus_server_unref (link->data);
-          
+
           link = _dbus_list_get_next_link (&context->servers, link);
         }
       _dbus_list_clear (&context->servers);
@@ -932,7 +1073,7 @@ bus_context_unref (BusContext *context)
           bus_policy_unref (context->policy);
           context->policy = NULL;
         }
-      
+
       if (context->loop)
         {
           _dbus_loop_unref (context->loop);
@@ -944,11 +1085,13 @@ bus_context_unref (BusContext *context)
           bus_matchmaker_unref (context->matchmaker);
           context->matchmaker = NULL;
         }
-      
+
       dbus_free (context->config_file);
+      dbus_free (context->log_prefix);
       dbus_free (context->type);
       dbus_free (context->address);
       dbus_free (context->user);
+      dbus_free (context->servicehelper);
 
 #ifdef WANT_PIDFILE
       if (context->pidfile)
@@ -961,13 +1104,10 @@ bus_context_unref (BusContext *context)
 	   */
 	  _dbus_delete_file (&u, NULL);
 
-          dbus_free (context->pidfile); 
+          dbus_free (context->pidfile);
 	}
 #endif
 
-      if (context->user_database != NULL)
-	_dbus_user_database_unref (context->user_database);
-      
       dbus_free (context);
 
       dbus_server_free_data_slot (&server_data_slot);
@@ -985,6 +1125,18 @@ const char*
 bus_context_get_address (BusContext *context)
 {
   return context->address;
+}
+
+const char*
+bus_context_get_servicehelper (BusContext *context)
+{
+  return context->servicehelper;
+}
+
+dbus_bool_t
+bus_context_get_systemd_activation (BusContext *context)
+{
+  return context->systemd_activation;
 }
 
 BusRegistry*
@@ -1017,19 +1169,24 @@ bus_context_get_loop (BusContext *context)
   return context->loop;
 }
 
-DBusUserDatabase*
-bus_context_get_user_database (BusContext *context)
+dbus_bool_t
+bus_context_allow_unix_user (BusContext   *context,
+                             unsigned long uid)
 {
-  return context->user_database;
+  return bus_policy_allow_unix_user (context->policy,
+                                     uid);
 }
 
+/* For now this is never actually called because the default
+ * DBusConnection behavior of 'same user that owns the bus can connect'
+ * is all it would do.
+ */
 dbus_bool_t
-bus_context_allow_user (BusContext   *context,
-                        unsigned long uid)
+bus_context_allow_windows_user (BusContext       *context,
+                                const char       *windows_sid)
 {
-  return bus_policy_allow_user (context->policy,
-                                context->user_database,
-                                uid);
+  return bus_policy_allow_windows_user (context->policy,
+                                        windows_sid);
 }
 
 BusPolicy *
@@ -1051,7 +1208,7 @@ bus_context_create_client_policy (BusContext      *context,
 int
 bus_context_get_activation_timeout (BusContext *context)
 {
-  
+
   return context->limits.activation_timeout;
 }
 
@@ -1109,6 +1266,41 @@ bus_context_get_reply_timeout (BusContext *context)
   return context->limits.reply_timeout;
 }
 
+void
+bus_context_log (BusContext *context, DBusSystemLogSeverity severity, const char *msg, ...) _DBUS_GNUC_PRINTF (3, 4);
+
+void
+bus_context_log (BusContext *context, DBusSystemLogSeverity severity, const char *msg, ...)
+{
+  va_list args;
+
+  if (!context->syslog)
+    return;
+
+  va_start (args, msg);
+
+  if (context->log_prefix)
+    {
+      DBusString full_msg;
+
+      if (!_dbus_string_init (&full_msg))
+        goto out;
+      if (!_dbus_string_append (&full_msg, context->log_prefix))
+        goto oom_out;
+      if (!_dbus_string_append_printf_valist (&full_msg, msg, args))
+        goto oom_out;
+
+      _dbus_system_log (severity, "%s", _dbus_string_get_const_data (&full_msg));
+    oom_out:
+      _dbus_string_free (&full_msg);
+    }
+  else
+    _dbus_system_logv (severity, msg, args);
+
+out:
+  va_end (args);
+}
+
 /*
  * addressed_recipient is the recipient specified in the message.
  *
@@ -1131,21 +1323,45 @@ bus_context_check_security_policy (BusContext     *context,
                                    DBusMessage    *message,
                                    DBusError      *error)
 {
+  const char *dest;
   BusClientPolicy *sender_policy;
   BusClientPolicy *recipient_policy;
+  dbus_int32_t toggles;
+  dbus_bool_t log;
   int type;
   dbus_bool_t requested_reply;
-  
+  const char *sender_name;
+  const char *sender_loginfo;
+  const char *proposed_recipient_loginfo;
+
   type = dbus_message_get_type (message);
-  
+  dest = dbus_message_get_destination (message);
+
   /* dispatch.c was supposed to ensure these invariants */
-  _dbus_assert (dbus_message_get_destination (message) != NULL ||
+  _dbus_assert (dest != NULL ||
                 type == DBUS_MESSAGE_TYPE_SIGNAL ||
                 (sender == NULL && !bus_connection_is_active (proposed_recipient)));
   _dbus_assert (type == DBUS_MESSAGE_TYPE_SIGNAL ||
                 addressed_recipient != NULL ||
-                strcmp (dbus_message_get_destination (message), DBUS_SERVICE_DBUS) == 0);
-  
+                strcmp (dest, DBUS_SERVICE_DBUS) == 0);
+
+  /* Used in logging below */
+  if (sender != NULL)
+    {
+      sender_name = bus_connection_get_name (sender);
+      sender_loginfo = bus_connection_get_loginfo (sender);
+    }
+  else
+    {
+      sender_name = NULL;
+      sender_loginfo = "(bus)";
+    }
+
+  if (proposed_recipient != NULL)
+    proposed_recipient_loginfo = bus_connection_get_loginfo (proposed_recipient);
+  else
+    proposed_recipient_loginfo = "bus";
+
   switch (type)
     {
     case DBUS_MESSAGE_TYPE_METHOD_CALL:
@@ -1153,25 +1369,21 @@ bus_context_check_security_policy (BusContext     *context,
     case DBUS_MESSAGE_TYPE_METHOD_RETURN:
     case DBUS_MESSAGE_TYPE_ERROR:
       break;
-      
+
     default:
       _dbus_verbose ("security check disallowing message of unknown type %d\n",
                      type);
 
       dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                       "Message bus will not accept messages of unknown type\n");
-              
+
       return FALSE;
     }
 
   requested_reply = FALSE;
-  
+
   if (sender != NULL)
     {
-      const char *dest;
-
-      dest = dbus_message_get_destination (message);
-	
       /* First verify the SELinux access controls.  If allowed then
        * go on with the standard checks.
        */
@@ -1182,35 +1394,32 @@ bus_context_check_security_policy (BusContext     *context,
 				    dbus_message_get_error_name (message),
 				    dest ? dest : DBUS_SERVICE_DBUS, error))
         {
+          if (error != NULL && !dbus_error_is_set (error))
+            {
+              dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                              "An SELinux policy prevents this sender "
+                              "from sending this message to this recipient "
+                              "(rejected message had sender \"%s\" interface \"%s\" "
+                              "member \"%s\" error name \"%s\" destination \"%s\")",
+                              sender_name ? sender_name : "(unset)",
+                              dbus_message_get_interface (message) ?
+                              dbus_message_get_interface (message) : "(unset)",
+                              dbus_message_get_member (message) ?
+                              dbus_message_get_member (message) : "(unset)",
+                              dbus_message_get_error_name (message) ?
+                              dbus_message_get_error_name (message) : "(unset)",
+                              dest ? dest : DBUS_SERVICE_DBUS);
+              _dbus_verbose ("SELinux security check denying send to service\n");
+            }
 
-	  if (dbus_error_is_set (error) &&
-	      dbus_error_has_name (error, DBUS_ERROR_NO_MEMORY))
-	    {
-	      return FALSE;
-	    }
-	  
-
-          dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                          "An SELinux policy prevents this sender "
-                          "from sending this message to this recipient "
-                          "(rejected message had interface \"%s\" "
-                          "member \"%s\" error name \"%s\" destination \"%s\")",
-                          dbus_message_get_interface (message) ?
-                          dbus_message_get_interface (message) : "(unset)",
-                          dbus_message_get_member (message) ?
-                          dbus_message_get_member (message) : "(unset)",
-                          dbus_message_get_error_name (message) ?
-                          dbus_message_get_error_name (message) : "(unset)",
-                          dest ? dest : DBUS_SERVICE_DBUS);
-          _dbus_verbose ("SELinux security check denying send to service\n");
           return FALSE;
         }
-       
+
       if (bus_connection_is_active (sender))
         {
           sender_policy = bus_connection_get_policy (sender);
           _dbus_assert (sender_policy != NULL);
-          
+
           /* Fill in requested_reply variable with TRUE if this is a
            * reply and the reply was pending.
            */
@@ -1219,8 +1428,8 @@ bus_context_check_security_policy (BusContext     *context,
               if (proposed_recipient != NULL /* not to the bus driver */ &&
                   addressed_recipient == proposed_recipient /* not eavesdropping */)
                 {
-                  DBusError error2;                  
-                  
+                  DBusError error2;
+
                   dbus_error_init (&error2);
                   requested_reply = bus_connections_check_reply (bus_connection_get_connections (sender),
                                                                  transaction,
@@ -1256,7 +1465,7 @@ bus_context_check_security_policy (BusContext     *context,
               dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
                               "Client tried to send a message other than %s without being registered",
                               "Hello");
-              
+
               return FALSE;
             }
         }
@@ -1275,7 +1484,7 @@ bus_context_check_security_policy (BusContext     *context,
 
   _dbus_assert ((sender != NULL && sender_policy != NULL) ||
                 (sender == NULL && sender_policy == NULL));
-  
+
   if (proposed_recipient != NULL)
     {
       /* only the bus driver can send to an inactive recipient (as it
@@ -1300,36 +1509,73 @@ bus_context_check_security_policy (BusContext     *context,
     }
   else
     recipient_policy = NULL;
-  
+
   _dbus_assert ((proposed_recipient != NULL && recipient_policy != NULL) ||
                 (proposed_recipient != NULL && sender == NULL && recipient_policy == NULL) ||
                 (proposed_recipient == NULL && recipient_policy == NULL));
-  
+
+  log = FALSE;
   if (sender_policy &&
       !bus_client_policy_check_can_send (sender_policy,
                                          context->registry,
                                          requested_reply,
                                          proposed_recipient,
-                                         message))
+                                         message, &toggles, &log))
     {
-      const char *dest;
+      const char *msg = "Rejected send message, %d matched rules; "
+                        "type=\"%s\", sender=\"%s\" (%s) interface=\"%s\" member=\"%s\" error name=\"%s\" requested_reply=%d destination=\"%s\" (%s))";
 
-      dest = dbus_message_get_destination (message);
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                      "A security policy in place prevents this sender "
-                      "from sending this message to this recipient, "
-                      "see message bus configuration file (rejected message "
-                      "had interface \"%s\" member \"%s\" error name \"%s\" destination \"%s\")",
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED, msg,
+                      toggles,
+                      dbus_message_type_to_string (dbus_message_get_type (message)),
+                      sender_name ? sender_name : "(unset)",
+                      sender_loginfo,
                       dbus_message_get_interface (message) ?
                       dbus_message_get_interface (message) : "(unset)",
                       dbus_message_get_member (message) ?
                       dbus_message_get_member (message) : "(unset)",
                       dbus_message_get_error_name (message) ?
                       dbus_message_get_error_name (message) : "(unset)",
-                      dest ? dest : DBUS_SERVICE_DBUS);
+                      requested_reply,
+                      dest ? dest : DBUS_SERVICE_DBUS,
+                      proposed_recipient_loginfo);
+      /* Needs to be duplicated to avoid calling malloc and having to handle OOM */
+      if (addressed_recipient == proposed_recipient)
+        bus_context_log (context, DBUS_SYSTEM_LOG_SECURITY, msg,
+                                  toggles,
+                                  dbus_message_type_to_string (dbus_message_get_type (message)),
+                                  sender_name ? sender_name : "(unset)",
+                                  sender_loginfo,
+                                  dbus_message_get_interface (message) ?
+                                  dbus_message_get_interface (message) : "(unset)",
+                                  dbus_message_get_member (message) ?
+                                  dbus_message_get_member (message) : "(unset)",
+                                  dbus_message_get_error_name (message) ?
+                                  dbus_message_get_error_name (message) : "(unset)",
+                                  requested_reply,
+                                  dest ? dest : DBUS_SERVICE_DBUS,
+                                  proposed_recipient_loginfo);
       _dbus_verbose ("security policy disallowing message due to sender policy\n");
       return FALSE;
     }
+
+  if (log)
+    bus_context_log (context, DBUS_SYSTEM_LOG_SECURITY,
+                              "Would reject message, %d matched rules; "
+                              "type=\"%s\", sender=\"%s\" (%s) interface=\"%s\" member=\"%s\" error name=\"%s\" requested_reply=%d destination=\"%s\" (%s))",
+                              toggles,
+                              dbus_message_type_to_string (dbus_message_get_type (message)),
+                              sender_name ? sender_name : "(unset)",
+                              sender_loginfo,
+                              dbus_message_get_interface (message) ?
+                              dbus_message_get_interface (message) : "(unset)",
+                              dbus_message_get_member (message) ?
+                              dbus_message_get_member (message) : "(unset)",
+                              dbus_message_get_error_name (message) ?
+                              dbus_message_get_error_name (message) : "(unset)",
+                              requested_reply,
+                              dest ? dest : DBUS_SERVICE_DBUS,
+                              proposed_recipient_loginfo);
 
   if (recipient_policy &&
       !bus_client_policy_check_can_receive (recipient_policy,
@@ -1337,41 +1583,56 @@ bus_context_check_security_policy (BusContext     *context,
                                             requested_reply,
                                             sender,
                                             addressed_recipient, proposed_recipient,
-                                            message))
+                                            message, &toggles))
     {
-      const char *dest;
+      const char *msg = "Rejected receive message, %d matched rules; "
+                        "type=\"%s\" sender=\"%s\" (%s) interface=\"%s\" member=\"%s\" error name=\"%s\" reply serial=%u requested_reply=%d destination=\"%s\" (%s))";
 
-      dest = dbus_message_get_destination (message);
-      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                      "A security policy in place prevents this recipient "
-                      "from receiving this message from this sender, "
-                      "see message bus configuration file (rejected message "
-                      "had interface \"%s\" member \"%s\" error name \"%s\" destination \"%s\" reply serial %u requested_reply=%d)",
+      dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED, msg,
+                      toggles,
+                      dbus_message_type_to_string (dbus_message_get_type (message)),
+                      sender_name ? sender_name : "(unset)",
+                      sender_loginfo,
                       dbus_message_get_interface (message) ?
                       dbus_message_get_interface (message) : "(unset)",
                       dbus_message_get_member (message) ?
                       dbus_message_get_member (message) : "(unset)",
                       dbus_message_get_error_name (message) ?
                       dbus_message_get_error_name (message) : "(unset)",
-                      dest ? dest : DBUS_SERVICE_DBUS,
                       dbus_message_get_reply_serial (message),
-                      requested_reply);
+                      requested_reply,
+                      dest ? dest : DBUS_SERVICE_DBUS,
+                      proposed_recipient_loginfo);
+      /* Needs to be duplicated to avoid calling malloc and having to handle OOM */
+      if (addressed_recipient == proposed_recipient)
+        bus_context_log (context, DBUS_SYSTEM_LOG_SECURITY, msg,
+                                  toggles,
+                                  dbus_message_type_to_string (dbus_message_get_type (message)),
+                                  sender_name ? sender_name : "(unset)",
+                                  sender_loginfo,
+                                  dbus_message_get_interface (message) ?
+                                  dbus_message_get_interface (message) : "(unset)",
+                                  dbus_message_get_member (message) ?
+                                  dbus_message_get_member (message) : "(unset)",
+                                  dbus_message_get_error_name (message) ?
+                                  dbus_message_get_error_name (message) : "(unset)",
+                                  dbus_message_get_reply_serial (message),
+                                  requested_reply,
+                                  dest ? dest : DBUS_SERVICE_DBUS,
+                                  proposed_recipient_loginfo);
       _dbus_verbose ("security policy disallowing message due to recipient policy\n");
       return FALSE;
     }
 
   /* See if limits on size have been exceeded */
   if (proposed_recipient &&
-      dbus_connection_get_outgoing_size (proposed_recipient) >
-      context->limits.max_outgoing_bytes)
+      ((dbus_connection_get_outgoing_size (proposed_recipient) > context->limits.max_outgoing_bytes) ||
+       (dbus_connection_get_outgoing_unix_fds (proposed_recipient) > context->limits.max_outgoing_unix_fds)))
     {
-      const char *dest;
-
-      dest = dbus_message_get_destination (message);
       dbus_set_error (error, DBUS_ERROR_LIMITS_EXCEEDED,
                       "The destination service \"%s\" has a full message queue",
                       dest ? dest : (proposed_recipient ?
-                                     bus_connection_get_name (proposed_recipient) : 
+                                     bus_connection_get_name (proposed_recipient) :
                                      DBUS_SERVICE_DBUS));
       _dbus_verbose ("security policy disallowing message due to full message queue\n");
       return FALSE;
@@ -1382,7 +1643,7 @@ bus_context_check_security_policy (BusContext     *context,
    * connection). Only the addressed recipient may reply.
    */
   if (type == DBUS_MESSAGE_TYPE_METHOD_CALL &&
-      sender && 
+      sender &&
       addressed_recipient &&
       addressed_recipient == proposed_recipient && /* not eavesdropping */
       !bus_connections_expect_reply (bus_connection_get_connections (sender),
@@ -1393,7 +1654,7 @@ bus_context_check_security_policy (BusContext     *context,
       _dbus_verbose ("Failed to record reply expectation or problem with the message expecting a reply\n");
       return FALSE;
     }
-  
+
   _dbus_verbose ("security policy allowing message\n");
   return TRUE;
 }

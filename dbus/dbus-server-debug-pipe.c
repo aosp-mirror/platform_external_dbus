@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-server-debug-pipe.c In-proc debug server implementation 
  *
  * Copyright (C) 2003  CodeFactory AB
@@ -18,10 +18,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-server-debug-pipe.h"
 #include "dbus-transport-socket.h"
@@ -253,9 +254,6 @@ _dbus_transport_debug_pipe_new (const char     *server_name,
       return NULL;
     }
 
-  _dbus_fd_set_close_on_exec (client_fd);
-  _dbus_fd_set_close_on_exec (server_fd);
-  
   client_transport = _dbus_transport_new_for_socket (client_fd,
                                                      NULL, &address);
   if (client_transport == NULL)

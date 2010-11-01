@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-byteswap.h  Swap a block of marshaled data
  *
  * Copyright (C) 2005 Red Hat, Inc.
@@ -17,20 +17,15 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
 #ifndef DBUS_MARSHAL_BYTESWAP_H
 #define DBUS_MARSHAL_BYTESWAP_H
 
-#include <config.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-marshal-recursive.h>
-
-#ifndef PACKAGE
-#error "config.h not included here"
-#endif
 
 void _dbus_marshal_byteswap (const DBusString *signature,
                              int               signature_start,

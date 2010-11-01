@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-recursive.c  Marshalling routines for recursive types
  *
  * Copyright (C) 2004, 2005 Red Hat, Inc.
@@ -17,10 +17,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-marshal-recursive.h"
 #include "dbus-marshal-basic.h"
 #include "dbus-signature.h"
@@ -690,7 +691,8 @@ static const DBusTypeReaderClass variant_reader_class = {
   base_reader_next
 };
 
-static const DBusTypeReaderClass const *
+#ifndef DBUS_DISABLE_ASSERT
+static const DBusTypeReaderClass * const
 all_reader_classes[] = {
   &body_reader_class,
   &body_types_only_reader_class,
@@ -702,6 +704,7 @@ all_reader_classes[] = {
   &array_types_only_reader_class,
   &variant_reader_class
 };
+#endif
 
 /**
  * Initializes a type reader.
@@ -1645,9 +1648,18 @@ writer_recurse_init_and_check (DBusTypeWriter *writer,
 
       if (expected != sub->container_type)
         {
-          _dbus_warn_check_failed ("Writing an element of type %s, but the expected type here is %s\n",
-                                   _dbus_type_to_string (sub->container_type),
-                                   _dbus_type_to_string (expected));
+          if (expected != DBUS_TYPE_INVALID)
+            _dbus_warn_check_failed ("Writing an element of type %s, but the expected type here is %s\n"
+                                     "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
+                                     _dbus_type_to_string (sub->container_type),
+                                     _dbus_type_to_string (expected),
+                                     _dbus_string_get_const_data (writer->type_str), writer->type_pos);
+          else
+            _dbus_warn_check_failed ("Writing an element of type %s, but no value is expected here\n"
+                                     "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
+                                     _dbus_type_to_string (sub->container_type),
+                                     _dbus_string_get_const_data (writer->type_str), writer->type_pos);
+          
           _dbus_assert_not_reached ("bad array element or variant content written");
         }
     }
@@ -1702,8 +1714,16 @@ write_or_verify_typecode (DBusTypeWriter *writer,
 
         if (expected != typecode)
           {
-            _dbus_warn_check_failed ("Array or variant type requires that type %s be written, but %s was written\n",
-                                     _dbus_type_to_string (expected), _dbus_type_to_string (typecode));
+            if (expected != DBUS_TYPE_INVALID)
+              _dbus_warn_check_failed ("Array or variant type requires that type %s be written, but %s was written.\n"
+                                       "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
+                                       _dbus_type_to_string (expected), _dbus_type_to_string (typecode),
+                                       _dbus_string_get_const_data (writer->type_str), writer->type_pos);
+            else
+              _dbus_warn_check_failed ("Array or variant type wasn't expecting any more values to be written into it, but a value %s was written.\n"
+                                       "The overall signature expected here was '%s' and we are on byte %d of that signature.\n",
+                                       _dbus_type_to_string (typecode),
+                                       _dbus_string_get_const_data (writer->type_str), writer->type_pos);
             _dbus_assert_not_reached ("bad type inserted somewhere inside an array or variant");
           }
       }

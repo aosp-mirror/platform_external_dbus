@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-message-factory.c Generator of valid and invalid message data for test suite
  *
  * Copyright (C) 2005 Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #include <config.h>
@@ -222,8 +222,8 @@ generate_from_message (DBusString            *data,
                        DBusValidity          *expected_validity,
                        DBusMessage           *message)
 {
-  _dbus_message_set_serial (message, 1);
-  _dbus_message_lock (message);
+  dbus_message_set_serial (message, 1);
+  dbus_message_lock (message);
 
   *expected_validity = DBUS_VALID;
   
@@ -949,6 +949,7 @@ static const int typecodes[] = {
   DBUS_STRUCT_END_CHAR,
   DBUS_DICT_ENTRY_BEGIN_CHAR,
   DBUS_DICT_ENTRY_END_CHAR,
+  DBUS_TYPE_UNIX_FD,
   255 /* random invalid typecode */
 };
   

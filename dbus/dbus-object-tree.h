@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-object-tree.h  DBusObjectTree (internals of DBusConnection)
  *
  * Copyright (C) 2003  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_OBJECT_TREE_H
@@ -37,7 +37,8 @@ dbus_bool_t       _dbus_object_tree_register               (DBusObjectTree      
                                                             dbus_bool_t                  fallback,
                                                             const char                 **path,
                                                             const DBusObjectPathVTable  *vtable,
-                                                            void                        *user_data);
+                                                            void                        *user_data,
+                                                            DBusError                   *error);
 void              _dbus_object_tree_unregister_and_unlock  (DBusObjectTree              *tree,
                                                             const char                 **path);
 DBusHandlerResult _dbus_object_tree_dispatch_and_unlock    (DBusObjectTree              *tree,

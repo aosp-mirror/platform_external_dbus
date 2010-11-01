@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-server.c DBusServer object
  *
  * Copyright (C) 2002, 2003, 2004, 2005 Red Hat Inc.
@@ -17,10 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */ 
 
+#include <config.h>
 #include "dbus-server.h"
 #include "dbus-server-unix.h"
 #include "dbus-server-socket.h"
@@ -509,8 +510,8 @@ static const struct {
                                    DBusServer      **server_p,
                                    DBusError        *error);
 } listen_funcs[] = {
-  { _dbus_server_listen_socket },
-  { _dbus_server_listen_platform_specific }
+  { _dbus_server_listen_socket }
+  , { _dbus_server_listen_platform_specific }
 #ifdef DBUS_BUILD_TESTS
   , { _dbus_server_listen_debug_pipe }
 #endif
@@ -543,7 +544,7 @@ dbus_server_listen (const char     *address,
   DBusServer *server;
   DBusAddressEntry **entries;
   int len, i;
-  DBusError first_connect_error;
+  DBusError first_connect_error = DBUS_ERROR_INIT;
   dbus_bool_t handled_once;
   
   _dbus_return_val_if_fail (address != NULL, NULL);
@@ -553,9 +554,8 @@ dbus_server_listen (const char     *address,
     return NULL;
 
   server = NULL;
-  dbus_error_init (&first_connect_error);
   handled_once = FALSE;
-  
+
   for (i = 0; i < len; i++)
     {
       int j;
@@ -563,9 +563,8 @@ dbus_server_listen (const char     *address,
       for (j = 0; j < (int) _DBUS_N_ELEMENTS (listen_funcs); ++j)
         {
           DBusServerListenResult result;
-          DBusError tmp_error;
-      
-          dbus_error_init (&tmp_error);
+          DBusError tmp_error = DBUS_ERROR_INIT;
+
           result = (* listen_funcs[j].func) (entries[i],
                                              &server,
                                              &tmp_error);
@@ -793,6 +792,43 @@ dbus_server_get_address (DBusServer *server)
 
   SERVER_LOCK (server);
   retval = _dbus_strdup (server->address);
+  SERVER_UNLOCK (server);
+
+  return retval;
+}
+
+/**
+ * Returns the unique ID of the server, as a newly-allocated
+ * string which must be freed by the caller. This ID is
+ * normally used by clients to tell when two #DBusConnection
+ * would be equivalent (because the server address passed
+ * to dbus_connection_open() will have the same guid in the
+ * two cases). dbus_connection_open() can re-use an existing
+ * connection with the same ID instead of opening a new
+ * connection.
+ *
+ * This is an ID unique to each #DBusServer. Remember that
+ * a #DBusServer represents only one mode of connecting,
+ * so e.g. a bus daemon can listen on multiple addresses
+ * which will mean it has multiple #DBusServer each with
+ * their own ID.
+ *
+ * The ID is not a UUID in the sense of RFC4122; the details
+ * are explained in the D-Bus specification.
+ *
+ * @param server the server
+ * @returns the id of the server or #NULL if no memory
+ */
+char*
+dbus_server_get_id (DBusServer *server)
+{
+  char *retval;
+  
+  _dbus_return_val_if_fail (server != NULL, NULL);
+
+  SERVER_LOCK (server);
+  retval = NULL;
+  _dbus_string_copy_data (&server->guid_hex, &retval);
   SERVER_UNLOCK (server);
 
   return retval;
@@ -1110,16 +1146,19 @@ dbus_server_get_data (DBusServer   *server,
 
 #ifdef DBUS_BUILD_TESTS
 #include "dbus-test.h"
+#include <string.h>
 
 dbus_bool_t
 _dbus_server_test (void)
 {
   const char *valid_addresses[] = {
     "tcp:port=1234",
-    "unix:path=./boogie",
     "tcp:host=localhost,port=1234",
     "tcp:host=localhost,port=1234;tcp:port=5678",
+#ifdef DBUS_UNIX
+    "unix:path=./boogie",
     "tcp:port=1234;unix:path=./boogie",
+#endif
   };
 
   DBusServer *server;
@@ -1127,11 +1166,10 @@ _dbus_server_test (void)
   
   for (i = 0; i < _DBUS_N_ELEMENTS (valid_addresses); i++)
     {
-      DBusError error;
+      DBusError error = DBUS_ERROR_INIT;
+      char *address;
+      char *id;
 
-      /* FIXME um, how are the two tests here different? */
-      
-      dbus_error_init (&error);
       server = dbus_server_listen (valid_addresses[i], &error);
       if (server == NULL)
         {
@@ -1140,18 +1178,21 @@ _dbus_server_test (void)
           _dbus_assert_not_reached ("Failed to listen for valid address.");
         }
 
-      dbus_server_disconnect (server);
-      dbus_server_unref (server);
+      id = dbus_server_get_id (server);
+      _dbus_assert (id != NULL);
+      address = dbus_server_get_address (server);
+      _dbus_assert (address != NULL);
 
-      /* Try disconnecting before unreffing */
-      server = dbus_server_listen (valid_addresses[i], &error);
-      if (server == NULL)
+      if (strstr (address, id) == NULL)
         {
-          _dbus_warn ("server listen error: %s: %s\n", error.name, error.message);
-          dbus_error_free (&error);          
-          _dbus_assert_not_reached ("Failed to listen for valid address.");
+          _dbus_warn ("server id '%s' is not in the server address '%s'\n",
+                      id, address);
+          _dbus_assert_not_reached ("bad server id or address");
         }
 
+      dbus_free (id);
+      dbus_free (address);
+      
       dbus_server_disconnect (server);
       dbus_server_unref (server);
     }

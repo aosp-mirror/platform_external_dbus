@@ -1,10 +1,10 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* main.c  main() for message bus
  *
  * Copyright (C) 2003 Red Hat, Inc.
  *
  * Licensed under the Academic Free License version 2.1
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,12 +14,14 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "bus.h"
 #include "driver.h"
 #include <dbus/dbus-internals.h>
@@ -27,8 +29,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_SIGNAL_H
 #include <signal.h>
+#endif
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 #include "selinux.h"
 
 static BusContext *context;
@@ -37,37 +43,39 @@ static int reload_pipe[2];
 #define RELOAD_READ_END 0
 #define RELOAD_WRITE_END 1
 
+static void close_reload_pipe (void);
 
 static void
 signal_handler (int sig)
 {
-  DBusString str;
 
   switch (sig)
     {
-#ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
-    case SIGIO: 
+#ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX
+    case SIGIO:
       /* explicit fall-through */
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX  */
+#ifdef SIGHUP
     case SIGHUP:
-      _dbus_string_init_const (&str, "foo");
-      if (!_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
-	{
-	  _dbus_warn ("Unable to write to reload pipe.\n");
-	  exit (1);
-	}
+      {
+        DBusString str;
+        _dbus_string_init_const (&str, "foo");
+        if ((reload_pipe[RELOAD_WRITE_END] > 0) &&
+            !_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
+          {
+            _dbus_warn ("Unable to write to reload pipe.\n");
+            close_reload_pipe ();
+          }
+      }
       break;
-
-    case SIGTERM:
-      _dbus_loop_quit (bus_context_get_loop (context));
-      break;
+#endif
     }
 }
 
 static void
 usage (void)
 {
-  fprintf (stderr, DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect]\n");
+  fprintf (stderr, DBUS_DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect] [--address=ADDRESS] [--systemd-activation]\n");
   exit (1);
 }
 
@@ -78,7 +86,7 @@ version (void)
           "Copyright (C) 2002, 2003 Red Hat, Inc., CodeFactory AB, and others\n"
           "This is free software; see the source for copying conditions.\n"
           "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n",
-          VERSION);
+          DBUS_VERSION_STRING);
   exit (0);
 }
 
@@ -86,7 +94,7 @@ static void
 introspect (void)
 {
   DBusString xml;
-  const char *v_STRING;  
+  const char *v_STRING;
 
   if (!_dbus_string_init (&xml))
     goto oom;
@@ -98,14 +106,15 @@ introspect (void)
     }
 
   v_STRING = _dbus_string_get_const_data (&xml);
-  printf ("%s\n", v_STRING); 
+  printf ("%s\n", v_STRING);
 
   exit (0);
- 
+
  oom:
   _dbus_warn ("Can not introspect - Out of memory\n");
   exit (1);
 }
+
 static void
 check_two_config_files (const DBusString *config_file,
                         const char       *extra_arg)
@@ -114,6 +123,18 @@ check_two_config_files (const DBusString *config_file,
     {
       fprintf (stderr, "--%s specified but configuration file %s already requested\n",
                extra_arg, _dbus_string_get_const_data (config_file));
+      exit (1);
+    }
+}
+
+static void
+check_two_addresses (const DBusString *address,
+                     const char       *extra_arg)
+{
+  if (_dbus_string_get_length (address) > 0)
+    {
+      fprintf (stderr, "--%s specified but address %s already requested\n",
+               extra_arg, _dbus_string_get_const_data (address));
       exit (1);
     }
 }
@@ -149,21 +170,32 @@ handle_reload_watch (DBusWatch    *watch,
 {
   DBusError error;
   DBusString str;
-  _dbus_string_init (&str);
-  if (_dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
+
+  while (!_dbus_string_init (&str))
+    _dbus_wait_for_memory ();
+
+  if ((reload_pipe[RELOAD_READ_END] > 0) &&
+      _dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
     {
       _dbus_warn ("Couldn't read from reload pipe.\n");
-      exit (1);
+      close_reload_pipe ();
+      return TRUE;
     }
   _dbus_string_free (&str);
 
+  /* this can only fail if we don't understand the config file
+   * or OOM.  Either way we should just stick with the currently
+   * loaded config.
+   */
   dbus_error_init (&error);
   if (! bus_context_reload_config (context, &error))
     {
+      _DBUS_ASSERT_ERROR_IS_SET (&error);
+      _dbus_assert (dbus_error_has_name (&error, DBUS_ERROR_FAILED) ||
+		    dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY));
       _dbus_warn ("Unable to reload configuration: %s\n",
 		  error.message);
       dbus_error_free (&error);
-      exit (1);
     }
   return TRUE;
 }
@@ -193,9 +225,6 @@ setup_reload_pipe (DBusLoop *loop)
       exit (1);
     }
 
-  _dbus_fd_set_close_on_exec (reload_pipe[0]);
-  _dbus_fd_set_close_on_exec (reload_pipe[1]);
-
   watch = _dbus_watch_new (reload_pipe[RELOAD_READ_END],
 			   DBUS_WATCH_READABLE, TRUE,
 			   handle_reload_watch, NULL, NULL);
@@ -219,22 +248,38 @@ setup_reload_pipe (DBusLoop *loop)
 
 }
 
+static void
+close_reload_pipe (void)
+{
+    _dbus_close_socket (reload_pipe[RELOAD_READ_END], NULL);
+    reload_pipe[RELOAD_READ_END] = -1;
+
+    _dbus_close_socket (reload_pipe[RELOAD_WRITE_END], NULL);
+    reload_pipe[RELOAD_WRITE_END] = -1;
+}
+
 int
 main (int argc, char **argv)
 {
   DBusError error;
   DBusString config_file;
+  DBusString address;
   DBusString addr_fd;
   DBusString pid_fd;
   const char *prev_arg;
-  int print_addr_fd;
-  int print_pid_fd;
+  DBusPipe print_addr_pipe;
+  DBusPipe print_pid_pipe;
   int i;
   dbus_bool_t print_address;
   dbus_bool_t print_pid;
+  dbus_bool_t is_session_bus;
   int force_fork;
+  dbus_bool_t systemd_activation;
 
   if (!_dbus_string_init (&config_file))
+    return 1;
+
+  if (!_dbus_string_init (&address))
     return 1;
 
   if (!_dbus_string_init (&addr_fd))
@@ -245,7 +290,9 @@ main (int argc, char **argv)
 
   print_address = FALSE;
   print_pid = FALSE;
+  is_session_bus = FALSE;
   force_fork = FORK_FOLLOW_CONFIG_FILE;
+  systemd_activation = FALSE;
 
   prev_arg = NULL;
   i = 1;
@@ -265,18 +312,20 @@ main (int argc, char **argv)
         force_fork = FORK_NEVER;
       else if (strcmp (arg, "--fork") == 0)
         force_fork = FORK_ALWAYS;
+      else if (strcmp (arg, "--systemd-activation") == 0)
+        systemd_activation = TRUE;
       else if (strcmp (arg, "--system") == 0)
         {
           check_two_config_files (&config_file, "system");
 
-          if (!_dbus_string_append (&config_file, DBUS_SYSTEM_CONFIG_FILE))
+          if (!_dbus_append_system_config_file (&config_file))
             exit (1);
         }
       else if (strcmp (arg, "--session") == 0)
         {
           check_two_config_files (&config_file, "session");
 
-          if (!_dbus_string_append (&config_file, DBUS_SESSION_CONFIG_FILE))
+          if (!_dbus_append_session_config_file (&config_file))
             exit (1);
         }
       else if (strstr (arg, "--config-file=") == arg)
@@ -284,7 +333,7 @@ main (int argc, char **argv)
           const char *file;
 
           check_two_config_files (&config_file, "config-file");
-          
+
           file = strchr (arg, '=');
           ++file;
 
@@ -295,18 +344,40 @@ main (int argc, char **argv)
                strcmp (prev_arg, "--config-file") == 0)
         {
           check_two_config_files (&config_file, "config-file");
-          
+
           if (!_dbus_string_append (&config_file, arg))
             exit (1);
         }
       else if (strcmp (arg, "--config-file") == 0)
+        ; /* wait for next arg */
+      else if (strstr (arg, "--address=") == arg)
+        {
+          const char *file;
+
+          check_two_addresses (&address, "address");
+
+          file = strchr (arg, '=');
+          ++file;
+
+          if (!_dbus_string_append (&address, file))
+            exit (1);
+        }
+      else if (prev_arg &&
+               strcmp (prev_arg, "--address") == 0)
+        {
+          check_two_addresses (&address, "address");
+
+          if (!_dbus_string_append (&address, arg))
+            exit (1);
+        }
+      else if (strcmp (arg, "--address") == 0)
         ; /* wait for next arg */
       else if (strstr (arg, "--print-address=") == arg)
         {
           const char *desc;
 
           check_two_addr_descriptors (&addr_fd, "print-address");
-          
+
           desc = strchr (arg, '=');
           ++desc;
 
@@ -319,7 +390,7 @@ main (int argc, char **argv)
                strcmp (prev_arg, "--print-address") == 0)
         {
           check_two_addr_descriptors (&addr_fd, "print-address");
-          
+
           if (!_dbus_string_append (&addr_fd, arg))
             exit (1);
 
@@ -332,7 +403,7 @@ main (int argc, char **argv)
           const char *desc;
 
           check_two_pid_descriptors (&pid_fd, "print-pid");
-          
+
           desc = strchr (arg, '=');
           ++desc;
 
@@ -345,19 +416,19 @@ main (int argc, char **argv)
                strcmp (prev_arg, "--print-pid") == 0)
         {
           check_two_pid_descriptors (&pid_fd, "print-pid");
-          
+
           if (!_dbus_string_append (&pid_fd, arg))
             exit (1);
-          
+
           print_pid = TRUE;
         }
       else if (strcmp (arg, "--print-pid") == 0)
         print_pid = TRUE; /* and we'll get the next arg if appropriate */
       else
         usage ();
-      
+
       prev_arg = arg;
-      
+
       ++i;
     }
 
@@ -367,10 +438,10 @@ main (int argc, char **argv)
       usage ();
     }
 
-  print_addr_fd = -1;
+  _dbus_pipe_invalidate (&print_addr_pipe);
   if (print_address)
     {
-      print_addr_fd = 1; /* stdout */
+      _dbus_pipe_init_stdout (&print_addr_pipe);
       if (_dbus_string_get_length (&addr_fd) > 0)
         {
           long val;
@@ -384,15 +455,15 @@ main (int argc, char **argv)
               exit (1);
             }
 
-          print_addr_fd = val;
+          _dbus_pipe_init (&print_addr_pipe, val);
         }
     }
   _dbus_string_free (&addr_fd);
 
-  print_pid_fd = -1;
+  _dbus_pipe_invalidate (&print_pid_pipe);
   if (print_pid)
     {
-      print_pid_fd = 1; /* stdout */
+      _dbus_pipe_init_stdout (&print_pid_pipe);
       if (_dbus_string_get_length (&pid_fd) > 0)
         {
           long val;
@@ -406,7 +477,7 @@ main (int argc, char **argv)
               exit (1);
             }
 
-          print_pid_fd = val;
+          _dbus_pipe_init (&print_pid_pipe, val);
         }
     }
   _dbus_string_free (&pid_fd);
@@ -419,7 +490,9 @@ main (int argc, char **argv)
 
   dbus_error_init (&error);
   context = bus_context_new (&config_file, force_fork,
-                             print_addr_fd, print_pid_fd,
+                             &print_addr_pipe, &print_pid_pipe,
+                             _dbus_string_get_length(&address) > 0 ? &address : NULL,
+                             systemd_activation,
                              &error);
   _dbus_string_free (&config_file);
   if (context == NULL)
@@ -430,20 +503,34 @@ main (int argc, char **argv)
       exit (1);
     }
 
+  is_session_bus = bus_context_get_type(context) != NULL
+      && strcmp(bus_context_get_type(context),"session") == 0;
+
+  if (is_session_bus)
+    _dbus_daemon_publish_session_bus_address (bus_context_get_address (context));
+
+  /* bus_context_new() closes the print_addr_pipe and
+   * print_pid_pipe
+   */
+
   setup_reload_pipe (bus_context_get_loop (context));
 
+#ifdef SIGHUP
   _dbus_set_signal_handler (SIGHUP, signal_handler);
-  _dbus_set_signal_handler (SIGTERM, signal_handler);
-#ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 
+#endif
+#ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX
   _dbus_set_signal_handler (SIGIO, signal_handler);
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX */
-  
+
   _dbus_verbose ("We are on D-Bus...\n");
   _dbus_loop_run (bus_context_get_loop (context));
-  
+
   bus_context_shutdown (context);
   bus_context_unref (context);
   bus_selinux_shutdown ();
+
+  if (is_session_bus)
+    _dbus_daemon_unpublish_session_bus_address ();
 
   return 0;
 }

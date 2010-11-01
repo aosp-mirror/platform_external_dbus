@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-print-message.h  Utility function to print out a message
  *
  * Copyright (C) 2003 Philip Blundell <philb@gnu.org>
@@ -16,10 +16,15 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
+#include <config.h>
 #include "dbus-print-message.h"
+
+#include <stdlib.h>
+#include "config.h"
 
 static const char*
 type_to_name (int message_type)
@@ -39,12 +44,102 @@ type_to_name (int message_type)
     }
 }
 
+#define INDENT 3
 
 static void
 indent (int depth)
 {
   while (depth-- > 0)
-    printf ("   ");
+    printf ("   "); /* INDENT spaces. */
+}
+
+static void
+print_hex (unsigned char *bytes, unsigned int len, int depth)
+{
+  unsigned int i, columns;
+
+  printf ("array of bytes [\n");
+
+  indent (depth + 1);
+
+  /* Each byte takes 3 cells (two hexits, and a space), except the last one. */
+  columns = (80 - ((depth + 1) * INDENT)) / 3;
+
+  if (columns < 8)
+    columns = 8;
+
+  i = 0;
+
+  while (i < len)
+    {
+      printf ("%02x", bytes[i]);
+      i++;
+
+      if (i != len)
+        {
+          if (i % columns == 0)
+            {
+              printf ("\n");
+              indent (depth + 1);
+            }
+          else
+            {
+              printf (" ");
+            }
+        }
+    }
+
+  printf ("\n");
+  indent (depth);
+  printf ("]\n");
+}
+
+#define DEFAULT_SIZE 100
+
+static void
+print_ay (DBusMessageIter *iter, int depth)
+{
+  /* Not using DBusString because it's not public API. It's 2009, and I'm
+   * manually growing a string chunk by chunk.
+   */
+  unsigned char *bytes = malloc (DEFAULT_SIZE + 1);
+  unsigned int len = 0;
+  unsigned int max = DEFAULT_SIZE;
+  dbus_bool_t all_ascii = TRUE;
+  int current_type;
+
+  while ((current_type = dbus_message_iter_get_arg_type (iter))
+          != DBUS_TYPE_INVALID)
+    {
+      unsigned char val;
+
+      dbus_message_iter_get_basic (iter, &val);
+      bytes[len] = val;
+      len++;
+
+      if (val < 32 || val > 126)
+        all_ascii = FALSE;
+
+      if (len == max)
+        {
+          max *= 2;
+          bytes = realloc (bytes, max + 1);
+        }
+
+      dbus_message_iter_next (iter);
+    }
+
+  if (all_ascii)
+    {
+      bytes[len] = '\0';
+      printf ("array of bytes \"%s\"\n", bytes);
+    }
+  else
+    {
+      print_hex (bytes, len, depth);
+    }
+
+  free (bytes);
 }
 
 static void
@@ -133,7 +228,11 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 	  {
 	    dbus_int64_t val;
 	    dbus_message_iter_get_basic (iter, &val);
-	    printf ("int64 %lld\n", val);
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+        printf ("int64 %" DBUS_INT64_PRINTF_MODIFIER "d\n", val);
+#else
+        printf ("int64 (omitted)\n");
+#endif
 	    break;
 	  }
 
@@ -141,7 +240,11 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 	  {
 	    dbus_uint64_t val;
 	    dbus_message_iter_get_basic (iter, &val);
-	    printf ("uint64 %llu\n", val);
+#ifdef DBUS_INT64_PRINTF_MODIFIER
+        printf ("uint64 %" DBUS_INT64_PRINTF_MODIFIER "u\n", val);
+#else
+        printf ("uint64 (omitted)\n");
+#endif
 	    break;
 	  }
 
@@ -186,12 +289,23 @@ print_iter (DBusMessageIter *iter, dbus_bool_t literal, int depth)
 
 	    dbus_message_iter_recurse (iter, &subiter);
 
+	    current_type = dbus_message_iter_get_arg_type (&subiter);
+
+	    if (current_type == DBUS_TYPE_BYTE)
+	      {
+		print_ay (&subiter, depth);
+		break;
+	      }
+
 	    printf("array [\n");
-	    while ((current_type = dbus_message_iter_get_arg_type (&subiter)) != DBUS_TYPE_INVALID)
+	    while (current_type != DBUS_TYPE_INVALID)
 	      {
 		print_iter (&subiter, literal, depth+1);
+
 		dbus_message_iter_next (&subiter);
-		if (dbus_message_iter_get_arg_type (&subiter) != DBUS_TYPE_INVALID)
+		current_type = dbus_message_iter_get_arg_type (&subiter);
+
+		if (current_type != DBUS_TYPE_INVALID)
 		  printf (",");
 	      }
 	    indent(depth);
@@ -263,19 +377,22 @@ print_message (DBusMessage *message, dbus_bool_t literal)
 	{
 	case DBUS_MESSAGE_TYPE_METHOD_CALL:
 	case DBUS_MESSAGE_TYPE_SIGNAL:
-	  printf (" path=%s; interface=%s; member=%s\n",
+	  printf (" serial=%u path=%s; interface=%s; member=%s\n",
+                  dbus_message_get_serial (message),
 		  dbus_message_get_path (message),
 		  dbus_message_get_interface (message),
 		  dbus_message_get_member (message));
 	  break;
       
 	case DBUS_MESSAGE_TYPE_METHOD_RETURN:
-	  printf ("\n");
+	  printf (" reply_serial=%u\n",
+          dbus_message_get_reply_serial (message));
 	  break;
 
 	case DBUS_MESSAGE_TYPE_ERROR:
-	  printf (" error_name=%s\n",
-		  dbus_message_get_error_name (message));
+	  printf (" error_name=%s reply_serial=%u\n",
+		  dbus_message_get_error_name (message),
+          dbus_message_get_reply_serial (message));
 	  break;
 
 	default:

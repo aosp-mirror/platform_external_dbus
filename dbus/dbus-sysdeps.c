@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sysdeps.c Wrappers around system/libc features shared between UNIX and Windows (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003, 2006  Red Hat, Inc.
@@ -18,36 +18,46 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
+#include "dbus-list.h"
 
 /* NOTE: If you include any unix/windows-specific headers here, you are probably doing something
  * wrong and should be putting some code in dbus-sysdeps-unix.c or dbus-sysdeps-win.c.
  *
  * These are the standard ANSI C headers...
  */
+#if HAVE_LOCALE_H
 #include <locale.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-/* This is UNIX-specific (on windows it's just in stdlib.h I believe)
- * but OK since the same stuff does exist on Windows in stdlib.h
- * and covered by a configure check.
- */
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
 
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
+_DBUS_DEFINE_GLOBAL_LOCK (system_users);
+
+#ifdef DBUS_WIN
+  #include <stdlib.h>
+#elif (defined __APPLE__)
+# include <crt_externs.h>
+# define environ (*_NSGetEnviron())
+#else
+extern char **environ;
+#endif
 
 /**
  * @defgroup DBusSysdeps Internal system-dependent API
@@ -77,7 +87,7 @@ _dbus_abort (void)
   if (s && *s)
     {
       /* don't use _dbus_warn here since it can _dbus_abort() */
-      fprintf (stderr, "  Process %lu sleeping for gdb attach\n", (unsigned long) _dbus_getpid());
+      fprintf (stderr, "  Process %lu sleeping for gdb attach\n", _dbus_pid_for_log ());
       _dbus_sleep_milliseconds (1000 * 180);
     }
   
@@ -119,11 +129,14 @@ _dbus_setenv (const char *varname,
        * will get upset about.
        */
       
-      putenv_value = malloc (len + 1);
+      putenv_value = malloc (len + 2);
       if (putenv_value == NULL)
         return FALSE;
 
       strcpy (putenv_value, varname);
+#if defined(DBUS_WIN)
+      strcat (putenv_value, "=");
+#endif
       
       return (putenv (putenv_value) == 0);
 #endif
@@ -170,6 +183,191 @@ const char*
 _dbus_getenv (const char *varname)
 {  
   return getenv (varname);
+}
+
+/**
+ * Wrapper for clearenv().
+ *
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_clearenv (void)
+{
+  dbus_bool_t rc = TRUE;
+
+#ifdef HAVE_CLEARENV
+  if (clearenv () != 0)
+     rc = FALSE;
+#else
+
+  if (environ != NULL)
+    environ[0] = NULL;
+#endif
+
+  return rc;
+}
+
+/**
+ * Gets a #NULL-terminated list of key=value pairs from the
+ * environment. Use dbus_free_string_array to free it.
+ *
+ * @returns the environment or #NULL on OOM
+ */
+char **
+_dbus_get_environment (void)
+{
+  int i, length;
+  char **environment;
+
+  _dbus_assert (environ != NULL);
+
+  for (length = 0; environ[length] != NULL; length++);
+
+  /* Add one for NULL */
+  length++;
+
+  environment = dbus_new0 (char *, length);
+
+  if (environment == NULL)
+    return NULL;
+
+  for (i = 0; environ[i] != NULL; i++)
+    {
+      environment[i] = _dbus_strdup (environ[i]);
+
+      if (environment[i] == NULL)
+        break;
+    }
+
+  if (environ[i] != NULL)
+    {
+      dbus_free_string_array (environment);
+      environment = NULL;
+    }
+
+  return environment;
+}
+
+/**
+ * Split paths into a list of char strings
+ * 
+ * @param dirs string with pathes 
+ * @param suffix string concated to each path in dirs
+ * @param dir_list contains a list of splitted pathes
+ * return #TRUE is pathes could be splittes,#FALSE in oom case 
+ */
+dbus_bool_t
+_dbus_split_paths_and_append (DBusString *dirs, 
+                              const char *suffix, 
+                              DBusList  **dir_list)
+{
+   int start;
+   int i;
+   int len;
+   char *cpath;
+   DBusString file_suffix;
+
+   start = 0;
+   i = 0;
+
+   _dbus_string_init_const (&file_suffix, suffix);
+
+   len = _dbus_string_get_length (dirs);
+
+   while (_dbus_string_find (dirs, start, _DBUS_PATH_SEPARATOR, &i))
+     {
+       DBusString path;
+
+       if (!_dbus_string_init (&path))
+          goto oom;
+
+       if (!_dbus_string_copy_len (dirs,
+                                   start,
+                                   i - start,
+                                   &path,
+                                   0))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        _dbus_string_chop_white (&path);
+
+        /* check for an empty path */
+        if (_dbus_string_get_length (&path) == 0)
+          goto next;
+
+        if (!_dbus_concat_dir_and_file (&path,
+                                        &file_suffix))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        if (!_dbus_string_copy_data(&path, &cpath))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        if (!_dbus_list_append (dir_list, cpath))
+          {
+            _dbus_string_free (&path);              
+            dbus_free (cpath);
+            goto oom;
+          }
+
+       next:
+        _dbus_string_free (&path);
+        start = i + 1;
+    } 
+      
+  if (start != len)
+    { 
+      DBusString path;
+
+      if (!_dbus_string_init (&path))
+        goto oom;
+
+      if (!_dbus_string_copy_len (dirs,
+                                  start,
+                                  len - start,
+                                  &path,
+                                  0))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_concat_dir_and_file (&path,
+                                      &file_suffix))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_string_copy_data(&path, &cpath))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_list_append (dir_list, cpath))
+        {
+          _dbus_string_free (&path);              
+          dbus_free (cpath);
+          goto oom;
+        }
+
+      _dbus_string_free (&path); 
+    }
+
+  return TRUE;
+
+ oom:
+  _dbus_list_foreach (dir_list, (DBusForeachFunction)dbus_free, NULL); 
+  _dbus_list_clear (dir_list);
+  return FALSE;
 }
 
 /** @} */
@@ -320,7 +518,7 @@ _dbus_string_parse_int (const DBusString *str,
                                        _dbus_string_get_length (str) - start);
 
   end = NULL;
-  errno = 0;
+  _dbus_set_errno_to_zero ();
   v = strtol (p, &end, 0);
   if (end == NULL || end == p || errno != 0)
     return FALSE;
@@ -359,7 +557,7 @@ _dbus_string_parse_uint (const DBusString *str,
                                        _dbus_string_get_length (str) - start);
 
   end = NULL;
-  errno = 0;
+  _dbus_set_errno_to_zero ();
   v = strtoul (p, &end, 0);
   if (end == NULL || end == p || errno != 0)
     return FALSE;
@@ -413,6 +611,10 @@ static double
 ascii_strtod (const char *nptr,
 	      char      **endptr)
 {
+  /* FIXME: The Win32 C library's strtod() doesn't handle hex.
+   * Presumably many Unixes don't either.
+   */
+
   char *fail_pos;
   double val;
   struct lconv *locale_data;
@@ -423,10 +625,14 @@ ascii_strtod (const char *nptr,
 
   fail_pos = NULL;
 
+#if HAVE_LOCALECONV
   locale_data = localeconv ();
   decimal_point = locale_data->decimal_point;
-  decimal_point_len = strlen (decimal_point);
+#else
+  decimal_point = ".";
+#endif
 
+  decimal_point_len = strlen (decimal_point);
   _dbus_assert (decimal_point_len != 0);
   
   decimal_point_pos = NULL;
@@ -493,7 +699,7 @@ ascii_strtod (const char *nptr,
 
   /* Set errno to zero, so that we can distinguish zero results
      and underflows */
-  errno = 0;
+  _dbus_set_errno_to_zero ();
   
   if (decimal_point_pos)
     {
@@ -560,8 +766,14 @@ _dbus_string_parse_double (const DBusString *str,
   p = _dbus_string_get_const_data_len (str, start,
                                        _dbus_string_get_length (str) - start);
 
+  /* parsing hex works on linux but isn't portable, so intercept it
+   * here to get uniform behavior.
+   */
+  if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
+    return FALSE;
+  
   end = NULL;
-  errno = 0;
+  _dbus_set_errno_to_zero ();
   v = ascii_strtod (p, &end);
   if (end == NULL || end == p || errno != 0)
     return FALSE;
@@ -581,133 +793,6 @@ _dbus_string_parse_double (const DBusString *str,
  * @addtogroup DBusInternalsUtils
  * @{
  */
-
-/**
- * Frees the members of info
- * (but not info itself)
- * @param info the user info struct
- */
-void
-_dbus_user_info_free (DBusUserInfo *info)
-{
-  dbus_free (info->group_ids);
-  dbus_free (info->username);
-  dbus_free (info->homedir);
-}
-
-/**
- * Frees the members of info (but not info itself).
- *
- * @param info the group info
- */
-void
-_dbus_group_info_free (DBusGroupInfo    *info)
-{
-  dbus_free (info->groupname);
-}
-
-/**
- * Sets fields in DBusCredentials to DBUS_PID_UNSET,
- * DBUS_UID_UNSET, DBUS_GID_UNSET.
- *
- * @param credentials the credentials object to fill in
- */
-void
-_dbus_credentials_clear (DBusCredentials *credentials)
-{
-  credentials->pid = DBUS_PID_UNSET;
-  credentials->uid = DBUS_UID_UNSET;
-  credentials->gid = DBUS_GID_UNSET;
-}
-
-/**
- * Checks whether the provided_credentials are allowed to log in
- * as the expected_credentials.
- *
- * @param expected_credentials credentials we're trying to log in as
- * @param provided_credentials credentials we have
- * @returns #TRUE if we can log in
- */
-dbus_bool_t
-_dbus_credentials_match (const DBusCredentials *expected_credentials,
-                         const DBusCredentials *provided_credentials)
-{
-  if (provided_credentials->uid == DBUS_UID_UNSET)
-    return FALSE;
-  else if (expected_credentials->uid == DBUS_UID_UNSET)
-    return FALSE;
-  else if (provided_credentials->uid == 0)
-    return TRUE;
-  else if (provided_credentials->uid == expected_credentials->uid)
-    return TRUE;
-  else
-    return FALSE;
-}
-
-_DBUS_DEFINE_GLOBAL_LOCK (atomic);
-
-#ifdef DBUS_USE_ATOMIC_INT_486
-/* Taken from CVS version 1.7 of glibc's sysdeps/i386/i486/atomicity.h */
-/* Since the asm stuff here is gcc-specific we go ahead and use "inline" also */
-static inline dbus_int32_t
-atomic_exchange_and_add (DBusAtomic            *atomic,
-                         volatile dbus_int32_t  val)
-{
-  register dbus_int32_t result;
-
-  __asm__ __volatile__ ("lock; xaddl %0,%1"
-                        : "=r" (result), "=m" (atomic->value)
-			: "0" (val), "m" (atomic->value));
-  return result;
-}
-#endif
-
-/**
- * Atomically increments an integer
- *
- * @param atomic pointer to the integer to increment
- * @returns the value before incrementing
- *
- * @todo implement arch-specific faster atomic ops
- */
-dbus_int32_t
-_dbus_atomic_inc (DBusAtomic *atomic)
-{
-#ifdef DBUS_USE_ATOMIC_INT_486
-  return atomic_exchange_and_add (atomic, 1);
-#else
-  dbus_int32_t res;
-  _DBUS_LOCK (atomic);
-  res = atomic->value;
-  atomic->value += 1;
-  _DBUS_UNLOCK (atomic);
-  return res;
-#endif
-}
-
-/**
- * Atomically decrement an integer
- *
- * @param atomic pointer to the integer to decrement
- * @returns the value before decrementing
- *
- * @todo implement arch-specific faster atomic ops
- */
-dbus_int32_t
-_dbus_atomic_dec (DBusAtomic *atomic)
-{
-#ifdef DBUS_USE_ATOMIC_INT_486
-  return atomic_exchange_and_add (atomic, -1);
-#else
-  dbus_int32_t res;
-  
-  _DBUS_LOCK (atomic);
-  res = atomic->value;
-  atomic->value -= 1;
-  _DBUS_UNLOCK (atomic);
-  return res;
-#endif
-}
 
 void
 _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
@@ -806,48 +891,8 @@ _dbus_generate_random_ascii (DBusString *str,
 }
 
 /**
- * Gets a UID from a UID string.
- *
- * @param uid_str the UID in string form
- * @param uid UID to fill in
- * @returns #TRUE if successfully filled in UID
- */
-dbus_bool_t
-_dbus_parse_uid (const DBusString      *uid_str,
-                 dbus_uid_t            *uid)
-{
-  int end;
-  long val;
-  
-  if (_dbus_string_get_length (uid_str) == 0)
-    {
-      _dbus_verbose ("UID string was zero length\n");
-      return FALSE;
-    }
-
-  val = -1;
-  end = 0;
-  if (!_dbus_string_parse_int (uid_str, 0, &val,
-                               &end))
-    {
-      _dbus_verbose ("could not parse string as a UID\n");
-      return FALSE;
-    }
-  
-  if (end != _dbus_string_get_length (uid_str))
-    {
-      _dbus_verbose ("string contained trailing stuff after UID\n");
-      return FALSE;
-    }
-
-  *uid = val;
-
-  return TRUE;
-}
-
-/**
- * Converts a UNIX or Windows errno
- * into a #DBusError name.
+ * Converts a UNIX errno, or Windows errno or WinSock error value into
+ * a #DBusError name.
  *
  * @todo should cover more errnos, specifically those
  * from open().
@@ -867,8 +912,16 @@ _dbus_error_from_errno (int error_number)
     case EPROTONOSUPPORT:
       return DBUS_ERROR_NOT_SUPPORTED;
 #endif
+#ifdef WSAEPROTONOSUPPORT
+    case WSAEPROTONOSUPPORT:
+      return DBUS_ERROR_NOT_SUPPORTED;
+#endif
 #ifdef EAFNOSUPPORT
     case EAFNOSUPPORT:
+      return DBUS_ERROR_NOT_SUPPORTED;
+#endif
+#ifdef WSAEAFNOSUPPORT
+    case WSAEAFNOSUPPORT:
       return DBUS_ERROR_NOT_SUPPORTED;
 #endif
 #ifdef ENFILE
@@ -895,40 +948,36 @@ _dbus_error_from_errno (int error_number)
     case ENOMEM:
       return DBUS_ERROR_NO_MEMORY;
 #endif
-#ifdef EINVAL
-    case EINVAL:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EBADF
-    case EBADF:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EFAULT
-    case EFAULT:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef ENOTSOCK
-    case ENOTSOCK:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EISCONN
-    case EISCONN:
-      return DBUS_ERROR_FAILED;
-#endif
 #ifdef ECONNREFUSED
     case ECONNREFUSED:
+      return DBUS_ERROR_NO_SERVER;
+#endif
+#ifdef WSAECONNREFUSED
+    case WSAECONNREFUSED:
       return DBUS_ERROR_NO_SERVER;
 #endif
 #ifdef ETIMEDOUT
     case ETIMEDOUT:
       return DBUS_ERROR_TIMEOUT;
 #endif
+#ifdef WSAETIMEDOUT
+    case WSAETIMEDOUT:
+      return DBUS_ERROR_TIMEOUT;
+#endif
 #ifdef ENETUNREACH
     case ENETUNREACH:
       return DBUS_ERROR_NO_NETWORK;
 #endif
+#ifdef WSAENETUNREACH
+    case WSAENETUNREACH:
+      return DBUS_ERROR_NO_NETWORK;
+#endif
 #ifdef EADDRINUSE
     case EADDRINUSE:
+      return DBUS_ERROR_ADDRESS_IN_USE;
+#endif
+#ifdef WSAEADDRINUSE
+    case WSAEADDRINUSE:
       return DBUS_ERROR_ADDRESS_IN_USE;
 #endif
 #ifdef EEXIST
@@ -942,6 +991,80 @@ _dbus_error_from_errno (int error_number)
     }
 
   return DBUS_ERROR_FAILED;
+}
+
+/**
+ * Converts the current system errno value into a #DBusError name.
+ *
+ * @returns an error name
+ */
+const char*
+_dbus_error_from_system_errno (void)
+{
+  return _dbus_error_from_errno (errno);
+}
+
+/**
+ * Assign 0 to the global errno variable
+ */
+void
+_dbus_set_errno_to_zero (void)
+{
+#ifdef DBUS_WINCE
+  SetLastError (0);
+#else
+  errno = 0;
+#endif
+}
+
+/**
+ * See if errno is set
+ * @returns #TRUE if errno is not 0
+ */
+dbus_bool_t
+_dbus_get_is_errno_nonzero (void)
+{
+  return errno != 0;
+}
+
+/**
+ * See if errno is ENOMEM
+ * @returns #TRUE if errno == ENOMEM
+ */
+dbus_bool_t
+_dbus_get_is_errno_enomem (void)
+{
+  return errno == ENOMEM;
+}
+
+/**
+ * See if errno is EINTR
+ * @returns #TRUE if errno == EINTR
+ */
+dbus_bool_t
+_dbus_get_is_errno_eintr (void)
+{
+  return errno == EINTR;
+}
+
+/**
+ * See if errno is EPIPE
+ * @returns #TRUE if errno == EPIPE
+ */
+dbus_bool_t
+_dbus_get_is_errno_epipe (void)
+{
+  return errno == EPIPE;
+}
+
+/**
+ * Get error message from errno
+ * @returns _dbus_strerror(errno)
+ */
+const char*
+_dbus_strerror_from_errno (void)
+{
+  return _dbus_strerror (errno);
 }
 
 /** @} end of sysdeps */

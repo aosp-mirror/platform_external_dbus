@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-validate-util.c Would be in dbus-marshal-validate.c, but only used by tests/bus
  *
  * Copyright (C) 2005 Red Hat, Inc.
@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -227,7 +227,8 @@ _dbus_marshal_validate_test (void)
     "not a valid signature",
     "123",
     ".",
-    "("
+    "(",
+    "a{(ii)i}" /* https://bugs.freedesktop.org/show_bug.cgi?id=17803 */
   };
 
   /* Signature with reason */

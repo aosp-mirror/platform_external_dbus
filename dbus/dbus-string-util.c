@@ -1,7 +1,8 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-string-util.c Would be in dbus-string.c, but not used in libdbus
  * 
  * Copyright (C) 2002, 2003, 2004, 2005 Red Hat, Inc.
+ * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -17,10 +18,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-string.h"
 #define DBUS_CAN_USE_DBUS_STRING_PRIVATE 1
@@ -702,7 +704,239 @@ _dbus_string_test (void)
   test_roundtrips (test_hex_roundtrip);
   
   _dbus_string_free (&str);
-  
+
+  {                                                                                           
+    int found, found_len;  
+
+    _dbus_string_init_const (&str, "012\r\n567\n90");
+    
+    if (!_dbus_string_find_eol (&str, 0, &found, &found_len) || found != 3 || found_len != 2)
+      _dbus_assert_not_reached ("Did not find '\\r\\n'");                                       
+    if (found != 3 || found_len != 2)                                                           
+      _dbus_assert_not_reached ("invalid return values");                                       
+    
+    if (!_dbus_string_find_eol (&str, 5, &found, &found_len))                                    
+      _dbus_assert_not_reached ("Did not find '\\n'");                                          
+    if (found != 8 || found_len != 1)                                                           
+      _dbus_assert_not_reached ("invalid return values");                                       
+    
+    if (_dbus_string_find_eol (&str, 9, &found, &found_len))                                     
+      _dbus_assert_not_reached ("Found not expected '\\n'");                                    
+    else if (found != 11 || found_len != 0)                                                     
+      _dbus_assert_not_reached ("invalid return values '\\n'");                                 
+
+    found = -1;
+    found_len = -1;
+    _dbus_string_init_const (&str, "");
+    if (_dbus_string_find_eol (&str, 0, &found, &found_len))
+      _dbus_assert_not_reached ("found an eol in an empty string");
+    _dbus_assert (found == 0);
+    _dbus_assert (found_len == 0);
+    
+    found = -1;
+    found_len = -1;
+    _dbus_string_init_const (&str, "foobar");
+    if (_dbus_string_find_eol (&str, 0, &found, &found_len))
+      _dbus_assert_not_reached ("found eol in string that lacks one");
+    _dbus_assert (found == 6);
+    _dbus_assert (found_len == 0);
+
+    found = -1;
+    found_len = -1;
+    _dbus_string_init_const (&str, "foobar\n");
+    if (!_dbus_string_find_eol (&str, 0, &found, &found_len))
+      _dbus_assert_not_reached ("did not find eol in string that has one at end");
+    _dbus_assert (found == 6);
+    _dbus_assert (found_len == 1);
+  }
+
+  {
+    DBusString line;
+
+#define FIRST_LINE "this is a line"
+#define SECOND_LINE "this is a second line"
+    /* third line is empty */
+#define THIRD_LINE ""
+#define FOURTH_LINE "this is a fourth line"
+    
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, FIRST_LINE "\n" SECOND_LINE "\r\n" THIRD_LINE "\n" FOURTH_LINE))
+      _dbus_assert_not_reached ("no memory");
+    
+    if (!_dbus_string_init (&line))
+      _dbus_assert_not_reached ("no memory");
+    
+    if (!_dbus_string_pop_line (&str, &line))
+      _dbus_assert_not_reached ("failed to pop first line");
+
+    _dbus_assert (_dbus_string_equal_c_str (&line, FIRST_LINE));
+    
+    if (!_dbus_string_pop_line (&str, &line))
+      _dbus_assert_not_reached ("failed to pop second line");
+
+    _dbus_assert (_dbus_string_equal_c_str (&line, SECOND_LINE));
+    
+    if (!_dbus_string_pop_line (&str, &line))
+      _dbus_assert_not_reached ("failed to pop third line");
+
+    _dbus_assert (_dbus_string_equal_c_str (&line, THIRD_LINE));
+    
+    if (!_dbus_string_pop_line (&str, &line))
+      _dbus_assert_not_reached ("failed to pop fourth line");
+
+    _dbus_assert (_dbus_string_equal_c_str (&line, FOURTH_LINE));
+    
+    _dbus_string_free (&str);
+    _dbus_string_free (&line);
+  }
+
+  {
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    for (i = 0; i < 10000; i++)
+      if (!_dbus_string_append (&str, "abcdefghijklmnopqrstuvwxyz"))
+        _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_set_length (&str, 10))
+      _dbus_assert_not_reached ("failed to set length");
+
+    /* actually compact */
+    if (!_dbus_string_compact (&str, 2048))
+      _dbus_assert_not_reached ("failed to compact after set_length");
+
+    /* peek inside to make sure it worked */
+    if (((DBusRealString *)&str)->allocated > 30)
+      _dbus_assert_not_reached ("compacting string didn't do anything");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij"))
+      _dbus_assert_not_reached ("unexpected content after compact");
+
+    /* compact nothing */
+    if (!_dbus_string_compact (&str, 2048))
+      _dbus_assert_not_reached ("failed to compact 2nd time");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij"))
+      _dbus_assert_not_reached ("unexpected content after 2nd compact");
+
+    /* and make sure it still works...*/
+    if (!_dbus_string_append (&str, "123456"))
+      _dbus_assert_not_reached ("failed to append after compact");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij123456"))
+      _dbus_assert_not_reached ("unexpected content after append");
+
+    /* after growing automatically, this should do nothing */
+    if (!_dbus_string_compact (&str, 20000))
+      _dbus_assert_not_reached ("failed to compact after grow");
+
+    /* but this one will do something */
+    if (!_dbus_string_compact (&str, 0))
+      _dbus_assert_not_reached ("failed to compact after grow");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij123456"))
+      _dbus_assert_not_reached ("unexpected content");
+
+    if (!_dbus_string_append (&str, "!@#$%"))
+      _dbus_assert_not_reached ("failed to append after compact");
+
+    if (!_dbus_string_equal_c_str (&str, "abcdefghij123456!@#$%"))
+      _dbus_assert_not_reached ("unexpected content");
+
+    _dbus_string_free (&str);
+  }
+
+  {
+    const char two_strings[] = "one\ttwo";
+
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_init (&other))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, two_strings))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_split_on_byte (&str, '\t', &other))
+      _dbus_assert_not_reached ("no memory or delimiter not found");
+
+    if (strcmp (_dbus_string_get_data (&str), "one") != 0)
+      _dbus_assert_not_reached ("left side after split on tab is wrong");
+
+    if (strcmp (_dbus_string_get_data (&other), "two") != 0)
+      _dbus_assert_not_reached ("right side after split on tab is wrong");
+
+    _dbus_string_free (&str);
+    _dbus_string_free (&other);
+  }
+
+  {
+    const char upper_string[] = "TOUPPERSTRING";
+    const char lower_string[] = "toupperstring";
+    const char lower2_string[] = "toupperSTRING";
+
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, upper_string))
+      _dbus_assert_not_reached ("no memory");
+
+    _dbus_string_tolower_ascii (&str, 0, _dbus_string_get_length(&str));
+
+    if (!_dbus_string_equal_c_str (&str, lower_string))
+      _dbus_assert_not_reached ("_dbus_string_tolower_ascii failed");
+
+    _dbus_string_free (&str);
+
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, upper_string))
+      _dbus_assert_not_reached ("no memory");
+
+    _dbus_string_tolower_ascii (&str, 0, 7);
+
+    if (!_dbus_string_equal_c_str (&str, lower2_string))
+      _dbus_assert_not_reached ("_dbus_string_tolower_ascii failed in partial conversion");
+
+    _dbus_string_free (&str);
+  }
+
+  {
+    const char lower_string[] = "toupperstring";
+    const char upper_string[] = "TOUPPERSTRING";
+    const char upper2_string[] = "TOUPPERstring";
+
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, lower_string))
+      _dbus_assert_not_reached ("no memory");
+
+    _dbus_string_toupper_ascii (&str, 0, _dbus_string_get_length(&str));
+
+    if (!_dbus_string_equal_c_str (&str, upper_string))
+      _dbus_assert_not_reached ("_dbus_string_toupper_ascii failed");
+
+    _dbus_string_free (&str);
+
+    if (!_dbus_string_init (&str))
+      _dbus_assert_not_reached ("no memory");
+
+    if (!_dbus_string_append (&str, lower_string))
+      _dbus_assert_not_reached ("no memory");
+
+    _dbus_string_toupper_ascii (&str, 0, 7);
+
+    if (!_dbus_string_equal_c_str (&str, upper2_string))
+      _dbus_assert_not_reached ("_dbus_string_toupper_ascii failed in partial conversion");
+
+    _dbus_string_free (&str);
+  }
+
   return TRUE;
 }
 

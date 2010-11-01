@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-server-protected.h Used by subclasses of DBusServer object (internal to D-Bus implementation)
  *
  * Copyright (C) 2002  Red Hat Inc.
@@ -17,13 +17,12 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_SERVER_PROTECTED_H
 #define DBUS_SERVER_PROTECTED_H
 
-#include <config.h>
 #include <dbus/dbus-internals.h>
 #include <dbus/dbus-threads-internal.h>
 #include <dbus/dbus-server.h>
@@ -144,13 +143,13 @@ DBusServerListenResult _dbus_server_listen_platform_specific (DBusAddressEntry  
 #define TRACE_LOCKS 0
 
 #define SERVER_LOCK(server)   do {                                              \
-    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
+    if (TRACE_LOCKS) { _dbus_verbose ("LOCK\n"); }   \
     _dbus_mutex_lock ((server)->mutex);                                          \
     TOOK_LOCK_CHECK (server);                                                   \
   } while (0)
 
 #define SERVER_UNLOCK(server) do {                                                      \
-    if (TRACE_LOCKS) { _dbus_verbose ("  UNLOCK: %s\n", _DBUS_FUNCTION_NAME);  }        \
+    if (TRACE_LOCKS) { _dbus_verbose ("UNLOCK\n");  }        \
     RELEASING_LOCK_CHECK (server);                                                      \
     _dbus_mutex_unlock ((server)->mutex);                                                \
   } while (0)

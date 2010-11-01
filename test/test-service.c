@@ -1,5 +1,9 @@
+#include <config.h>
 
 #include "test-utils.h"
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 static DBusLoop *loop;
 static dbus_bool_t already_quit = FALSE;
@@ -223,6 +227,62 @@ handle_echo (DBusConnection     *connection,
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static DBusHandlerResult
+handle_delay_echo (DBusConnection     *connection,
+                   DBusMessage        *message)
+{
+  DBusError error;
+  DBusMessage *reply;
+  char *s;
+
+  _dbus_verbose ("sleeping for a short time\n");
+
+  _dbus_sleep_milliseconds (50);
+
+  _dbus_verbose ("sending reply to DelayEcho method\n");
+  
+  dbus_error_init (&error);
+  
+  if (!dbus_message_get_args (message,
+                              &error,
+                              DBUS_TYPE_STRING, &s,
+                              DBUS_TYPE_INVALID))
+    {
+      reply = dbus_message_new_error (message,
+                                      error.name,
+                                      error.message);
+
+      if (reply == NULL)
+        die ("No memory\n");
+
+      if (!dbus_connection_send (connection, reply, NULL))
+        die ("No memory\n");
+
+      dbus_message_unref (reply);
+
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+
+  reply = dbus_message_new_method_return (message);
+  if (reply == NULL)
+    die ("No memory\n");
+  
+  if (!dbus_message_append_args (reply,
+                                 DBUS_TYPE_STRING, &s,
+                                 DBUS_TYPE_INVALID))
+    die ("No memory");
+  
+  if (!dbus_connection_send (connection, reply, NULL))
+    die ("No memory\n");
+
+  fprintf (stderr, "DelayEcho service echoed string: \"%s\"\n", s);
+  
+  dbus_message_unref (reply);
+    
+  return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+
 static void
 path_unregistered_func (DBusConnection  *connection,
                         void            *user_data)
@@ -239,6 +299,10 @@ path_message_func (DBusConnection  *connection,
                                    "org.freedesktop.TestSuite",
                                    "Echo"))
     return handle_echo (connection, message);
+  else if (dbus_message_is_method_call (message,
+                                        "org.freedesktop.TestSuite",
+                                        "DelayEcho"))
+    return handle_delay_echo (connection, message);
   else if (dbus_message_is_method_call (message,
                                         "org.freedesktop.TestSuite",
                                         "Exit"))
@@ -335,7 +399,39 @@ main (int    argc,
   DBusError error;
   int result;
   DBusConnection *connection;
-  
+  const char *name;
+  dbus_bool_t do_fork;
+
+  if (argc != 3)
+    {
+      name = "org.freedesktop.DBus.TestSuiteEchoService";
+      do_fork = FALSE;
+    }
+  else
+    {
+      name = argv[1];
+#ifndef DBUS_WIN
+      do_fork = strcmp (argv[2], "fork") == 0;
+#else
+      do_fork = FALSE;
+#endif
+    }
+
+  /* The bare minimum for simulating a program "daemonizing"; the intent
+   * is to test services which move from being legacy init scripts to
+   * activated services.
+   * https://bugzilla.redhat.com/show_bug.cgi?id=545267
+   */
+#ifndef DBUS_WIN
+   if (do_fork)
+    {
+      pid_t pid = fork ();
+      if (pid != 0)
+        exit (0);
+      sleep (1);
+    }
+#endif
+
   dbus_error_init (&error);
   connection = dbus_bus_get (DBUS_BUS_STARTER, &error);
   if (connection == NULL)
@@ -370,8 +466,8 @@ main (int    argc,
     if (d != (void*) 0xdeadbeef)
       die ("dbus_connection_get_object_path_data() doesn't seem to work right\n");
   }
-  
-  result = dbus_bus_request_name (connection, "org.freedesktop.DBus.TestSuiteEchoService",
+
+  result = dbus_bus_request_name (connection, name,
                                   0, &error);
   if (dbus_error_is_set (&error))
     {

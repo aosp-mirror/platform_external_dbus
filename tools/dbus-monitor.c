@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-monitor.c  Utility program to monitor messages on the bus
  *
  * Copyright (C) 2003 Philip Blundell <philb@gnu.org>
@@ -15,20 +15,66 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef DBUS_WIN
+#include <winsock2.h>
+#undef interface
+#else
 #include <sys/time.h>
+#endif
+
 #include <time.h>
 
-#include <signal.h>
-
 #include "dbus-print-message.h"
+
+#ifdef DBUS_WIN
+
+/* gettimeofday is not defined on windows */
+#define DBUS_SECONDS_SINCE_1601 11644473600LL
+#define DBUS_USEC_IN_SEC        1000000LL
+
+#ifdef DBUS_WINCE
+
+#ifndef _IOLBF
+#define _IOLBF 0x40
+#endif
+#ifndef _IONBF
+#define _IONBF 0x04
+#endif
+
+void
+GetSystemTimeAsFileTime (LPFILETIME ftp)
+{
+  SYSTEMTIME st;
+  GetSystemTime (&st);
+  SystemTimeToFileTime (&st, ftp);
+}
+#endif
+
+static int
+gettimeofday (struct timeval *__p,
+	      void *__t)
+{
+  union {
+      unsigned long long ns100; /*time since 1 Jan 1601 in 100ns units */
+      FILETIME           ft;
+    } now;
+
+  GetSystemTimeAsFileTime (&now.ft);
+  __p->tv_usec = (long) ((now.ns100 / 10LL) % DBUS_USEC_IN_SEC);
+  __p->tv_sec  = (long)(((now.ns100 / 10LL) / DBUS_SECONDS_SINCE_1601) - DBUS_SECONDS_SINCE_1601);
+
+  return 0;
+}
+#endif
 
 static DBusHandlerResult
 monitor_filter_func (DBusConnection     *connection,
@@ -61,7 +107,7 @@ typedef enum
   PROFILE_ATTRIBUTE_FLAG_PATH = 16,
   PROFILE_ATTRIBUTE_FLAG_INTERFACE = 32,
   PROFILE_ATTRIBUTE_FLAG_MEMBER = 64,
-  PROFILE_ATTRIBUTE_FLAG_ERROR_NAME = 128,
+  PROFILE_ATTRIBUTE_FLAG_ERROR_NAME = 128
 } ProfileAttributeFlags;
 
 static void
@@ -161,11 +207,11 @@ profile_filter_func (DBusConnection	*connection,
 static void
 usage (char *name, int ecode)
 {
-  fprintf (stderr, "Usage: %s [--system | --session] [--monitor | --profile ] [watch expressions]\n", name);
+  fprintf (stderr, "Usage: %s [--system | --session | --address ADDRESS] [--monitor | --profile ] [watch expressions]\n", name);
   exit (ecode);
 }
 
-dbus_bool_t sigint_received = FALSE;
+static dbus_bool_t sigint_received = FALSE;
 
 static void
 sigint_handler (int signum)
@@ -180,9 +226,22 @@ main (int argc, char *argv[])
   DBusError error;
   DBusBusType type = DBUS_BUS_SESSION;
   DBusHandleMessageFunction filter_func = monitor_filter_func;
-
+  char *address = NULL;
+  
   int i = 0, j = 0, numFilters = 0;
   char **filters = NULL;
+
+  /* Set stdout to be unbuffered; this is basically so that if people
+   * do dbus-monitor > file, then send SIGINT via Control-C, they
+   * don't lose the last chunk of messages.
+   */
+
+#ifdef DBUS_WIN
+  setvbuf (stdout, NULL, _IONBF, 0);
+#else
+  setvbuf (stdout, NULL, _IOLBF, 0);
+#endif
+
   for (i = 1; i < argc; i++)
     {
       char *arg = argv[i];
@@ -191,6 +250,16 @@ main (int argc, char *argv[])
 	type = DBUS_BUS_SYSTEM;
       else if (!strcmp (arg, "--session"))
 	type = DBUS_BUS_SESSION;
+      else if (!strcmp (arg, "--address"))
+	{
+	  if (i+1 < argc)
+	    {
+	      address = argv[i+1];
+	      i++;
+	    }
+	  else
+	    usage (argv[0], 1);
+	}
       else if (!strcmp (arg, "--help"))
 	usage (argv[0], 0);
       else if (!strcmp (arg, "--monitor"))
@@ -211,11 +280,44 @@ main (int argc, char *argv[])
     }
 
   dbus_error_init (&error);
-  connection = dbus_bus_get (type, &error);
+  
+  if (address != NULL)
+    {
+      connection = dbus_connection_open (address, &error);
+      if (connection)
+        {
+          if (!dbus_bus_register (connection, &error))
+      	    {
+              fprintf (stderr, "Failed to register connection to bus at %s: %s\n",
+      	               address, error.message);
+              dbus_error_free (&error);
+              exit (1);
+      	    }
+        }
+    }
+  else
+    connection = dbus_bus_get (type, &error);
   if (connection == NULL)
     {
-      fprintf (stderr, "Failed to open connection to %s message bus: %s\n",
-	       (type == DBUS_BUS_SYSTEM) ? "system" : "session",
+      const char *where;
+      if (address != NULL)
+        where = address;
+      else
+        {
+          switch (type)
+            {
+            case DBUS_BUS_SYSTEM:
+              where = "system bus";
+              break;
+            case DBUS_BUS_SESSION:
+              where = "session bus";
+              break;
+            default:
+              where = "";
+            }
+        }
+      fprintf (stderr, "Failed to open connection to %s: %s\n",
+               where,
                error.message);
       dbus_error_free (&error);
       exit (1);
@@ -265,10 +367,7 @@ main (int argc, char *argv[])
     exit (1);
   }
 
-  /* we handle SIGINT so exit() is reached and flushes stdout */
-  signal (SIGINT, sigint_handler);
-  while (dbus_connection_read_write_dispatch(connection, -1)
-          && !sigint_received)
+  while (dbus_connection_read_write_dispatch(connection, -1))
     ;
   exit (0);
  lose:

@@ -1,5 +1,7 @@
 EXTRA_DIST= 					\
 	busconfig.dtd				\
+	diagram.png				\
+	diagram.svg				\
 	introspect.dtd				\
 	dbus-faq.xml				\
 	dbus-specification.xml			\
@@ -7,7 +9,8 @@ EXTRA_DIST= 					\
 	dbus-tutorial.xml			\
 	dcop-howto.txt				\
 	file-boilerplate.c			\
-	introspect.xsl
+	introspect.xsl				\
+	system-activation.txt
 
 HTML_FILES=					\
 	dbus-faq.html				\

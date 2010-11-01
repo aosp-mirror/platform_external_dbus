@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* config-parser.h  XML-library-agnostic configuration file parser
  *
  * Copyright (C) 2003 Red Hat, Inc.
@@ -17,14 +17,12 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
 #ifndef BUS_CONFIG_PARSER_H
 #define BUS_CONFIG_PARSER_H
-
-#include <config.h>
 
 #include <dbus/dbus.h>
 #include <dbus/dbus-string.h>
@@ -65,7 +63,11 @@ const char* bus_config_parser_get_type         (BusConfigParser *parser);
 DBusList**  bus_config_parser_get_addresses    (BusConfigParser *parser);
 DBusList**  bus_config_parser_get_mechanisms   (BusConfigParser *parser);
 dbus_bool_t bus_config_parser_get_fork         (BusConfigParser *parser);
+dbus_bool_t bus_config_parser_get_allow_anonymous (BusConfigParser *parser);
+dbus_bool_t bus_config_parser_get_syslog       (BusConfigParser *parser);
+dbus_bool_t bus_config_parser_get_keep_umask   (BusConfigParser *parser);
 const char* bus_config_parser_get_pidfile      (BusConfigParser *parser);
+const char* bus_config_parser_get_servicehelper (BusConfigParser *parser);
 DBusList**  bus_config_parser_get_service_dirs (BusConfigParser *parser);
 DBusList**  bus_config_parser_get_conf_dirs    (BusConfigParser *parser);
 BusPolicy*  bus_config_parser_steal_policy     (BusConfigParser *parser);

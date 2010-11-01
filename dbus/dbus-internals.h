@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-internals.h  random utility stuff (internal to D-Bus implementation)
  *
  * Copyright (C) 2002, 2003  Red Hat, Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifdef DBUS_INSIDE_DBUS_H
@@ -27,8 +27,6 @@
 #ifndef DBUS_INTERNALS_H
 #define DBUS_INTERNALS_H
 
-#include <config.h>
-
 #include <dbus/dbus-memory.h>
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-errors.h>
@@ -37,7 +35,9 @@
 
 DBUS_BEGIN_DECLS
 
+#ifndef DBUS_SESSION_BUS_DEFAULT_ADDRESS
 #define DBUS_SESSION_BUS_DEFAULT_ADDRESS	"autolaunch:"
+#endif
 
 void _dbus_warn               (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
@@ -48,7 +48,7 @@ void _dbus_warn_check_failed  (const char *format,
 
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
 #define _DBUS_FUNCTION_NAME __func__
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(_MSC_VER)
 #define _DBUS_FUNCTION_NAME __FUNCTION__
 #else
 #define _DBUS_FUNCTION_NAME "unknown function"
@@ -83,12 +83,27 @@ void _dbus_warn_check_failed  (const char *format,
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
 
+/*
+ at least gnu cc and msvc compiler are known to 
+ have support for variable macro argument lists
+ add other compilers is required
+*/
+#if defined(__GNUC__) || defined(_MSC_VER) 
+#define DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+#endif
+
+#ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
+void _dbus_verbose_real       (const char *file, const int line, const char *function, 
+                               const char *format,...) _DBUS_GNUC_PRINTF (4, 5);
+#  define _dbus_verbose(fmt,...) _dbus_verbose_real( __FILE__,__LINE__,__FUNCTION__,fmt, ## __VA_ARGS__)
+#else
 void _dbus_verbose_real       (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
+#  define _dbus_verbose _dbus_verbose_real
+#endif
 void _dbus_verbose_reset_real (void);
 dbus_bool_t _dbus_is_verbose_real (void);
 
-#  define _dbus_verbose _dbus_verbose_real
 #  define _dbus_verbose_reset _dbus_verbose_reset_real
 #  define _dbus_is_verbose _dbus_is_verbose_real
 #else
@@ -97,7 +112,7 @@ dbus_bool_t _dbus_is_verbose_real (void);
 #  elif defined (HAVE_GNUC_VARARGS)
 #    define _dbus_verbose(format...)
 #  else
-#    error "This compiler does not support varargs macros and thus verbose mode can't be disabled meaningfully"
+static void _dbus_verbose(const char * x,...) {;}
 #  endif
 #  define _dbus_verbose_reset()
 #  define _dbus_is_verbose() FALSE 
@@ -131,7 +146,8 @@ void _dbus_real_assert_not_reached (const char *explanation,
 #define _dbus_return_if_fail(condition)
 #define _dbus_return_val_if_fail(condition, val)
 #else
-extern const char _dbus_return_if_fail_warning_format[];
+
+extern const char *_dbus_return_if_fail_warning_format;
 
 #define _dbus_return_if_fail(condition) do {                                       \
    _dbus_assert ((*(const char*)_DBUS_FUNCTION_NAME) != '_');                      \
@@ -153,13 +169,13 @@ extern const char _dbus_return_if_fail_warning_format[];
 
 #define _DBUS_N_ELEMENTS(array) ((int) (sizeof ((array)) / sizeof ((array)[0])))
 
-#define _DBUS_POINTER_TO_INT(pointer) ((long)(pointer))
-#define _DBUS_INT_TO_POINTER(integer) ((void*)((long)(integer)))
+#define _DBUS_POINTER_TO_INT(pointer) ((intptr_t)(pointer))
+#define _DBUS_INT_TO_POINTER(integer) ((void*)((intptr_t)(integer)))
 
 #define _DBUS_ZERO(object) (memset (&(object), '\0', sizeof ((object))))
 
 #define _DBUS_STRUCT_OFFSET(struct_type, member)	\
-    ((long) ((unsigned char*) &((struct_type*) 0)->member))
+    ((intptr_t) ((unsigned char*) &((struct_type*) 0)->member))
 
 #ifdef DBUS_DISABLE_CHECKS
 /* this is an assert and not an error, but in the typical --disable-checks case (you're trying
@@ -191,7 +207,7 @@ extern const char _dbus_return_if_fail_warning_format[];
  */
 
 #define _DBUS_ALIGN_VALUE(this, boundary) \
-  (( ((unsigned long)(this)) + (((unsigned long)(boundary)) -1)) & (~(((unsigned long)(boundary))-1)))
+  (( ((uintptr_t)(this)) + (((uintptr_t)(boundary)) -1)) & (~(((uintptr_t)(boundary))-1)))
 
 #define _DBUS_ALIGN_ADDRESS(this, boundary) \
   ((void*)_DBUS_ALIGN_VALUE(this, boundary))
@@ -249,7 +265,7 @@ void _dbus_verbose_bytes_of_string (const DBusString    *str,
 
 const char* _dbus_header_field_to_string (int header_field);
 
-extern const char _dbus_no_memory_message[];
+extern const char *_dbus_no_memory_message;
 #define _DBUS_SET_OOM(error) dbus_set_error_const ((error), DBUS_ERROR_NO_MEMORY, _dbus_no_memory_message)
 
 #ifdef DBUS_BUILD_TESTS
@@ -298,18 +314,23 @@ _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (server_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (message_slots);
 /* 5-10 */
-_DBUS_DECLARE_GLOBAL_LOCK (atomic);
 _DBUS_DECLARE_GLOBAL_LOCK (bus);
 _DBUS_DECLARE_GLOBAL_LOCK (bus_datas);
 _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 _DBUS_DECLARE_GLOBAL_LOCK (system_users);
-/* 10-15 */
 _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
+/* 10-14 */
 _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
 _DBUS_DECLARE_GLOBAL_LOCK (win_fds);
 _DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
 _DBUS_DECLARE_GLOBAL_LOCK (machine_uuid);
+
+#if !DBUS_USE_SYNC
+_DBUS_DECLARE_GLOBAL_LOCK (atomic);
 #define _DBUS_N_GLOBAL_LOCKS (15)
+#else
+#define _DBUS_N_GLOBAL_LOCKS (14)
+#endif
 
 dbus_bool_t _dbus_threads_init_debug (void);
 

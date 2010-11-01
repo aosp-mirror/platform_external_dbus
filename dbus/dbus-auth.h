@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-auth.h Authentication
  *
  * Copyright (C) 2002  Red Hat Inc.
@@ -17,7 +17,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef DBUS_AUTH_H
@@ -68,14 +68,15 @@ dbus_bool_t   _dbus_auth_needs_decoding      (DBusAuth               *auth);
 dbus_bool_t   _dbus_auth_decode_data         (DBusAuth               *auth,
                                               const DBusString       *encoded,
                                               DBusString             *plaintext);
-void          _dbus_auth_set_credentials     (DBusAuth               *auth,
-                                              const DBusCredentials  *credentials);
-void          _dbus_auth_get_identity        (DBusAuth               *auth,
+dbus_bool_t   _dbus_auth_set_credentials     (DBusAuth               *auth,
                                               DBusCredentials        *credentials);
+DBusCredentials* _dbus_auth_get_identity     (DBusAuth               *auth);
 dbus_bool_t   _dbus_auth_set_context         (DBusAuth               *auth,
                                               const DBusString       *context);
 const char*   _dbus_auth_get_guid_from_server(DBusAuth               *auth);
 
+void          _dbus_auth_set_unix_fd_possible(DBusAuth               *auth, dbus_bool_t b);
+dbus_bool_t   _dbus_auth_get_unix_fd_negotiated(DBusAuth             *auth);
 
 DBUS_END_DECLS
 

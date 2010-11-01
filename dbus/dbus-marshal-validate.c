@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-marshal-validate.c Validation routines for marshaled data
  *
  * Copyright (C) 2005 Red Hat, Inc.
@@ -17,10 +17,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-marshal-validate.h"
 #include "dbus-marshal-recursive.h"
@@ -100,6 +101,7 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
         case DBUS_TYPE_UINT16:
         case DBUS_TYPE_INT32:
         case DBUS_TYPE_UINT32:
+        case DBUS_TYPE_UNIX_FD:
         case DBUS_TYPE_INT64:
         case DBUS_TYPE_UINT64:
         case DBUS_TYPE_DOUBLE:
@@ -246,13 +248,15 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
 	    }
         }
 
-      if (last == DBUS_DICT_ENTRY_BEGIN_CHAR &&
-          !dbus_type_is_basic (*p))
+      if (last == DBUS_DICT_ENTRY_BEGIN_CHAR)
         {
-          result = DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE;
-          goto out;
+          if (!(_dbus_type_is_valid (*p) && dbus_type_is_basic (*p)))
+            {
+              result = DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE;
+              goto out;
+            }
         }
-        
+
       last = *p;
       ++p;
     }
@@ -317,12 +321,13 @@ validate_body_helper (DBusTypeReader       *reader,
         case DBUS_TYPE_BYTE:
           ++p;
           break;
-          
+
         case DBUS_TYPE_BOOLEAN:
         case DBUS_TYPE_INT16:
         case DBUS_TYPE_UINT16:
         case DBUS_TYPE_INT32:
         case DBUS_TYPE_UINT32:
+        case DBUS_TYPE_UNIX_FD:
         case DBUS_TYPE_INT64:
         case DBUS_TYPE_UINT64:
         case DBUS_TYPE_DOUBLE:
@@ -369,12 +374,30 @@ validate_body_helper (DBusTypeReader       *reader,
 
             /* p may now be == end */
             _dbus_assert (p <= end);
-            
+
             if (current_type == DBUS_TYPE_ARRAY)
               {
                 int array_elem_type = _dbus_type_reader_get_element_type (reader);
+
+                if (!_dbus_type_is_valid (array_elem_type))
+                  {
+                    return DBUS_INVALID_UNKNOWN_TYPECODE;
+                  }
+
                 alignment = _dbus_type_get_alignment (array_elem_type);
-                p = _DBUS_ALIGN_ADDRESS (p, alignment);
+
+                a = _DBUS_ALIGN_ADDRESS (p, alignment);
+
+                /* a may now be == end */
+                if (a > end)
+                  return DBUS_INVALID_NOT_ENOUGH_DATA;
+
+                while (p != a)
+                  {
+                    if (*p != '\0')
+                      return DBUS_INVALID_ALIGNMENT_PADDING_NOT_NUL;
+                    ++p;
+                  }
               }
 
             if (claimed_len > (unsigned long) (end - p))
@@ -405,6 +428,7 @@ validate_body_helper (DBusTypeReader       *reader,
                 DBusTypeReader sub;
                 DBusValidity validity;
                 const unsigned char *array_end;
+                int array_elem_type;
 
                 if (claimed_len > DBUS_MAXIMUM_ARRAY_LENGTH)
                   return DBUS_INVALID_ARRAY_LENGTH_EXCEEDS_MAXIMUM;
@@ -417,16 +441,46 @@ validate_body_helper (DBusTypeReader       *reader,
 
                 array_end = p + claimed_len;
 
-                while (p < array_end)
+                array_elem_type = _dbus_type_reader_get_element_type (reader);
+
+                /* avoid recursive call to validate_body_helper if this is an array
+                 * of fixed-size elements
+                 */ 
+                if (dbus_type_is_fixed (array_elem_type))
                   {
-                    /* FIXME we are calling a function per array element! very bad
-                     * need if (dbus_type_is_fixed(elem_type)) here to just skip
-                     * big blocks of ints/bytes/etc.
-                     */                     
-                    
-                    validity = validate_body_helper (&sub, byte_order, FALSE, p, end, &p);
-                    if (validity != DBUS_VALID)
-                      return validity;
+                    /* bools need to be handled differently, because they can
+                     * have an invalid value
+                     */
+                    if (array_elem_type == DBUS_TYPE_BOOLEAN)
+                      {
+                        dbus_uint32_t v;
+                        alignment = _dbus_type_get_alignment (array_elem_type);
+
+                        while (p < array_end)
+                          {
+                            v = _dbus_unpack_uint32 (byte_order, p);
+
+                            if (!(v == 0 || v == 1))
+                              return DBUS_INVALID_BOOLEAN_NOT_ZERO_OR_ONE;
+
+                            p += alignment;
+                          }
+                      }
+
+                    else
+                      {
+                        p = array_end;
+                      }
+                  }
+
+                else
+                  {
+                    while (p < array_end)
+                      {
+                        validity = validate_body_helper (&sub, byte_order, FALSE, p, end, &p);
+                        if (validity != DBUS_VALID)
+                          return validity;
+                      }
                   }
 
                 if (p != array_end)
@@ -759,6 +813,77 @@ _dbus_validate_path (const DBusString  *str,
   return TRUE;
 }
 
+const char *
+_dbus_validity_to_error_message (DBusValidity validity)
+{
+  switch (validity)
+    {
+    case DBUS_VALIDITY_UNKNOWN_OOM_ERROR:                          return "Out of memory";
+    case DBUS_INVALID_FOR_UNKNOWN_REASON:                          return "Unknown reason";
+    case DBUS_VALID_BUT_INCOMPLETE:                                return "Valid but incomplete";
+    case DBUS_VALIDITY_UNKNOWN:                                    return "Validity unknown";
+    case DBUS_VALID:                                               return "Valid";
+    case DBUS_INVALID_UNKNOWN_TYPECODE:                            return "Unknown typecode";
+    case DBUS_INVALID_MISSING_ARRAY_ELEMENT_TYPE:                  return "Missing array element type";
+    case DBUS_INVALID_SIGNATURE_TOO_LONG:                          return "Signature is too long";
+    case DBUS_INVALID_EXCEEDED_MAXIMUM_ARRAY_RECURSION:            return "Exceeded maximum array recursion";
+    case DBUS_INVALID_EXCEEDED_MAXIMUM_STRUCT_RECURSION:           return "Exceeded maximum struct recursion";
+    case DBUS_INVALID_STRUCT_ENDED_BUT_NOT_STARTED:                return "Struct ended but not started";
+    case DBUS_INVALID_STRUCT_STARTED_BUT_NOT_ENDED:                return "Struct started but not ended";
+    case DBUS_INVALID_STRUCT_HAS_NO_FIELDS:                        return "Struct has no fields";
+    case DBUS_INVALID_ALIGNMENT_PADDING_NOT_NUL:                   return "Alignment padding not null";
+    case DBUS_INVALID_BOOLEAN_NOT_ZERO_OR_ONE:                     return "Boolean is not zero or one";
+    case DBUS_INVALID_NOT_ENOUGH_DATA:                             return "Not enough data";
+    case DBUS_INVALID_TOO_MUCH_DATA:                               return "Too much data";
+    case DBUS_INVALID_BAD_BYTE_ORDER:                              return "Bad byte order";
+    case DBUS_INVALID_BAD_PROTOCOL_VERSION:                        return "Bad protocol version";
+    case DBUS_INVALID_BAD_MESSAGE_TYPE:                            return "Bad message type";
+    case DBUS_INVALID_BAD_SERIAL:                                  return "Bad serial";
+    case DBUS_INVALID_INSANE_FIELDS_ARRAY_LENGTH:                  return "Insane fields array length";
+    case DBUS_INVALID_INSANE_BODY_LENGTH:                          return "Insane body length";
+    case DBUS_INVALID_MESSAGE_TOO_LONG:                            return "Message too long";
+    case DBUS_INVALID_HEADER_FIELD_CODE:                           return "Header field code";
+    case DBUS_INVALID_HEADER_FIELD_HAS_WRONG_TYPE:                 return "Header field has wrong type";
+    case DBUS_INVALID_USES_LOCAL_INTERFACE:                        return "Uses local interface";
+    case DBUS_INVALID_USES_LOCAL_PATH:                             return "Uses local path";
+    case DBUS_INVALID_HEADER_FIELD_APPEARS_TWICE:                  return "Header field appears twice";
+    case DBUS_INVALID_BAD_DESTINATION:                             return "Bad destination";
+    case DBUS_INVALID_BAD_INTERFACE:                               return "Bad interface";
+    case DBUS_INVALID_BAD_MEMBER:                                  return "Bad member";
+    case DBUS_INVALID_BAD_ERROR_NAME:                              return "Bad error name";
+    case DBUS_INVALID_BAD_SENDER:                                  return "Bad sender";
+    case DBUS_INVALID_MISSING_PATH:                                return "Missing path";
+    case DBUS_INVALID_MISSING_INTERFACE:                           return "Missing interface";
+    case DBUS_INVALID_MISSING_MEMBER:                              return "Missing member";
+    case DBUS_INVALID_MISSING_ERROR_NAME:                          return "Missing error name";
+    case DBUS_INVALID_MISSING_REPLY_SERIAL:                        return "Missing reply serial";
+    case DBUS_INVALID_LENGTH_OUT_OF_BOUNDS:                        return "Length out of bounds";
+    case DBUS_INVALID_ARRAY_LENGTH_EXCEEDS_MAXIMUM:                return "Array length exceeds maximum";
+    case DBUS_INVALID_BAD_PATH:                                    return "Bad path";
+    case DBUS_INVALID_SIGNATURE_LENGTH_OUT_OF_BOUNDS:              return "Signature length out of bounds";
+    case DBUS_INVALID_BAD_UTF8_IN_STRING:                          return "Bad utf8 in string";
+    case DBUS_INVALID_ARRAY_LENGTH_INCORRECT:                      return "Array length incorrect";
+    case DBUS_INVALID_VARIANT_SIGNATURE_LENGTH_OUT_OF_BOUNDS:      return "Variant signature length out of bounds";
+    case DBUS_INVALID_VARIANT_SIGNATURE_BAD:                       return "Variant signature bad";
+    case DBUS_INVALID_VARIANT_SIGNATURE_EMPTY:                     return "Variant signature empty";
+    case DBUS_INVALID_VARIANT_SIGNATURE_SPECIFIES_MULTIPLE_VALUES: return "Variant signature specifies multiple values";
+    case DBUS_INVALID_VARIANT_SIGNATURE_MISSING_NUL:               return "Variant signature missing nul";
+    case DBUS_INVALID_STRING_MISSING_NUL:                          return "String missing nul";
+    case DBUS_INVALID_SIGNATURE_MISSING_NUL:                       return "Signature missing nul";
+    case DBUS_INVALID_EXCEEDED_MAXIMUM_DICT_ENTRY_RECURSION:       return "Exceeded maximum dict entry recursion";
+    case DBUS_INVALID_DICT_ENTRY_ENDED_BUT_NOT_STARTED:            return "Dict entry ended but not started";
+    case DBUS_INVALID_DICT_ENTRY_STARTED_BUT_NOT_ENDED:            return "Dict entry started but not ended";
+    case DBUS_INVALID_DICT_ENTRY_HAS_NO_FIELDS:                    return "Dict entry has no fields";
+    case DBUS_INVALID_DICT_ENTRY_HAS_ONLY_ONE_FIELD:               return "Dict entry has only one field";
+    case DBUS_INVALID_DICT_ENTRY_HAS_TOO_MANY_FIELDS:              return "Dict entry has too many fields";
+    case DBUS_INVALID_DICT_ENTRY_NOT_INSIDE_ARRAY:                 return "Dict entry not inside array";
+    case DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE:                 return "Dict key must be basic type";
+
+    default:
+      return "Invalid";
+    }
+}
+
 /**
  * Checks that the given range of the string is a valid interface name
  * in the D-Bus protocol. This includes a length restriction and an
@@ -1065,17 +1190,17 @@ _dbus_validate_signature (const DBusString  *str,
 }
 
 /** define _dbus_check_is_valid_path() */
-DEFINE_DBUS_NAME_CHECK(path);
+DEFINE_DBUS_NAME_CHECK(path)
 /** define _dbus_check_is_valid_interface() */
-DEFINE_DBUS_NAME_CHECK(interface);
+DEFINE_DBUS_NAME_CHECK(interface)
 /** define _dbus_check_is_valid_member() */
-DEFINE_DBUS_NAME_CHECK(member);
+DEFINE_DBUS_NAME_CHECK(member)
 /** define _dbus_check_is_valid_error_name() */
-DEFINE_DBUS_NAME_CHECK(error_name);
+DEFINE_DBUS_NAME_CHECK(error_name)
 /** define _dbus_check_is_valid_bus_name() */
-DEFINE_DBUS_NAME_CHECK(bus_name);
+DEFINE_DBUS_NAME_CHECK(bus_name)
 /** define _dbus_check_is_valid_signature() */
-DEFINE_DBUS_NAME_CHECK(signature);
+DEFINE_DBUS_NAME_CHECK(signature)
 
 /** @} */
 

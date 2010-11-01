@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-spawn.h Wrapper around fork/exec
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.
@@ -18,7 +18,7 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -37,6 +37,7 @@ typedef struct DBusBabysitter DBusBabysitter;
 
 dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
                                                    char                     **argv,
+                                                   char                     **env,
                                                    DBusSpawnChildSetupFunc    child_setup,
                                                    void                      *user_data,
                                                    DBusError                 *error);
@@ -46,6 +47,8 @@ void        _dbus_babysitter_kill_child           (DBusBabysitter            *si
 dbus_bool_t _dbus_babysitter_get_child_exited     (DBusBabysitter            *sitter);
 void        _dbus_babysitter_set_child_exit_error (DBusBabysitter            *sitter,
                                                    DBusError                 *error);
+dbus_bool_t _dbus_babysitter_get_child_exit_status (DBusBabysitter           *sitter,
+                                                    int                      *status);
 dbus_bool_t _dbus_babysitter_set_watch_functions  (DBusBabysitter            *sitter,
                                                    DBusAddWatchFunction       add_function,
                                                    DBusRemoveWatchFunction    remove_function,

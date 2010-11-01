@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sysdeps-pthread.c Implements threads using pthreads (internal to libdbus)
  * 
  * Copyright (C) 2002, 2003, 2006  Red Hat, Inc.
@@ -17,10 +17,11 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include <config.h>
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
@@ -28,6 +29,19 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <string.h>
+
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
+
+#include <config.h>
+
+/* Whether we have a "monotonic" clock; i.e. a clock not affected by
+ * changes in system time.
+ * This is initialized once in check_monotonic_clock below.
+ * https://bugs.freedesktop.org/show_bug.cgi?id=18121
+ */
+static dbus_bool_t have_monotonic_clock = 0;
 
 typedef struct {
   pthread_mutex_t lock; /**< lock protecting count field */
@@ -180,13 +194,21 @@ static DBusCondVar *
 _dbus_pthread_condvar_new (void)
 {
   DBusCondVarPThread *pcond;
+  pthread_condattr_t attr;
   int result;
   
   pcond = dbus_new (DBusCondVarPThread, 1);
   if (pcond == NULL)
     return NULL;
 
-  result = pthread_cond_init (&pcond->cond, NULL);
+  pthread_condattr_init (&attr);
+#ifdef HAVE_MONOTONIC_CLOCK
+  if (have_monotonic_clock)
+    pthread_condattr_setclock (&attr, CLOCK_MONOTONIC);
+#endif
+
+  result = pthread_cond_init (&pcond->cond, &attr);
+  pthread_condattr_destroy (&attr);
 
   if (result == EAGAIN || result == ENOMEM)
     {
@@ -244,7 +266,18 @@ _dbus_pthread_condvar_wait_timeout (DBusCondVar               *cond,
   
   _dbus_assert (pmutex->count > 0);
   _dbus_assert (pthread_equal (pmutex->holder, pthread_self ()));  
-  
+
+#ifdef HAVE_MONOTONIC_CLOCK
+  if (have_monotonic_clock)
+    {
+      struct timespec monotonic_timer;
+      clock_gettime (CLOCK_MONOTONIC,&monotonic_timer);
+      time_now.tv_sec = monotonic_timer.tv_sec;
+      time_now.tv_usec = monotonic_timer.tv_nsec / 1000;
+    }
+  else
+    /* This else falls through to gettimeofday */
+#endif
   gettimeofday (&time_now, NULL);
   
   end_time.tv_sec = time_now.tv_sec + timeout_milliseconds / 1000;
@@ -313,8 +346,19 @@ static const DBusThreadFunctions pthread_functions =
   _dbus_pthread_mutex_unlock
 };
 
+static void
+check_monotonic_clock (void)
+{
+#ifdef HAVE_MONOTONIC_CLOCK
+  struct timespec dummy;
+  if (clock_getres (CLOCK_MONOTONIC, &dummy) == 0)
+    have_monotonic_clock = TRUE;
+#endif
+}
+
 dbus_bool_t
 _dbus_threads_init_platform_specific (void)
 {
+  check_monotonic_clock ();
   return dbus_threads_init (&pthread_functions);
 }
