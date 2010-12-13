@@ -333,6 +333,53 @@ simple_error (void)
   return message;
 }
 
+static DBusMessage*
+message_with_nesting_levels (int levels)
+{
+  DBusMessage *message;
+  dbus_int32_t v_INT32;
+  DBusMessageIter *parents;
+  DBusMessageIter *children;
+  int i;
+
+  /* If levels is higher it breaks sig_refcount in DBusMessageRealIter
+   * in dbus-message.c, this assert is just to help you know you need
+   * to fix that if you hit it
+   */
+  _dbus_assert (levels < 256);
+
+  parents = dbus_new(DBusMessageIter, levels + 1);
+  children = dbus_new(DBusMessageIter, levels + 1);
+
+  v_INT32 = 42;
+  message = simple_method_call ();
+
+  i = 0;
+  dbus_message_iter_init_append (message, &parents[i]);
+  while (i < levels)
+    {
+      dbus_message_iter_open_container (&parents[i], DBUS_TYPE_VARIANT,
+                                        i == (levels - 1) ?
+                                        DBUS_TYPE_INT32_AS_STRING :
+                                        DBUS_TYPE_VARIANT_AS_STRING,
+                                        &children[i]);
+      ++i;
+      parents[i] = children[i-1];
+    }
+  --i;
+  dbus_message_iter_append_basic (&children[i], DBUS_TYPE_INT32, &v_INT32);
+  while (i >= 0)
+    {
+      dbus_message_iter_close_container (&parents[i], &children[i]);
+      --i;
+    }
+
+  dbus_free(parents);
+  dbus_free(children);
+
+  return message;
+}
+
 static dbus_bool_t
 generate_special (DBusMessageDataIter   *iter,
                   DBusString            *data,
@@ -734,6 +781,24 @@ generate_special (DBusMessageDataIter   *iter,
       _dbus_string_set_byte (data, pos + 3, DBUS_DICT_ENTRY_END_CHAR);
       
       *expected_validity = DBUS_INVALID_DICT_ENTRY_HAS_NO_FIELDS;
+    }
+  else if (item_seq == 20)
+    {
+      /* 64 levels of nesting is OK */
+      message = message_with_nesting_levels(64);
+
+      generate_from_message (data, expected_validity, message);
+
+      *expected_validity = DBUS_VALID;
+    }
+  else if (item_seq == 21)
+    {
+      /* 65 levels of nesting is not OK */
+      message = message_with_nesting_levels(65);
+
+      generate_from_message (data, expected_validity, message);
+
+      *expected_validity = DBUS_INVALID_NESTED_TOO_DEEPLY;
     }
   else
     {

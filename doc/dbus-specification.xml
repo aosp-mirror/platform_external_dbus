@@ -565,12 +565,14 @@
 	      </row><row>
                 <entry><literal>VARIANT</literal></entry>
                 <entry>
-                  A variant type has a marshaled <literal>SIGNATURE</literal>
-                  followed by a marshaled value with the type
-                  given in the signature.
-                  Unlike a message signature, the variant signature 
-                  can contain only a single complete type.
-                  So "i", "ai" or "(ii)" is OK, but "ii" is not.
+                  A variant type has a marshaled
+                  <literal>SIGNATURE</literal> followed by a marshaled
+                  value with the type given in the signature.  Unlike
+                  a message signature, the variant signature can
+                  contain only a single complete type.  So "i", "ai"
+                  or "(ii)" is OK, but "ii" is not.  Use of variants may not
+                  cause a total message depth to be larger than 64, including
+		  other container types such as structures.
                 </entry>
                 <entry>
                   1 (alignment of the signature)

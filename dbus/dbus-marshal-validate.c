@@ -291,15 +291,29 @@ out:
   return result;
 }
 
+/* note: this function is also used to validate the header's values,
+ * since the header is a valid body with a particular signature.
+ */
 static DBusValidity
 validate_body_helper (DBusTypeReader       *reader,
                       int                   byte_order,
                       dbus_bool_t           walk_reader_to_end,
+                      int                   total_depth,
                       const unsigned char  *p,
                       const unsigned char  *end,
                       const unsigned char **new_p)
 {
   int current_type;
+
+  /* The spec allows arrays and structs to each nest 32, for total
+   * nesting of 2*32. We want to impose the same limit on "dynamic"
+   * value nesting (not visible in the signature) which is introduced
+   * by DBUS_TYPE_VARIANT.
+   */
+  if (total_depth > (DBUS_MAXIMUM_TYPE_RECURSION_DEPTH * 2))
+    {
+      return DBUS_INVALID_NESTED_TOO_DEEPLY;
+    }
 
   while ((current_type = _dbus_type_reader_get_current_type (reader)) != DBUS_TYPE_INVALID)
     {
@@ -477,7 +491,9 @@ validate_body_helper (DBusTypeReader       *reader,
                   {
                     while (p < array_end)
                       {
-                        validity = validate_body_helper (&sub, byte_order, FALSE, p, end, &p);
+                        validity = validate_body_helper (&sub, byte_order, FALSE,
+                                                         total_depth + 1,
+                                                         p, end, &p);
                         if (validity != DBUS_VALID)
                           return validity;
                       }
@@ -594,7 +610,9 @@ validate_body_helper (DBusTypeReader       *reader,
 
             _dbus_assert (_dbus_type_reader_get_current_type (&sub) != DBUS_TYPE_INVALID);
 
-            validity = validate_body_helper (&sub, byte_order, FALSE, p, end, &p);
+            validity = validate_body_helper (&sub, byte_order, FALSE,
+                                             total_depth + 1,
+                                             p, end, &p);
             if (validity != DBUS_VALID)
               return validity;
 
@@ -623,7 +641,9 @@ validate_body_helper (DBusTypeReader       *reader,
 
             _dbus_type_reader_recurse (reader, &sub);
 
-            validity = validate_body_helper (&sub, byte_order, TRUE, p, end, &p);
+            validity = validate_body_helper (&sub, byte_order, TRUE,
+                                             total_depth + 1,
+                                             p, end, &p);
             if (validity != DBUS_VALID)
               return validity;
           }
@@ -708,7 +728,7 @@ _dbus_validate_body_with_reason (const DBusString *expected_signature,
   p = _dbus_string_get_const_data_len (value_str, value_pos, len);
   end = p + len;
 
-  validity = validate_body_helper (&reader, byte_order, TRUE, p, end, &p);
+  validity = validate_body_helper (&reader, byte_order, TRUE, 0, p, end, &p);
   if (validity != DBUS_VALID)
     return validity;
   
@@ -878,7 +898,7 @@ _dbus_validity_to_error_message (DBusValidity validity)
     case DBUS_INVALID_DICT_ENTRY_HAS_TOO_MANY_FIELDS:              return "Dict entry has too many fields";
     case DBUS_INVALID_DICT_ENTRY_NOT_INSIDE_ARRAY:                 return "Dict entry not inside array";
     case DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE:                 return "Dict key must be basic type";
-
+    case DBUS_INVALID_NESTED_TOO_DEEPLY:                           return "Variants cannot be used to create a hugely recursive tree of values";
     default:
       return "Invalid";
     }
