@@ -1399,13 +1399,8 @@ _dbus_connection_ref_unlocked (DBusConnection *connection)
   _dbus_assert (connection->generation == _dbus_current_generation);
 
   HAVE_LOCK_CHECK (connection);
-  
-#ifdef DBUS_HAVE_ATOMIC_INT
+
   _dbus_atomic_inc (&connection->refcount);
-#else
-  _dbus_assert (connection->refcount.value > 0);
-  connection->refcount.value += 1;
-#endif
 
   return connection;
 }
@@ -1425,22 +1420,8 @@ _dbus_connection_unref_unlocked (DBusConnection *connection)
   
   _dbus_assert (connection != NULL);
 
-  /* The connection lock is better than the global
-   * lock in the atomic increment fallback
-   */
-  
-#ifdef DBUS_HAVE_ATOMIC_INT
   last_unref = (_dbus_atomic_dec (&connection->refcount) == 1);
-#else
-  _dbus_assert (connection->refcount.value > 0);
 
-  connection->refcount.value -= 1;
-  last_unref = (connection->refcount.value == 0);  
-#if 0
-  printf ("unref_unlocked() connection %p count = %d\n", connection, connection->refcount.value);
-#endif
-#endif
-  
   if (last_unref)
     _dbus_connection_last_unref (connection);
 }
@@ -2129,11 +2110,23 @@ _dbus_connection_send_and_unlock (DBusConnection *connection,
 void
 _dbus_connection_close_if_only_one_ref (DBusConnection *connection)
 {
-  CONNECTION_LOCK (connection);
-  
-  _dbus_assert (connection->refcount.value > 0);
+  dbus_int32_t tmp_refcount;
 
-  if (connection->refcount.value == 1)
+  CONNECTION_LOCK (connection);
+
+  /* We increment and then decrement the refcount, because there is no
+   * _dbus_atomic_get (mirroring the fact that there's no InterlockedGet
+   * on Windows). */
+  _dbus_atomic_inc (&connection->refcount);
+  tmp_refcount = _dbus_atomic_dec (&connection->refcount);
+
+  /* The caller should have one ref, and this function temporarily took
+   * one more, which is reflected in this count even though we already
+   * released it (relying on the caller's ref) due to _dbus_atomic_dec
+   * semantics */
+  _dbus_assert (tmp_refcount >= 2);
+
+  if (tmp_refcount == 2)
     _dbus_connection_close_possibly_shared_and_unlock (connection);
   else
     CONNECTION_UNLOCK (connection);
@@ -2635,25 +2628,8 @@ dbus_connection_ref (DBusConnection *connection)
 {
   _dbus_return_val_if_fail (connection != NULL, NULL);
   _dbus_return_val_if_fail (connection->generation == _dbus_current_generation, NULL);
-  
-  /* The connection lock is better than the global
-   * lock in the atomic increment fallback
-   *
-   * (FIXME but for now we always use the atomic version,
-   * to avoid taking the connection lock, due to
-   * the mess with set_timeout_functions()/set_watch_functions()
-   * calling out to the app without dropping locks)
-   */
-  
-#if 1
-  _dbus_atomic_inc (&connection->refcount);
-#else
-  CONNECTION_LOCK (connection);
-  _dbus_assert (connection->refcount.value > 0);
 
-  connection->refcount.value += 1;
-  CONNECTION_UNLOCK (connection);
-#endif
+  _dbus_atomic_inc (&connection->refcount);
 
   return connection;
 }
@@ -2790,33 +2766,9 @@ dbus_connection_unref (DBusConnection *connection)
 
   _dbus_return_if_fail (connection != NULL);
   _dbus_return_if_fail (connection->generation == _dbus_current_generation);
-  
-  /* The connection lock is better than the global
-   * lock in the atomic increment fallback
-   *
-   * (FIXME but for now we always use the atomic version,
-   * to avoid taking the connection lock, due to
-   * the mess with set_timeout_functions()/set_watch_functions()
-   * calling out to the app without dropping locks)
-   */
-  
-#if 1
+
   last_unref = (_dbus_atomic_dec (&connection->refcount) == 1);
-#else
-  CONNECTION_LOCK (connection);
-  
-  _dbus_assert (connection->refcount.value > 0);
 
-  connection->refcount.value -= 1;
-  last_unref = (connection->refcount.value == 0);
-
-#if 0
-  printf ("unref() connection %p count = %d\n", connection, connection->refcount.value);
-#endif
-  
-  CONNECTION_UNLOCK (connection);
-#endif
-  
   if (last_unref)
     {
 #ifndef DBUS_DISABLE_CHECKS
