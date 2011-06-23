@@ -131,8 +131,8 @@ _dbus_pending_call_new_unlocked (DBusConnection    *connection,
     {
       pending->timeout = NULL;
     }
-      
-  pending->refcount.value = 1;
+
+  _dbus_atomic_inc (&pending->refcount);
   pending->connection = connection;
   _dbus_connection_ref_unlocked (pending->connection);
 
@@ -372,8 +372,8 @@ _dbus_pending_call_set_timeout_error_unlocked (DBusPendingCall *pending,
 DBusPendingCall *
 _dbus_pending_call_ref_unlocked (DBusPendingCall *pending)
 {
-  pending->refcount.value += 1;
-  
+  _dbus_atomic_inc (&pending->refcount);
+
   return pending;
 }
 
@@ -431,15 +431,14 @@ _dbus_pending_call_last_unref (DBusPendingCall *pending)
 void
 _dbus_pending_call_unref_and_unlock (DBusPendingCall *pending)
 {
-  dbus_bool_t last_unref;
-  
-  _dbus_assert (pending->refcount.value > 0);
+  dbus_int32_t old_refcount;
 
-  pending->refcount.value -= 1;
-  last_unref = pending->refcount.value == 0;
+  old_refcount = _dbus_atomic_dec (&pending->refcount);
+  _dbus_assert (old_refcount > 0);
 
   CONNECTION_UNLOCK (pending->connection);
-  if (last_unref)
+
+  if (old_refcount == 1)
     _dbus_pending_call_last_unref (pending);
 }
 
@@ -532,19 +531,8 @@ dbus_pending_call_ref (DBusPendingCall *pending)
 {
   _dbus_return_val_if_fail (pending != NULL, NULL);
 
-  /* The connection lock is better than the global
-   * lock in the atomic increment fallback
-   */
-#ifdef DBUS_HAVE_ATOMIC_INT
   _dbus_atomic_inc (&pending->refcount);
-#else
-  CONNECTION_LOCK (pending->connection);
-  _dbus_assert (pending->refcount.value > 0);
 
-  pending->refcount.value += 1;
-  CONNECTION_UNLOCK (pending->connection);
-#endif
-  
   return pending;
 }
 
@@ -561,19 +549,8 @@ dbus_pending_call_unref (DBusPendingCall *pending)
 
   _dbus_return_if_fail (pending != NULL);
 
-  /* More efficient to use the connection lock instead of atomic
-   * int fallback if we lack atomic int decrement
-   */
-#ifdef DBUS_HAVE_ATOMIC_INT
   last_unref = (_dbus_atomic_dec (&pending->refcount) == 1);
-#else
-  CONNECTION_LOCK (pending->connection);
-  _dbus_assert (pending->refcount.value > 0);
-  pending->refcount.value -= 1;
-  last_unref = pending->refcount.value == 0;
-  CONNECTION_UNLOCK (pending->connection);
-#endif
-  
+
   if (last_unref)
     _dbus_pending_call_last_unref(pending);
 }
