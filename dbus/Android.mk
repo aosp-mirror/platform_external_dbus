@@ -2,8 +2,6 @@
 # See also config.h to turn on verbose logs
 LOG_TO_ANDROID_LOGCAT := true
 
-ifneq ($(TARGET_SIMULATOR),true)
-
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -78,5 +76,3 @@ LOCAL_SHARED_LIBRARIES+= libcutils
 endif
 
 include $(BUILD_SHARED_LIBRARY)
-
-endif
