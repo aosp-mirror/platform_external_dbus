@@ -77,6 +77,11 @@
 #include <bsm/adt.h>
 #endif
 
+// Android specific atomic operation header.
+#ifdef ANDROID_ATOMIC
+#include <cutils/atomic.h>
+#endif
+
 #include "sd-daemon.h"
 
 #ifndef O_BINARY
@@ -2349,6 +2354,8 @@ _dbus_atomic_inc (DBusAtomic *atomic)
 {
 #if DBUS_USE_SYNC
   return __sync_add_and_fetch(&atomic->value, 1)-1;
+#elif defined(ANDROID_ATOMIC)
+  return android_atomic_inc (&(atomic->value));
 #else
   dbus_int32_t res;
   _DBUS_LOCK (atomic);
@@ -2370,6 +2377,8 @@ _dbus_atomic_dec (DBusAtomic *atomic)
 {
 #if DBUS_USE_SYNC
   return __sync_sub_and_fetch(&atomic->value, 1)+1;
+#elif defined(ANDROID_ATOMIC)
+  return android_atomic_dec (&(atomic->value));
 #else
   dbus_int32_t res;
 
