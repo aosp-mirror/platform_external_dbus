@@ -248,8 +248,12 @@ _dbus_pthread_condvar_wait (DBusCondVar *cond,
   pmutex->count = 0;		/* allow other threads to lock */
   PTHREAD_CHECK ("pthread_cond_wait", pthread_cond_wait (&pcond->cond, &pmutex->lock));
   _dbus_assert (pmutex->count == 0);
-  pmutex->count = old_count;
   pmutex->holder = pthread_self(); /* other threads may have locked the mutex in the meantime */
+
+  /* The order of this line and the above line is important.
+   * See the comments below at the end of _dbus_pthread_condvar_wait_timeout
+   */
+  pmutex->count = old_count;
 }
 
 static dbus_bool_t
@@ -298,8 +302,13 @@ _dbus_pthread_condvar_wait_timeout (DBusCondVar               *cond,
     }
 
   _dbus_assert (pmutex->count == 0);
-  pmutex->count = old_count;
   pmutex->holder = pthread_self(); /* other threads may have locked the mutex in the meantime */
+
+  /* restore to old count after setting the owner back to self,
+   * If reversing this line with above line, the previous owner thread could
+   * get into the mutex without proper locking by passing the lock owner check.
+   */
+  pmutex->count = old_count;
   
   /* return true if we did not time out */
   return result != ETIMEDOUT;
