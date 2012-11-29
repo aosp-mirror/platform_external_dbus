@@ -377,7 +377,6 @@ dbus_set_error (DBusError  *error,
                                 message_from_error (name)))
         {
           _dbus_string_free (&str);
-          va_end (args);
           goto nomem;
         }
     }
