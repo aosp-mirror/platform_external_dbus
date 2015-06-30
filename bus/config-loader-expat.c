@@ -24,7 +24,7 @@
 #include <config.h>
 #include "config-parser.h"
 #include <dbus/dbus-internals.h>
-#include <expat.h>
+#include <libexpat/expat.h>
 
 static XML_Memory_Handling_Suite memsuite;
 
