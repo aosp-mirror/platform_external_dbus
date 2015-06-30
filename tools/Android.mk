@@ -1,15 +1,20 @@
 LOCAL_PATH := $(call my-dir)
 
+commonCIncludes := $(LOCAL_PATH)/..
+commonCFlags := \
+	-DDBUS_COMPILATION \
+	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\" \
+	-Wno-unused-parameter
+commonSharedLibraries := libdbus
+
 # common
 
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := dbus-print-message.c
-LOCAL_C_INCLUDES += $(call include-path-for, dbus)
-LOCAL_SHARED_LIBRARIES += libdbus
-LOCAL_CFLAGS += \
-	-DDBUS_COMPILATION \
-	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\"
+LOCAL_C_INCLUDES += $(commonCIncludes)
+LOCAL_SHARED_LIBRARIES += $(commonSharedLibraries)
+LOCAL_CFLAGS += $(commonCFlags)
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := libdbus-tools-common
@@ -20,12 +25,10 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := dbus-monitor.c
-LOCAL_C_INCLUDES += $(call include-path-for, dbus)
-LOCAL_SHARED_LIBRARIES += libdbus
+LOCAL_C_INCLUDES += $(commonCIncludes)
+LOCAL_SHARED_LIBRARIES += $(commonSharedLibraries)
 LOCAL_STATIC_LIBRARIES += libdbus-tools-common
-LOCAL_CFLAGS += \
-	-DDBUS_COMPILATION \
-	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\"
+LOCAL_CFLAGS += $(commonCFlags)
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := dbus-monitor
@@ -36,12 +39,10 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := dbus-send.c
-LOCAL_C_INCLUDES += $(call include-path-for, dbus)
-LOCAL_SHARED_LIBRARIES += libdbus
+LOCAL_C_INCLUDES += $(commonCIncludes)
+LOCAL_SHARED_LIBRARIES += $(commonSharedLibraries)
 LOCAL_STATIC_LIBRARIES += libdbus-tools-common
-LOCAL_CFLAGS += \
-	-DDBUS_COMPILATION \
-	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\"
+LOCAL_CFLAGS += $(commonCFlags)
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := dbus-send

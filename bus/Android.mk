@@ -6,17 +6,20 @@ LOCAL_C_INCLUDES:= \
 	$(call include-path-for, dbus)/dbus \
 	external/expat/lib/
 
-LOCAL_CFLAGS:=-O3
-LOCAL_CFLAGS+=-DDBUS_COMPILATION
-#LOCAL_CFLAGS+=-DDBUS_MACHINE_UUID_FILE=\"/system/etc/machine-id\"
-LOCAL_CFLAGS+=-DDBUS_DAEMON_NAME=\"dbus-daemon\"
-LOCAL_CFLAGS+=-DDBUS_SYSTEM_CONFIG_FILE=\"/system/etc/dbus.conf\"
-LOCAL_CFLAGS+=-DDBUS_SESSION_CONFIG_FILE=\"/system/etc/session.conf\"
+LOCAL_CFLAGS:= \
+	-O3 \
+	-DDBUS_COMPILATION \
+	-DDBUS_DAEMON_NAME=\"dbus-daemon\" \
+	-DDBUS_SYSTEM_CONFIG_FILE=\"/system/etc/dbus.conf\" \
+	-DDBUS_SESSION_CONFIG_FILE=\"/system/etc/session.conf\" \
+	-Wno-address \
+	-Wno-empty-body \
+	-Wno-pointer-sign \
+	-Wno-unused-parameter
 
-# We get warning in the _DBUS_ASSERT_ERROR_IS_SET macro.  Suppress
-# this warning so that we can compile with Werror.  The warning
-# is also ignored in dbus-1.4.6.
-LOCAL_CFLAGS+=-Wno-address
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/.. \
+	external/expat/lib
 
 LOCAL_SRC_FILES:= \
 	activation.c \

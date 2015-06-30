@@ -57,18 +57,24 @@ dbus-userdb-util.c \
 dbus-watch.c \
 sd-daemon.c \
 
-LOCAL_C_INCLUDES+= \
-	$(call include-path-for, dbus)
+LOCAL_C_INCLUDES+= $(LOCAL_PATH)/..
 
 LOCAL_MODULE:=libdbus
 
 LOCAL_CFLAGS+= \
 	-DDBUS_COMPILATION \
 	-DANDROID_MANAGED_SOCKET \
-    -DANDROID_ATOMIC \
+	-DANDROID_ATOMIC \
 	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\" \
-    -DDBUS_SYSTEM_CONFIG_FILE=\"/system/etc/dbus.conf\" \
-    -DDBUS_SESSION_CONFIG_FILE=\"/system/etc/session.conf\"
+	-DDBUS_SYSTEM_CONFIG_FILE=\"/system/etc/dbus.conf\" \
+	-DDBUS_SESSION_CONFIG_FILE=\"/system/etc/session.conf\" \
+	-Wno-empty-body \
+	-Wno-missing-field-initializers \
+	-Wno-pointer-sign \
+	-Wno-sign-compare \
+	-Wno-tautological-compare \
+	-Wno-type-limits \
+	-Wno-unused-parameter
 
 
 ifeq ($(LOG_TO_ANDROID_LOGCAT),true)
