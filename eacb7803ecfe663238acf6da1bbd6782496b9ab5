@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "534a1d43_e1205060",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 1003224
+      },
+      "writtenOn": "2015-07-07T23:17:42Z",
+      "side": 1,
+      "message": "should there be an EXPORT for this library\u0027s includes?",
+      "revId": "eacb7803ecfe663238acf6da1bbd6782496b9ab5",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    }
+  ]
+}
