@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "736d61b3_2e422de3",
+        "filename": "bus/Android.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 1003224
+      },
+      "writtenOn": "2015-07-08T03:18:56Z",
+      "side": 0,
+      "message": "this include-path-for and its centralized list (which dbus is apparently no longer in!) is obsolete, so just to get the build green i\u0027ve replaced this with the simplest possible thing.\n\nthe alternative would have been to comment out/remove your top-level Android.mk but i figured you\u0027d want to replace this stuff anyway.",
+      "revId": "75c4b89fa7ffa66b07164ca1c5b109e36e5e97aa",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    }
+  ]
+}
