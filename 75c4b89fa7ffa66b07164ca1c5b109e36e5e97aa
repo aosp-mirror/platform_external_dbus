@@ -16,6 +16,24 @@
       "revId": "75c4b89fa7ffa66b07164ca1c5b109e36e5e97aa",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "534a1d43_19378c0c",
+        "filename": "bus/Android.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-08T12:43:43Z",
+      "side": 0,
+      "message": "thanks for the fix.\n\nyeah, https://android-review.googlesource.com/#/c/158258/ does the same thing but i didn\u0027t realize it had to go in before this change. (i\u0027m still not entirely sure why this broke things given that it shouldn\u0027t be getting built yet, as far as i\u0027m aware.)",
+      "parentUuid": "736d61b3_2e422de3",
+      "revId": "75c4b89fa7ffa66b07164ca1c5b109e36e5e97aa",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
     }
   ]
 }
