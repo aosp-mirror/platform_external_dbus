@@ -33,30 +33,20 @@ typedef struct DBusLoop DBusLoop;
 typedef dbus_bool_t (* DBusWatchFunction)   (DBusWatch     *watch,
                                              unsigned int   condition,
                                              void          *data);
-typedef void        (* DBusTimeoutFunction) (DBusTimeout   *timeout,
-                                             void          *data);
 
 DBusLoop*   _dbus_loop_new            (void);
 DBusLoop*   _dbus_loop_ref            (DBusLoop            *loop);
 void        _dbus_loop_unref          (DBusLoop            *loop);
 dbus_bool_t _dbus_loop_add_watch      (DBusLoop            *loop,
-                                       DBusWatch           *watch,
-                                       DBusWatchFunction    function,
-                                       void                *data,
-                                       DBusFreeFunction     free_data_func);
+                                       DBusWatch           *watch);
 void        _dbus_loop_remove_watch   (DBusLoop            *loop,
-                                       DBusWatch           *watch,
-                                       DBusWatchFunction    function,
-                                       void                *data);
+                                       DBusWatch           *watch);
+void        _dbus_loop_toggle_watch   (DBusLoop            *loop,
+                                       DBusWatch           *watch);
 dbus_bool_t _dbus_loop_add_timeout    (DBusLoop            *loop,
-                                       DBusTimeout         *timeout,
-                                       DBusTimeoutFunction  function,
-                                       void                *data,
-                                       DBusFreeFunction     free_data_func);
+                                       DBusTimeout         *timeout);
 void        _dbus_loop_remove_timeout (DBusLoop            *loop,
-                                       DBusTimeout         *timeout,
-                                       DBusTimeoutFunction  function,
-                                       void                *data);
+                                       DBusTimeout         *timeout);
 
 dbus_bool_t _dbus_loop_queue_dispatch (DBusLoop            *loop,
                                        DBusConnection      *connection);

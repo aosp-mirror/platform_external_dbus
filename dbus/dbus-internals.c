@@ -26,6 +26,7 @@
 #include "dbus-protocol.h"
 #include "dbus-marshal-basic.h"
 #include "dbus-test.h"
+#include "dbus-valgrind-internal.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -314,9 +315,6 @@ static dbus_bool_t verbose = TRUE;
 #include <pthread.h>
 #endif
 
-#ifdef _MSC_VER
-#define inline
-#endif
 #ifdef DBUS_USE_OUTPUT_DEBUG_STRING
 static char module_name[1024];
 #endif
@@ -369,7 +367,6 @@ _dbus_verbose_init (void)
 static char *_dbus_file_path_extract_elements_from_tail(const char *file,int level)
 {
   static int prefix = -1;
-  char *p;
 
   if (prefix == -1) 
     {
@@ -412,20 +409,19 @@ _dbus_is_verbose_real (void)
  * @param format printf-style format string.
  */
 void
+_dbus_verbose_real (
 #ifdef DBUS_CPP_SUPPORTS_VARIABLE_MACRO_ARGUMENTS
-_dbus_verbose_real (const char *file, 
+                    const char *file,
                     const int line, 
                     const char *function, 
-                    const char *format,
-#else
-_dbus_verbose_real (const char *format,
 #endif
+                    const char *format,
                     ...)
 {
   va_list args;
   static dbus_bool_t need_pid = TRUE;
   int len;
-
+  
   /* things are written a bit oddly here so that
    * in the non-verbose case we just have the one
    * conditional and return immediately.
@@ -490,6 +486,72 @@ void
 _dbus_verbose_reset_real (void)
 {
   verbose_initted = FALSE;
+}
+
+void
+_dbus_trace_ref (const char *obj_name,
+                 void       *obj,
+                 int         old_refcount,
+                 int         new_refcount,
+                 const char *why,
+                 const char *env_var,
+                 int        *enabled)
+{
+  _dbus_assert (obj_name != NULL);
+  _dbus_assert (obj != NULL);
+  _dbus_assert (old_refcount >= -1);
+  _dbus_assert (new_refcount >= -1);
+
+  if (old_refcount == -1)
+    {
+      _dbus_assert (new_refcount == -1);
+    }
+  else
+    {
+      _dbus_assert (new_refcount >= 0);
+      _dbus_assert (old_refcount >= 0);
+      _dbus_assert (old_refcount > 0 || new_refcount > 0);
+    }
+
+  _dbus_assert (why != NULL);
+  _dbus_assert (env_var != NULL);
+  _dbus_assert (enabled != NULL);
+
+  if (*enabled < 0)
+    {
+      const char *s = _dbus_getenv (env_var);
+
+      *enabled = FALSE;
+
+      if (s && *s)
+        {
+          if (*s == '0')
+            *enabled = FALSE;
+          else if (*s == '1')
+            *enabled = TRUE;
+          else
+            _dbus_warn ("%s should be 0 or 1 if set, not '%s'", env_var, s);
+        }
+    }
+
+  if (*enabled)
+    {
+      if (old_refcount == -1)
+        {
+          VALGRIND_PRINTF_BACKTRACE ("%s %p ref stolen (%s)",
+                                     obj_name, obj, why);
+          _dbus_verbose ("%s %p ref stolen (%s)",
+                         obj_name, obj, why);
+        }
+      else
+        {
+          VALGRIND_PRINTF_BACKTRACE ("%s %p %d -> %d refs (%s)",
+                                     obj_name, obj,
+                                     old_refcount, new_refcount, why);
+          _dbus_verbose ("%s %p %d -> %d refs (%s)",
+                         obj_name, obj, old_refcount, new_refcount, why);
+        }
+    }
 }
 
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
@@ -621,7 +683,10 @@ _dbus_generate_uuid (DBusGUID *uuid)
 {
   long now;
 
-  _dbus_get_current_time (&now, NULL);
+  /* don't use monotonic time because the UUID may be saved to disk, e.g.
+   * it may persist across reboots
+   */
+  _dbus_get_real_time (&now, NULL);
 
   uuid->as_uint32s[DBUS_UUID_LENGTH_WORDS - 1] = DBUS_UINT32_TO_BE (now);
   
@@ -854,42 +919,6 @@ _dbus_get_local_machine_uuid_encoded (DBusString *uuid_str)
 
   return ok;
 }
-
-#ifdef DBUS_BUILD_TESTS
-/**
- * Returns a string describing the given name.
- *
- * @param header_field the field to describe
- * @returns a constant string describing the field
- */
-const char *
-_dbus_header_field_to_string (int header_field)
-{
-  switch (header_field)
-    {
-    case DBUS_HEADER_FIELD_INVALID:
-      return "invalid";
-    case DBUS_HEADER_FIELD_PATH:
-      return "path";
-    case DBUS_HEADER_FIELD_INTERFACE:
-      return "interface";
-    case DBUS_HEADER_FIELD_MEMBER:
-      return "member";
-    case DBUS_HEADER_FIELD_ERROR_NAME:
-      return "error-name";
-    case DBUS_HEADER_FIELD_REPLY_SERIAL:
-      return "reply-serial";
-    case DBUS_HEADER_FIELD_DESTINATION:
-      return "destination";
-    case DBUS_HEADER_FIELD_SENDER:
-      return "sender";
-    case DBUS_HEADER_FIELD_SIGNATURE:
-      return "signature";
-    default:
-      return "unknown";
-    }
-}
-#endif /* DBUS_BUILD_TESTS */
 
 #ifndef DBUS_DISABLE_CHECKS
 /** String used in _dbus_return_if_fail macro */

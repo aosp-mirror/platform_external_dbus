@@ -1,5 +1,5 @@
 [D-BUS Service]
 Name=org.freedesktop.DBus.TestSuiteSegfaultService
-Exec=@TEST_SEGFAULT_BINARY@
+Exec=@DBUS_TEST_EXEC@/test-segfault@EXEEXT@
 User=anyrandomuser
 

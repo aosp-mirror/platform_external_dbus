@@ -49,7 +49,7 @@ bus_config_parser_element_name_to_type (const char *name)
     }
   else if (strcmp (name, "type") == 0)
     {
-      return ELEMENT_TYPE;
+      return ELEMENT_CONFIGTYPE;
     }
   else if (strcmp (name, "fork") == 0)
     {
@@ -169,7 +169,7 @@ bus_config_parser_element_type_to_name (ElementType type)
       return "servicehelper";
     case ELEMENT_INCLUDEDIR:
       return "includedir";
-    case ELEMENT_TYPE:
+    case ELEMENT_CONFIGTYPE:
       return "type";
     case ELEMENT_SELINUX:
       return "selinux";

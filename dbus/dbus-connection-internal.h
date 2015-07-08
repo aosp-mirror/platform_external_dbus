@@ -48,13 +48,11 @@ void              _dbus_connection_lock                        (DBusConnection  
 void              _dbus_connection_unlock                      (DBusConnection     *connection);
 DBusConnection *  _dbus_connection_ref_unlocked                (DBusConnection     *connection);
 void              _dbus_connection_unref_unlocked              (DBusConnection     *connection);
-dbus_bool_t       _dbus_connection_queue_received_message      (DBusConnection     *connection,
-                                                                DBusMessage        *message);
 void              _dbus_connection_queue_received_message_link (DBusConnection     *connection,
                                                                 DBusList           *link);
 dbus_bool_t       _dbus_connection_has_messages_to_send_unlocked (DBusConnection     *connection);
 DBusMessage*      _dbus_connection_get_message_to_send         (DBusConnection     *connection);
-void              _dbus_connection_message_sent                (DBusConnection     *connection,
+void              _dbus_connection_message_sent_unlocked       (DBusConnection     *connection,
                                                                 DBusMessage        *message);
 dbus_bool_t       _dbus_connection_add_watch_unlocked          (DBusConnection     *connection,
                                                                 DBusWatch          *watch);
@@ -102,6 +100,23 @@ void              _dbus_connection_test_get_locks                 (DBusConnectio
                                                                    DBusMutex **io_path_mutex_loc,
                                                                    DBusCondVar **dispatch_cond_loc,
                                                                    DBusCondVar **io_path_cond_loc);
+
+/* if DBUS_ENABLE_STATS */
+void _dbus_connection_get_stats (DBusConnection *connection,
+                                 dbus_uint32_t  *in_messages,
+                                 dbus_uint32_t  *in_bytes,
+                                 dbus_uint32_t  *in_fds,
+                                 dbus_uint32_t  *in_peak_bytes,
+                                 dbus_uint32_t  *in_peak_fds,
+                                 dbus_uint32_t  *out_messages,
+                                 dbus_uint32_t  *out_bytes,
+                                 dbus_uint32_t  *out_fds,
+                                 dbus_uint32_t  *out_peak_bytes,
+                                 dbus_uint32_t  *out_peak_fds);
+
+
+/* if DBUS_BUILD_TESTS */
+const char* _dbus_connection_get_address (DBusConnection *connection);
 
 /* This _dbus_bus_* stuff doesn't really belong here, but dbus-bus-internal.h seems
  * silly for one function

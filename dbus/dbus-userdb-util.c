@@ -28,6 +28,11 @@
 #include "dbus-protocol.h"
 #include <string.h>
 
+#if HAVE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#include <systemd/sd-login.h>
+#endif
+
 /**
  * @addtogroup DBusInternalsUtils
  * @{
@@ -47,7 +52,28 @@ _dbus_is_console_user (dbus_uid_t uid,
 
   DBusUserDatabase *db;
   const DBusUserInfo *info;
-  dbus_bool_t result = FALSE; 
+  dbus_bool_t result = FALSE;
+
+#ifdef HAVE_SYSTEMD
+  if (sd_booted () > 0)
+    {
+      int r;
+
+      /* Check whether this user is logged in on at least one physical
+         seat */
+      r = sd_uid_get_seats (uid, 0, NULL);
+      if (r < 0)
+        {
+          dbus_set_error (error, _dbus_error_from_errno (-r),
+                          "Failed to determine seats of user \"" DBUS_UID_FORMAT "\": %s",
+                          uid,
+                          _dbus_strerror (-r));
+          return FALSE;
+        }
+
+      return (r > 0);
+    }
+#endif
 
 #ifdef HAVE_CONSOLE_OWNER_FILE
 
@@ -414,6 +440,7 @@ _dbus_userdb_test (const char *test_data_dir)
   dbus_uid_t uid;
   unsigned long *group_ids;
   int n_group_ids, i;
+  DBusError error;
 
   if (!_dbus_username_from_current_process (&username))
     _dbus_assert_not_reached ("didn't get username");
@@ -435,7 +462,17 @@ _dbus_userdb_test (const char *test_data_dir)
       printf(" %ld", group_ids[i]);
 
   printf ("\n");
- 
+
+  dbus_error_init (&error);
+  printf ("Is Console user: %i\n",
+          _dbus_is_console_user (uid, &error));
+  printf ("Invocation was OK: %s\n", error.message ? error.message : "yes");
+  dbus_error_free (&error);
+  printf ("Is Console user 4711: %i\n",
+          _dbus_is_console_user (4711, &error));
+  printf ("Invocation was OK: %s\n", error.message ? error.message : "yes");
+  dbus_error_free (&error);
+
   dbus_free (group_ids);
 
   return TRUE;

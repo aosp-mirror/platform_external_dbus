@@ -12,5 +12,6 @@ daemondir=@DBUS_DAEMONDIR@
 Name: dbus
 Description: Free desktop message bus
 Version: @VERSION@
-Libs: -L${libdir} -ldbus-1 @DBUS_CLIENT_LIBS@
-Cflags: -I${includedir}/dbus-1.0 -I${libdir}/dbus-1.0/include
+Libs: -L${libdir} -ldbus-1
+Libs.private: @LIBDBUS_LIBS@
+Cflags: -I${includedir}/dbus-1.0 -I${libdir}/dbus-1.0/include @DBUS_STATIC_BUILD_CPPFLAGS@

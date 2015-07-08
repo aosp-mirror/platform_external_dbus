@@ -67,12 +67,12 @@ _dbus_data_slot_allocator_init (DBusDataSlotAllocator *allocator)
  */
 dbus_bool_t
 _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator,
-                                 DBusMutex             **mutex_loc,
+                                 DBusRMutex            **mutex_loc,
                                  dbus_int32_t          *slot_id_p)
 {
   dbus_int32_t slot;
 
-  _dbus_mutex_lock (*mutex_loc);
+  _dbus_rmutex_lock (*mutex_loc);
 
   if (allocator->n_allocated_slots == 0)
     {
@@ -146,7 +146,7 @@ _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator,
                  slot, allocator, allocator->n_allocated_slots, allocator->n_used_slots);
   
  out:
-  _dbus_mutex_unlock (*(allocator->lock_loc));
+  _dbus_rmutex_unlock (*(allocator->lock_loc));
   return slot >= 0;
 }
 
@@ -165,7 +165,7 @@ void
 _dbus_data_slot_allocator_free (DBusDataSlotAllocator *allocator,
                                 dbus_int32_t          *slot_id_p)
 {
-  _dbus_mutex_lock (*(allocator->lock_loc));
+  _dbus_rmutex_lock (*(allocator->lock_loc));
   
   _dbus_assert (*slot_id_p < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[*slot_id_p].slot_id == *slot_id_p);
@@ -175,7 +175,7 @@ _dbus_data_slot_allocator_free (DBusDataSlotAllocator *allocator,
 
   if (allocator->allocated_slots[*slot_id_p].refcount > 0)
     {
-      _dbus_mutex_unlock (*(allocator->lock_loc));
+      _dbus_rmutex_unlock (*(allocator->lock_loc));
       return;
     }
 
@@ -190,18 +190,18 @@ _dbus_data_slot_allocator_free (DBusDataSlotAllocator *allocator,
   
   if (allocator->n_used_slots == 0)
     {
-      DBusMutex **mutex_loc = allocator->lock_loc;
+      DBusRMutex **mutex_loc = allocator->lock_loc;
       
       dbus_free (allocator->allocated_slots);
       allocator->allocated_slots = NULL;
       allocator->n_allocated_slots = 0;
       allocator->lock_loc = NULL;
 
-      _dbus_mutex_unlock (*mutex_loc);
+      _dbus_rmutex_unlock (*mutex_loc);
     }
   else
     {
-      _dbus_mutex_unlock (*(allocator->lock_loc));
+      _dbus_rmutex_unlock (*(allocator->lock_loc));
     }
 }
 
@@ -247,10 +247,10 @@ _dbus_data_slot_list_set  (DBusDataSlotAllocator *allocator,
    * be e.g. realloc()ing allocated_slots. We avoid doing this if asserts
    * are disabled, since then the asserts are empty.
    */
-  _dbus_mutex_lock (*(allocator->lock_loc));
+  _dbus_rmutex_lock (*(allocator->lock_loc));
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot].slot_id == slot);
-  _dbus_mutex_unlock (*(allocator->lock_loc));
+  _dbus_rmutex_unlock (*(allocator->lock_loc));
 #endif
   
   if (slot >= list->n_slots)
@@ -304,11 +304,11 @@ _dbus_data_slot_list_get  (DBusDataSlotAllocator *allocator,
    * be e.g. realloc()ing allocated_slots. We avoid doing this if asserts
    * are disabled, since then the asserts are empty.
    */
-  _dbus_mutex_lock (*(allocator->lock_loc));
+  _dbus_rmutex_lock (*(allocator->lock_loc));
   _dbus_assert (slot >= 0);
   _dbus_assert (slot < allocator->n_allocated_slots);
   _dbus_assert (allocator->allocated_slots[slot].slot_id == slot);
-  _dbus_mutex_unlock (*(allocator->lock_loc));
+  _dbus_rmutex_unlock (*(allocator->lock_loc));
 #endif
 
   if (slot >= list->n_slots)
@@ -384,14 +384,14 @@ _dbus_data_slot_test (void)
   int i;
   DBusFreeFunction old_free_func;
   void *old_data;
-  DBusMutex *mutex;
+  DBusRMutex *mutex;
   
   if (!_dbus_data_slot_allocator_init (&allocator))
     _dbus_assert_not_reached ("no memory for allocator");
 
   _dbus_data_slot_list_init (&list);
 
-  _dbus_mutex_new_at_location (&mutex);
+  _dbus_rmutex_new_at_location (&mutex);
   if (mutex == NULL)
     _dbus_assert_not_reached ("failed to alloc mutex");
   
@@ -471,7 +471,7 @@ _dbus_data_slot_test (void)
       ++i;
     }
 
-  _dbus_mutex_free_at_location (&mutex);
+  _dbus_rmutex_free_at_location (&mutex);
   
   return TRUE;
 }

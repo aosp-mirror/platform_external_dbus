@@ -512,6 +512,7 @@ statements, and works just like &lt;deny&gt; but with the inverse meaning.</para
    eavesdrop="true" | "false"
 
    own="name"
+   own_prefix="name"
    user="username"
    group="groupname"
 </literallayout> <!-- .fi -->
@@ -590,6 +591,13 @@ the character "*" can be substituted, meaning "any." Complex globs
 like "foo.bar.*" aren't allowed for now because they'd be work to
 implement and maybe encourage sloppy security anyway.</para>
 
+<para>&lt;allow own_prefix="a.b"/&gt; allows you to own the name "a.b" or any
+name whose first dot-separated elements are "a.b": in particular,
+you can own "a.b.c" or "a.b.c.d", but not "a.bc" or "a.c".
+This is useful when services like Telepathy and ReserveDevice
+define a meaning for subtrees of well-known names, such as
+org.freedesktop.Telepathy.ConnectionManager.(anything)
+and org.freedesktop.ReserveDevice1.(anything).</para>
 
 <para>It does not make sense to deny a user or group inside a &lt;policy&gt;
 for a user or group; user/group denials can only be inside

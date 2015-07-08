@@ -275,7 +275,10 @@ _dbus_string_save_to_file (const DBusString *str,
       goto out;
     }
   if (world_readable)
-    _dbus_make_file_world_readable (tmp_filename_c);
+    {
+      if (! _dbus_make_file_world_readable (&tmp_filename, error))
+        goto out;
+    }
 
   _dbus_verbose ("tmp file %s hnd %p opened\n", tmp_filename_c, hnd);
 

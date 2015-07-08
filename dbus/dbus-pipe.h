@@ -39,11 +39,11 @@
 #include <dbus/dbus-sysdeps.h>
 
 struct DBusPipe {
-  intptr_t fd_or_handle;
+  int fd;
 };
 
 void        _dbus_pipe_init                (DBusPipe         *pipe,
-                                            intptr_t          fd);
+                                            int               fd);
 void        _dbus_pipe_init_stdout         (DBusPipe         *pipe);
 int         _dbus_pipe_write               (DBusPipe         *pipe,
                                             const DBusString *buffer,

@@ -15,6 +15,7 @@ unbase64
 *.gcov
 break-loader
 spawn-test
+test-corrupt
 test-exit
 test-segfault
 test-service
@@ -23,3 +24,7 @@ decode-gcov
 shell-test
 test-shell-service
 test-names
+test-loopback
+test-relay
+test-dbus-daemon
+test-marshal

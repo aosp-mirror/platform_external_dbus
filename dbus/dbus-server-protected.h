@@ -50,13 +50,14 @@ struct DBusServerVTable
 };
 
 /**
+ * @ingroup DBusServerInternals
  * Internals of DBusServer object
  */
 struct DBusServer
 {
   DBusAtomic refcount;                        /**< Reference count. */
   const DBusServerVTable *vtable;             /**< Virtual methods for this instance. */
-  DBusMutex *mutex;                           /**< Lock on the server object */
+  DBusRMutex *mutex;                          /**< Lock on the server object */
 
   DBusGUID guid;                              /**< Globally unique ID of server */
 
@@ -66,7 +67,8 @@ struct DBusServer
   DBusTimeoutList *timeouts;                  /**< Our timeouts */  
 
   char *address;                              /**< Address this server is listening on. */
-  
+  dbus_bool_t published_address;              /**< flag which indicates that server has published its bus address. */
+
   int max_connections;                        /**< Max number of connections allowed at once. */
 
   DBusDataSlotList slot_list;   /**< Data stored by allocated integer ID */
@@ -116,12 +118,27 @@ typedef enum
   DBUS_SERVER_LISTEN_NOT_HANDLED, /**< we aren't in charge of this address type */
   DBUS_SERVER_LISTEN_OK,          /**< we set up the listen */
   DBUS_SERVER_LISTEN_BAD_ADDRESS, /**< malformed address */
-  DBUS_SERVER_LISTEN_DID_NOT_CONNECT /**< well-formed address but failed to set it up */
+  DBUS_SERVER_LISTEN_DID_NOT_CONNECT, /**< well-formed address but failed to set it up */
+  DBUS_SERVER_LISTEN_ADDRESS_ALREADY_USED /**< address is already used */
 } DBusServerListenResult;
 
 DBusServerListenResult _dbus_server_listen_platform_specific (DBusAddressEntry  *entry,
                                                               DBusServer       **server_p,
                                                               DBusError         *error);
+
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+void _dbus_server_trace_ref (DBusServer *server,
+    int old_refcount,
+    int new_refcount,
+    const char *why);
+#else
+#define _dbus_server_trace_ref(s,o,n,w) \
+  do \
+  {\
+    (void) (o); \
+    (void) (n); \
+  } while (0)
+#endif
 
 #ifdef DBUS_DISABLE_CHECKS
 #define TOOK_LOCK_CHECK(server)
@@ -144,14 +161,14 @@ DBusServerListenResult _dbus_server_listen_platform_specific (DBusAddressEntry  
 
 #define SERVER_LOCK(server)   do {                                              \
     if (TRACE_LOCKS) { _dbus_verbose ("LOCK\n"); }   \
-    _dbus_mutex_lock ((server)->mutex);                                          \
+    _dbus_rmutex_lock ((server)->mutex);                                        \
     TOOK_LOCK_CHECK (server);                                                   \
   } while (0)
 
 #define SERVER_UNLOCK(server) do {                                                      \
     if (TRACE_LOCKS) { _dbus_verbose ("UNLOCK\n");  }        \
     RELEASING_LOCK_CHECK (server);                                                      \
-    _dbus_mutex_unlock ((server)->mutex);                                                \
+    _dbus_rmutex_unlock ((server)->mutex);                                              \
   } while (0)
 
 DBUS_END_DECLS

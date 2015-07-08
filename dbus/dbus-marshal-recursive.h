@@ -129,8 +129,6 @@ dbus_bool_t _dbus_type_reader_set_basic                 (DBusTypeReader        *
                                                          const DBusTypeReader  *realign_root);
 dbus_bool_t _dbus_type_reader_delete                    (DBusTypeReader        *reader,
                                                          const DBusTypeReader  *realign_root);
-dbus_bool_t _dbus_type_reader_greater_than              (const DBusTypeReader  *lhs,
-                                                         const DBusTypeReader  *rhs);
 
 dbus_bool_t _dbus_type_reader_equal_values              (const DBusTypeReader *lhs,
                                                          const DBusTypeReader *rhs);
@@ -178,14 +176,6 @@ dbus_bool_t _dbus_type_writer_append_array         (DBusTypeWriter        *write
                                                     DBusTypeWriter        *sub);
 dbus_bool_t _dbus_type_writer_write_reader         (DBusTypeWriter        *writer,
                                                     DBusTypeReader        *reader);
-dbus_bool_t _dbus_type_writer_write_reader_partial (DBusTypeWriter        *writer,
-                                                    DBusTypeReader        *reader,
-                                                    const DBusTypeReader  *start_after,
-                                                    int                    start_after_new_pos,
-                                                    int                    start_after_new_len,
-                                                    DBusList             **fixups);
-void        _dbus_type_writer_set_enabled          (DBusTypeWriter        *writer,
-                                                    dbus_bool_t            enabled);
 
 
 #endif /* DBUS_MARSHAL_RECURSIVE_H */

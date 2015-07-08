@@ -29,6 +29,49 @@
 
 #include <string.h>
 
+#if defined(__GNUC__) && (__GNUC__ >= 4)
+# define _DBUS_ASSERT_ALIGNMENT(type, op, val) \
+  _DBUS_STATIC_ASSERT (__extension__ __alignof__ (type) op val)
+#else
+  /* not gcc, so probably no alignof operator: just use a no-op statement
+   * that's valid in the same contexts */
+# define _DBUS_ASSERT_ALIGNMENT(type, op, val) \
+  _DBUS_STATIC_ASSERT (TRUE)
+#endif
+
+/* True by definition, but just for completeness... */
+_DBUS_STATIC_ASSERT (sizeof (char) == 1);
+_DBUS_ASSERT_ALIGNMENT (char, ==, 1);
+
+_DBUS_STATIC_ASSERT (sizeof (dbus_int16_t) == 2);
+_DBUS_ASSERT_ALIGNMENT (dbus_int16_t, <=, 2);
+_DBUS_STATIC_ASSERT (sizeof (dbus_uint16_t) == 2);
+_DBUS_ASSERT_ALIGNMENT (dbus_uint16_t, <=, 2);
+
+_DBUS_STATIC_ASSERT (sizeof (dbus_int32_t) == 4);
+_DBUS_ASSERT_ALIGNMENT (dbus_int32_t, <=, 4);
+_DBUS_STATIC_ASSERT (sizeof (dbus_uint32_t) == 4);
+_DBUS_ASSERT_ALIGNMENT (dbus_uint32_t, <=, 4);
+_DBUS_STATIC_ASSERT (sizeof (dbus_bool_t) == 4);
+_DBUS_ASSERT_ALIGNMENT (dbus_bool_t, <=, 4);
+
+_DBUS_STATIC_ASSERT (sizeof (double) == 8);
+_DBUS_ASSERT_ALIGNMENT (double, <=, 8);
+
+#ifdef DBUS_HAVE_INT64
+_DBUS_STATIC_ASSERT (sizeof (dbus_int64_t) == 8);
+_DBUS_ASSERT_ALIGNMENT (dbus_int64_t, <=, 8);
+_DBUS_STATIC_ASSERT (sizeof (dbus_uint64_t) == 8);
+_DBUS_ASSERT_ALIGNMENT (dbus_uint64_t, <=, 8);
+#endif
+
+_DBUS_STATIC_ASSERT (sizeof (DBusBasicValue) >= 8);
+/* The alignment of a DBusBasicValue might conceivably be > 8 because of the
+ * pointer, so we don't assert about it */
+
+_DBUS_STATIC_ASSERT (sizeof (DBus8ByteStruct) == 8);
+_DBUS_ASSERT_ALIGNMENT (DBus8ByteStruct, <=, 8);
+
 /**
  * @defgroup DBusMarshal marshaling and unmarshaling
  * @ingroup  DBusInternals
@@ -83,7 +126,7 @@ pack_8_octets (DBusBasicValue     value,
   else
     *((dbus_uint64_t*)(data)) = DBUS_UINT64_TO_BE (value.u64);
 #else
-  *(DBus8ByteStruct*)data = value.u64;
+  *(DBus8ByteStruct*)data = value.eight;
   swap_8_octets ((DBusBasicValue*)data, byte_order);
 #endif
 }
@@ -133,7 +176,7 @@ swap_8_octets (DBusBasicValue    *value,
 #ifdef DBUS_HAVE_INT64
       value->u64 = DBUS_UINT64_SWAP_LE_BE (value->u64);
 #else
-      swap_bytes ((unsigned char *)value, 8);
+      swap_bytes (&value->bytes, 8);
 #endif
     }
 }
@@ -154,7 +197,7 @@ unpack_8_octets (int                  byte_order,
   else
     r.u64 = DBUS_UINT64_FROM_BE (*(dbus_uint64_t*)data);
 #else
-  r.u64 = *(DBus8ByteStruct*)data;
+  r.eight = *(DBus8ByteStruct*)data;
   swap_8_octets (&r, byte_order);
 #endif
 
@@ -1065,8 +1108,6 @@ _dbus_marshal_write_fixed_multi (DBusString *str,
     case DBUS_TYPE_INT16:
     case DBUS_TYPE_UINT16:
       return marshal_fixed_multi (str, insert_at, vp, n_elements, byte_order, 2, pos_after);
-      /* FIXME: we canonicalize to 0 or 1 for the single boolean case
-       * should we here too ? */
     case DBUS_TYPE_BOOLEAN:
     case DBUS_TYPE_INT32:
     case DBUS_TYPE_UINT32:
@@ -1230,44 +1271,6 @@ _dbus_type_get_alignment (int typecode)
     default:
       _dbus_assert_not_reached ("unknown typecode in _dbus_type_get_alignment()");
       return 0;
-    }
-}
-
-
-/**
- * Return #TRUE if the typecode is a valid typecode.
- * #DBUS_TYPE_INVALID surprisingly enough is not considered valid, and
- * random unknown bytes aren't either. This function is safe with
- * untrusted data.
- *
- * @returns #TRUE if valid
- */
-dbus_bool_t
-_dbus_type_is_valid (int typecode)
-{
-  switch (typecode)
-    {
-    case DBUS_TYPE_BYTE:
-    case DBUS_TYPE_BOOLEAN:
-    case DBUS_TYPE_INT16:
-    case DBUS_TYPE_UINT16:
-    case DBUS_TYPE_INT32:
-    case DBUS_TYPE_UINT32:
-    case DBUS_TYPE_INT64:
-    case DBUS_TYPE_UINT64:
-    case DBUS_TYPE_DOUBLE:
-    case DBUS_TYPE_STRING:
-    case DBUS_TYPE_OBJECT_PATH:
-    case DBUS_TYPE_SIGNATURE:
-    case DBUS_TYPE_ARRAY:
-    case DBUS_TYPE_STRUCT:
-    case DBUS_TYPE_DICT_ENTRY:
-    case DBUS_TYPE_VARIANT:
-    case DBUS_TYPE_UNIX_FD:
-      return TRUE;
-
-    default:
-      return FALSE;
     }
 }
 
