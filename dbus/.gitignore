@@ -13,3 +13,4 @@ dbus-test
 dbus-glib-error-enum.h
 *.gcno
 *.gcda
+versioninfo.rc

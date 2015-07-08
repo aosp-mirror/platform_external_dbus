@@ -189,7 +189,7 @@ extern "C" {
  * arg0='hello' is OK, arg3489720987='hello' is not
  */
 #define DBUS_MAXIMUM_MATCH_RULE_ARG_NUMBER 63
-  
+
 /** Max length of a marshaled array in bytes (64M, 2^26) We use signed
  * int for lengths so must be INT_MAX or less.  We need something a
  * bit smaller than INT_MAX because the array is inside a message with
@@ -390,6 +390,14 @@ extern "C" {
 #define DBUS_ERROR_FILE_EXISTS                "org.freedesktop.DBus.Error.FileExists"
 /** Method name you invoked isn't known by the object you invoked it on. */
 #define DBUS_ERROR_UNKNOWN_METHOD             "org.freedesktop.DBus.Error.UnknownMethod"
+/** Object you invoked a method on isn't known. */
+#define DBUS_ERROR_UNKNOWN_OBJECT             "org.freedesktop.DBus.Error.UnknownObject"
+/** Interface you invoked a method on isn't known by the object. */
+#define DBUS_ERROR_UNKNOWN_INTERFACE          "org.freedesktop.DBus.Error.UnknownInterface"
+/** Property you tried to access isn't known by the object. */
+#define DBUS_ERROR_UNKNOWN_PROPERTY           "org.freedesktop.DBus.Error.UnknownProperty"
+/** Property you tried to set is read-only. */
+#define DBUS_ERROR_PROPERTY_READ_ONLY         "org.freedesktop.DBus.Error.PropertyReadOnly"
 /** Certain timeout errors, e.g. while starting a service.
  * @warning this is confusingly-named given that #DBUS_ERROR_TIMEOUT also exists. We can't fix
  * it for compatibility reasons so just be careful.
@@ -448,7 +456,7 @@ extern "C" {
 /** XML system identifier of the introspection format version 1.0 */
 #define DBUS_INTROSPECT_1_0_XML_SYSTEM_IDENTIFIER "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd"
 /** XML document type declaration of the introspection format version 1.0 */
-#define DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE "<!DOCTYPE node PUBLIC \""DBUS_INTROSPECT_1_0_XML_PUBLIC_IDENTIFIER"\"\n\""DBUS_INTROSPECT_1_0_XML_SYSTEM_IDENTIFIER"\">\n"
+#define DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE "<!DOCTYPE node PUBLIC \"" DBUS_INTROSPECT_1_0_XML_PUBLIC_IDENTIFIER "\"\n\"" DBUS_INTROSPECT_1_0_XML_SYSTEM_IDENTIFIER "\">\n"
 
 /** @} */
 

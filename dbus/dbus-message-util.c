@@ -138,17 +138,26 @@ check_memleaks (void)
     }
 }
 
-void
-_dbus_check_fdleaks(void)
-{
-
 #ifdef __linux__
+struct DBusInitialFDs {
+    fd_set set;
+};
+#endif
 
+DBusInitialFDs *
+_dbus_check_fdleaks_enter (void)
+{
+#ifdef __linux__
   DIR *d;
+  DBusInitialFDs *fds;
+
+  /* this is plain malloc so it won't interfere with leak checking */
+  fds = malloc (sizeof (DBusInitialFDs));
+  _dbus_assert (fds != NULL);
 
   /* This works on Linux only */
 
-  if ((d = opendir("/proc/self/fd")))
+  if ((d = opendir ("/proc/self/fd")))
     {
       struct dirent *de;
 
@@ -162,23 +171,75 @@ _dbus_check_fdleaks(void)
             continue;
 
           errno = 0;
-          l = strtol(de->d_name, &e, 10);
-          _dbus_assert(errno == 0 && e && !*e);
+          l = strtol (de->d_name, &e, 10);
+          _dbus_assert (errno == 0 && e && !*e);
 
           fd = (int) l;
 
           if (fd < 3)
             continue;
 
-          if (fd == dirfd(d))
+          if (fd == dirfd (d))
             continue;
 
-          _dbus_warn("file descriptor %i leaked in %s.\n", fd, __FILE__);
-          _dbus_assert_not_reached("fdleaks");
+          FD_SET (fd, &fds->set);
         }
 
-      closedir(d);
+      closedir (d);
     }
+
+  return fds;
+#else
+  return NULL;
+#endif
+}
+
+void
+_dbus_check_fdleaks_leave (DBusInitialFDs *fds)
+{
+#ifdef __linux__
+  DIR *d;
+
+  /* This works on Linux only */
+
+  if ((d = opendir ("/proc/self/fd")))
+    {
+      struct dirent *de;
+
+      while ((de = readdir(d)))
+        {
+          long l;
+          char *e = NULL;
+          int fd;
+
+          if (de->d_name[0] == '.')
+            continue;
+
+          errno = 0;
+          l = strtol (de->d_name, &e, 10);
+          _dbus_assert (errno == 0 && e && !*e);
+
+          fd = (int) l;
+
+          if (fd < 3)
+            continue;
+
+          if (fd == dirfd (d))
+            continue;
+
+          if (FD_ISSET (fd, &fds->set))
+            continue;
+
+          _dbus_warn ("file descriptor %i leaked in %s.\n", fd, __FILE__);
+          _dbus_assert_not_reached ("fdleaks");
+        }
+
+      closedir (d);
+    }
+
+  free (fds);
+#else
+  _dbus_assert (fds == NULL);
 #endif
 }
 
@@ -558,8 +619,8 @@ process_test_subdir (const DBusString          *test_base_dir,
         {
           if (_dbus_string_ends_with_c_str (&filename, ".message"))
             {
-              _dbus_warn ("Could not load %s, message builder language no longer supported\n",
-                          _dbus_string_get_const_data (&filename));
+              printf ("SKIP: Could not load %s, message builder language no longer supported\n",
+                      _dbus_string_get_const_data (&filename));
             }
           
           _dbus_verbose ("Skipping non-.message file %s\n",
@@ -1000,6 +1061,9 @@ _dbus_message_test (const char *test_data_dir)
   int v_UNIX_FD;
 #endif
   char **decomposed;
+  DBusInitialFDs *initial_fds;
+
+  initial_fds = _dbus_check_fdleaks_enter ();
 
   message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
                                           "/org/freedesktop/TestPath",
@@ -1394,7 +1458,8 @@ _dbus_message_test (const char *test_data_dir)
   _dbus_message_loader_unref (loader);
 
   check_memleaks ();
-  _dbus_check_fdleaks();
+  _dbus_check_fdleaks_leave (initial_fds);
+  initial_fds = _dbus_check_fdleaks_enter ();
 
   /* Check that we can abandon a container */
   message = dbus_message_new_method_call ("org.freedesktop.DBus.TestService",
@@ -1458,16 +1523,23 @@ _dbus_message_test (const char *test_data_dir)
   }
 
   check_memleaks ();
-  _dbus_check_fdleaks();
+  _dbus_check_fdleaks_leave (initial_fds);
 
   /* Now load every message in test_data_dir if we have one */
   if (test_data_dir == NULL)
     return TRUE;
 
-  return dbus_internal_do_not_use_foreach_message_file (test_data_dir,
+  initial_fds = _dbus_check_fdleaks_enter ();
+
+  if (!dbus_internal_do_not_use_foreach_message_file (test_data_dir,
                                                         (DBusForeachMessageFileFunc)
                                                         dbus_internal_do_not_use_try_message_file,
-                                                        NULL);  
+                                                        NULL))
+    _dbus_assert_not_reached ("foreach_message_file test failed");
+
+  _dbus_check_fdleaks_leave (initial_fds);
+
+  return TRUE;
 }
 
 #endif /* DBUS_BUILD_TESTS */

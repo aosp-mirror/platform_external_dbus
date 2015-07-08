@@ -40,14 +40,6 @@ struct BusExpireList
 
 static dbus_bool_t expire_timeout_handler (void *data);
 
-static void
-call_timeout_callback (DBusTimeout   *timeout,
-                       void          *data)
-{
-  /* can return FALSE on OOM but we just let it fire again later */
-  dbus_timeout_handle (timeout);
-}
-
 BusExpireList*
 bus_expire_list_new (DBusLoop      *loop,
                      int            expire_after,
@@ -73,9 +65,7 @@ bus_expire_list_new (DBusLoop      *loop,
 
   _dbus_timeout_set_enabled (list->timeout, FALSE);
 
-  if (!_dbus_loop_add_timeout (list->loop,
-                               list->timeout,
-                               call_timeout_callback, NULL, NULL))
+  if (!_dbus_loop_add_timeout (list->loop, list->timeout))
     goto failed;
 
   return list;
@@ -94,8 +84,7 @@ bus_expire_list_free (BusExpireList *list)
 {
   _dbus_assert (list->items == NULL);
 
-  _dbus_loop_remove_timeout (list->loop, list->timeout,
-                             call_timeout_callback, NULL);
+  _dbus_loop_remove_timeout (list->loop, list->timeout);
 
   _dbus_timeout_unref (list->timeout);
 
@@ -134,9 +123,9 @@ bus_expire_list_recheck_immediately (BusExpireList *list)
 }
 
 static int
-do_expiration_with_current_time (BusExpireList *list,
-                                 long           tv_sec,
-                                 long           tv_usec)
+do_expiration_with_monotonic_time (BusExpireList *list,
+                                   long           tv_sec,
+                                   long           tv_usec)
 {
   DBusList *link;
   int next_interval, min_wait_time, items_to_expire;
@@ -205,9 +194,9 @@ bus_expirelist_expire (BusExpireList *list)
     {
       long tv_sec, tv_usec;
 
-      _dbus_get_current_time (&tv_sec, &tv_usec);
+      _dbus_get_monotonic_time (&tv_sec, &tv_usec);
 
-      next_interval = do_expiration_with_current_time (list, tv_sec, tv_usec);
+      next_interval = do_expiration_with_monotonic_time (list, tv_sec, tv_usec);
     }
 
   bus_expire_timeout_set_interval (list->timeout, next_interval);
@@ -351,7 +340,7 @@ bus_expire_list_test (const DBusString *test_data_dir)
                               test_expire_func, NULL);
   _dbus_assert (list != NULL);
 
-  _dbus_get_current_time (&tv_sec, &tv_usec);
+  _dbus_get_monotonic_time (&tv_sec, &tv_usec);
 
   tv_sec_not_expired = tv_sec;
   tv_usec_not_expired = tv_usec;
@@ -378,22 +367,22 @@ bus_expire_list_test (const DBusString *test_data_dir)
     _dbus_assert_not_reached ("out of memory");
 
   next_interval =
-    do_expiration_with_current_time (list, tv_sec_not_expired,
-                                     tv_usec_not_expired);
+    do_expiration_with_monotonic_time (list, tv_sec_not_expired,
+                                       tv_usec_not_expired);
   _dbus_assert (item->expire_count == 0);
   _dbus_verbose ("next_interval = %d\n", next_interval);
   _dbus_assert (next_interval == 1);
   
   next_interval =
-    do_expiration_with_current_time (list, tv_sec_expired,
-                                     tv_usec_expired);
+    do_expiration_with_monotonic_time (list, tv_sec_expired,
+                                       tv_usec_expired);
   _dbus_assert (item->expire_count == 1);
   _dbus_verbose ("next_interval = %d\n", next_interval);
   _dbus_assert (next_interval == -1);
 
   next_interval =
-    do_expiration_with_current_time (list, tv_sec_past,
-                                     tv_usec_past);
+    do_expiration_with_monotonic_time (list, tv_sec_past,
+                                       tv_usec_past);
   _dbus_assert (item->expire_count == 1);
   _dbus_verbose ("next_interval = %d\n", next_interval);
   _dbus_assert (next_interval == 1000 + EXPIRE_AFTER);

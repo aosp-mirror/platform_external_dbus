@@ -138,16 +138,31 @@ socket_entry_new (const char *dir,
   return se;
 }
 
-#if 0
 static void
 free_socket_entry (SocketEntry *se)
 {
-  free (se->name);
-  if (se->fd >= 0)
-    close (se->fd);
-  free (se);
+  if (se)
+    {
+      free (se->name);
+      if (se->fd >= 0)
+        close (se->fd);
+      free (se);
+    }
 }
-#endif
+
+static void
+free_socket_entries (SocketEntry** entries,
+                     int           n_entries)
+{
+  int i;
+
+  if (entries)
+    {
+      for (i = 0; i < n_entries; ++i)
+        free_socket_entry (entries[i]);
+      free (entries);
+    }
+}
 
 static void
 read_sockets (const char    *dir,
@@ -350,6 +365,8 @@ clean_dir (const char *dir)
     }
 
   unhandled_count += (n_entries - alive_count - cleaned_count);
+
+  free_socket_entries (entries, n_entries);
 }
 
 #endif /* AF_UNIX */

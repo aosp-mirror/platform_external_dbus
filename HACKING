@@ -152,17 +152,17 @@ To make a release of D-Bus, do the following:
  - verify that the libtool versioning/library soname is 
    changed if it needs to be, or not changed if not
 
- - update the file NEWS based on the ChangeLog
+ - update the file NEWS based on the git history
 
- - update the AUTHORS file based on the ChangeLog
+ - verify that the version number of dbus-specification.xml is
+   changed if it needs to be; if changes have been made, update the
+   release date in that file
 
- - add a ChangeLog entry containing the version number 
-   you're releasing ("Released 0.3" or something)
-   so people can see which changes were before and after
-   a given release
+ - update the AUTHORS file with "make update-authors" if necessary
 
- - the version number should have major.minor.micro even
-   if micro is 0, i.e. "1.0.0" and "1.2.0" not "1.0"/"1.2"
+ - the version number should have major.minor.micro, even
+   if micro is 0, i.e. "1.0.0" and "1.2.0" not "1.0"/"1.2"; the micro
+   version should be even for releases, and odd for intermediate snapshots
 
  - "make distcheck" (DO NOT just "make dist" - pass the check!)
 
@@ -176,14 +176,15 @@ To make a release of D-Bus, do the following:
    then simply created an unsigned annotated tag:
    "git tag -a -m 'Released X.Y.Z' dbus-X.Y.Z".
 
- - bump the version number up in configure.in, and commit
-   it.  Make sure you do this *after* tagging the previous
+ - bump the version number up in configure.ac (so the micro version is odd),
+   and commit it.  Make sure you do this *after* tagging the previous
    release! The idea is that git has a newer version number
-   than anything released.
+   than anything released. Similarly, bump the version number of
+   dbus-specification.xml and set the release date to "(not finalized)".
 
  - merge the branch you've released to the chronologically-later
    branch (usually "master"). You'll probably have to fix a merge
-   conflict in configure.in (the version number).
+   conflict in configure.ac (the version number).
 
  - push your changes and the tag to the central repository with
      git push origin master dbus-X.Y dbus-X.Y.Z
@@ -191,6 +192,8 @@ To make a release of D-Bus, do the following:
  - scp your tarball to freedesktop.org server and copy it to
    dbus.freedesktop.org:/srv/dbus.freedesktop.org/www/releases/dbus/dbus-X.Y.Z.tar.gz.
    This should be possible if you're in group "dbus"
+
+ - Update the online documentation with `make -C doc maintainer-upload-docs`.
 
  - update the wiki page http://www.freedesktop.org/Software/dbus by
    adding the new release under the Download heading. Then, cut the
@@ -205,32 +208,27 @@ To make a release of D-Bus, do the following:
  - post to dbus@lists.freedesktop.org announcing the release.
  
 
-After making a ".0" stable release
+Making a ".0" stable release
 ===
 
-After releasing, when you increment the version number in git, also
-move the ChangeLog to ChangeLog.pre-X-Y where X-Y is what you just
-released, e.g. ChangeLog.pre-1-0. Then create and cvs add a new empty
-ChangeLog. The last entry in ChangeLog.pre-1-0 should be the one about
-"Released 1.0". 
+We create a branch for each stable release. The branch name should be
+dbus-X.Y which is a branch that has releases versioned X.Y.Z;
+changes on a stable branch should be limited to significant bug fixes.
 
-Add ChangeLog.pre-X-Y to EXTRA_DIST in Makefile.am.
+Because we won't make minor changes like keeping up with the latest
+deprecations on a stable branch, stable branches should turn off the
+gcc warning for deprecated declarations (e.g. see commit 4ebb275ab7).
 
-We create a branch for each stable release; sometimes the branch is
-not done immediately, instead it's possible to wait until someone has
-a not-suitable-for-stable change they want to make and then branch to
-allow committing that change.
-
-The branch name should be dbus-X.Y-branch which is a branch that has
-releases versioned X.Y.Z
+Be extra-careful not to merge master (or any branch based on master) into a
+stable branch.
 
 To branch:
-  git branch dbus-X.Y-branch
+  git branch dbus-X.Y
 and upload the branch tag to the server:
-  git-push origin dbus-X.Y-branch
+  git push origin dbus-X.Y
 
 To develop in this branch:
-  git-checkout dbus-X.Y-branch
+  git checkout dbus-X.Y
 
 Environment variables
 ===
@@ -287,10 +285,8 @@ is to add a test in here.
 
 "make check" runs all the deterministic test programs (i.e. not break-loader).
 
-"make check-coverage" is available if you configure with --enable-gcov and 
-gives a complete report on test suite coverage. You can also run 
-"test/decode-gcov foo.c" on any source file to get annotated source, 
-after running make check with a gcov-enabled tree.
+"make lcov-check" is available if you configure with --enable-compiler-coverage
+and gives a complete report on test suite coverage.
 
 Patches
 ===
@@ -309,6 +305,20 @@ rules are:
 
  - if there's a live unresolved controversy about a change,
    don't commit it while the argument is still raging.
+
+ - at their discretion, members of the reviewer group may also commit
+   branches/patches under these conditions:
+
+   - the branch does not add or change API, ABI or wire-protocol
+
+   - the branch solves a known problem and is covered by the regression tests
+
+   - there are no objections from the rest of the review group within
+     a week of the patches being attached to Bugzilla
+
+   - the committer gets a positive review on Bugzilla from someone they
+     consider qualified to review the change (e.g. a colleague with D-Bus
+     experience; not necessarily a member of the reviewer group)
 
  - regardless of reviews, to commit a patch:
     - make check must pass
@@ -338,5 +348,4 @@ John Palmieri <johnp@redhat.com>
 Scott James Remnant <scott@netsplit.com>
 Will Thompson <will.thompson@collabora.co.uk>
 Simon McVittie <simon.mcvittie@collabora.co.uk>
-
-
+David Zeuthen <davidz@redhat.com>

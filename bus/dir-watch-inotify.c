@@ -50,12 +50,6 @@ static DBusWatch *watch = NULL;
 static DBusLoop *loop = NULL;
 
 static dbus_bool_t
-_inotify_watch_callback (DBusWatch *watch, unsigned int condition, void *data)
-{
-  return dbus_watch_handle (watch, condition);
-}
-
-static dbus_bool_t
 _handle_inotify_watch (DBusWatch *passed_watch, unsigned int flags, void *data)
 {
   char buffer[INOTIFY_BUF_LEN];
@@ -204,16 +198,18 @@ _shutdown_inotify (void *data)
 
   _set_watched_dirs_internal (&empty);
 
-  close (inotify_fd);
-  inotify_fd = -1;
   if (watch != NULL)
     {
-      _dbus_loop_remove_watch (loop, watch, _inotify_watch_callback, NULL);
+      _dbus_loop_remove_watch (loop, watch);
+      _dbus_watch_invalidate (watch);
       _dbus_watch_unref (watch);
       _dbus_loop_unref (loop);
     }
   watch = NULL;
   loop = NULL;
+
+  close (inotify_fd);
+  inotify_fd = -1;
 }
 
 static int
@@ -250,8 +246,7 @@ _init_inotify (BusContext *context)
           goto out;
         }
 
-      if (!_dbus_loop_add_watch (loop, watch, _inotify_watch_callback,
-                                 NULL, NULL))
+      if (!_dbus_loop_add_watch (loop, watch))
         {
           _dbus_warn ("Unable to add reload watch to main loop");
           _dbus_watch_unref (watch);
@@ -259,7 +254,13 @@ _init_inotify (BusContext *context)
           goto out;
         }
 
-      _dbus_register_shutdown_func (_shutdown_inotify, NULL);
+      if (!_dbus_register_shutdown_func (_shutdown_inotify, NULL))
+      {
+          _dbus_warn ("Unable to register shutdown func");
+          _dbus_watch_unref (watch);
+          watch = NULL;
+          goto out;
+      }
     }
 
   ret = 1;

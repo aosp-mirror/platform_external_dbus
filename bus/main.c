@@ -35,20 +35,30 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>     /* for write() and STDERR_FILENO */
+#endif
 #include "selinux.h"
 
 static BusContext *context;
+
+#ifdef DBUS_UNIX
 
 static int reload_pipe[2];
 #define RELOAD_READ_END 0
 #define RELOAD_WRITE_END 1
 
-static void close_reload_pipe (void);
+static void close_reload_pipe (DBusWatch **);
+
+typedef enum
+ {
+   ACTION_RELOAD = 'r',
+   ACTION_QUIT = 'q'
+ } SignalAction;
 
 static void
 signal_handler (int sig)
 {
-
   switch (sig)
     {
 #ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX
@@ -59,23 +69,63 @@ signal_handler (int sig)
     case SIGHUP:
       {
         DBusString str;
-        _dbus_string_init_const (&str, "foo");
+        char action[2] = { ACTION_RELOAD, '\0' };
+
+        _dbus_string_init_const (&str, action);
         if ((reload_pipe[RELOAD_WRITE_END] > 0) &&
             !_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
           {
-            _dbus_warn ("Unable to write to reload pipe.\n");
-            close_reload_pipe ();
+            /* If we receive SIGHUP often enough to fill the pipe buffer (4096
+             * times on old Linux, 65536 on modern Linux) before it can be
+             * drained, let's just warn and ignore. The configuration will be
+             * reloaded while draining the pipe buffer, which is what we
+             * wanted. It's harmless that it will be reloaded fewer times than
+             * we asked for, since the reload is delayed anyway, so new changes
+             * will be picked up.
+             *
+             * We use write() because _dbus_warn uses vfprintf, which isn't
+             * async-signal-safe.
+             *
+             * This is necessarily Unix-specific, but so are POSIX signals,
+             * so... */
+            static const char message[] =
+              "Unable to write to reload pipe - buffer full?\n";
+
+            write (STDERR_FILENO, message, strlen (message));
           }
       }
       break;
 #endif
+
+    case SIGTERM:
+      {
+        DBusString str;
+        char action[2] = { ACTION_QUIT, '\0' };
+        _dbus_string_init_const (&str, action);
+        if ((reload_pipe[RELOAD_WRITE_END] < 0) ||
+            !_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
+          {
+            /* If we can't write to the socket, dying seems a more
+             * important response to SIGTERM than cleaning up sockets,
+             * so we exit. We'd use exit(), but that's not async-signal-safe,
+             * so we'll have to resort to _exit(). */
+            static const char message[] =
+              "Unable to write termination signal to pipe - buffer full?\n"
+              "Will exit instead.\n";
+
+            write (STDERR_FILENO, message, strlen (message));
+            _exit (1);
+          }
+      }
+      break;
     }
 }
+#endif /* DBUS_UNIX */
 
 static void
 usage (void)
 {
-  fprintf (stderr, DBUS_DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect] [--address=ADDRESS] [--systemd-activation]\n");
+  fprintf (stderr, DBUS_DAEMON_NAME " [--version] [--session] [--system] [--config-file=FILE] [--print-address[=DESCRIPTOR]] [--print-pid[=DESCRIPTOR]] [--fork] [--nofork] [--introspect] [--address=ADDRESS] [--systemd-activation] [--nopidfile]\n");
   exit (1);
 }
 
@@ -163,6 +213,7 @@ check_two_pid_descriptors (const DBusString *pid_fd,
     }
 }
 
+#ifdef DBUS_UNIX
 static dbus_bool_t
 handle_reload_watch (DBusWatch    *watch,
 		     unsigned int  flags,
@@ -170,6 +221,8 @@ handle_reload_watch (DBusWatch    *watch,
 {
   DBusError error;
   DBusString str;
+  char *action_str;
+  char action = '\0';
 
   while (!_dbus_string_init (&str))
     _dbus_wait_for_memory ();
@@ -178,8 +231,14 @@ handle_reload_watch (DBusWatch    *watch,
       _dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
     {
       _dbus_warn ("Couldn't read from reload pipe.\n");
-      close_reload_pipe ();
+      close_reload_pipe (&watch);
       return TRUE;
+    }
+
+  action_str = _dbus_string_get_data (&str);
+  if (action_str != NULL)
+    {
+      action = action_str[0];
     }
   _dbus_string_free (&str);
 
@@ -188,24 +247,43 @@ handle_reload_watch (DBusWatch    *watch,
    * loaded config.
    */
   dbus_error_init (&error);
-  if (! bus_context_reload_config (context, &error))
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (&error);
-      _dbus_assert (dbus_error_has_name (&error, DBUS_ERROR_FAILED) ||
-		    dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY));
-      _dbus_warn ("Unable to reload configuration: %s\n",
-		  error.message);
-      dbus_error_free (&error);
-    }
-  return TRUE;
-}
 
-static dbus_bool_t
-reload_watch_callback (DBusWatch    *watch,
-		       unsigned int  condition,
-		       void         *data)
-{
-  return dbus_watch_handle (watch, condition);
+  switch (action)
+    {
+    case ACTION_RELOAD:
+      if (! bus_context_reload_config (context, &error))
+        {
+          _DBUS_ASSERT_ERROR_IS_SET (&error);
+          _dbus_assert (dbus_error_has_name (&error, DBUS_ERROR_FAILED) ||
+                        dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY));
+          _dbus_warn ("Unable to reload configuration: %s\n",
+                      error.message);
+          dbus_error_free (&error);
+        }
+      break;
+
+    case ACTION_QUIT:
+      {
+        DBusLoop *loop;
+        /*
+         * On OSs without abstract sockets, we want to quit
+         * gracefully rather than being killed by SIGTERM,
+         * so that DBusServer gets a chance to clean up the
+         * sockets from the filesystem. fd.o #38656
+         */
+        loop = bus_context_get_loop (context);
+        if (loop != NULL)
+          {
+            _dbus_loop_quit (loop);
+          }
+      }
+      break;
+
+    default:
+      break;
+    }
+
+  return TRUE;
 }
 
 static void
@@ -237,8 +315,7 @@ setup_reload_pipe (DBusLoop *loop)
       exit (1);
     }
 
-  if (!_dbus_loop_add_watch (loop, watch, reload_watch_callback,
-			     NULL, NULL))
+  if (!_dbus_loop_add_watch (loop, watch))
     {
       _dbus_warn ("Unable to add reload watch to main loop: %s\n",
 		  error.message);
@@ -249,14 +326,20 @@ setup_reload_pipe (DBusLoop *loop)
 }
 
 static void
-close_reload_pipe (void)
+close_reload_pipe (DBusWatch **watch)
 {
+    _dbus_loop_remove_watch (bus_context_get_loop (context), *watch);
+    _dbus_watch_invalidate (*watch);
+    _dbus_watch_unref (*watch);
+    *watch = NULL;
+
     _dbus_close_socket (reload_pipe[RELOAD_READ_END], NULL);
     reload_pipe[RELOAD_READ_END] = -1;
 
     _dbus_close_socket (reload_pipe[RELOAD_WRITE_END], NULL);
     reload_pipe[RELOAD_WRITE_END] = -1;
 }
+#endif /* DBUS_UNIX */
 
 int
 main (int argc, char **argv)
@@ -272,9 +355,7 @@ main (int argc, char **argv)
   int i;
   dbus_bool_t print_address;
   dbus_bool_t print_pid;
-  dbus_bool_t is_session_bus;
-  int force_fork;
-  dbus_bool_t systemd_activation;
+  BusContextFlags flags;
 
   if (!_dbus_string_init (&config_file))
     return 1;
@@ -290,9 +371,8 @@ main (int argc, char **argv)
 
   print_address = FALSE;
   print_pid = FALSE;
-  is_session_bus = FALSE;
-  force_fork = FORK_FOLLOW_CONFIG_FILE;
-  systemd_activation = FALSE;
+
+  flags = BUS_CONTEXT_FLAG_WRITE_PID_FILE;
 
   prev_arg = NULL;
   i = 1;
@@ -303,17 +383,35 @@ main (int argc, char **argv)
       if (strcmp (arg, "--help") == 0 ||
           strcmp (arg, "-h") == 0 ||
           strcmp (arg, "-?") == 0)
-        usage ();
+        {
+          usage ();
+        }
       else if (strcmp (arg, "--version") == 0)
-        version ();
+        {
+          version ();
+        }
       else if (strcmp (arg, "--introspect") == 0)
-        introspect ();
+        {
+          introspect ();
+        }
       else if (strcmp (arg, "--nofork") == 0)
-        force_fork = FORK_NEVER;
+        {
+          flags &= ~BUS_CONTEXT_FLAG_FORK_ALWAYS;
+          flags |= BUS_CONTEXT_FLAG_FORK_NEVER;
+        }
       else if (strcmp (arg, "--fork") == 0)
-        force_fork = FORK_ALWAYS;
+        {
+          flags &= ~BUS_CONTEXT_FLAG_FORK_NEVER;
+          flags |= BUS_CONTEXT_FLAG_FORK_ALWAYS;
+        }
+      else if (strcmp (arg, "--nopidfile") == 0)
+        {
+          flags &= ~BUS_CONTEXT_FLAG_WRITE_PID_FILE;
+        }
       else if (strcmp (arg, "--systemd-activation") == 0)
-        systemd_activation = TRUE;
+        {
+          flags |= BUS_CONTEXT_FLAG_SYSTEMD_ACTIVATION;
+        }
       else if (strcmp (arg, "--system") == 0)
         {
           check_two_config_files (&config_file, "system");
@@ -349,7 +447,9 @@ main (int argc, char **argv)
             exit (1);
         }
       else if (strcmp (arg, "--config-file") == 0)
-        ; /* wait for next arg */
+        {
+          /* wait for next arg */
+        }
       else if (strstr (arg, "--address=") == arg)
         {
           const char *file;
@@ -371,7 +471,9 @@ main (int argc, char **argv)
             exit (1);
         }
       else if (strcmp (arg, "--address") == 0)
-        ; /* wait for next arg */
+        {
+          /* wait for next arg */
+        }
       else if (strstr (arg, "--print-address=") == arg)
         {
           const char *desc;
@@ -397,7 +499,9 @@ main (int argc, char **argv)
           print_address = TRUE;
         }
       else if (strcmp (arg, "--print-address") == 0)
-        print_address = TRUE; /* and we'll get the next arg if appropriate */
+        {
+          print_address = TRUE; /* and we'll get the next arg if appropriate */
+        }
       else if (strstr (arg, "--print-pid=") == arg)
         {
           const char *desc;
@@ -423,9 +527,13 @@ main (int argc, char **argv)
           print_pid = TRUE;
         }
       else if (strcmp (arg, "--print-pid") == 0)
-        print_pid = TRUE; /* and we'll get the next arg if appropriate */
+        {
+          print_pid = TRUE; /* and we'll get the next arg if appropriate */
+        }
       else
-        usage ();
+        {
+          usage ();
+        }
 
       prev_arg = arg;
 
@@ -489,10 +597,9 @@ main (int argc, char **argv)
     }
 
   dbus_error_init (&error);
-  context = bus_context_new (&config_file, force_fork,
+  context = bus_context_new (&config_file, flags,
                              &print_addr_pipe, &print_pid_pipe,
                              _dbus_string_get_length(&address) > 0 ? &address : NULL,
-                             systemd_activation,
                              &error);
   _dbus_string_free (&config_file);
   if (context == NULL)
@@ -503,24 +610,25 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  is_session_bus = bus_context_get_type(context) != NULL
-      && strcmp(bus_context_get_type(context),"session") == 0;
-
-  if (is_session_bus)
-    _dbus_daemon_publish_session_bus_address (bus_context_get_address (context));
-
   /* bus_context_new() closes the print_addr_pipe and
    * print_pid_pipe
    */
 
+#ifdef DBUS_UNIX
   setup_reload_pipe (bus_context_get_loop (context));
 
+  /* POSIX signals are Unix-specific, and _dbus_set_signal_handler is
+   * unimplemented (and probably unimplementable) on Windows, so there's
+   * no point in trying to make the handler portable to non-Unix. */
+
+  _dbus_set_signal_handler (SIGTERM, signal_handler);
 #ifdef SIGHUP
   _dbus_set_signal_handler (SIGHUP, signal_handler);
 #endif
 #ifdef DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX
   _dbus_set_signal_handler (SIGIO, signal_handler);
 #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX */
+#endif /* DBUS_UNIX */
 
   _dbus_verbose ("We are on D-Bus...\n");
   _dbus_loop_run (bus_context_get_loop (context));
@@ -528,9 +636,6 @@ main (int argc, char **argv)
   bus_context_shutdown (context);
   bus_context_unref (context);
   bus_selinux_shutdown ();
-
-  if (is_session_bus)
-    _dbus_daemon_unpublish_session_bus_address ();
 
   return 0;
 }

@@ -138,4 +138,17 @@ dbus_bool_t     bus_transaction_add_cancel_hook  (BusTransaction               *
                                                   void                         *data,
                                                   DBusFreeFunction              free_data_function);
 
+/* called by stats.c, only present if DBUS_ENABLE_STATS */
+int bus_connections_get_n_active                  (BusConnections *connections);
+int bus_connections_get_n_incomplete              (BusConnections *connections);
+int bus_connections_get_total_match_rules         (BusConnections *connections);
+int bus_connections_get_peak_match_rules          (BusConnections *connections);
+int bus_connections_get_peak_match_rules_per_conn (BusConnections *connections);
+int bus_connections_get_total_bus_names           (BusConnections *connections);
+int bus_connections_get_peak_bus_names            (BusConnections *connections);
+int bus_connections_get_peak_bus_names_per_conn   (BusConnections *connections);
+
+int bus_connection_get_peak_match_rules           (DBusConnection *connection);
+int bus_connection_get_peak_bus_names             (DBusConnection *connection);
+
 #endif /* BUS_CONNECTION_H */

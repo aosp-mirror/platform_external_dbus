@@ -477,7 +477,14 @@ main (int    argc,
       dbus_error_free (&error);
       exit (1);
     }
-  
+
+  if (result != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
+    {
+      fprintf (stderr, "Unable to acquire service: code %d\n", result);
+      _dbus_verbose ("*** Failed to acquire service: %d\n", result);
+      exit (1);
+    }
+
   _dbus_verbose ("*** Test service entering main loop\n");
   _dbus_loop_run (loop);
   

@@ -1,10 +1,19 @@
 
 configdir=$(sysconfdir)/dbus-1
 
-INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) @PIC_CFLAGS@ -DDBUS_COMPILATION	\
-	-DDBUS_MACHINE_UUID_FILE=\""$(localstatedir)/lib/dbus/machine-id"\"		\
-	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"			\
-	-DDBUS_SESSION_CONFIG_FILE=\""$(configdir)/session.conf"\"
+AM_CPPFLAGS = \
+	-I$(top_builddir) \
+	-I$(top_srcdir) \
+	$(SYSTEMD_CFLAGS) \
+	$(VALGRIND_CFLAGS) \
+	-DDBUS_COMPILATION \
+	-DDBUS_MACHINE_UUID_FILE=\""$(localstatedir)/lib/dbus/machine-id"\" \
+	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\" \
+	-DDBUS_SESSION_CONFIG_FILE=\""$(configdir)/session.conf"\" \
+	$(NULL)
+
+# if assertions are enabled, improve backtraces
+AM_LDFLAGS = @R_DYNAMIC_LDFLAG@
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
@@ -25,7 +34,6 @@ dbus_res = versioninfo.o
 dbus_res_ldflag = -Wl,$(dbus_res)
 no_undefined = -no-undefined
 export_symbols =
-export_symvols_internal =
 
 libdbus_1_la_DEPENDENCIES = $(dbus_res)
 intllibs =
@@ -37,7 +45,6 @@ no_undefined =
 ## don't export symbols that start with "_" (we use this
 ## convention for internal symbols)
 export_symbols = -export-symbols-regex "^[^_].*"
-export_symbols_internal =
 
 intllibs = @LTLIBINTL@
 
@@ -73,6 +80,13 @@ DBUS_UTIL_arch_sources =			\
 	dbus-sysdeps-util-win.c			\
 	dbus-spawn-win.c
 else
+
+if DBUS_ENABLE_LAUNCHD
+launchd_source = dbus-server-launchd.h dbus-server-launchd.c
+else
+launchd_source =
+endif
+
 DBUS_LIB_arch_sources = 			\
 	dbus-uuidgen.c				\
 	dbus-uuidgen.h				\
@@ -80,6 +94,7 @@ DBUS_LIB_arch_sources = 			\
 	dbus-server-unix.h
 
 DBUS_SHARED_arch_sources = 			\
+	$(launchd_source)			\
 	dbus-file-unix.c 			\
 	dbus-pipe-unix.c 			\
 	dbus-sysdeps-unix.c 			\
@@ -98,6 +113,10 @@ DBUS_UTIL_arch_sources = 			\
 	dbus-spawn.c
 endif
 
+if HAVE_LINUX_EPOLL
+DBUS_UTIL_arch_sources += dbus-socket-set-epoll.c
+endif
+
 dbusinclude_HEADERS=				\
 	dbus.h					\
 	dbus-address.h				\
@@ -113,11 +132,12 @@ dbusinclude_HEADERS=				\
 	dbus-server.h				\
 	dbus-shared.h				\
 	dbus-signature.h			\
+	dbus-syntax.h				\
 	dbus-threads.h				\
 	dbus-types.h
 
 
-dbusarchinclude_HEADERS=			\
+nodist_dbusarchinclude_HEADERS=			\
 	dbus-arch-deps.h
 
 ### source code that goes in the installed client library
@@ -126,8 +146,6 @@ DBUS_LIB_SOURCES=				\
 	dbus-address.c				\
 	dbus-auth.c				\
 	dbus-auth.h				\
-	dbus-auth-script.c			\
-	dbus-auth-script.h			\
 	dbus-bus.c				\
 	dbus-connection.c			\
 	dbus-connection-internal.h		\
@@ -166,6 +184,7 @@ DBUS_LIB_SOURCES=				\
 	dbus-sha.c				\
 	dbus-sha.h				\
 	dbus-signature.c			\
+	dbus-syntax.c				\
 	dbus-timeout.c				\
 	dbus-timeout.h				\
 	dbus-threads-internal.h			\
@@ -177,9 +196,6 @@ DBUS_LIB_SOURCES=				\
 	dbus-transport-socket.h			\
 	dbus-watch.c				\
 	dbus-watch.h
-
-##	dbus-md5.c				\
-##	dbus-md5.h				\
 
 ### source code that goes in the installed client library
 ### AND is generic utility functionality used by the
@@ -208,7 +224,8 @@ DBUS_SHARED_SOURCES=				\
 	dbus-string-private.h			\
 	$(DBUS_SHARED_arch_sources)		\
 	dbus-sysdeps.c				\
-	dbus-sysdeps.h
+	dbus-sysdeps.h				\
+	dbus-valgrind-internal.h
 
 ### source code that is generic utility functionality used
 ### by the bus daemon or test apps, but is NOT included
@@ -216,6 +233,8 @@ DBUS_SHARED_SOURCES=				\
 ### should be underscore-prefixed but don't really need
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 DBUS_UTIL_SOURCES=				\
+	dbus-auth-script.c			\
+	dbus-auth-script.h			\
 	dbus-auth-util.c			\
 	dbus-credentials-util.c			\
 	dbus-mainloop.c				\
@@ -229,6 +248,9 @@ DBUS_UTIL_SOURCES=				\
 	dbus-shell.c				\
 	dbus-shell.h				\
 	$(DBUS_UTIL_arch_sources)		\
+	dbus-socket-set.h			\
+	dbus-socket-set.c			\
+	dbus-socket-set-poll.c			\
 	dbus-spawn.h				\
 	dbus-string-util.c			\
 	dbus-sysdeps-util.c			\
@@ -244,41 +266,42 @@ libdbus_internal_la_SOURCES=			\
 	$(DBUS_SHARED_SOURCES)			\
 	$(DBUS_UTIL_SOURCES)
 
-BUILT_SOURCES=$(dbusarchinclude_HEADERS)
+BUILT_SOURCES=$(nodist_dbusarchinclude_HEADERS)
 EXTRA_DIST=dbus-arch-deps.h.in
-
 
 ## this library is the same as libdbus, but exports all the symbols
 ## and is only used for static linking within the dbus package.
 noinst_LTLIBRARIES=libdbus-internal.la
 
-libdbus_1_la_CPPFLAGS= -Ddbus_1_EXPORTS
-libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
-libdbus_1_la_LDFLAGS= $(export_symbols) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined @R_DYNAMIC_LDFLAG@ @PIC_LDFLAGS@
+libdbus_1_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-Ddbus_1_EXPORTS \
+	$(NULL)
+libdbus_1_la_LIBADD= $(LIBDBUS_LIBS)
+libdbus_1_la_LDFLAGS = \
+	$(AM_LDFLAGS) \
+	$(export_symbols) \
+	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) \
+	-no-undefined \
+	$(NULL)
 
-libdbus_internal_la_CPPFLAGS = -DDBUS_STATIC_BUILD
-libdbus_internal_la_LIBADD=$(DBUS_CLIENT_LIBS)
-libdbus_internal_la_LDFLAGS=$(export_symbols_internal) @R_DYNAMIC_LDFLAG@
+libdbus_internal_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-DDBUS_STATIC_BUILD \
+	$(NULL)
+libdbus_internal_la_LIBADD=$(LIBDBUS_LIBS) $(SYSTEMD_LIBS)
 
-## note that TESTS has special meaning (stuff to use in make check)
-## so if adding tests not to be run in make check, don't add them to
-## TESTS
+noinst_PROGRAMS =
+
 if DBUS_BUILD_TESTS
-TESTS_ENVIRONMENT=DBUS_TEST_DATA=$(top_builddir)/test/data DBUS_TEST_HOMEDIR=$(top_builddir)/dbus
-TESTS=dbus-test
-else
-TESTS=
+# We can't actually run this til we've reached test/
+noinst_PROGRAMS += dbus-test
 endif
-
-## we use noinst_PROGRAMS not check_PROGRAMS so that we build
-## even when not doing "make check"
-noinst_PROGRAMS=$(TESTS)
 
 dbus_test_SOURCES=				\
 	dbus-test-main.c
 
-dbus_test_LDADD=libdbus-internal.la $(DBUS_TEST_LIBS)
-dbus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
+dbus_test_LDADD = libdbus-internal.la
 
 ## mop up the gcov files
 clean-local:

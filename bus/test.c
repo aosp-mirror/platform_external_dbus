@@ -37,69 +37,38 @@ static DBusList *clients = NULL;
 static DBusLoop *client_loop = NULL;
 
 static dbus_bool_t
-client_watch_callback (DBusWatch     *watch,
-                       unsigned int   condition,
-                       void          *data)
-{
-  /* FIXME this can be done in dbus-mainloop.c
-   * if the code in activation.c for the babysitter
-   * watch handler is fixed.
-   */
-
-  return dbus_watch_handle (watch, condition);
-}
-
-static dbus_bool_t
 add_client_watch (DBusWatch      *watch,
                   void           *data)
 {
-  DBusConnection *connection = data;
-
-  return _dbus_loop_add_watch (client_loop,
-                               watch, client_watch_callback, connection,
-                               NULL);
+  return _dbus_loop_add_watch (client_loop, watch);
 }
 
 static void
 remove_client_watch (DBusWatch      *watch,
                      void           *data)
 {
-  DBusConnection *connection = data;
-
-  _dbus_loop_remove_watch (client_loop,
-                           watch, client_watch_callback, connection);
+  _dbus_loop_remove_watch (client_loop, watch);
 }
 
 static void
-client_timeout_callback (DBusTimeout   *timeout,
-                         void          *data)
+toggle_client_watch (DBusWatch      *watch,
+                     void           *data)
 {
-  DBusConnection *connection = data;
-
-  dbus_connection_ref (connection);
-
-  /* can return FALSE on OOM but we just let it fire again later */
-  dbus_timeout_handle (timeout);
-
-  dbus_connection_unref (connection);
+  _dbus_loop_toggle_watch (client_loop, watch);
 }
 
 static dbus_bool_t
 add_client_timeout (DBusTimeout    *timeout,
                     void           *data)
 {
-  DBusConnection *connection = data;
-
-  return _dbus_loop_add_timeout (client_loop, timeout, client_timeout_callback, connection, NULL);
+  return _dbus_loop_add_timeout (client_loop, timeout);
 }
 
 static void
 remove_client_timeout (DBusTimeout    *timeout,
                        void           *data)
 {
-  DBusConnection *connection = data;
-
-  _dbus_loop_remove_timeout (client_loop, timeout, client_timeout_callback, connection);
+  _dbus_loop_remove_timeout (client_loop, timeout);
 }
 
 static DBusHandlerResult
@@ -150,7 +119,7 @@ bus_setup_debug_client (DBusConnection *connection)
   if (!dbus_connection_set_watch_functions (connection,
                                             add_client_watch,
                                             remove_client_watch,
-                                            NULL,
+                                            toggle_client_watch,
                                             connection,
                                             NULL))
     goto out;
@@ -323,7 +292,7 @@ bus_context_new_test (const DBusString *test_data_dir,
     }
 
   dbus_error_init (&error);
-  context = bus_context_new (&config_file, FALSE, NULL, NULL, NULL, FALSE, &error);
+  context = bus_context_new (&config_file, BUS_CONTEXT_FLAG_NONE, NULL, NULL, NULL, &error);
   if (context == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (&error);

@@ -4,9 +4,9 @@
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB
  * Copyright (C) 2005 Novell, Inc.
- * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
  * Copyright (C) 2006 Peter Kümmel  <syntheticpp@gmx.net>
  * Copyright (C) 2006 Christian Ehrlicher <ch.ehrlicher@gmx.de>
+ * Copyright (C) 2006-2010 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -37,10 +37,12 @@
 #endif
 
 #include "dbus-internals.h"
+#include "dbus-sha.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
+#include "dbus-sysdeps.h"
 #include "dbus-sysdeps-win.h"
 #include "dbus-protocol.h"
 #include "dbus-hash.h"
@@ -547,6 +549,10 @@ int _dbus_printf_string_upper_bound (const char *format,
       bufsize *= 2;
 
       p = malloc (bufsize);
+
+      if (p == NULL)
+        return -1;
+
       len = _vsnprintf (p, bufsize - 1, format, args);
       free (p);
     }
@@ -793,11 +799,6 @@ failed:
  * Creates a full-duplex pipe (as in socketpair()).
  * Sets both ends of the pipe nonblocking.
  *
- * @todo libdbus only uses this for the debug-pipe server, so in
- * principle it could be in dbus-sysdeps-util.c, except that
- * dbus-sysdeps-util.c isn't in libdbus when tests are enabled and the
- * debug-pipe server is used.
- * 
  * @param fd1 return location for one end
  * @param fd2 return location for the other end
  * @param blocking #TRUE if pipe should be blocking
@@ -814,9 +815,6 @@ _dbus_full_duplex_pipe (int        *fd1,
   struct sockaddr_in saddr;
   int len;
   u_long arg;
-  fd_set read_set, write_set;
-  struct timeval tv;
-  int res;
 
   _dbus_win_startup_winsock ();
 
@@ -952,7 +950,6 @@ _dbus_poll (DBusPollFD *fds,
   msgp += sprintf (msgp, "WSAEventSelect: to=%d\n\t", timeout_milliseconds);
   for (i = 0; i < n_fds; i++)
     {
-      static dbus_bool_t warned = FALSE;
       DBusPollFD *fdp = &fds[i];
 
 
@@ -1090,7 +1087,6 @@ _dbus_poll (DBusPollFD *fds,
   msgp += sprintf (msgp, "select: to=%d\n\t", timeout_milliseconds);
   for (i = 0; i < n_fds; i++)
     {
-      static dbus_bool_t warned = FALSE;
       DBusPollFD *fdp = &fds[i];
 
 
@@ -1128,12 +1124,11 @@ _dbus_poll (DBusPollFD *fds,
       max_fd = MAX (max_fd, fdp->fd);
     }
 
+  // Avoid random lockups with send(), for lack of a better solution so far
+  tv.tv_sec = timeout_milliseconds < 0 ? 1 : timeout_milliseconds / 1000;
+  tv.tv_usec = timeout_milliseconds < 0 ? 0 : (timeout_milliseconds % 1000) * 1000;
 
-  tv.tv_sec = timeout_milliseconds / 1000;
-  tv.tv_usec = (timeout_milliseconds % 1000) * 1000;
-
-  ready = select (max_fd + 1, &read_set, &write_set, &err_set,
-                  timeout_milliseconds < 0 ? NULL : &tv);
+  ready = select (max_fd + 1, &read_set, &write_set, &err_set, &tv);
 
   if (DBUS_SOCKET_API_RETURNS_ERROR (ready))
     {
@@ -1359,6 +1354,8 @@ _dbus_connect_tcp_socket_with_nonce (const char     *host,
         }
     }
 
+  _dbus_fd_set_close_on_exec (fd);
+
   if (!_dbus_set_fd_nonblocking (fd, error))
     {
       closesocket (fd);
@@ -1551,6 +1548,7 @@ _dbus_listen_tcp_socket (const char     *host,
 
   for (i = 0 ; i < nlisten_fd ; i++)
     {
+      _dbus_fd_set_close_on_exec (listen_fd[i]);
       if (!_dbus_set_fd_nonblocking (listen_fd[i], error))
         {
           goto failed;
@@ -1874,14 +1872,15 @@ _dbus_sleep_milliseconds (int milliseconds)
 
 
 /**
- * Get current time, as in gettimeofday().
+ * Get current time, as in gettimeofday(). Never uses the monotonic
+ * clock.
  *
  * @param tv_sec return location for number of seconds
  * @param tv_usec return location for number of microseconds
  */
 void
-_dbus_get_current_time (long *tv_sec,
-                        long *tv_usec)
+_dbus_get_real_time (long *tv_sec,
+                     long *tv_usec)
 {
   FILETIME ft;
   dbus_uint64_t time64;
@@ -1903,6 +1902,20 @@ _dbus_get_current_time (long *tv_sec,
     *tv_usec = time64 % 1000000;
 }
 
+/**
+ * Get current time, as in gettimeofday(). Use the monotonic clock if
+ * available, to avoid problems when the system time changes.
+ *
+ * @param tv_sec return location for number of seconds
+ * @param tv_usec return location for number of microseconds
+ */
+void
+_dbus_get_monotonic_time (long *tv_sec,
+                          long *tv_usec)
+{
+  /* no implementation yet, fall back to wall-clock time */
+  _dbus_get_real_time (tv_sec, tv_usec);
+}
 
 /**
  * signal (SIGPIPE, SIG_IGN);
@@ -2049,10 +2062,6 @@ _dbus_delete_file (const DBusString *filename,
   else
     return TRUE;
 }
-
-/* Forward declaration of prototype used in next function */
-static dbus_bool_t
-_dbus_get_install_root(char *prefix, int len);
 
 /*
  * replaces the term DBUS_PREFIX in configure_time_path by the
@@ -2536,35 +2545,172 @@ static const char *cDBusAutolaunchMutex = "DBusAutolaunchMutex";
 // mutex to determine if dbus-daemon is already started (per user)
 static const char *cDBusDaemonMutex = "DBusDaemonMutex";
 // named shm for dbus adress info (per user)
-#ifdef _DEBUG
-static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfoDebug";
-#else
 static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
-#endif
 
+static dbus_bool_t
+_dbus_get_install_root_as_hash(DBusString *out)
+{
+    DBusString install_path;
 
-void
-_dbus_daemon_publish_session_bus_address (const char* address)
+    char path[MAX_PATH*2];
+    int path_size = sizeof(path);
+
+    if (!_dbus_get_install_root(path,path_size))
+        return FALSE;
+
+    _dbus_string_init(&install_path);
+    _dbus_string_append(&install_path,path);
+
+    _dbus_string_init(out);
+    _dbus_string_tolower_ascii(&install_path,0,_dbus_string_get_length(&install_path));
+
+    if (!_dbus_sha_compute (&install_path, out))
+        return FALSE;
+
+    return TRUE;
+}
+
+static dbus_bool_t
+_dbus_get_address_string (DBusString *out, const char *basestring, const char *scope)
+{
+  _dbus_string_init(out);
+  _dbus_string_append(out,basestring);
+
+  if (!scope)
+    {
+      return TRUE;
+    }
+  else if (strcmp(scope,"*install-path") == 0
+        // for 1.3 compatibility
+        || strcmp(scope,"install-path") == 0)
+    {
+      DBusString temp;
+      if (!_dbus_get_install_root_as_hash(&temp))
+        {
+          _dbus_string_free(out);
+           return FALSE;
+        }
+      _dbus_string_append(out,"-");
+      _dbus_string_append(out,_dbus_string_get_const_data(&temp));
+      _dbus_string_free(&temp);
+    }
+  else if (strcmp(scope,"*user") == 0)
+    {
+      _dbus_string_append(out,"-");
+      if (!_dbus_append_user_from_current_process(out))
+        {
+           _dbus_string_free(out);
+           return FALSE;
+        }
+    }
+  else if (strlen(scope) > 0)
+    {
+      _dbus_string_append(out,"-");
+      _dbus_string_append(out,scope);
+      return TRUE;
+    }
+  return TRUE;
+}
+
+static dbus_bool_t
+_dbus_get_shm_name (DBusString *out,const char *scope)
+{
+  return _dbus_get_address_string (out,cDBusDaemonAddressInfo,scope);
+}
+
+static dbus_bool_t
+_dbus_get_mutex_name (DBusString *out,const char *scope)
+{
+  return _dbus_get_address_string (out,cDBusDaemonMutex,scope);
+}
+
+dbus_bool_t
+_dbus_daemon_is_session_bus_address_published (const char *scope)
 {
   HANDLE lock;
-  char *shared_addr = NULL;
-  DWORD ret;
+  DBusString mutex_name;
 
-  _dbus_assert (address);
-  // before _dbus_global_lock to keep correct lock/release order
-  hDBusDaemonMutex = CreateMutexA( NULL, FALSE, cDBusDaemonMutex );
-  ret = WaitForSingleObject( hDBusDaemonMutex, 1000 );
-  if ( ret != WAIT_OBJECT_0 ) {
-    _dbus_warn("Could not lock mutex %s (return code %ld). daemon already running? Bus address not published.\n", cDBusDaemonMutex, ret );
-    return;
-  }
+  if (!_dbus_get_mutex_name(&mutex_name,scope))
+    {
+      _dbus_string_free( &mutex_name );
+      return FALSE;
+    }
+
+  if (hDBusDaemonMutex)
+      return TRUE;
 
   // sync _dbus_daemon_publish_session_bus_address, _dbus_daemon_unpublish_session_bus_address and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
+  // we use CreateMutex instead of OpenMutex because of possible race conditions,
+  // see http://msdn.microsoft.com/en-us/library/ms684315%28VS.85%29.aspx
+  hDBusDaemonMutex = CreateMutexA( NULL, FALSE, _dbus_string_get_const_data(&mutex_name) );
+
+  /* The client uses mutex ownership to detect a running server, so the server should do so too.
+     Fortunally the client deletes the mutex in the lock protected area, so checking presence 
+     will work too.  */
+
+  _dbus_global_unlock( lock );
+
+  _dbus_string_free( &mutex_name );
+
+  if (hDBusDaemonMutex  == NULL)
+      return FALSE;
+  if (GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+      CloseHandle(hDBusDaemonMutex);
+      hDBusDaemonMutex = NULL;
+      return TRUE;
+    }
+  // mutex wasn't created before, so return false.
+  // We leave the mutex name allocated for later reusage
+  // in _dbus_daemon_publish_session_bus_address.
+  return FALSE;
+}
+
+dbus_bool_t
+_dbus_daemon_publish_session_bus_address (const char* address, const char *scope)
+{
+  HANDLE lock;
+  char *shared_addr = NULL;
+  DBusString shm_name;
+  DBusString mutex_name;
+
+  _dbus_assert (address);
+
+  if (!_dbus_get_mutex_name(&mutex_name,scope))
+    {
+      _dbus_string_free( &mutex_name );
+      return FALSE;
+    }
+
+  // sync _dbus_daemon_publish_session_bus_address, _dbus_daemon_unpublish_session_bus_address and _dbus_daemon_already_runs
+  lock = _dbus_global_lock( cUniqueDBusInitMutex );
+
+  if (!hDBusDaemonMutex)
+    {
+      hDBusDaemonMutex = CreateMutexA( NULL, FALSE, _dbus_string_get_const_data(&mutex_name) );
+    }
+  _dbus_string_free( &mutex_name );
+
+  // acquire the mutex
+  if (WaitForSingleObject( hDBusDaemonMutex, 10 ) != WAIT_OBJECT_0)
+    {
+      _dbus_global_unlock( lock );
+      CloseHandle( hDBusDaemonMutex );
+      return FALSE;
+    }
+
+  if (!_dbus_get_shm_name(&shm_name,scope))
+    {
+      _dbus_string_free( &shm_name );
+      _dbus_global_unlock( lock );
+      return FALSE;
+    }
+
   // create shm
   hDBusSharedMem = CreateFileMappingA( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                      0, strlen( address ) + 1, cDBusDaemonAddressInfo );
+                                       0, strlen( address ) + 1, _dbus_string_get_const_data(&shm_name) );
   _dbus_assert( hDBusSharedMem );
 
   shared_addr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
@@ -2577,6 +2723,10 @@ _dbus_daemon_publish_session_bus_address (const char* address)
   UnmapViewOfFile( shared_addr );
 
   _dbus_global_unlock( lock );
+  _dbus_verbose( "published session bus address at %s\n",_dbus_string_get_const_data (&shm_name) );
+
+  _dbus_string_free( &shm_name );
+  return TRUE;
 }
 
 void
@@ -2601,7 +2751,7 @@ _dbus_daemon_unpublish_session_bus_address (void)
 }
 
 static dbus_bool_t
-_dbus_get_autolaunch_shm (DBusString *address)
+_dbus_get_autolaunch_shm (DBusString *address, DBusString *shm_name)
 {
   HANDLE sharedMem;
   char *shared_addr;
@@ -2610,7 +2760,7 @@ _dbus_get_autolaunch_shm (DBusString *address)
   // read shm
   for(i=0;i<20;++i) {
       // we know that dbus-daemon is available, so we wait until shm is available
-      sharedMem = OpenFileMappingA( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
+      sharedMem = OpenFileMappingA( FILE_MAP_READ, FALSE, _dbus_string_get_const_data(shm_name));
       if( sharedMem == 0 )
           Sleep( 100 );
       if ( sharedMem != 0)
@@ -2638,39 +2788,48 @@ _dbus_get_autolaunch_shm (DBusString *address)
 }
 
 static dbus_bool_t
-_dbus_daemon_already_runs (DBusString *address)
+_dbus_daemon_already_runs (DBusString *address, DBusString *shm_name, const char *scope)
 {
   HANDLE lock;
   HANDLE daemon;
+  DBusString mutex_name;
   dbus_bool_t bRet = TRUE;
+
+  if (!_dbus_get_mutex_name(&mutex_name,scope))
+    {
+      _dbus_string_free( &mutex_name );
+      return FALSE;
+    }
 
   // sync _dbus_daemon_publish_session_bus_address, _dbus_daemon_unpublish_session_bus_address and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
   // do checks
-  daemon = CreateMutexA( NULL, FALSE, cDBusDaemonMutex );
+  daemon = CreateMutexA( NULL, FALSE, _dbus_string_get_const_data(&mutex_name) );
   if(WaitForSingleObject( daemon, 10 ) != WAIT_TIMEOUT)
     {
       ReleaseMutex (daemon);
       CloseHandle (daemon);
 
       _dbus_global_unlock( lock );
+      _dbus_string_free( &mutex_name );
       return FALSE;
     }
 
   // read shm
-  bRet = _dbus_get_autolaunch_shm( address );
+  bRet = _dbus_get_autolaunch_shm( address, shm_name );
 
   // cleanup
   CloseHandle ( daemon );
 
   _dbus_global_unlock( lock );
+  _dbus_string_free( &mutex_name );
 
   return bRet;
 }
 
 dbus_bool_t
-_dbus_get_autolaunch_address (DBusString *address, 
+_dbus_get_autolaunch_address (const char *scope, DBusString *address,
                               DBusError *error)
 {
   HANDLE mutex;
@@ -2681,24 +2840,61 @@ _dbus_get_autolaunch_address (DBusString *address,
   char dbus_exe_path[MAX_PATH];
   char dbus_args[MAX_PATH * 2];
   const char * daemon_name = DBUS_DAEMON_NAME ".exe";
-
-  mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
+  DBusString shm_name;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  if (_dbus_daemon_already_runs(address))
+  if (!_dbus_get_shm_name(&shm_name,scope))
     {
-        _dbus_verbose("found already running dbus daemon\n");
+        dbus_set_error_const (error, DBUS_ERROR_FAILED, "could not determine shm name");
+        return FALSE;
+    }
+
+  mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
+
+  if (_dbus_daemon_already_runs(address,&shm_name,scope))
+    {
+        _dbus_verbose( "found running dbus daemon at %s\n",
+                       _dbus_string_get_const_data (&shm_name) );
         retval = TRUE;
         goto out;
     }
 
   if (!SearchPathA(NULL, daemon_name, NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
     {
-      printf ("please add the path to %s to your PATH environment variable\n", daemon_name);
-      printf ("or start the daemon manually\n\n");
-      goto out;
+      // Look in directory containing dbus shared library
+      HMODULE hmod;
+      char dbus_module_path[MAX_PATH];
+      DWORD rc;
+
+      _dbus_verbose( "did not found dbus daemon executable on default search path, "
+            "trying path where dbus shared library is located");
+
+      hmod = _dbus_win_get_dll_hmodule();
+      rc = GetModuleFileNameA(hmod, dbus_module_path, sizeof(dbus_module_path));
+      if (rc <= 0)
+        {
+          dbus_set_error_const (error, DBUS_ERROR_FAILED, "could not retrieve dbus shared library file name");
+          retval = FALSE;
+          goto out;
+        }
+      else
+        {
+          char *ext_idx = strrchr(dbus_module_path, '\\');
+          if (ext_idx)
+          *ext_idx = '\0';
+          if (!SearchPathA(dbus_module_path, daemon_name, NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
+            {
+              dbus_set_error_const (error, DBUS_ERROR_FAILED, "could not find dbus-daemon executable");
+              retval = FALSE;
+              printf ("please add the path to %s to your PATH environment variable\n", daemon_name);
+              printf ("or start the daemon manually\n\n");
+              goto out;
+            }
+          _dbus_verbose( "found dbus daemon executable at %s",dbus_module_path);
+        }
     }
+
 
   // Create process
   ZeroMemory( &si, sizeof(si) );
@@ -2713,11 +2909,15 @@ _dbus_get_autolaunch_address (DBusString *address,
     {
       CloseHandle (pi.hThread);
       CloseHandle (pi.hProcess);
-      retval = _dbus_get_autolaunch_shm( address );
+      retval = _dbus_get_autolaunch_shm( address, &shm_name );
+      if (retval == FALSE)
+        dbus_set_error_const (error, DBUS_ERROR_FAILED, "Failed to get autolaunch address from launched dbus-daemon");
     }
-  
-  if (retval == FALSE)
-    dbus_set_error_const (error, DBUS_ERROR_FAILED, "Failed to launch dbus-daemon");
+  else
+    {
+      dbus_set_error_const (error, DBUS_ERROR_FAILED, "Failed to launch dbus-daemon");
+      retval = FALSE;
+    }
 
 out:
   if (retval)
@@ -2804,6 +3004,25 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
       }
   }
 #else
+/*
+ the code for accessing services requires absolute base pathes
+ in case DBUS_DATADIR is relative make it absolute
+*/
+#ifdef DBUS_WIN
+  {
+    DBusString p;
+
+    _dbus_string_init_const (&p, DBUS_DATADIR);
+
+    if (!_dbus_path_is_absolute (&p))
+      {
+        char install_root[1000];
+        if (_dbus_get_install_root (install_root, sizeof(install_root)))
+          if (!_dbus_string_append (&servicedir_path, install_root))
+            goto oom;
+      }
+  }
+#endif
   if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR))
     goto oom;
 
@@ -2893,6 +3112,21 @@ _dbus_atomic_dec (DBusAtomic *atomic)
 }
 
 /**
+ * Atomically get the value of an integer. It may change at any time
+ * thereafter, so this is mostly only useful for assertions.
+ *
+ * @param atomic pointer to the integer to get
+ * @returns the value at this moment
+ */
+dbus_int32_t
+_dbus_atomic_get (DBusAtomic *atomic)
+{
+  /* this is what GLib does, hopefully it's right... */
+  MemoryBarrier ();
+  return atomic->value;
+}
+
+/**
  * Called when the bus daemon is signaled to reload its configuration; any
  * caches should be nuked. Of course any caches that need explicit reload
  * are probably broken, but c'est la vie.
@@ -2923,12 +3157,10 @@ _dbus_get_is_errno_eagain_or_ewouldblock (void)
  * @param len length of buffer
  * @returns #FALSE on failure
  */
-static dbus_bool_t
+dbus_bool_t
 _dbus_get_install_root(char *prefix, int len)
 {
     //To find the prefix, we cut the filename and also \bin\ if present
-    char* p = 0;
-    int i;
     DWORD pathLength;
     char *lastSlash;
     SetLastError( 0 );
@@ -3082,7 +3314,6 @@ _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
 {
   DBusString homedir;
   DBusString dotdir;
-  dbus_uid_t uid;
   const char *homepath;
   const char *homedrive;
 
@@ -3382,6 +3613,29 @@ _dbus_delete_directory (const DBusString *filename,
     }
 
   return TRUE;
+}
+
+/**
+ * Checks whether the filename is an absolute path
+ *
+ * @param filename the filename
+ * @returns #TRUE if an absolute path
+ */
+dbus_bool_t
+_dbus_path_is_absolute (const DBusString *filename)
+{
+  if (_dbus_string_get_length (filename) > 0)
+    return _dbus_string_get_byte (filename, 1) == ':'
+           || _dbus_string_get_byte (filename, 0) == '\\'
+           || _dbus_string_get_byte (filename, 0) == '/';
+  else
+    return FALSE;
+}
+
+dbus_bool_t
+_dbus_check_setuid (void)
+{
+  return FALSE;
 }
 
 /** @} end of sysdeps-win */

@@ -39,6 +39,7 @@
 #include <dbus/dbus-server.h>
 #include <dbus/dbus-shared.h>
 #include <dbus/dbus-signature.h>
+#include <dbus/dbus-syntax.h>
 #include <dbus/dbus-threads.h>
 #include <dbus/dbus-types.h>
 

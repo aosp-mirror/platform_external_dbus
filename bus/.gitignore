@@ -16,10 +16,11 @@ dbus-daemon-launch-helper-test
 bus-test
 rc.messagebus
 messagebus
+messagebus-config
 session.conf
 system.conf
-dbus-daemon.1
 bus-test-launch-helper
 bus-test-system
 dbus.service
 dbus.socket
+org.freedesktop.dbus-session.plist

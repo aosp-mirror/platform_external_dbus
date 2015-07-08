@@ -102,8 +102,6 @@ struct DBusMessage
 
   DBusString body;   /**< Body network data. */
 
-  char byte_order; /**< Message byte order. */
-
   unsigned int locked : 1; /**< Message being sent, no modifications allowed. */
 
 #ifndef DBUS_DISABLE_CHECKS
@@ -137,9 +135,6 @@ dbus_bool_t _dbus_message_iter_get_args_valist (DBusMessageIter *iter,
                                                 DBusError       *error,
                                                 int              first_arg_type,
                                                 va_list          var_args);
-
-
-void _dbus_check_fdleaks(void);
 
 /** @} */
 
