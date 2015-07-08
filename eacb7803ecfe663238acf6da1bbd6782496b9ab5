@@ -49,6 +49,30 @@
     },
     {
       "key": {
+        "uuid": "736d61b3_7d65b012",
+        "filename": "bus/Android.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 1003224
+      },
+      "writtenOn": "2015-07-08T20:02:24Z",
+      "side": 1,
+      "message": "that\u0027s annoying. my ubuntu host has just \u003cexpat.h\u003e but 8 existing Android callers say \u003clibexpat/expat.h\u003e: https://cs.corp.google.com/#search/\u0026q\u003dlibexpat/\u0026sq\u003dpackage:%5Eandroid$\u0026type\u003dcs\u0026m\u003d100\u0026sort\u003d1\n\ni\u0027m happy to +2 anything in those projects that moves us in the right direction, but understand if you\u0027re too busy to want to do that...",
+      "parentUuid": "f80dae2c_6c7fbfd6",
+      "range": {
+        "startLine": 22,
+        "startChar": 1,
+        "endLine": 22,
+        "endChar": 19
+      },
+      "revId": "eacb7803ecfe663238acf6da1bbd6782496b9ab5",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "534a1d43_e1205060",
         "filename": "dbus/Android.mk",
         "patchSetId": 1
