@@ -5,7 +5,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := dbus-print-message.c
-LOCAL_C_INCLUDES += $(call include-path-for, dbus)
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/..
 LOCAL_SHARED_LIBRARIES += libdbus
 LOCAL_CFLAGS += \
 	-DDBUS_COMPILATION \
@@ -20,7 +20,7 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := dbus-monitor.c
-LOCAL_C_INCLUDES += $(call include-path-for, dbus)
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/..
 LOCAL_SHARED_LIBRARIES += libdbus
 LOCAL_STATIC_LIBRARIES += libdbus-tools-common
 LOCAL_CFLAGS += \
@@ -36,7 +36,7 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := dbus-send.c
-LOCAL_C_INCLUDES += $(call include-path-for, dbus)
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/..
 LOCAL_SHARED_LIBRARIES += libdbus
 LOCAL_STATIC_LIBRARIES += libdbus-tools-common
 LOCAL_CFLAGS += \
