@@ -74,6 +74,20 @@
 #define _DBUS_GNUC_NORETURN
 #endif  /* !__GNUC__ */
 
+#if    __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 96)
+#define DBUS_MALLOC     __attribute__((__malloc__))
+#else
+#define DBUS_MALLOC
+#endif
+
+#if     (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#define DBUS_ALLOC_SIZE(x) __attribute__((__alloc_size__(x)))
+#define DBUS_ALLOC_SIZE2(x,y) __attribute__((__alloc_size__(x,y)))
+#else
+#define DBUS_ALLOC_SIZE(x)
+#define DBUS_ALLOC_SIZE2(x,y)
+#endif
+
 /** @def _DBUS_GNUC_PRINTF
  * used to tell gcc about printf format strings
  */

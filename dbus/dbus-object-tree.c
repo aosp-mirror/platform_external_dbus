@@ -745,7 +745,8 @@ handle_default_introspect_and_unlock (DBusObjectTree          *tree,
  */
 DBusHandlerResult
 _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
-                                       DBusMessage             *message)
+                                       DBusMessage             *message,
+                                       dbus_bool_t             *found_object)
 {
   char **path;
   dbus_bool_t exact_match;
@@ -791,6 +792,9 @@ _dbus_object_tree_dispatch_and_unlock (DBusObjectTree          *tree,
   /* Find the deepest path that covers the path in the message */
   subtree = find_handler (tree, (const char**) path, &exact_match);
   
+  if (found_object)
+    *found_object = !!subtree;
+
   /* Build a list of all paths that cover the path in the message */
 
   list = NULL;
@@ -950,7 +954,7 @@ allocate_subtree_object (const char *name)
 
   len = strlen (name);
 
-  subtree = dbus_malloc (MAX (front_padding + (len + 1), sizeof (DBusObjectSubtree)));
+  subtree = dbus_malloc0 (MAX (front_padding + (len + 1), sizeof (DBusObjectSubtree)));
 
   if (subtree == NULL)
     return NULL;
@@ -987,7 +991,7 @@ _dbus_object_subtree_new (const char                  *name,
     }
 
   subtree->user_data = user_data;
-  subtree->refcount.value = 1;
+  _dbus_atomic_inc (&subtree->refcount);
   subtree->subtrees = NULL;
   subtree->n_subtrees = 0;
   subtree->max_subtrees = 0;
@@ -1002,8 +1006,14 @@ _dbus_object_subtree_new (const char                  *name,
 static DBusObjectSubtree *
 _dbus_object_subtree_ref (DBusObjectSubtree *subtree)
 {
-  _dbus_assert (subtree->refcount.value > 0);
+#ifdef DBUS_DISABLE_ASSERT
   _dbus_atomic_inc (&subtree->refcount);
+#else
+  dbus_int32_t old_value;
+
+  old_value = _dbus_atomic_inc (&subtree->refcount);
+  _dbus_assert (old_value > 0);
+#endif
 
   return subtree;
 }
@@ -1011,9 +1021,12 @@ _dbus_object_subtree_ref (DBusObjectSubtree *subtree)
 static void
 _dbus_object_subtree_unref (DBusObjectSubtree *subtree)
 {
-  _dbus_assert (subtree->refcount.value > 0);
+  dbus_int32_t old_value;
 
-  if (_dbus_atomic_dec (&subtree->refcount) == 1)
+  old_value = _dbus_atomic_dec (&subtree->refcount);
+  _dbus_assert (old_value > 0);
+
+  if (old_value == 1)
     {
       _dbus_assert (subtree->unregister_function == NULL);
       _dbus_assert (subtree->message_function == NULL);
@@ -1382,7 +1395,7 @@ do_test_dispatch (DBusObjectTree *tree,
       ++j;
     }
 
-  result = _dbus_object_tree_dispatch_and_unlock (tree, message);
+  result = _dbus_object_tree_dispatch_and_unlock (tree, message, NULL);
   if (result == DBUS_HANDLER_RESULT_NEED_MEMORY)
     goto oom;
 

@@ -140,21 +140,12 @@ out_all:
   return desktop_file;
 }
 
-/* Cleares the environment, except for DBUS_VERBOSE and DBUS_STARTER_x */
+/* Clears the environment, except for DBUS_STARTER_x,
+ * which we hardcode to the system bus.
+ */
 static dbus_bool_t
 clear_environment (DBusError *error)
 {
-  const char *debug_env = NULL;
-  const char *starter_env = NULL;
-
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-  /* are we debugging */
-  debug_env = _dbus_getenv ("DBUS_VERBOSE");
-#endif
-
-  /* we save the starter */
-  starter_env = _dbus_getenv ("DBUS_STARTER_ADDRESS");
-
 #ifndef ACTIVATION_LAUNCHER_TEST
   /* totally clear the environment */
   if (!_dbus_clearenv ())
@@ -165,17 +156,8 @@ clear_environment (DBusError *error)
     }
 #endif
 
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-  /* restore the debugging environment setting if set */
-  if (debug_env)
-    _dbus_setenv ("DBUS_VERBOSE", debug_env);
-#endif
-
-  /* restore the starter */
-  if (starter_env)
-    _dbus_setenv ("DBUS_STARTER_ADDRESS", starter_env);
-
-  /* set the type, which must be system if we got this far */
+  /* Ensure the bus is set to system */
+  _dbus_setenv ("DBUS_STARTER_ADDRESS", DBUS_SYSTEM_BUS_DEFAULT_ADDRESS);
   _dbus_setenv ("DBUS_STARTER_BUS_TYPE", "system");
 
   return TRUE;
@@ -184,6 +166,7 @@ clear_environment (DBusError *error)
 static dbus_bool_t
 check_permissions (const char *dbus_user, DBusError *error)
 {
+#ifndef ACTIVATION_LAUNCHER_TEST
   uid_t uid, euid;
   struct passwd *pw;
 
@@ -191,7 +174,6 @@ check_permissions (const char *dbus_user, DBusError *error)
   uid = 0;
   euid = 0;
 
-#ifndef ACTIVATION_LAUNCHER_TEST
   /* bail out unless the dbus user is invoking the helper */
   pw = getpwnam(dbus_user);
   if (!pw)
@@ -403,12 +385,15 @@ get_correct_parser (BusConfigParser **parser, DBusError *error)
 {
   DBusString config_file;
   dbus_bool_t retval;
+#ifdef ACTIVATION_LAUNCHER_TEST
   const char *test_config_file;
+#endif
 
   retval = FALSE;
-  test_config_file = NULL;
 
 #ifdef ACTIVATION_LAUNCHER_TEST
+  test_config_file = NULL;
+
   /* there is no _way_ we should be setuid if this define is set.
    * but we should be doubly paranoid and check... */
   if (getuid() != geteuid())

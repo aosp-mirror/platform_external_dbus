@@ -43,6 +43,47 @@
 extern Display *xdisplay;
 #endif
 
+/* PROCESSES
+ *
+ * If you are in a shell and run "dbus-launch myapp", here is what happens:
+ *
+ * shell [*]
+ *   \- main()               --exec--> myapp[*]
+ *      \- "intermediate parent"
+ *         \- bus-runner     --exec--> dbus-daemon --fork
+ *         \- babysitter[*]            \- final dbus-daemon[*]
+ *
+ * Processes marked [*] survive the initial flurry of activity.
+ *
+ * If you run "dbus-launch --sh-syntax" then the diagram is the same, except
+ * that main() prints variables and exits 0 instead of exec'ing myapp.
+ *
+ * PIPES
+ *
+ * dbus-daemon --print-pid     -> bus_pid_to_launcher_pipe     -> main
+ * dbus-daemon --print-address -> bus_address_to_launcher_pipe -> main
+ * main                        -> bus_pid_to_babysitter_pipe   -> babysitter
+ *
+ * The intermediate parent looks pretty useless at first glance. Its purpose
+ * is to avoid the bus-runner becoming a zombie: when the intermediate parent
+ * terminates, the bus-runner and babysitter are reparented to init, which
+ * reaps them if they have finished. We can't rely on main() to reap arbitrary
+ * children because it might exec myapp, after which it can't be relied on to
+ * reap its children. We *can* rely on main() to reap the intermediate parent,
+ * because that happens before it execs myapp.
+ *
+ * It's unclear why dbus-daemon needs to fork, but we explicitly tell it to
+ * for some reason, then wait for it. If we left it undefined, a forking
+ * dbus-daemon would get the parent process reparented to init and reaped
+ * when the intermediate parent terminated, and a non-forking dbus-daemon
+ * would get reparented to init and carry on there.
+ *
+ * myapp is exec'd by the process that initially ran main() so that it's
+ * the shell's child, so the shell knows how to do job control and stuff.
+ * This is desirable for the "dbus-launch an application" use-case, less so
+ * for the "dbus-launch a test suite in an isolated session" use-case.
+ */
+
 static char* machine_uuid = NULL;
 
 const char*
@@ -451,11 +492,20 @@ kill_bus_when_session_ends (void)
   else
     tty_fd = -1;
 
-  if (tty_fd >= 0)
-    verbose ("stdin isatty(), monitoring it\n");
+  if (x_fd >= 0)
+    {
+      verbose ("session lifetime is defined by X, not monitoring stdin\n");
+      tty_fd = -1;
+    }
+  else if (tty_fd >= 0)
+    {
+      verbose ("stdin isatty(), monitoring it\n");
+    }
   else
-    verbose ("stdin was not a TTY, not monitoring it\n");  
-  
+    {
+      verbose ("stdin was not a TTY, not monitoring it\n");
+    }
+
   if (tty_fd < 0 && x_fd < 0)
     {
       fprintf (stderr, "No terminal on standard input and no X display; cannot attach message bus to session lifetime\n");
@@ -690,10 +740,11 @@ pass_info (const char *runprog, const char *bus_address, pid_t bus_pid,
            int binary_syntax,
            int argc, char **argv, int remaining_args)
 {
+  char *envvar = NULL;
+  char **args = NULL;
+
   if (runprog)
     {
-      char *envvar;
-      char **args;
       int i;
 
       envvar = malloc (strlen ("DBUS_SESSION_BUS_ADDRESS=") +
@@ -737,6 +788,12 @@ pass_info (const char *runprog, const char *bus_address, pid_t bus_pid,
   close (2);
   exit (0);
 oom:
+  if (envvar)
+    free (envvar);
+
+  if (args)
+    free (args);
+
   fprintf (stderr, "Out of memory!");
   exit (1);
 }
@@ -910,7 +967,11 @@ main (int argc, char **argv)
       fprintf (stderr, "Autolaunch requested, but X11 support not compiled in.\n"
 	       "Cannot continue.\n");
       exit (1);
-#else
+#else /* DBUS_BUILD_X11 */
+#ifndef DBUS_ENABLE_X11_AUTOLAUNCH
+      fprintf (stderr, "X11 autolaunch support disabled at compile time.\n");
+      exit (1);
+#else /* DBUS_ENABLE_X11_AUTOLAUNCH */
       char *address;
       pid_t pid;
       long wid;
@@ -947,11 +1008,12 @@ main (int argc, char **argv)
 			   bourne_shell_syntax, binary_syntax, argc, argv, remaining_args);
 	  exit (0);
 	}
+#endif /* DBUS_ENABLE_X11_AUTOLAUNCH */
     }
-   else if (read_machine_uuid_if_needed())
+  else if (read_machine_uuid_if_needed())
     {
       x11_init();
-#endif
+#endif /* DBUS_BUILD_X11 */
     }
 
 
@@ -1170,7 +1232,7 @@ main (int argc, char **argv)
 
       close (bus_pid_to_launcher_pipe[READ_END]);
 
-#ifdef DBUS_BUILD_X11
+#ifdef DBUS_ENABLE_X11_AUTOLAUNCH
       if (xdisplay != NULL)
         {
           verbose("Saving x11 address\n");

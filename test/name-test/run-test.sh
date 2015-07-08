@@ -49,7 +49,12 @@ echo "running test-shutdown"
 ${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-shutdown || die "test-shutdown failed"
 
 echo "running test activation forking"
-if ! python $DBUS_TOP_SRCDIR/test/name-test/test-activation-forking.py; then
+if test "x$PYTHON" = "x:"; then
+  echo "Skipped test-activation-forking: Python interpreter not found"
+elif ! $PYTHON $DBUS_TOP_SRCDIR/test/name-test/test-activation-forking.py; then
   echo "Failed test-activation-forking"
   exit 1
 fi
+
+echo "running test-autolaunch"
+${DBUS_TOP_BUILDDIR}/libtool --mode=execute $DEBUG $DBUS_TOP_BUILDDIR/test/name-test/test-autolaunch || die "test-autolaunch failed"

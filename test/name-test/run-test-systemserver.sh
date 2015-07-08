@@ -41,10 +41,11 @@ if ! grep -q 'DBus.Error' echo-error-output.tmp; then
 fi
 
 echo "running test echo signal"
-if ! python $DBUS_TOP_SRCDIR/test/name-test/test-wait-for-echo.py; then
+if test "x$PYTHON" = "x:"; then
+  echo "Skipped test-echo-signal: Python interpreter not found"
+elif ! $PYTHON $DBUS_TOP_SRCDIR/test/name-test/test-wait-for-echo.py; then
   echo "Failed test-wait-for-echo"
   exit 1
 fi
-
 
 exit 0

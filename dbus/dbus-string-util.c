@@ -120,26 +120,6 @@ _dbus_string_find_byte_backward (const DBusString  *str,
 #include <stdio.h>
 
 static void
-test_max_len (DBusString *str,
-              int         max_len)
-{
-  if (max_len > 0)
-    {
-      if (!_dbus_string_set_length (str, max_len - 1))
-        _dbus_assert_not_reached ("setting len to one less than max should have worked");
-    }
-
-  if (!_dbus_string_set_length (str, max_len))
-    _dbus_assert_not_reached ("setting len to max len should have worked");
-
-  if (_dbus_string_set_length (str, max_len + 1))
-    _dbus_assert_not_reached ("setting len to one more than max len should not have worked");
-
-  if (!_dbus_string_set_length (str, 0))
-    _dbus_assert_not_reached ("setting len to zero should have worked");
-}
-
-static void
 test_hex_roundtrip (const unsigned char *data,
                     int                  len)
 {
@@ -232,25 +212,6 @@ test_roundtrips (TestRoundtripFunc func)
   }
 }
 
-#ifdef DBUS_BUILD_TESTS
-/* The max length thing is sort of a historical artifact
- * from a feature that turned out to be dumb; perhaps
- * we should purge it entirely. The problem with
- * the feature is that it looks like memory allocation
- * failure, but is not a transient or resolvable failure.
- */
-static void
-set_max_length (DBusString *str,
-                int         max_length)
-{
-  DBusRealString *real;
-  
-  real = (DBusRealString*) str;
-
-  real->max_length = max_length;
-}
-#endif /* DBUS_BUILD_TESTS */
-
 /**
  * @ingroup DBusStringInternals
  * Unit test for DBusString.
@@ -266,26 +227,10 @@ _dbus_string_test (void)
 {
   DBusString str;
   DBusString other;
-  int i, end;
+  int i, a, end;
   long v;
-  double d;
   int lens[] = { 0, 1, 2, 3, 4, 5, 10, 16, 17, 18, 25, 31, 32, 33, 34, 35, 63, 64, 65, 66, 67, 68, 69, 70, 71, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136 };
   char *s;
-  dbus_unichar_t ch;
-  
-  i = 0;
-  while (i < _DBUS_N_ELEMENTS (lens))
-    {
-      if (!_dbus_string_init (&str))
-        _dbus_assert_not_reached ("failed to init string");
-
-      set_max_length (&str, lens[i]);
-      
-      test_max_len (&str, lens[i]);
-      _dbus_string_free (&str);
-
-      ++i;
-    }
 
   /* Test shortening and setting length */
   i = 0;
@@ -296,8 +241,6 @@ _dbus_string_test (void)
       if (!_dbus_string_init (&str))
         _dbus_assert_not_reached ("failed to init string");
 
-      set_max_length (&str, lens[i]);
-      
       if (!_dbus_string_set_length (&str, lens[i]))
         _dbus_assert_not_reached ("failed to set string length");
 
@@ -513,25 +456,93 @@ _dbus_string_test (void)
   _dbus_assert (_dbus_string_get_length (&other) == i * 2 - 1);
   _dbus_assert (_dbus_string_equal_c_str (&other,
                                           "HelloHello WorldWorle"));
-  
+
   _dbus_string_free (&str);
   _dbus_string_free (&other);
-  
-  /* Check append/get unichar */
-  
+
+  /* Different tests are provided because different behaviours are
+   * implemented in _dbus_string_replace_len() in function of replacing and
+   * replaced lengths
+   */
+
   if (!_dbus_string_init (&str))
     _dbus_assert_not_reached ("failed to init string");
+  
+  if (!_dbus_string_append (&str, "Hello World"))
+    _dbus_assert_not_reached ("could not append to string");
 
-  ch = 0;
-  if (!_dbus_string_append_unichar (&str, 0xfffc))
-    _dbus_assert_not_reached ("failed to append unichar");
+  i = _dbus_string_get_length (&str);
+  
+  if (!_dbus_string_init (&other))
+    _dbus_assert_not_reached ("could not init string");
 
-  _dbus_string_get_unichar (&str, 0, &ch, &i);
+  if (!_dbus_string_append (&other, "Foo String"))
+    _dbus_assert_not_reached ("could not append to string");
 
-  _dbus_assert (ch == 0xfffc);
-  _dbus_assert (i == _dbus_string_get_length (&str));
+  a = _dbus_string_get_length (&other);
+
+  if (!_dbus_string_replace_len (&str, 0, 6,
+                                 &other, 4, 0))
+    _dbus_assert_not_reached ("could not replace 0 length");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == a + 6);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "Foo Hello String"));
+
+  if (!_dbus_string_replace_len (&str, 5, 6,
+                                 &other,
+                                 _dbus_string_get_length (&other),
+                                 0))
+    _dbus_assert_not_reached ("could not replace at the end");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == a + 6 + 6);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "Foo Hello String World"));
+
+  if (!_dbus_string_replace_len (&str, 0, 5,
+                                 &other,
+                                 _dbus_string_get_length (&other) - 5,
+                                 5))
+    _dbus_assert_not_reached ("could not replace same length");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == a + 6 + 6);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "Foo Hello String Hello"));
+
+  if (!_dbus_string_replace_len (&str, 6, 5,
+                                 &other, 4, 12))
+    _dbus_assert_not_reached ("could not replace with shorter string");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == a + 5);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "Foo World Hello"));
+
+  if (!_dbus_string_replace_len (&str, 0, 1,
+                                 &other, 0, 3))
+    _dbus_assert_not_reached ("could not replace at the beginning");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == a + 3);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "H World Hello"));
+
+  if (!_dbus_string_replace_len (&str, 6, 5,
+                                 &other,
+                                 _dbus_string_get_length (&other) - 5,
+                                 5))
+    _dbus_assert_not_reached ("could not replace same length");
+
+  _dbus_assert (_dbus_string_get_length (&str) == i);
+  _dbus_assert (_dbus_string_get_length (&other) == a + 3);
+  _dbus_assert (_dbus_string_equal_c_str (&other,
+                                          "H World World"));
 
   _dbus_string_free (&str);
+  _dbus_string_free (&other);
 
   /* Check insert/set/get byte */
   
@@ -587,22 +598,6 @@ _dbus_string_test (void)
     _dbus_assert_not_reached ("failed to parse int");
 
   _dbus_assert (v == 27);
-  _dbus_assert (end == i);
-
-  _dbus_string_free (&str);
-  
-  if (!_dbus_string_init (&str))
-    _dbus_assert_not_reached ("failed to init string");
-  
-  if (!_dbus_string_append_double (&str, 50.3))
-    _dbus_assert_not_reached ("failed to append float");
-
-  i = _dbus_string_get_length (&str);
-
-  if (!_dbus_string_parse_double (&str, 0, &d, &end))
-    _dbus_assert_not_reached ("failed to parse float");
-
-  _dbus_assert (d > (50.3 - 1e-6) && d < (50.3 + 1e-6));
   _dbus_assert (end == i);
 
   _dbus_string_free (&str);

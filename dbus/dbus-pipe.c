@@ -33,9 +33,9 @@
  */
 void
 _dbus_pipe_init (DBusPipe *pipe,
-                 intptr_t  fd)
+                 int       fd)
 {
-  pipe->fd_or_handle = fd;
+  pipe->fd = fd;
 }
 
 /**
@@ -59,7 +59,7 @@ _dbus_pipe_init_stdout (DBusPipe *pipe)
 dbus_bool_t
 _dbus_pipe_is_valid(DBusPipe *pipe)
 {
-  return pipe->fd_or_handle >= 0;
+  return pipe->fd >= 0;
 }
 
 /**
@@ -71,7 +71,7 @@ _dbus_pipe_is_valid(DBusPipe *pipe)
 dbus_bool_t
 _dbus_pipe_is_stdout_or_stderr (DBusPipe *pipe)
 {
-  return pipe->fd_or_handle == 1 || pipe->fd_or_handle == 2;
+  return pipe->fd == 1 || pipe->fd == 2;
 }
 
 /**
@@ -81,5 +81,5 @@ _dbus_pipe_is_stdout_or_stderr (DBusPipe *pipe)
 void
 _dbus_pipe_invalidate (DBusPipe *pipe)
 {
-  pipe->fd_or_handle = -1;
+  pipe->fd = -1;
 }

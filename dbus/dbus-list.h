@@ -69,7 +69,6 @@ void*       _dbus_list_get_first          (DBusList **list);
 void*       _dbus_list_pop_first          (DBusList **list);
 void*       _dbus_list_pop_last           (DBusList **list);
 DBusList*   _dbus_list_pop_first_link     (DBusList **list);
-DBusList*   _dbus_list_pop_last_link      (DBusList **list);
 dbus_bool_t _dbus_list_copy               (DBusList **list,
                                            DBusList **dest);
 int         _dbus_list_get_length         (DBusList **list);
@@ -84,14 +83,17 @@ void        _dbus_list_prepend_link       (DBusList **list,
 dbus_bool_t _dbus_list_length_is_one      (DBusList **list);
 
 
-
-
 void _dbus_list_foreach (DBusList            **list,
                          DBusForeachFunction   function,
                          void                 *data);
 
 #define _dbus_list_get_next_link(list, link) ((link)->next == *(list) ? NULL : (link)->next)
 #define _dbus_list_get_prev_link(list, link) ((link) == *(list) ? NULL : (link)->prev)
+
+/* if DBUS_ENABLE_STATS */
+void        _dbus_list_get_stats          (dbus_uint32_t *in_use_p,
+                                           dbus_uint32_t *in_free_list_p,
+                                           dbus_uint32_t *allocated_p);
 
 DBUS_END_DECLS
 

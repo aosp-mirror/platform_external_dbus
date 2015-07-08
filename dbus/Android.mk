@@ -39,12 +39,15 @@ LOCAL_SRC_FILES:= \
 	dbus-sha.c \
 	dbus-shell.c \
 	dbus-signature.c \
+	dbus-socket-set.c \
+	dbus-socket-set-poll.c \
 	dbus-spawn.c \
 	dbus-string.c \
 	dbus-string-util.c \
 	dbus-sysdeps.c \
 	dbus-sysdeps-pthread.c \
 	dbus-sysdeps-unix.c \
+	dbus-sysdeps-util.c \
 	dbus-sysdeps-util-unix.c \
 	dbus-timeout.c \
 	dbus-threads.c \

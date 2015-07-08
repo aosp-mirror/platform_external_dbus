@@ -33,14 +33,6 @@ set (dbus_cleanup_sockets_SOURCES
 	../../tools/dbus-cleanup-sockets.c
 )
 
-set (dbus_viewer_SOURCES
-	../../tools/dbus-names-model.c			
-	../../tools/dbus-names-model.h			
-	../../tools/dbus-tree-view.c			
-	../../tools/dbus-tree-view.h			
-	../../tools/dbus-viewer.c
-)
-
 add_executable(dbus-send ${dbus_send_SOURCES})
 target_link_libraries(dbus-send ${DBUS_LIBRARIES})
 install_targets(/bin dbus-send )

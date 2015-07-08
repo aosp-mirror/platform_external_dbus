@@ -51,39 +51,8 @@ _dbus_transport_open_platform_specific (DBusAddressEntry  *entry,
                                         DBusTransport    **transport_p,
                                         DBusError         *error)
 {
-  const char *method;
-
-  const char *host = dbus_address_entry_get_value (entry, "host");
-  const char *port = dbus_address_entry_get_value (entry, "port");
-  const char *family = dbus_address_entry_get_value (entry, "family");
-  const char *noncefile = dbus_address_entry_get_value (entry, "noncefile");
-
-  method = dbus_address_entry_get_method (entry);
-  _dbus_assert (method != NULL);
-
-  if (strcmp (method, "nonce-tcp") != 0)
-    {
-      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-      return DBUS_TRANSPORT_OPEN_NOT_HANDLED;
-    }
-
-  if (port == NULL)
-    {
-      _dbus_set_bad_address (error, "nonce-tcp", "port", NULL);
-      return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
-    }
-
-  *transport_p = _dbus_transport_new_for_tcp_socket (host, port, family, noncefile, error);
-  if (*transport_p == NULL)
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      return DBUS_TRANSPORT_OPEN_DID_NOT_CONNECT;
-    }
-  else
-    {
-      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-      return DBUS_TRANSPORT_OPEN_OK;
-    }
+  /* currently no Windows-specific transports */
+  return DBUS_TRANSPORT_OPEN_NOT_HANDLED;
 }
 
 /** @} */

@@ -9,12 +9,15 @@ config.log
 config.status
 config.sub
 configure
+cscope.out
 depcomp
 *.pc
 install-sh
 libtool
 ltmain.sh
 missing
+/m4/lt*.m4
+/m4/libtool.m4
 stamp-h1
 stamp-h
 stamp-h.in
@@ -30,4 +33,11 @@ config.h.in
 *.bbg
 *.da
 *.gcov
+*.gcda
+*.gcno
 tags
+/dbus-1.*/
+/dbus-1.*.tar.*
+/lcov.html/
+/lcov.info
+/lcov.info.tmp

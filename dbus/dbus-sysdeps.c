@@ -182,6 +182,11 @@ _dbus_setenv (const char *varname,
 const char*
 _dbus_getenv (const char *varname)
 {  
+  /* Don't respect any environment variables if the current process is
+   * setuid.  This is the equivalent of glibc's __secure_getenv().
+   */
+  if (_dbus_check_setuid ())
+    return NULL;
   return getenv (varname);
 }
 
@@ -205,47 +210,6 @@ _dbus_clearenv (void)
 #endif
 
   return rc;
-}
-
-/**
- * Gets a #NULL-terminated list of key=value pairs from the
- * environment. Use dbus_free_string_array to free it.
- *
- * @returns the environment or #NULL on OOM
- */
-char **
-_dbus_get_environment (void)
-{
-  int i, length;
-  char **environment;
-
-  _dbus_assert (environ != NULL);
-
-  for (length = 0; environ[length] != NULL; length++);
-
-  /* Add one for NULL */
-  length++;
-
-  environment = dbus_new0 (char *, length);
-
-  if (environment == NULL)
-    return NULL;
-
-  for (i = 0; environ[i] != NULL; i++)
-    {
-      environment[i] = _dbus_strdup (environ[i]);
-
-      if (environment[i] == NULL)
-        break;
-    }
-
-  if (environ[i] != NULL)
-    {
-      dbus_free_string_array (environment);
-      environment = NULL;
-    }
-
-  return environment;
 }
 
 /**
@@ -453,45 +417,6 @@ _dbus_string_append_uint (DBusString    *str,
   return TRUE;
 }
 
-#ifdef DBUS_BUILD_TESTS
-/**
- * Appends a double to a DBusString.
- * 
- * @param str the string
- * @param value the floating point value
- * @returns #FALSE if not enough memory or other failure.
- */
-dbus_bool_t
-_dbus_string_append_double (DBusString *str,
-                            double      value)
-{
-#define MAX_DOUBLE_LEN 64 /* this is completely made up :-/ */
-  int orig_len;
-  char *buf;
-  int i;
-  
-  orig_len = _dbus_string_get_length (str);
-
-  if (!_dbus_string_lengthen (str, MAX_DOUBLE_LEN))
-    return FALSE;
-
-  buf = _dbus_string_get_data_len (str, orig_len, MAX_DOUBLE_LEN);
-
-  snprintf (buf, MAX_LONG_LEN, "%g", value);
-
-  i = 0;
-  while (*buf)
-    {
-      ++buf;
-      ++i;
-    }
-  
-  _dbus_string_shorten (str, MAX_DOUBLE_LEN - i);
-  
-  return TRUE;
-}
-#endif /* DBUS_BUILD_TESTS */
-
 /**
  * Parses an integer contained in a DBusString. Either return parameter
  * may be #NULL if you aren't interested in it. The integer is parsed
@@ -570,223 +495,6 @@ _dbus_string_parse_uint (const DBusString *str,
   return TRUE;
 }
 
-#ifdef DBUS_BUILD_TESTS
-static dbus_bool_t
-ascii_isspace (char c)
-{
-  return (c == ' ' ||
-	  c == '\f' ||
-	  c == '\n' ||
-	  c == '\r' ||
-	  c == '\t' ||
-	  c == '\v');
-}
-#endif /* DBUS_BUILD_TESTS */
-
-#ifdef DBUS_BUILD_TESTS
-static dbus_bool_t
-ascii_isdigit (char c)
-{
-  return c >= '0' && c <= '9';
-}
-#endif /* DBUS_BUILD_TESTS */
-
-#ifdef DBUS_BUILD_TESTS
-static dbus_bool_t
-ascii_isxdigit (char c)
-{
-  return (ascii_isdigit (c) ||
-	  (c >= 'a' && c <= 'f') ||
-	  (c >= 'A' && c <= 'F'));
-}
-#endif /* DBUS_BUILD_TESTS */
-
-#ifdef DBUS_BUILD_TESTS
-/* Calls strtod in a locale-independent fashion, by looking at
- * the locale data and patching the decimal comma to a point.
- *
- * Relicensed from glib.
- */
-static double
-ascii_strtod (const char *nptr,
-	      char      **endptr)
-{
-  /* FIXME: The Win32 C library's strtod() doesn't handle hex.
-   * Presumably many Unixes don't either.
-   */
-
-  char *fail_pos;
-  double val;
-  struct lconv *locale_data;
-  const char *decimal_point;
-  int decimal_point_len;
-  const char *p, *decimal_point_pos;
-  const char *end = NULL; /* Silence gcc */
-
-  fail_pos = NULL;
-
-#if HAVE_LOCALECONV
-  locale_data = localeconv ();
-  decimal_point = locale_data->decimal_point;
-#else
-  decimal_point = ".";
-#endif
-
-  decimal_point_len = strlen (decimal_point);
-  _dbus_assert (decimal_point_len != 0);
-  
-  decimal_point_pos = NULL;
-  if (decimal_point[0] != '.' ||
-      decimal_point[1] != 0)
-    {
-      p = nptr;
-      /* Skip leading space */
-      while (ascii_isspace (*p))
-	p++;
-      
-      /* Skip leading optional sign */
-      if (*p == '+' || *p == '-')
-	p++;
-      
-      if (p[0] == '0' &&
-	  (p[1] == 'x' || p[1] == 'X'))
-	{
-	  p += 2;
-	  /* HEX - find the (optional) decimal point */
-	  
-	  while (ascii_isxdigit (*p))
-	    p++;
-	  
-	  if (*p == '.')
-	    {
-	      decimal_point_pos = p++;
-	      
-	      while (ascii_isxdigit (*p))
-		p++;
-	      
-	      if (*p == 'p' || *p == 'P')
-		p++;
-	      if (*p == '+' || *p == '-')
-		p++;
-	      while (ascii_isdigit (*p))
-		p++;
-	      end = p;
-	    }
-	}
-      else
-	{
-	  while (ascii_isdigit (*p))
-	    p++;
-	  
-	  if (*p == '.')
-	    {
-	      decimal_point_pos = p++;
-	      
-	      while (ascii_isdigit (*p))
-		p++;
-	      
-	      if (*p == 'e' || *p == 'E')
-		p++;
-	      if (*p == '+' || *p == '-')
-		p++;
-	      while (ascii_isdigit (*p))
-		p++;
-	      end = p;
-	    }
-	}
-      /* For the other cases, we need not convert the decimal point */
-    }
-
-  /* Set errno to zero, so that we can distinguish zero results
-     and underflows */
-  _dbus_set_errno_to_zero ();
-  
-  if (decimal_point_pos)
-    {
-      char *copy, *c;
-
-      /* We need to convert the '.' to the locale specific decimal point */
-      copy = dbus_malloc (end - nptr + 1 + decimal_point_len);
-      
-      c = copy;
-      memcpy (c, nptr, decimal_point_pos - nptr);
-      c += decimal_point_pos - nptr;
-      memcpy (c, decimal_point, decimal_point_len);
-      c += decimal_point_len;
-      memcpy (c, decimal_point_pos + 1, end - (decimal_point_pos + 1));
-      c += end - (decimal_point_pos + 1);
-      *c = 0;
-
-      val = strtod (copy, &fail_pos);
-
-      if (fail_pos)
-	{
-	  if (fail_pos > decimal_point_pos)
-	    fail_pos = (char *)nptr + (fail_pos - copy) - (decimal_point_len - 1);
-	  else
-	    fail_pos = (char *)nptr + (fail_pos - copy);
-	}
-      
-      dbus_free (copy);
-	  
-    }
-  else
-    val = strtod (nptr, &fail_pos);
-
-  if (endptr)
-    *endptr = fail_pos;
-  
-  return val;
-}
-#endif /* DBUS_BUILD_TESTS */
-
-#ifdef DBUS_BUILD_TESTS
-/**
- * Parses a floating point number contained in a DBusString. Either
- * return parameter may be #NULL if you aren't interested in it. The
- * integer is parsed and stored in value_return. Return parameters are
- * not initialized if the function returns #FALSE.
- *
- * @param str the string
- * @param start the byte index of the start of the float
- * @param value_return return location of the float value or #NULL
- * @param end_return return location of the end of the float, or #NULL
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_string_parse_double (const DBusString *str,
-                           int               start,
-                           double           *value_return,
-                           int              *end_return)
-{
-  double v;
-  const char *p;
-  char *end;
-
-  p = _dbus_string_get_const_data_len (str, start,
-                                       _dbus_string_get_length (str) - start);
-
-  /* parsing hex works on linux but isn't portable, so intercept it
-   * here to get uniform behavior.
-   */
-  if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
-    return FALSE;
-  
-  end = NULL;
-  _dbus_set_errno_to_zero ();
-  v = ascii_strtod (p, &end);
-  if (end == NULL || end == p || errno != 0)
-    return FALSE;
-
-  if (value_return)
-    *value_return = v;
-  if (end_return)
-    *end_return = start + (end - p);
-
-  return TRUE;
-}
-#endif /* DBUS_BUILD_TESTS */
-
 /** @} */ /* DBusString group */
 
 /**
@@ -805,7 +513,7 @@ _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
   _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
                  n_bytes);
   
-  _dbus_get_current_time (NULL, &tv_usec);
+  _dbus_get_real_time (NULL, &tv_usec);
   srand (tv_usec);
   
   i = 0;
@@ -911,16 +619,14 @@ _dbus_error_from_errno (int error_number)
 #ifdef EPROTONOSUPPORT
     case EPROTONOSUPPORT:
       return DBUS_ERROR_NOT_SUPPORTED;
-#endif
-#ifdef WSAEPROTONOSUPPORT
+#elif defined(WSAEPROTONOSUPPORT)
     case WSAEPROTONOSUPPORT:
       return DBUS_ERROR_NOT_SUPPORTED;
 #endif
 #ifdef EAFNOSUPPORT
     case EAFNOSUPPORT:
       return DBUS_ERROR_NOT_SUPPORTED;
-#endif
-#ifdef WSAEAFNOSUPPORT
+#elif defined(WSAEAFNOSUPPORT)
     case WSAEAFNOSUPPORT:
       return DBUS_ERROR_NOT_SUPPORTED;
 #endif
@@ -951,32 +657,28 @@ _dbus_error_from_errno (int error_number)
 #ifdef ECONNREFUSED
     case ECONNREFUSED:
       return DBUS_ERROR_NO_SERVER;
-#endif
-#ifdef WSAECONNREFUSED
+#elif defined(WSAECONNREFUSED)
     case WSAECONNREFUSED:
       return DBUS_ERROR_NO_SERVER;
 #endif
 #ifdef ETIMEDOUT
     case ETIMEDOUT:
       return DBUS_ERROR_TIMEOUT;
-#endif
-#ifdef WSAETIMEDOUT
+#elif defined(WSAETIMEDOUT)
     case WSAETIMEDOUT:
       return DBUS_ERROR_TIMEOUT;
 #endif
 #ifdef ENETUNREACH
     case ENETUNREACH:
       return DBUS_ERROR_NO_NETWORK;
-#endif
-#ifdef WSAENETUNREACH
+#elif defined(WSAENETUNREACH)
     case WSAENETUNREACH:
       return DBUS_ERROR_NO_NETWORK;
 #endif
 #ifdef EADDRINUSE
     case EADDRINUSE:
       return DBUS_ERROR_ADDRESS_IN_USE;
-#endif
-#ifdef WSAEADDRINUSE
+#elif defined(WSAEADDRINUSE)
     case WSAEADDRINUSE:
       return DBUS_ERROR_ADDRESS_IN_USE;
 #endif

@@ -14,6 +14,7 @@ LOCAL_CFLAGS:= \
 	-Wno-address \
 	-Wno-empty-body \
 	-Wno-pointer-sign \
+	-Wno-sign-compare \
 	-Wno-unused-parameter
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/..

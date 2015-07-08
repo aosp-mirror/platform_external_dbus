@@ -39,6 +39,12 @@ void*        _dbus_mem_pool_alloc   (DBusMemPool *pool);
 dbus_bool_t  _dbus_mem_pool_dealloc (DBusMemPool *pool,
                                      void        *element);
 
+/* if DBUS_ENABLE_STATS */
+void         _dbus_mem_pool_get_stats (DBusMemPool   *pool,
+                                       dbus_uint32_t *in_use_p,
+                                       dbus_uint32_t *in_free_list_p,
+                                       dbus_uint32_t *allocated_p);
+
 DBUS_END_DECLS
 
 #endif /* DBUS_MEMPOOL_H */

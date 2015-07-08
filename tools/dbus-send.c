@@ -51,7 +51,7 @@ static const char *appname;
 static void
 usage (int ecode)
 {
-  fprintf (stderr, "Usage: %s [--help] [--system | --session | --address=ADDRESS] [--dest=NAME] [--type=TYPE] [--print-reply=(literal)] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
+  fprintf (stderr, "Usage: %s [--help] [--system | --session | --address=ADDRESS] [--dest=NAME] [--type=TYPE] [--print-reply[=literal]] [--reply-timeout=MSEC] <destination object path> <message name> [contents ...]\n", appname);
   exit (ecode);
 }
 
@@ -302,10 +302,8 @@ main (int argc, char *argv[])
 	usage (1);
       else if (path == NULL)
         path = arg;
-      else if (name == NULL)
+      else /* name == NULL guaranteed by the 'while' loop */
         name = arg;
-      else
-        usage (1);
     }
 
   if (name == NULL)

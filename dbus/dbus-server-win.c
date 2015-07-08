@@ -57,37 +57,39 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
 
   method = dbus_address_entry_get_method (entry);
 
-  if (strcmp (method, "nonce-tcp") == 0)
+  if (strcmp (method, "autolaunch") == 0)
     {
-      const char *host;
-      const char *port;
-      const char *bind;
-      const char *family;
+      const char *host = "localhost";
+      const char *bind = "localhost";
+      const char *port = "0";
+      const char *family = "ipv4";
+      const char *scope = dbus_address_entry_get_value (entry, "scope");
 
-      host = dbus_address_entry_get_value (entry, "host");
-      bind = dbus_address_entry_get_value (entry, "bind");
-      port = dbus_address_entry_get_value (entry, "port");
-      family = dbus_address_entry_get_value (entry, "family");
+      if (_dbus_daemon_is_session_bus_address_published (scope))
+          return DBUS_SERVER_LISTEN_ADDRESS_ALREADY_USED;
 
       *server_p = _dbus_server_new_for_tcp_socket (host, bind, port,
-                                                   family, error, TRUE);
-
+                                                   family, error, FALSE);
       if (*server_p)
         {
           _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+          (*server_p)->published_address =
+              _dbus_daemon_publish_session_bus_address ((*server_p)->address, scope);
           return DBUS_SERVER_LISTEN_OK;
         }
       else
         {
+          // make sure no handle is open
+          _dbus_daemon_unpublish_session_bus_address ();
           _DBUS_ASSERT_ERROR_IS_SET(error);
           return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
         }
     }
   else
     {
-  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
-  return DBUS_SERVER_LISTEN_NOT_HANDLED;
-}
+       _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+       return DBUS_SERVER_LISTEN_NOT_HANDLED;
+    }
 }
 
 /** @} */
