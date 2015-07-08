@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "f80dae2c_6c7fbfd6",
+        "filename": "bus/Android.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 22,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-08T18:43:15Z",
+      "side": 1,
+      "message": "external/expat/Android.mk already has the following:\n\n  common_COPY_HEADERS_TO :\u003d libexpat\n  common_COPY_HEADERS :\u003d \\\n          lib/expat.h \\\n          lib/expat_external.h\n  ...\n  LOCAL_COPY_HEADERS_TO :\u003d $(common_COPY_HEADERS_TO)\n  LOCAL_COPY_HEADERS :\u003d $(common_COPY_HEADERS)\n\nso i\u0027m wondering if the right fix is to instead patch the one dbus file that uses expat, bus/config-loader-expat.c, to include \u003clibexpat/expat.h\u003e rather than \u003cexpat.h\u003e.",
+      "parentUuid": "f356b1ec_c94c551a",
+      "range": {
+        "startLine": 22,
+        "startChar": 1,
+        "endLine": 22,
+        "endChar": 19
+      },
+      "revId": "eacb7803ecfe663238acf6da1bbd6782496b9ab5",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "534a1d43_e1205060",
         "filename": "dbus/Android.mk",
         "patchSetId": 1
@@ -36,6 +60,24 @@
       "writtenOn": "2015-07-07T23:17:42Z",
       "side": 1,
       "message": "should there be an EXPORT for this library\u0027s includes?",
+      "revId": "eacb7803ecfe663238acf6da1bbd6782496b9ab5",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "f80dae2c_ec6aaf12",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 62,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-08T18:43:15Z",
+      "side": 1,
+      "message": "yes, i think so. thanks, i\u0027ve added:\n\n  LOCAL_EXPORT_C_INCLUDE_DIRS :\u003d $(LOCAL_PATH)",
+      "parentUuid": "534a1d43_e1205060",
       "revId": "eacb7803ecfe663238acf6da1bbd6782496b9ab5",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
