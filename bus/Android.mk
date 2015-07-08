@@ -2,8 +2,8 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES:= \
-	$(call include-path-for, dbus) \
-	$(call include-path-for, dbus)/dbus \
+	$(LOCAL_PATH)/.. \
+	$(LOCAL_PATH)/../dbus \
 	external/expat/lib/
 
 LOCAL_CFLAGS:=-O3
