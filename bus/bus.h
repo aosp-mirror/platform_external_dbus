@@ -66,17 +66,18 @@ typedef struct
 
 typedef enum
 {
-  FORK_FOLLOW_CONFIG_FILE,
-  FORK_ALWAYS,
-  FORK_NEVER
-} ForceForkSetting;
+  BUS_CONTEXT_FLAG_NONE = 0,
+  BUS_CONTEXT_FLAG_FORK_ALWAYS = (1 << 1),
+  BUS_CONTEXT_FLAG_FORK_NEVER = (1 << 2),
+  BUS_CONTEXT_FLAG_WRITE_PID_FILE = (1 << 3),
+  BUS_CONTEXT_FLAG_SYSTEMD_ACTIVATION = (1 << 4)
+} BusContextFlags;
 
 BusContext*       bus_context_new                                (const DBusString *config_file,
-                                                                  ForceForkSetting  force_fork,
+                                                                  BusContextFlags   flags,
                                                                   DBusPipe         *print_addr_pipe,
                                                                   DBusPipe         *print_pid_pipe,
                                                                   const DBusString *address,
-                                                                  dbus_bool_t      systemd_activation,
                                                                   DBusError        *error);
 dbus_bool_t       bus_context_reload_config                      (BusContext       *context,
 								  DBusError        *error);

@@ -39,12 +39,15 @@ LOCAL_SRC_FILES:= \
 	dbus-sha.c \
 	dbus-shell.c \
 	dbus-signature.c \
+	dbus-socket-set.c \
+	dbus-socket-set-poll.c \
 	dbus-spawn.c \
 	dbus-string.c \
 	dbus-string-util.c \
 	dbus-sysdeps.c \
 	dbus-sysdeps-pthread.c \
 	dbus-sysdeps-unix.c \
+	dbus-sysdeps-util.c \
 	dbus-sysdeps-util-unix.c \
 	dbus-timeout.c \
 	dbus-threads.c \
@@ -66,7 +69,6 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 LOCAL_CFLAGS+= \
 	-DDBUS_COMPILATION \
 	-DANDROID_MANAGED_SOCKET \
-	-DANDROID_ATOMIC \
 	-DDBUS_MACHINE_UUID_FILE=\"/etc/machine-id\" \
 	-DDBUS_SYSTEM_CONFIG_FILE=\"/system/etc/dbus.conf\" \
 	-DDBUS_SESSION_CONFIG_FILE=\"/system/etc/session.conf\" \

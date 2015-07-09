@@ -29,6 +29,7 @@
 #include "dbus-pipe.h"
 
 #include <windows.h>
+#include <io.h>
 
 /**
  * write data to a pipe.
@@ -47,19 +48,18 @@ _dbus_pipe_write (DBusPipe         *pipe,
                   int               len,
                   DBusError        *error)
 {
-  DWORD written;
-  BOOL res;
-
   const char *buffer_c = _dbus_string_get_const_data (buffer);
+  int written;
 
-  res = WriteFile ((HANDLE) pipe->fd_or_handle, buffer_c + start, len, &written, NULL);
-  if (res == 0 || written < 0)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Writing to pipe: %s\n",
-                      _dbus_strerror_from_errno ());
-    }
-  return written;
+  written = _write (pipe->fd, buffer_c + start, len);
+
+  if (written >= 0)
+    return written;
+
+  dbus_set_error (error, _dbus_error_from_system_errno (),
+                  "Writing to pipe: %s",
+                  _dbus_strerror_from_errno ());
+  return -1;
 }
 
 /**
@@ -75,10 +75,10 @@ _dbus_pipe_close  (DBusPipe         *pipe,
 {
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  if (CloseHandle ((HANDLE) pipe->fd_or_handle) == 0)
+  if (_close (pipe->fd) != 0)
     {
       dbus_set_error (error, _dbus_error_from_system_errno (),
-                      "Could not close pipe %d: %s", pipe->fd_or_handle,
+                      "Could not close pipe fd %d: %s", pipe->fd,
                       _dbus_strerror_from_errno ());
       return -1;
     }

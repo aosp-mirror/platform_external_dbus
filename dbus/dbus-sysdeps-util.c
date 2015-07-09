@@ -28,8 +28,59 @@
 #include "dbus-string.h"
 #include "dbus-test.h"
 
-#ifdef DBUS_BUILD_TESTS
 #include <stdlib.h>
+
+#ifdef DBUS_WIN
+  /* do nothing, it's in stdlib.h */
+#elif (defined __APPLE__)
+# include <crt_externs.h>
+# define environ (*_NSGetEnviron())
+#else
+extern char **environ;
+#endif
+
+/**
+ * Gets a #NULL-terminated list of key=value pairs from the
+ * environment. Use dbus_free_string_array to free it.
+ *
+ * @returns the environment or #NULL on OOM
+ */
+char **
+_dbus_get_environment (void)
+{
+  int i, length;
+  char **environment;
+
+  _dbus_assert (environ != NULL);
+
+  for (length = 0; environ[length] != NULL; length++);
+
+  /* Add one for NULL */
+  length++;
+
+  environment = dbus_new0 (char *, length);
+
+  if (environment == NULL)
+    return NULL;
+
+  for (i = 0; environ[i] != NULL; i++)
+    {
+      environment[i] = _dbus_strdup (environ[i]);
+
+      if (environment[i] == NULL)
+        break;
+    }
+
+  if (environ[i] != NULL)
+    {
+      dbus_free_string_array (environment);
+      environment = NULL;
+    }
+
+  return environment;
+}
+
+#ifdef DBUS_BUILD_TESTS
 static void
 check_dirname (const char *filename,
                const char *dirname)
@@ -80,10 +131,6 @@ check_path_absolute (const char *path,
 dbus_bool_t
 _dbus_sysdeps_test (void)
 {
-  DBusString str;
-  double val;
-  int pos;
-
 #ifdef DBUS_WIN
   check_dirname ("foo\\bar", "foo");
   check_dirname ("foo\\\\bar", "foo");
@@ -124,32 +171,6 @@ _dbus_sysdeps_test (void)
   check_dirname ("///", "/");
   check_dirname ("", ".");  
 #endif
-
-  _dbus_string_init_const (&str, "3.5");
-  if (!_dbus_string_parse_double (&str,
-				  0, &val, &pos))
-    {
-      _dbus_warn ("Failed to parse double");
-      exit (1);
-    }
-  if (ABS(3.5 - val) > 1e-6)
-    {
-      _dbus_warn ("Failed to parse 3.5 correctly, got: %f", val);
-      exit (1);
-    }
-  if (pos != 3)
-    {
-      _dbus_warn ("_dbus_string_parse_double of \"3.5\" returned wrong position %d", pos);
-      exit (1);
-    }
-
-  _dbus_string_init_const (&str, "0xff");
-  if (_dbus_string_parse_double (&str,
-                                 0, &val, &pos))
-    {
-      _dbus_warn ("Should not have parsed hex as double\n");
-      exit (1);
-    }
 
 #ifdef DBUS_WIN
   check_path_absolute ("c:/", TRUE);

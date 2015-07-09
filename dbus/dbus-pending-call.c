@@ -24,6 +24,7 @@
 #include <config.h>
 #include "dbus-internals.h"
 #include "dbus-connection-internal.h"
+#include "dbus-message-internal.h"
 #include "dbus-pending-call-internal.h"
 #include "dbus-pending-call.h"
 #include "dbus-list.h"
@@ -78,13 +79,36 @@ struct DBusPendingCall
   unsigned int timeout_added : 1;                 /**< Have added the timeout */
 };
 
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+static void
+_dbus_pending_call_trace_ref (DBusPendingCall *pending_call,
+    int old_refcount,
+    int new_refcount,
+    const char *why)
+{
+  static int enabled = -1;
+
+  _dbus_trace_ref ("DBusPendingCall", pending_call, old_refcount,
+      new_refcount, why, "DBUS_PENDING_CALL_TRACE", &enabled);
+}
+#else
+#define _dbus_pending_call_trace_ref(p, o, n, w) \
+  do \
+  {\
+    (void) (o); \
+    (void) (n); \
+  } while (0)
+#endif
+
 static dbus_int32_t notify_user_data_slot = -1;
 
 /**
  * Creates a new pending reply object.
  *
  * @param connection connection where reply will arrive
- * @param timeout_milliseconds length of timeout, -1 for default, INT_MAX for no timeout
+ * @param timeout_milliseconds length of timeout, -1 (or
+ *  #DBUS_TIMEOUT_USE_DEFAULT) for default,
+ *  #DBUS_TIMEOUT_INFINITE for no timeout
  * @param timeout_handler timeout handler, takes pending call as data
  * @returns a new #DBusPendingCall or #NULL if no memory.
  */
@@ -112,7 +136,7 @@ _dbus_pending_call_new_unlocked (DBusConnection    *connection,
       return NULL;
     }
 
-  if (timeout_milliseconds != _DBUS_INT_MAX)
+  if (timeout_milliseconds != DBUS_TIMEOUT_INFINITE)
     {
       timeout = _dbus_timeout_new (timeout_milliseconds,
                                    timeout_handler,
@@ -137,7 +161,9 @@ _dbus_pending_call_new_unlocked (DBusConnection    *connection,
   _dbus_connection_ref_unlocked (pending->connection);
 
   _dbus_data_slot_list_init (&pending->slot_list);
-  
+
+  _dbus_pending_call_trace_ref (pending, 0, 1, "new_unlocked");
+
   return pending;
 }
 
@@ -351,6 +377,8 @@ _dbus_pending_call_set_timeout_error_unlocked (DBusPendingCall *pending,
   reply_link = _dbus_list_alloc_link (reply);
   if (reply_link == NULL)
     {
+      /* it's OK to unref this, nothing that could have attached a callback
+       * has ever seen it */
       dbus_message_unref (reply);
       return FALSE;
     }
@@ -372,7 +400,11 @@ _dbus_pending_call_set_timeout_error_unlocked (DBusPendingCall *pending,
 DBusPendingCall *
 _dbus_pending_call_ref_unlocked (DBusPendingCall *pending)
 {
-  _dbus_atomic_inc (&pending->refcount);
+  dbus_int32_t old_refcount;
+
+  old_refcount = _dbus_atomic_inc (&pending->refcount);
+  _dbus_pending_call_trace_ref (pending, old_refcount, old_refcount + 1,
+      "ref_unlocked");
 
   return pending;
 }
@@ -435,6 +467,8 @@ _dbus_pending_call_unref_and_unlock (DBusPendingCall *pending)
 
   old_refcount = _dbus_atomic_dec (&pending->refcount);
   _dbus_assert (old_refcount > 0);
+  _dbus_pending_call_trace_ref (pending, old_refcount,
+      old_refcount - 1, "unref_and_unlock");
 
   CONNECTION_UNLOCK (pending->connection);
 
@@ -515,6 +549,26 @@ _dbus_pending_call_set_data_unlocked (DBusPendingCall  *pending,
  */
 
 /**
+ * @def DBUS_TIMEOUT_INFINITE
+ *
+ * An integer constant representing an infinite timeout. This has the
+ * numeric value 0x7fffffff (the largest 32-bit signed integer).
+ *
+ * For source compatibility with D-Bus versions earlier than 1.4.12, use
+ * 0x7fffffff, or INT32_MAX (assuming your platform has it).
+ */
+
+/**
+ * @def DBUS_TIMEOUT_USE_DEFAULT
+ *
+ * An integer constant representing a request to use the default timeout.
+ * This has numeric value -1.
+ *
+ * For source compatibility with D-Bus versions earlier than 1.4.12, use a
+ * literal -1.
+ */
+
+/**
  * @typedef DBusPendingCall
  *
  * Opaque data type representing a message pending.
@@ -529,9 +583,13 @@ _dbus_pending_call_set_data_unlocked (DBusPendingCall  *pending,
 DBusPendingCall *
 dbus_pending_call_ref (DBusPendingCall *pending)
 {
+  dbus_int32_t old_refcount;
+
   _dbus_return_val_if_fail (pending != NULL, NULL);
 
-  _dbus_atomic_inc (&pending->refcount);
+  old_refcount = _dbus_atomic_inc (&pending->refcount);
+  _dbus_pending_call_trace_ref (pending, old_refcount, old_refcount + 1,
+      "ref");
 
   return pending;
 }
@@ -545,13 +603,15 @@ dbus_pending_call_ref (DBusPendingCall *pending)
 void
 dbus_pending_call_unref (DBusPendingCall *pending)
 {
-  dbus_bool_t last_unref;
+  dbus_int32_t old_refcount;
 
   _dbus_return_if_fail (pending != NULL);
 
-  last_unref = (_dbus_atomic_dec (&pending->refcount) == 1);
+  old_refcount = _dbus_atomic_dec (&pending->refcount);
+  _dbus_pending_call_trace_ref (pending, old_refcount, old_refcount - 1,
+      "unref");
 
-  if (last_unref)
+  if (old_refcount == 1)
     _dbus_pending_call_last_unref(pending);
 }
 
@@ -571,6 +631,8 @@ dbus_pending_call_set_notify (DBusPendingCall              *pending,
                               void                         *user_data,
                               DBusFreeFunction              free_user_data)
 {
+  dbus_bool_t ret = FALSE;
+
   _dbus_return_val_if_fail (pending != NULL, FALSE);
 
   CONNECTION_LOCK (pending->connection);
@@ -578,13 +640,15 @@ dbus_pending_call_set_notify (DBusPendingCall              *pending,
   /* could invoke application code! */
   if (!_dbus_pending_call_set_data_unlocked (pending, notify_user_data_slot,
                                              user_data, free_user_data))
-    return FALSE;
+    goto out;
   
   pending->function = function;
+  ret = TRUE;
 
+out:
   CONNECTION_UNLOCK (pending->connection);
   
-  return TRUE;
+  return ret;
 }
 
 /**
@@ -656,7 +720,8 @@ dbus_pending_call_steal_reply (DBusPendingCall *pending)
   pending->reply = NULL;
 
   CONNECTION_UNLOCK (pending->connection);
-  
+
+  _dbus_message_trace_ref (message, -1, -1, "dbus_pending_call_steal_reply");
   return message;
 }
 
@@ -784,19 +849,3 @@ dbus_pending_call_get_data (DBusPendingCall   *pending,
 }
 
 /** @} */
-
-#ifdef DBUS_BUILD_TESTS
-
-/**
- * @ingroup DBusPendingCallInternals
- * Unit test for DBusPendingCall.
- *
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_pending_call_test (const char *test_data_dir)
-{  
-
-  return TRUE;
-}
-#endif /* DBUS_BUILD_TESTS */

@@ -62,6 +62,16 @@ struct BusConnections
   DBusTimeout *expire_timeout; /**< Timeout for expiring incomplete connections. */
   int stamp;                   /**< Incrementing number */
   BusExpireList *pending_replies; /**< List of pending replies */
+
+#ifdef DBUS_ENABLE_STATS
+  int total_match_rules;
+  int peak_match_rules;
+  int peak_match_rules_per_conn;
+
+  int total_bus_names;
+  int peak_bus_names;
+  int peak_bus_names_per_conn;
+#endif
 };
 
 static dbus_int32_t connection_data_slot = -1;
@@ -87,6 +97,11 @@ typedef struct
   long connection_tv_sec;  /**< Time when we connected (seconds component) */
   long connection_tv_usec; /**< Time when we connected (microsec component) */
   int stamp;               /**< connections->stamp last time we were traversed */
+
+#ifdef DBUS_ENABLE_STATS
+  int peak_match_rules;
+  int peak_bus_names;
+#endif
 } BusConnectionData;
 
 static dbus_bool_t bus_pending_reply_expired (BusExpireList *list,
@@ -211,7 +226,7 @@ bus_connection_disconnected (DBusConnection *connection)
       if (!bus_service_remove_owner (service, connection,
                                      transaction, &error))
         {
-          _DBUS_ASSERT_ERROR_CONTENT_IS_SET (&error);
+          _DBUS_ASSERT_ERROR_IS_SET (&error);
           
           if (dbus_error_has_name (&error, DBUS_ERROR_NO_MEMORY))
             {
@@ -295,30 +310,12 @@ bus_connection_disconnected (DBusConnection *connection)
 }
 
 static dbus_bool_t
-connection_watch_callback (DBusWatch     *watch,
-                           unsigned int   condition,
-                           void          *data)
-{
- /* FIXME this can be done in dbus-mainloop.c
-  * if the code in activation.c for the babysitter
-  * watch handler is fixed.
-  */
-  
-#if 0
-  _dbus_verbose ("Calling handle_watch\n");
-#endif
-  return dbus_watch_handle (watch, condition);
-}
-
-static dbus_bool_t
 add_connection_watch (DBusWatch      *watch,
                       void           *data)
 {
   DBusConnection *connection = data;
 
-  return _dbus_loop_add_watch (connection_get_loop (connection),
-                               watch, connection_watch_callback, connection,
-                               NULL);
+  return _dbus_loop_add_watch (connection_get_loop (connection), watch);
 }
 
 static void
@@ -327,18 +324,16 @@ remove_connection_watch (DBusWatch      *watch,
 {
   DBusConnection *connection = data;
   
-  _dbus_loop_remove_watch (connection_get_loop (connection),
-                           watch, connection_watch_callback, connection);
+  _dbus_loop_remove_watch (connection_get_loop (connection), watch);
 }
 
 static void
-connection_timeout_callback (DBusTimeout   *timeout,
-                             void          *data)
+toggle_connection_watch (DBusWatch      *watch,
+                         void           *data)
 {
-  /* DBusConnection *connection = data; */
+  DBusConnection *connection = data;
 
-  /* can return FALSE on OOM but we just let it fire again later */
-  dbus_timeout_handle (timeout);
+  _dbus_loop_toggle_watch (connection_get_loop (connection), watch);
 }
 
 static dbus_bool_t
@@ -347,8 +342,7 @@ add_connection_timeout (DBusTimeout    *timeout,
 {
   DBusConnection *connection = data;
   
-  return _dbus_loop_add_timeout (connection_get_loop (connection),
-                                 timeout, connection_timeout_callback, connection, NULL);
+  return _dbus_loop_add_timeout (connection_get_loop (connection), timeout);
 }
 
 static void
@@ -357,8 +351,7 @@ remove_connection_timeout (DBusTimeout    *timeout,
 {
   DBusConnection *connection = data;
   
-  _dbus_loop_remove_timeout (connection_get_loop (connection),
-                             timeout, connection_timeout_callback, connection);
+  _dbus_loop_remove_timeout (connection_get_loop (connection), timeout);
 }
 
 static void
@@ -419,14 +412,6 @@ free_connection_data (void *data)
   dbus_free (d);
 }
 
-static void
-call_timeout_callback (DBusTimeout   *timeout,
-                       void          *data)
-{
-  /* can return FALSE on OOM but we just let it fire again later */
-  dbus_timeout_handle (timeout);
-}
-
 BusConnections*
 bus_connections_new (BusContext *context)
 {
@@ -460,8 +445,7 @@ bus_connections_new (BusContext *context)
     goto failed_4;
   
   if (!_dbus_loop_add_timeout (bus_context_get_loop (context),
-                               connections->expire_timeout,
-                               call_timeout_callback, NULL, NULL))
+                               connections->expire_timeout))
     goto failed_5;
   
   connections->refcount = 1;
@@ -532,8 +516,7 @@ bus_connections_unref (BusConnections *connections)
       bus_expire_list_free (connections->pending_replies);
       
       _dbus_loop_remove_timeout (bus_context_get_loop (connections->context),
-                                 connections->expire_timeout,
-                                 call_timeout_callback, NULL);
+                                 connections->expire_timeout);
       
       _dbus_timeout_unref (connections->expire_timeout);
       
@@ -586,9 +569,12 @@ cache_peer_loginfo_string (BusConnectionData *d,
 
   if (dbus_connection_get_windows_user (connection, &windows_sid))
     {
-      if (!_dbus_string_append_printf (&loginfo_buf, "sid=\"%s\" ", windows_sid))
-        goto oom;
+      dbus_bool_t did_append;
+      did_append = _dbus_string_append_printf (&loginfo_buf,
+                                               "sid=\"%s\" ", windows_sid);
       dbus_free (windows_sid);
+      if (!did_append)
+        goto oom;
     }
 
   if (!_dbus_string_steal_data (&loginfo_buf, &(d->cached_loginfo_string)))
@@ -620,8 +606,8 @@ bus_connections_setup_connection (BusConnections *connections,
   d->connections = connections;
   d->connection = connection;
   
-  _dbus_get_current_time (&d->connection_tv_sec,
-                          &d->connection_tv_usec);
+  _dbus_get_monotonic_time (&d->connection_tv_sec,
+                            &d->connection_tv_usec);
   
   _dbus_assert (connection_data_slot >= 0);
   
@@ -654,7 +640,7 @@ bus_connections_setup_connection (BusConnections *connections,
   if (!dbus_connection_set_watch_functions (connection,
                                             add_connection_watch,
                                             remove_connection_watch,
-                                            NULL,
+                                            toggle_connection_watch,
                                             connection,
                                             NULL))
     goto out;
@@ -790,7 +776,7 @@ bus_connections_expire_incomplete (BusConnections *connections)
       DBusList *link;
       int auth_timeout;
       
-      _dbus_get_current_time (&tv_sec, &tv_usec);
+      _dbus_get_monotonic_time (&tv_sec, &tv_usec);
       auth_timeout = bus_context_get_auth_timeout (connections->context);
   
       link = _dbus_list_get_first_link (&connections->incomplete);
@@ -853,12 +839,7 @@ bus_connection_get_unix_groups  (DBusConnection   *connection,
                                  int              *n_groups,
                                  DBusError        *error)
 {
-  BusConnectionData *d;
   unsigned long uid;
-  
-  d = BUS_CONNECTION_DATA (connection);
-
-  _dbus_assert (d != NULL);
 
   *groups = NULL;
   *n_groups = 0;
@@ -1221,6 +1202,16 @@ bus_connection_send_oom_error (DBusConnection *connection,
   d->oom_preallocated = NULL;
 }
 
+#ifdef DBUS_ENABLE_STATS
+static void
+update_peak (int *peak,
+             int n)
+{
+  if (*peak < n)
+    *peak = n;
+}
+#endif
+
 void
 bus_connection_add_match_rule_link (DBusConnection *connection,
                                     DBusList       *link)
@@ -1233,6 +1224,15 @@ bus_connection_add_match_rule_link (DBusConnection *connection,
   _dbus_list_append_link (&d->match_rules, link);
 
   d->n_match_rules += 1;
+
+#ifdef DBUS_ENABLE_STATS
+  update_peak (&d->peak_match_rules, d->n_match_rules);
+  update_peak (&d->connections->peak_match_rules_per_conn, d->n_match_rules);
+
+  d->connections->total_match_rules += 1;
+  update_peak (&d->connections->peak_match_rules,
+               d->connections->total_match_rules);
+#endif
 }
 
 dbus_bool_t
@@ -1264,6 +1264,10 @@ bus_connection_remove_match_rule (DBusConnection *connection,
 
   d->n_match_rules -= 1;
   _dbus_assert (d->n_match_rules >= 0);
+
+#ifdef DBUS_ENABLE_STATS
+  d->connections->total_match_rules -= 1;
+#endif
 }
 
 int
@@ -1289,6 +1293,16 @@ bus_connection_add_owned_service_link (DBusConnection *connection,
   _dbus_list_append_link (&d->services_owned, link);
 
   d->n_services_owned += 1;
+
+#ifdef DBUS_ENABLE_STATS
+  update_peak (&d->peak_bus_names, d->n_services_owned);
+  update_peak (&d->connections->peak_bus_names_per_conn,
+               d->n_services_owned);
+
+  d->connections->total_bus_names += 1;
+  update_peak (&d->connections->peak_bus_names,
+               d->connections->total_bus_names);
+#endif
 }
 
 dbus_bool_t
@@ -1320,6 +1334,10 @@ bus_connection_remove_owned_service (DBusConnection *connection,
 
   d->n_services_owned -= 1;
   _dbus_assert (d->n_services_owned >= 0);
+
+#ifdef DBUS_ENABLE_STATS
+  d->connections->total_bus_names -= 1;
+#endif
 }
 
 int
@@ -1437,13 +1455,7 @@ bus_connections_check_limits (BusConnections  *connections,
                               DBusConnection  *requesting_completion,
                               DBusError       *error)
 {
-  BusConnectionData *d;
   unsigned long uid;
-  
-  d = BUS_CONNECTION_DATA (requesting_completion);
-  _dbus_assert (d != NULL);
-
-  _dbus_assert (d->name == NULL);
 
   if (connections->n_completed >=
       bus_context_get_max_completed_connections (connections->context))
@@ -1760,8 +1772,8 @@ bus_connections_expect_reply (BusConnections  *connections,
   cprd->pending = pending;
   cprd->connections = connections;
   
-  _dbus_get_current_time (&pending->expire_item.added_tv_sec,
-                          &pending->expire_item.added_tv_usec);
+  _dbus_get_monotonic_time (&pending->expire_item.added_tv_sec,
+                            &pending->expire_item.added_tv_usec);
 
   _dbus_verbose ("Added pending reply %p, replier %p receiver %p serial %u\n",
                  pending,
@@ -2303,3 +2315,71 @@ bus_transaction_add_cancel_hook (BusTransaction               *transaction,
 
   return TRUE;
 }
+
+#ifdef DBUS_ENABLE_STATS
+int
+bus_connections_get_n_active (BusConnections *connections)
+{
+  return connections->n_completed;
+}
+
+int
+bus_connections_get_n_incomplete (BusConnections *connections)
+{
+  return connections->n_incomplete;
+}
+
+int
+bus_connections_get_total_match_rules (BusConnections *connections)
+{
+  return connections->total_match_rules;
+}
+
+int
+bus_connections_get_peak_match_rules (BusConnections *connections)
+{
+  return connections->peak_match_rules;
+}
+
+int
+bus_connections_get_peak_match_rules_per_conn (BusConnections *connections)
+{
+  return connections->peak_match_rules_per_conn;
+}
+
+int
+bus_connections_get_total_bus_names (BusConnections *connections)
+{
+  return connections->total_bus_names;
+}
+
+int
+bus_connections_get_peak_bus_names (BusConnections *connections)
+{
+  return connections->peak_bus_names;
+}
+
+int
+bus_connections_get_peak_bus_names_per_conn (BusConnections *connections)
+{
+  return connections->peak_bus_names_per_conn;
+}
+
+int
+bus_connection_get_peak_match_rules (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+  return d->peak_match_rules;
+}
+
+int
+bus_connection_get_peak_bus_names (DBusConnection *connection)
+{
+  BusConnectionData *d;
+
+  d = BUS_CONNECTION_DATA (connection);
+  return d->peak_bus_names;
+}
+#endif /* DBUS_ENABLE_STATS */

@@ -41,16 +41,6 @@
 #include <errno.h>
 #endif
 
-/* Make use of the fact that the WSAE* error codes don't
- * overlap with errno E* codes. Wrapper functions store
- * the return value from WSAGetLastError() in errno.
- */
-#if defined(EPROTONOSUPPORT) || \
-    defined(EAFNOSUPPORT) || \
-    defined(EWOULDBLOCK)
-#error This does not look like Win32 and the Microsoft C library
-#endif
-
 #define DBUS_SOCKET_IS_INVALID(s) ((SOCKET)(s) == INVALID_SOCKET)
 #define DBUS_SOCKET_API_RETURNS_ERROR(n) ((n) == SOCKET_ERROR)
 #define DBUS_SOCKET_SET_ERRNO() (_dbus_win_set_errno (WSAGetLastError()))

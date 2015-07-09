@@ -177,7 +177,8 @@ _dbus_server_debug_pipe_new (const char     *server_name,
   _dbus_string_free (&address);
 
   /* server keeps the pipe hash ref */
-  
+
+  _dbus_server_trace_ref (&debug_server->base, 0, 1, "debug_pipe_new");
   return (DBusServer *)debug_server;
 
  nomem_4:

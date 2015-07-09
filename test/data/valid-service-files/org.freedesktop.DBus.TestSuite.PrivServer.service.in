@@ -1,4 +1,4 @@
 [D-BUS Service]
 Name=org.freedesktop.DBus.TestSuite.PrivServer
-Exec=@TEST_PRIVSERVER_BINARY@
+Exec=@DBUS_TEST_EXEC@/name-test/test-privserver@EXEEXT@
 

@@ -59,12 +59,11 @@ struct DBusHeader
   dbus_uint32_t byte_order : 8;     /**< byte order of header */
 };
 
-dbus_bool_t   _dbus_header_init                   (DBusHeader        *header,
-                                                   int                byte_order);
+dbus_bool_t   _dbus_header_init                   (DBusHeader        *header);
 void          _dbus_header_free                   (DBusHeader        *header);
-void          _dbus_header_reinit                 (DBusHeader        *header,
-                                                   int                byte_order);
+void          _dbus_header_reinit                 (DBusHeader        *header);
 dbus_bool_t   _dbus_header_create                 (DBusHeader        *header,
+                                                   int                byte_order,
                                                    int                type,
                                                    const char        *destination,
                                                    const char        *path,
@@ -122,6 +121,7 @@ dbus_bool_t   _dbus_header_load                   (DBusHeader        *header,
                                                    int                len);
 void          _dbus_header_byteswap               (DBusHeader        *header,
                                                    int                new_order);
+char          _dbus_header_get_byte_order         (const DBusHeader  *header);
 
 
 

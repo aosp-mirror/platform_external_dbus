@@ -139,24 +139,15 @@ typedef enum
 
 /**
  * Functions that must be implemented to make the D-Bus library
- * thread-aware. The recursive mutex functions should be specified
- * rather than the old, deprecated nonrecursive ones.
+ * thread-aware.
  *
- * The condition variable functions have to work with recursive
- * mutexes if you provide those, or with nonrecursive mutexes if you
- * provide those.
+ * If you supply both recursive and non-recursive mutexes,
+ * libdbus will use the non-recursive version for condition variables,
+ * and the recursive version in other contexts.
  *
- * If implementing threads using pthreads, be aware that
- * PTHREAD_MUTEX_RECURSIVE is broken in combination with condition
- * variables. libdbus relies on the Java-style behavior that when
- * waiting on a condition, the recursion count is saved and restored,
- * and the mutex is completely unlocked, not just decremented one
- * level of recursion.
- *
- * Thus with pthreads you probably have to roll your own emulated
- * recursive mutexes, you can't use PTHREAD_MUTEX_RECURSIVE. This is
- * what dbus_threads_init_default() does on platforms that use
- * pthreads.
+ * The condition variable functions have to work with nonrecursive
+ * mutexes if you provide those, or with recursive mutexes if you
+ * don't.
  */
 typedef struct
 {

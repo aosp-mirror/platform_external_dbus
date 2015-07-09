@@ -137,7 +137,8 @@ _dbus_accept_with_noncefile (int listen_fd, const DBusNonceFile *noncefile)
   DBusString nonce;
 
   _dbus_assert (noncefile != NULL);
-  _dbus_string_init (&nonce);
+  if (!_dbus_string_init (&nonce))
+    return -1;
   //PENDING(kdab): set better errors
   if (_dbus_read_nonce (_dbus_noncefile_get_path(noncefile), &nonce, NULL) != TRUE)
     return -1;
@@ -161,7 +162,11 @@ generate_and_write_nonce (const DBusString *filename, DBusError *error)
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  _dbus_string_init (&nonce);
+  if (!_dbus_string_init (&nonce))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
 
   if (!_dbus_generate_random_bytes (&nonce, 16))
     {
@@ -191,7 +196,6 @@ _dbus_send_nonce (int fd, const DBusString *noncefile, DBusError *error)
 {
   dbus_bool_t read_result;
   int send_result;
-  size_t sendLen;
   DBusString nonce;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -235,7 +239,6 @@ do_noncefile_create (DBusNonceFile *noncefile,
                      DBusError *error,
                      dbus_bool_t use_subdir)
 {
-    dbus_bool_t ret;
     DBusString randomStr;
 
     _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -270,7 +273,7 @@ do_noncefile_create (DBusNonceFile *noncefile,
           }
         if (!_dbus_string_init (&noncefile->path)
             || !_dbus_string_copy (&noncefile->dir, 0, &noncefile->path, 0)
-            || !_dbus_string_append (&noncefile->dir, "/nonce"))
+            || !_dbus_string_append (&noncefile->path, "/nonce"))
           {
             dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
             goto on_error;
