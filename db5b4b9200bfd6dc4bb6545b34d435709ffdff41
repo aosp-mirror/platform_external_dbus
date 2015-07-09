@@ -118,6 +118,30 @@
       "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "789c5e2a_6f5319e8",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 4
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-09T23:27:01Z",
+      "side": 1,
+      "message": "thanks. from the doc: \"Note 1: If you run “make checkbuild”, or “make [host|target]-[java-native]”, if a module is not required by the current product configuration, the build system will just build it but not install it.\"\n\nis this saying that this code will be built no matter what, or is there something i can/should change to prevent it from being built in situations where it won\u0027t be installed?",
+      "parentUuid": "586ddaeb_ce16e350",
+      "range": {
+        "startLine": 77,
+        "startChar": 1,
+        "endLine": 77,
+        "endChar": 28
+      },
+      "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
     }
   ]
 }
