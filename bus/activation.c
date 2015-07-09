@@ -143,16 +143,6 @@ bus_pending_activation_entry_free (BusPendingActivationEntry *entry)
   dbus_free (entry);
 }
 
-static void
-handle_timeout_callback (DBusTimeout   *timeout,
-                         void          *data)
-{
-  BusPendingActivation *pending_activation = data;
-
-  while (!dbus_timeout_handle (pending_activation->timeout))
-    _dbus_wait_for_memory ();
-}
-
 static BusPendingActivation *
 bus_pending_activation_ref (BusPendingActivation *pending_activation)
 {
@@ -179,8 +169,7 @@ bus_pending_activation_unref (BusPendingActivation *pending_activation)
   if (pending_activation->timeout_added)
     {
       _dbus_loop_remove_timeout (bus_context_get_loop (pending_activation->activation->context),
-                                 pending_activation->timeout,
-                                 handle_timeout_callback, pending_activation);
+                                 pending_activation->timeout);
       pending_activation->timeout_added = FALSE;
     }
 
@@ -264,9 +253,11 @@ update_desktop_file_entry (BusActivation       *activation,
   DBusStat stat_buf;
   DBusString file_path;
   DBusError tmp_error;
+  dbus_bool_t retval;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
+  retval = FALSE;
   name = NULL;
   exec = NULL;
   user = NULL;
@@ -286,14 +277,14 @@ update_desktop_file_entry (BusActivation       *activation,
       !_dbus_concat_dir_and_file (&file_path, filename))
     {
       BUS_SET_OOM (error);
-      goto failed;
+      goto out;
     }
 
   if (!_dbus_stat (&file_path, &stat_buf, NULL))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Can't stat the service file\n");
-      goto failed;
+      goto out;
     }
 
   if (!bus_desktop_file_get_string (desktop_file,
@@ -301,14 +292,18 @@ update_desktop_file_entry (BusActivation       *activation,
                                     DBUS_SERVICE_NAME,
                                     &name,
                                     error))
-    goto failed;
+    goto out;
 
   if (!bus_desktop_file_get_string (desktop_file,
                                     DBUS_SERVICE_SECTION,
                                     DBUS_SERVICE_EXEC,
                                     &exec_tmp,
                                     error))
-    goto failed;
+    goto out;
+
+  exec = _dbus_strdup (_dbus_replace_install_prefix (exec_tmp));
+  dbus_free (exec_tmp);
+  exec_tmp = NULL;
 
   /* user is not _required_ unless we are using system activation */
   if (!bus_desktop_file_get_string (desktop_file,
@@ -321,7 +316,7 @@ update_desktop_file_entry (BusActivation       *activation,
       if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
         {
           dbus_move_error (&tmp_error, error);
-          goto failed;
+          goto out;
         }
       else
         {
@@ -344,7 +339,7 @@ update_desktop_file_entry (BusActivation       *activation,
       if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
         {
           dbus_move_error (&tmp_error, error);
-          goto failed;
+          goto out;
         }
       else
         {
@@ -360,8 +355,6 @@ update_desktop_file_entry (BusActivation       *activation,
   entry = _dbus_hash_table_lookup_string (s_dir->entries,
                                           _dbus_string_get_const_data (filename));
 
-  exec = strdup (_dbus_replace_install_prefix (exec_tmp));
-
   if (entry == NULL) /* New file */
     {
       /* FIXME we need a better-defined algorithm for which service file to
@@ -371,14 +364,14 @@ update_desktop_file_entry (BusActivation       *activation,
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Service %s already exists in activation entry list\n", name);
-          goto failed;
+          goto out;
         }
 
       entry = dbus_new0 (BusActivationEntry, 1);
       if (entry == NULL)
         {
           BUS_SET_OOM (error);
-          goto failed;
+          goto out;
         }
 
       entry->name = name;
@@ -387,18 +380,24 @@ update_desktop_file_entry (BusActivation       *activation,
       entry->systemd_service = systemd_service;
       entry->refcount = 1;
 
+      /* ownership has been transferred to entry, do not free separately */
+      name = NULL;
+      exec = NULL;
+      user = NULL;
+      systemd_service = NULL;
+
       entry->s_dir = s_dir;
       entry->filename = _dbus_strdup (_dbus_string_get_const_data (filename));
       if (!entry->filename)
         {
           BUS_SET_OOM (error);
-          goto failed;
+          goto out;
         }
 
       if (!_dbus_hash_table_insert_string (activation->entries, entry->name, bus_activation_entry_ref (entry)))
         {
           BUS_SET_OOM (error);
-          goto failed;
+          goto out;
         }
 
       if (!_dbus_hash_table_insert_string (s_dir->entries, entry->filename, bus_activation_entry_ref (entry)))
@@ -406,7 +405,7 @@ update_desktop_file_entry (BusActivation       *activation,
           /* Revert the insertion in the entries table */
           _dbus_hash_table_remove_string (activation->entries, entry->name);
           BUS_SET_OOM (error);
-          goto failed;
+          goto out;
         }
 
       _dbus_verbose ("Added \"%s\" to list of services\n", entry->name);
@@ -418,19 +417,31 @@ update_desktop_file_entry (BusActivation       *activation,
 
       if (_dbus_hash_table_lookup_string (activation->entries, name))
         {
-          _dbus_verbose ("The new service name \"%s\" of service file \"%s\" already in cache, ignoring\n",
+          _dbus_verbose ("The new service name \"%s\" of service file \"%s\" is already in cache, ignoring\n",
                          name, _dbus_string_get_const_data (&file_path));
-          goto failed;
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "The new service name \"%s\" of service file \"%s\" is already in cache, ignoring\n",
+                          name, _dbus_string_get_const_data (&file_path));
+          goto out;
         }
 
+      /* ownership has been transferred to entry, do not free separately */
       dbus_free (entry->name);
+      entry->name = name;
+      name = NULL;
+
       dbus_free (entry->exec);
+      entry->exec = exec;
+      exec = NULL;
+
       dbus_free (entry->user);
+      entry->user = user;
+      user = NULL;
+
       dbus_free (entry->systemd_service);
       entry->systemd_service = systemd_service;
-      entry->name = name;
-      entry->exec = exec;
-      entry->user = user;
+      systemd_service = NULL;
+
       if (!_dbus_hash_table_insert_string (activation->entries,
                                            entry->name, bus_activation_entry_ref(entry)))
         {
@@ -439,21 +450,17 @@ update_desktop_file_entry (BusActivation       *activation,
            * the entries hash table */
           _dbus_hash_table_remove_string (entry->s_dir->entries,
                                           entry->filename);
-          bus_activation_entry_unref (entry);
-          return FALSE;
+          goto out;
         }
     }
 
   entry->mtime = stat_buf.mtime;
+  retval = TRUE;
 
-  _dbus_string_free (&file_path);
-  bus_activation_entry_unref (entry);
-
-  return TRUE;
-
-failed:
+out:
+  /* if these have been transferred into entry, the variables will be NULL */
   dbus_free (name);
-  dbus_free (exec_tmp);
+  dbus_free (exec);
   dbus_free (user);
   dbus_free (systemd_service);
   _dbus_string_free (&file_path);
@@ -461,7 +468,7 @@ failed:
   if (entry)
     bus_activation_entry_unref (entry);
 
-  return FALSE;
+  return retval;
 }
 
 static dbus_bool_t
@@ -877,8 +884,6 @@ bus_activation_new (BusContext        *context,
                     DBusError         *error)
 {
   BusActivation *activation;
-  DBusList      *link;
-  char          *dir;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -1090,6 +1095,10 @@ bus_activation_service_created (BusActivation  *activation,
 
   if (!pending_activation)
     return TRUE;
+
+  bus_context_log (activation->context,
+                   DBUS_SYSTEM_LOG_INFO, "Successfully activated service '%s'",
+                   service_name);
 
   link = _dbus_list_get_first_link (&pending_activation->entries);
   while (link != NULL)
@@ -1315,21 +1324,15 @@ handle_servicehelper_exit_error (int        exit_code,
     }
 }
 
-static dbus_bool_t
-babysitter_watch_callback (DBusWatch     *watch,
-                           unsigned int   condition,
-                           void          *data)
+static void
+pending_activation_finished_cb (DBusBabysitter *babysitter,
+                                void           *data)
 {
   BusPendingActivation *pending_activation = data;
-  dbus_bool_t retval;
-  DBusBabysitter *babysitter;
   dbus_bool_t uses_servicehelper;
 
-  babysitter = pending_activation->babysitter;
-
+  _dbus_assert (babysitter == pending_activation->babysitter);
   _dbus_babysitter_ref (babysitter);
-
-  retval = dbus_watch_handle (watch, condition);
 
   /* There are two major cases here; are we the system bus or the session?  Here this
    * is distinguished by whether or not we use a setuid helper launcher.  With the launch helper,
@@ -1341,15 +1344,7 @@ babysitter_watch_callback (DBusWatch     *watch,
    */
   uses_servicehelper = bus_context_get_servicehelper (pending_activation->activation->context) != NULL;
 
-  /* FIXME this is broken in the same way that
-   * connection watches used to be; there should be
-   * a separate callback for status change, instead
-   * of doing "if we handled a watch status might
-   * have changed"
-   *
-   * Fixing this lets us move dbus_watch_handle
-   * calls into dbus-mainloop.c
-   */
+  /* strictly speaking this is redundant with the check in dbus-spawn now */
   if (_dbus_babysitter_get_child_exited (babysitter))
     {
       DBusError error;
@@ -1385,6 +1380,11 @@ babysitter_watch_callback (DBusWatch     *watch,
 
       if (activation_failed)
         {
+          bus_context_log (pending_activation->activation->context,
+                           DBUS_SYSTEM_LOG_INFO, "Activated service '%s' failed: %s",
+                           pending_activation->service_name,
+                           error.message);
+
           /* Destroy all pending activations with the same exec */
           _dbus_hash_iter_init (pending_activation->activation->pending_activations,
                                 &iter);
@@ -1404,8 +1404,6 @@ babysitter_watch_callback (DBusWatch     *watch,
     }
 
   _dbus_babysitter_unref (babysitter);
-
-  return retval;
 }
 
 static dbus_bool_t
@@ -1414,9 +1412,9 @@ add_babysitter_watch (DBusWatch      *watch,
 {
   BusPendingActivation *pending_activation = data;
 
-  return _dbus_loop_add_watch (bus_context_get_loop (pending_activation->activation->context),
-                               watch, babysitter_watch_callback, pending_activation,
-                               NULL);
+  return _dbus_loop_add_watch (
+      bus_context_get_loop (pending_activation->activation->context),
+      watch);
 }
 
 static void
@@ -1426,7 +1424,17 @@ remove_babysitter_watch (DBusWatch      *watch,
   BusPendingActivation *pending_activation = data;
 
   _dbus_loop_remove_watch (bus_context_get_loop (pending_activation->activation->context),
-                           watch, babysitter_watch_callback, pending_activation);
+                           watch);
+}
+
+static void
+toggle_babysitter_watch (DBusWatch      *watch,
+                         void           *data)
+{
+  BusPendingActivation *pending_activation = data;
+
+  _dbus_loop_toggle_watch (bus_context_get_loop (pending_activation->activation->context),
+                           watch);
 }
 
 static dbus_bool_t
@@ -1447,6 +1455,10 @@ pending_activation_timed_out (void *data)
   dbus_set_error (&error, DBUS_ERROR_TIMED_OUT,
                   "Activation of %s timed out",
                   pending_activation->service_name);
+  bus_context_log (pending_activation->activation->context,
+                   DBUS_SYSTEM_LOG_INFO,
+                   "Failed to activate service '%s': timed out",
+                   pending_activation->service_name);
 
   pending_activation_failed (pending_activation, &error);
 
@@ -1659,6 +1671,7 @@ bus_activation_activate_service (BusActivation  *activation,
                                  const char     *service_name,
                                  DBusError      *error)
 {
+  DBusError tmp_error;
   BusActivationEntry *entry;
   BusPendingActivation *pending_activation;
   BusPendingActivationEntry *pending_activation_entry;
@@ -1669,11 +1682,8 @@ bus_activation_activate_service (BusActivation  *activation,
   char **envp = NULL;
   int argc;
   dbus_bool_t retval;
-  DBusHashIter iter;
-  dbus_bool_t activated;
+  dbus_bool_t was_pending_activation;
   DBusString command;
-
-  activated = TRUE;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -1753,7 +1763,8 @@ bus_activation_activate_service (BusActivation  *activation,
 
   /* Check if the service is being activated */
   pending_activation = _dbus_hash_table_lookup_string (activation->pending_activations, service_name);
-  if (pending_activation)
+  was_pending_activation = (pending_activation != NULL);
+  if (was_pending_activation)
     {
       if (!_dbus_list_append (&pending_activation->entries, pending_activation_entry))
         {
@@ -1832,10 +1843,7 @@ bus_activation_activate_service (BusActivation  *activation,
         }
 
       if (!_dbus_loop_add_timeout (bus_context_get_loop (activation->context),
-                                   pending_activation->timeout,
-                                   handle_timeout_callback,
-                                   pending_activation,
-                                   NULL))
+                                   pending_activation->timeout))
         {
           _dbus_verbose ("Failed to add timeout for pending activation\n");
 
@@ -1860,19 +1868,6 @@ bus_activation_activate_service (BusActivation  *activation,
       pending_activation->n_entries += 1;
       pending_activation->activation->n_pending_activations += 1;
 
-      activated = FALSE;
-      _dbus_hash_iter_init (activation->pending_activations, &iter);
-      while (_dbus_hash_iter_next (&iter))
-        {
-          BusPendingActivation *p = _dbus_hash_iter_get_value (&iter);
-
-          if (strcmp (p->exec, entry->exec) == 0)
-            {
-              activated = TRUE;
-              break;
-            }
-        }
-
       if (!_dbus_hash_table_insert_string (activation->pending_activations,
                                            pending_activation->service_name,
                                            pending_activation))
@@ -1895,7 +1890,7 @@ bus_activation_activate_service (BusActivation  *activation,
       return FALSE;
     }
 
-  if (activated)
+  if (was_pending_activation)
     return TRUE;
 
   if (bus_context_get_systemd_activation (activation->context))
@@ -1961,18 +1956,34 @@ bus_activation_activate_service (BusActivation  *activation,
           service = bus_registry_lookup (registry, &service_string);
 
           if (service != NULL)
-            /* Wonderful, systemd is connected, let's just send the msg */
-            retval = bus_dispatch_matches (activation_transaction, NULL, bus_service_get_primary_owners_connection (service),
-                                           message, error);
+            {
+              bus_context_log (activation->context,
+                               DBUS_SYSTEM_LOG_INFO, "Activating via systemd: service name='%s' unit='%s'",
+                               service_name,
+                               entry->systemd_service);
+              /* Wonderful, systemd is connected, let's just send the msg */
+              retval = bus_dispatch_matches (activation_transaction, NULL, bus_service_get_primary_owners_connection (service),
+                                             message, error);
+            }
           else
-            /* systemd is not around, let's "activate" it. */
-            retval = bus_activation_activate_service (activation, connection, activation_transaction, TRUE,
-                                                      message, "org.freedesktop.systemd1", error);
+            {
+              bus_context_log (activation->context,
+                               DBUS_SYSTEM_LOG_INFO, "Activating systemd to hand-off: service name='%s' unit='%s'",
+                               service_name,
+                               entry->systemd_service);
+              /* systemd is not around, let's "activate" it. */
+              retval = bus_activation_activate_service (activation, connection, activation_transaction, TRUE,
+                                                        message, "org.freedesktop.systemd1", error);
+            }
 
           dbus_message_unref (message);
 
           if (!retval)
             {
+              bus_context_log (activation->context,
+                               DBUS_SYSTEM_LOG_INFO, "Failed to activate via systemd: service name='%s' unit='%s'",
+                               service_name,
+                               entry->systemd_service);
               _DBUS_ASSERT_ERROR_IS_SET (error);
               _dbus_verbose ("failed to send activation message: %s\n", error->name);
               bus_transaction_cancel_and_free (activation_transaction);
@@ -2068,13 +2079,29 @@ bus_activation_activate_service (BusActivation  *activation,
     }
 
   _dbus_verbose ("Spawning %s ...\n", argv[0]);
+  if (servicehelper != NULL)
+    bus_context_log (activation->context,
+                     DBUS_SYSTEM_LOG_INFO, "Activating service name='%s' (using servicehelper)",
+                     service_name);
+  else
+    bus_context_log (activation->context,
+                     DBUS_SYSTEM_LOG_INFO, "Activating service name='%s'",
+                     service_name);
+
+  dbus_error_init (&tmp_error);
+
   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
                                           envp,
                                           NULL, activation,
-                                          error))
+                                          &tmp_error))
     {
       _dbus_verbose ("Failed to spawn child\n");
-      _DBUS_ASSERT_ERROR_IS_SET (error);
+      bus_context_log (activation->context,
+                       DBUS_SYSTEM_LOG_INFO, "Failed to activate service %s: %s",
+                       service_name,
+                       tmp_error.message);
+      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+      dbus_move_error (&tmp_error, error);
       dbus_free_string_array (argv);
       dbus_free_string_array (envp);
 
@@ -2086,10 +2113,14 @@ bus_activation_activate_service (BusActivation  *activation,
 
   _dbus_assert (pending_activation->babysitter != NULL);
 
+  _dbus_babysitter_set_result_function (pending_activation->babysitter,
+                                        pending_activation_finished_cb,
+                                        pending_activation);
+
   if (!_dbus_babysitter_set_watch_functions (pending_activation->babysitter,
                                              add_babysitter_watch,
                                              remove_babysitter_watch,
-                                             NULL,
+                                             toggle_babysitter_watch,
                                              pending_activation,
                                              NULL))
     {
@@ -2165,9 +2196,15 @@ dbus_activation_systemd_failure (BusActivation *activation,
                              DBUS_TYPE_INVALID))
     dbus_set_error(&error, code, str);
 
+
   if (unit)
     {
       DBusHashIter iter;
+
+      bus_context_log (activation->context,
+                       DBUS_SYSTEM_LOG_INFO, "Activation via systemd failed for unit '%s': %s",
+                       unit,
+                       str);
 
       _dbus_hash_iter_init (activation->pending_activations,
                             &iter);
@@ -2511,14 +2548,18 @@ bus_activation_service_reload_test (const DBusString *test_data_dir)
     _dbus_assert_not_reached ("could not initiate service reload test");
 
   if (!do_service_reload_test (&directory, FALSE))
-    ; /* Do nothing? */
+    {
+      /* Do nothing? */
+    }
 
   /* Do OOM tests */
   if (!init_service_reload_test (&directory))
     _dbus_assert_not_reached ("could not initiate service reload test");
 
   if (!do_service_reload_test (&directory, TRUE))
-    ; /* Do nothing? */
+    {
+      /* Do nothing? */
+    }
 
   /* Cleanup test directory */
   if (!cleanup_service_reload_test (&directory))

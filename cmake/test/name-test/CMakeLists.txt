@@ -21,15 +21,19 @@ target_link_libraries(test-ids ${DBUS_INTERNAL_LIBRARIES})
 ADD_TEST(test-ids ${EXECUTABLE_OUTPUT_PATH}/test-ids)
 
 add_executable(test-shutdown ${NAMEtest-DIR}/test-shutdown.c)
-target_link_libraries(test-shutdown ${DBUS_INTERNAL_LIBRARIES} dbus_testutils)
+target_link_libraries(test-shutdown dbus-testutils)
 ADD_TEST(test-shutdown ${EXECUTABLE_OUTPUT_PATH}/test-shutdown)
 
 add_executable(test-privserver ${NAMEtest-DIR}/test-privserver.c)
-target_link_libraries(test-privserver ${DBUS_INTERNAL_LIBRARIES} dbus_testutils)
+target_link_libraries(test-privserver dbus-testutils)
 ADD_TEST(test-privserver ${EXECUTABLE_OUTPUT_PATH}/test-privserver)
 
 add_executable(test-privserver-client ${NAMEtest-DIR}/test-privserver-client.c)
-target_link_libraries(test-privserver-client ${DBUS_INTERNAL_LIBRARIES} dbus_testutils)
+target_link_libraries(test-privserver-client dbus-testutils)
 ADD_TEST(test-privserver-client ${EXECUTABLE_OUTPUT_PATH}/test-privserver-client)
+
+add_executable(test-autolaunch ${NAMEtest-DIR}/test-autolaunch.c)
+target_link_libraries(test-autolaunch dbus-testutils)
+ADD_TEST(test-autolaunch ${EXECUTABLE_OUTPUT_PATH}/test-autolaunch)
 
 endif (DBUS_BUILD_TESTS)

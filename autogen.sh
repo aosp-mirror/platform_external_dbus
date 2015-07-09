@@ -27,8 +27,12 @@ fi
 	DIE=1
 }
 
-AUTOMAKE=automake-1.9
-ACLOCAL=aclocal-1.9
+# If the user hasn't explicitly chosen an Automake version, use 1.11. This is
+# the earliest version that gives us silent rules.
+if test -z "$AUTOMAKE"; then
+    AUTOMAKE=automake-1.11
+    ACLOCAL=aclocal-1.11
+fi
 
 ($AUTOMAKE --version) < /dev/null > /dev/null 2>&1 || {
         AUTOMAKE=automake
@@ -43,7 +47,12 @@ ACLOCAL=aclocal-1.9
 	DIE=1
 }
 
-(libtoolize --version) < /dev/null > /dev/null 2>&1 || {
+LIBTOOLIZE=`which libtoolize`
+if ! test -f $LIBTOOLIZE; then
+	LIBTOOLIZE=`which glibtoolize`
+fi
+
+($LIBTOOLIZE --version) < /dev/null > /dev/null 2>&1 || {
 	echo
 	echo "You must have libtoolize installed to compile $PROJECT."
 	echo "Install the libtool package from ftp.gnu.org or a mirror."
@@ -64,10 +73,9 @@ if test -z "$*"; then
         echo "to pass any to it, please specify them on the $0 command line."
 fi
 
-libtoolize --copy --force
+$LIBTOOLIZE --copy --force
 
-echo $ACLOCAL $ACLOCAL_FLAGS
-$ACLOCAL $ACLOCAL_FLAGS
+$ACLOCAL -I m4 $ACLOCAL_FLAGS
 
 ## optionally feature autoheader
 (autoheader --version)  < /dev/null > /dev/null 2>&1 && autoheader
@@ -77,8 +85,9 @@ autoconf || echo "autoconf failed - version 2.5x is probably required"
 
 cd $ORIGDIR
 
-run_configure=true
-for arg in $*; do
+if test x"$NOCONFIGURE" = x; then
+  run_configure=true
+  for arg in $*; do
     case $arg in 
         --no-configure)
             run_configure=false
@@ -86,10 +95,13 @@ for arg in $*; do
         *)
             ;;
     esac
-done
+  done
+else
+  run_configure=false
+fi
 
 if $run_configure; then
-    $srcdir/configure --enable-maintainer-mode --config-cache "$@"
+    $srcdir/configure --enable-developer --config-cache "$@"
     echo 
     echo "Now type 'make' to compile $PROJECT."
 else

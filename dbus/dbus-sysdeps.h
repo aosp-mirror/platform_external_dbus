@@ -31,6 +31,10 @@
 #include <stdint.h>
 #endif
 
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+
 #include <dbus/dbus-errors.h>
 #include <dbus/dbus-file.h>
 #include <dbus/dbus-string.h>
@@ -83,6 +87,7 @@ typedef struct DBusPipe DBusPipe;
 
 void _dbus_abort (void) _DBUS_GNUC_NORETURN;
 
+dbus_bool_t _dbus_check_setuid (void);
 const char* _dbus_getenv (const char *varname);
 dbus_bool_t _dbus_setenv (const char *varname,
 			  const char *value);
@@ -121,8 +126,6 @@ typedef unsigned long dbus_gid_t;
  * 
  */
 
-dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
-                                    DBusError        *error);
 dbus_bool_t _dbus_close_socket     (int               fd,
                                     DBusError        *error);
 int         _dbus_read_socket      (int               fd,
@@ -207,7 +210,9 @@ dbus_bool_t _dbus_windows_user_is_process_owner (const char        *windows_sid)
 dbus_bool_t _dbus_append_keyring_directory_for_credentials (DBusString      *directory,
                                                             DBusCredentials *credentials);
 
-void _dbus_daemon_publish_session_bus_address (const char* address);
+dbus_bool_t _dbus_daemon_is_session_bus_address_published (const char *scope);
+
+dbus_bool_t _dbus_daemon_publish_session_bus_address (const char* address, const char* shm_name);
 
 void _dbus_daemon_unpublish_session_bus_address (void);
 
@@ -242,6 +247,7 @@ struct DBusAtomic
 
 dbus_int32_t _dbus_atomic_inc (DBusAtomic *atomic);
 dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
+dbus_int32_t _dbus_atomic_get (DBusAtomic *atomic);
 
 
 /* AIX uses different values for poll */
@@ -303,8 +309,11 @@ int _dbus_poll (DBusPollFD *fds,
 
 void _dbus_sleep_milliseconds (int milliseconds);
 
-void _dbus_get_current_time (long *tv_sec,
-                             long *tv_usec);
+void _dbus_get_monotonic_time (long *tv_sec,
+                               long *tv_usec);
+
+void _dbus_get_real_time (long *tv_sec,
+                          long *tv_usec);
 
 /**
  * directory interface
@@ -474,8 +483,9 @@ void _dbus_system_logv (DBusSystemLogSeverity severity, const char *msg, va_list
       _DBUS_BYTE_OF_PRIMITIVE (a, 6) == _DBUS_BYTE_OF_PRIMITIVE (b, 6) &&       \
       _DBUS_BYTE_OF_PRIMITIVE (a, 7) == _DBUS_BYTE_OF_PRIMITIVE (b, 7))
 
-dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
-					  DBusError *error);
+dbus_bool_t _dbus_get_autolaunch_address (const char *scope,
+                                          DBusString *address,
+					                      DBusError  *error);
 
 dbus_bool_t _dbus_lookup_session_address (dbus_bool_t *supported,
                                           DBusString  *address,
@@ -514,6 +524,8 @@ dbus_bool_t _dbus_change_to_daemon_user (const char *user,
 
 void _dbus_flush_caches (void);
 
+void _dbus_request_file_descriptor_limit (unsigned int limit);
+
 /*
  * replaces the term DBUS_PREFIX in configure_time_path by the
  * current dbus installation directory. On unix this function is a noop
@@ -527,5 +539,10 @@ _dbus_replace_install_prefix (const char *configure_time_path);
 /** @} */
 
 DBUS_END_DECLS
+
+
+#ifdef DBUS_WIN
+#include "dbus-sysdeps-win.h"
+#endif
 
 #endif /* DBUS_SYSDEPS_H */

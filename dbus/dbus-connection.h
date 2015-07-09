@@ -69,6 +69,7 @@ typedef enum
                                  *   state passed to
                                  *   dbus_watch_handle()).
                                  */
+  /* Internal to libdbus, there is also _DBUS_WATCH_NVAL in dbus-watch.h */
 } DBusWatchFlags;
 
 /**
@@ -199,9 +200,6 @@ DBUS_EXPORT
 void               dbus_connection_flush                        (DBusConnection             *connection);
 DBUS_EXPORT
 dbus_bool_t        dbus_connection_read_write_dispatch          (DBusConnection             *connection,
-                                                                 int                         timeout_milliseconds);
-DBUS_EXPORT
-dbus_bool_t        dbus_connection_read_write_dispatch_greedy   (DBusConnection             *connection,
                                                                  int                         timeout_milliseconds);
 DBUS_EXPORT
 dbus_bool_t        dbus_connection_read_write                   (DBusConnection             *connection,

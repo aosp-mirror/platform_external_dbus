@@ -106,6 +106,7 @@ static int n_failures_this_failure = 0;
 static dbus_bool_t guards = FALSE;
 static dbus_bool_t disable_mem_pools = FALSE;
 static dbus_bool_t backtrace_on_fail_alloc = FALSE;
+static dbus_bool_t malloc_cannot_fail = FALSE;
 static DBusAtomic n_blocks_outstanding = {0};
 
 /** value stored in guard padding for debugging buffer overrun */
@@ -132,7 +133,7 @@ _dbus_initialize_malloc_debug (void)
 	{
 	  fail_nth = atoi (_dbus_getenv ("DBUS_MALLOC_FAIL_NTH"));
           fail_alloc_counter = fail_nth;
-          _dbus_verbose ("Will fail malloc every %d times\n", fail_nth);
+          _dbus_verbose ("Will fail dbus_malloc every %d times\n", fail_nth);
 	}
       
       if (_dbus_getenv ("DBUS_MALLOC_FAIL_GREATER_THAN") != NULL)
@@ -145,7 +146,7 @@ _dbus_initialize_malloc_debug (void)
       if (_dbus_getenv ("DBUS_MALLOC_GUARDS") != NULL)
         {
           guards = TRUE;
-          _dbus_verbose ("Will use malloc guards\n");
+          _dbus_verbose ("Will use dbus_malloc guards\n");
         }
 
       if (_dbus_getenv ("DBUS_DISABLE_MEM_POOLS") != NULL)
@@ -157,7 +158,13 @@ _dbus_initialize_malloc_debug (void)
       if (_dbus_getenv ("DBUS_MALLOC_BACKTRACES") != NULL)
         {
           backtrace_on_fail_alloc = TRUE;
-          _dbus_verbose ("Will backtrace on failing a malloc\n");
+          _dbus_verbose ("Will backtrace on failing a dbus_malloc\n");
+        }
+
+      if (_dbus_getenv ("DBUS_MALLOC_CANNOT_FAIL") != NULL)
+        {
+          malloc_cannot_fail = TRUE;
+          _dbus_verbose ("Will abort if system malloc() and friends fail\n");
         }
     }
 }
@@ -233,7 +240,6 @@ _dbus_get_fail_alloc_failures (void)
 }
 
 #ifdef DBUS_BUILD_TESTS
-static dbus_bool_t called = 0;
 /**
  * Called when about to alloc some memory; if
  * it returns #TRUE, then the allocation should
@@ -248,6 +254,8 @@ _dbus_decrement_fail_alloc_counter (void)
   _dbus_initialize_malloc_debug ();
 #ifdef DBUS_WIN_FIXME
   {
+    static dbus_bool_t called = 0;
+
     if (!called)
       {
         _dbus_verbose("TODO: memory allocation testing errors disabled for now\n");
@@ -295,7 +303,7 @@ _dbus_decrement_fail_alloc_counter (void)
 int
 _dbus_get_malloc_blocks_outstanding (void)
 {
-  return n_blocks_outstanding.value;
+  return _dbus_atomic_get (&n_blocks_outstanding);
 }
 
 /**
@@ -472,7 +480,15 @@ dbus_malloc (size_t bytes)
 
       block = malloc (bytes + GUARD_EXTRA_SIZE);
       if (block)
-	_dbus_atomic_inc (&n_blocks_outstanding);
+        {
+          _dbus_atomic_inc (&n_blocks_outstanding);
+        }
+      else if (malloc_cannot_fail)
+        {
+          _dbus_warn ("out of memory: malloc (%ld + %ld)\n",
+              (long) bytes, (long) GUARD_EXTRA_SIZE);
+          _dbus_abort ();
+        }
       
       return set_guards (block, bytes, SOURCE_MALLOC);
     }
@@ -481,10 +497,19 @@ dbus_malloc (size_t bytes)
     {
       void *mem;
       mem = malloc (bytes);
+
 #ifdef DBUS_BUILD_TESTS
       if (mem)
-	_dbus_atomic_inc (&n_blocks_outstanding);
+        {
+          _dbus_atomic_inc (&n_blocks_outstanding);
+        }
+      else if (malloc_cannot_fail)
+        {
+          _dbus_warn ("out of memory: malloc (%ld)\n", (long) bytes);
+          _dbus_abort ();
+        }
 #endif
+
       return mem;
     }
 }
@@ -525,8 +550,18 @@ dbus_malloc0 (size_t bytes)
       void *block;
 
       block = calloc (bytes + GUARD_EXTRA_SIZE, 1);
+
       if (block)
-	_dbus_atomic_inc (&n_blocks_outstanding);
+        {
+          _dbus_atomic_inc (&n_blocks_outstanding);
+        }
+      else if (malloc_cannot_fail)
+        {
+          _dbus_warn ("out of memory: calloc (%ld + %ld, 1)\n",
+              (long) bytes, (long) GUARD_EXTRA_SIZE);
+          _dbus_abort ();
+        }
+
       return set_guards (block, bytes, SOURCE_MALLOC_ZERO);
     }
 #endif
@@ -534,10 +569,19 @@ dbus_malloc0 (size_t bytes)
     {
       void *mem;
       mem = calloc (bytes, 1);
+
 #ifdef DBUS_BUILD_TESTS
       if (mem)
-	_dbus_atomic_inc (&n_blocks_outstanding);
+        {
+          _dbus_atomic_inc (&n_blocks_outstanding);
+        }
+      else if (malloc_cannot_fail)
+        {
+          _dbus_warn ("out of memory: calloc (%ld)\n", (long) bytes);
+          _dbus_abort ();
+        }
 #endif
+
       return mem;
     }
 }
@@ -587,8 +631,20 @@ dbus_realloc (void  *memory,
           block = realloc (((unsigned char*)memory) - GUARD_START_OFFSET,
                            bytes + GUARD_EXTRA_SIZE);
 
-	  old_bytes = *(dbus_uint32_t*)block;
-          if (block && bytes >= old_bytes)
+          if (block == NULL)
+            {
+              if (malloc_cannot_fail)
+                {
+                  _dbus_warn ("out of memory: realloc (%p, %ld + %ld)\n",
+                      memory, (long) bytes, (long) GUARD_EXTRA_SIZE);
+                  _dbus_abort ();
+                }
+
+              return NULL;
+            }
+
+          old_bytes = *(dbus_uint32_t*)block;
+          if (bytes >= old_bytes)
             /* old guards shouldn't have moved */
             check_guards (((unsigned char*)block) + GUARD_START_OFFSET, FALSE);
           
@@ -601,8 +657,16 @@ dbus_realloc (void  *memory,
           block = malloc (bytes + GUARD_EXTRA_SIZE);
 
           if (block)
-	    _dbus_atomic_inc (&n_blocks_outstanding);
-          
+            {
+              _dbus_atomic_inc (&n_blocks_outstanding);
+            }
+          else if (malloc_cannot_fail)
+            {
+              _dbus_warn ("out of memory: malloc (%ld + %ld)\n",
+                  (long) bytes, (long) GUARD_EXTRA_SIZE);
+              _dbus_abort ();
+            }
+
           return set_guards (block, bytes, SOURCE_REALLOC_NULL);   
         }
     }
@@ -611,7 +675,14 @@ dbus_realloc (void  *memory,
     {
       void *mem;
       mem = realloc (memory, bytes);
+
 #ifdef DBUS_BUILD_TESTS
+      if (mem == NULL && malloc_cannot_fail)
+        {
+          _dbus_warn ("out of memory: malloc (%ld)\n", (long) bytes);
+          _dbus_abort ();
+        }
+
       if (memory == NULL && mem != NULL)
 	    _dbus_atomic_inc (&n_blocks_outstanding);
 #endif
@@ -634,10 +705,15 @@ dbus_free (void  *memory)
       check_guards (memory, TRUE);
       if (memory)
         {
-	  _dbus_atomic_dec (&n_blocks_outstanding);
-          
-	  _dbus_assert (n_blocks_outstanding.value >= 0);
-          
+#ifdef DBUS_DISABLE_ASSERT
+          _dbus_atomic_dec (&n_blocks_outstanding);
+#else
+          dbus_int32_t old_value;
+
+          old_value = _dbus_atomic_dec (&n_blocks_outstanding);
+          _dbus_assert (old_value >= 1);
+#endif
+
           free (((unsigned char*)memory) - GUARD_START_OFFSET);
         }
       
@@ -648,9 +724,14 @@ dbus_free (void  *memory)
   if (memory) /* we guarantee it's safe to free (NULL) */
     {
 #ifdef DBUS_BUILD_TESTS
+#ifdef DBUS_DISABLE_ASSERT
       _dbus_atomic_dec (&n_blocks_outstanding);
-      
-      _dbus_assert (n_blocks_outstanding.value >= 0);
+#else
+      dbus_int32_t old_value;
+
+      old_value = _dbus_atomic_dec (&n_blocks_outstanding);
+      _dbus_assert (old_value >= 1);
+#endif
 #endif
 
       free (memory);

@@ -38,6 +38,9 @@ DBUS_BEGIN_DECLS
  * @{
  */
 
+#define DBUS_TIMEOUT_INFINITE ((int) 0x7fffffff)
+#define DBUS_TIMEOUT_USE_DEFAULT (-1)
+
 DBUS_EXPORT
 DBusPendingCall* dbus_pending_call_ref       (DBusPendingCall               *pending);
 DBUS_EXPORT

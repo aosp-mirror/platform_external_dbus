@@ -35,6 +35,8 @@
 
 #include "dbus-print-message.h"
 
+#define EAVESDROPPING_RULE "eavesdrop=true"
+
 #ifdef DBUS_WIN
 
 /* gettimeofday is not defined on windows */
@@ -76,6 +78,13 @@ gettimeofday (struct timeval *__p,
 }
 #endif
 
+inline static void
+oom (const char *doing)
+{
+  fprintf (stderr, "OOM while %s\n", doing);
+  exit (1);
+}
+
 static DBusHandlerResult
 monitor_filter_func (DBusConnection     *connection,
 		     DBusMessage        *message,
@@ -95,7 +104,11 @@ monitor_filter_func (DBusConnection     *connection,
   return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+#ifdef __APPLE__
+#define PROFILE_TIMED_FORMAT "%s\t%lu\t%d"
+#else
 #define PROFILE_TIMED_FORMAT "%s\t%lu\t%lu"
+#endif
 #define TRAP_NULL_STRING(str) ((str) ? (str) : "<none>")
 
 typedef enum
@@ -211,12 +224,19 @@ usage (char *name, int ecode)
   exit (ecode);
 }
 
-static dbus_bool_t sigint_received = FALSE;
-
 static void
-sigint_handler (int signum)
+only_one_type (dbus_bool_t *seen_bus_type,
+               char        *name)
 {
-  sigint_received = TRUE;
+  if (*seen_bus_type)
+    {
+      fprintf (stderr, "I only support monitoring one bus at a time!\n");
+      usage (name, 1);
+    }
+  else
+    {
+      *seen_bus_type = TRUE;
+    }
 }
 
 int
@@ -227,6 +247,7 @@ main (int argc, char *argv[])
   DBusBusType type = DBUS_BUS_SESSION;
   DBusHandleMessageFunction filter_func = monitor_filter_func;
   char *address = NULL;
+  dbus_bool_t seen_bus_type = FALSE;
   
   int i = 0, j = 0, numFilters = 0;
   char **filters = NULL;
@@ -247,19 +268,27 @@ main (int argc, char *argv[])
       char *arg = argv[i];
 
       if (!strcmp (arg, "--system"))
-	type = DBUS_BUS_SYSTEM;
+        {
+          only_one_type (&seen_bus_type, argv[0]);
+          type = DBUS_BUS_SYSTEM;
+        }
       else if (!strcmp (arg, "--session"))
-	type = DBUS_BUS_SESSION;
+        {
+          only_one_type (&seen_bus_type, argv[0]);
+          type = DBUS_BUS_SESSION;
+        }
       else if (!strcmp (arg, "--address"))
-	{
-	  if (i+1 < argc)
-	    {
-	      address = argv[i+1];
-	      i++;
-	    }
-	  else
-	    usage (argv[0], 1);
-	}
+        {
+          only_one_type (&seen_bus_type, argv[0]);
+
+          if (i+1 < argc)
+            {
+              address = argv[i+1];
+              i++;
+            }
+          else
+            usage (argv[0], 1);
+        }
       else if (!strcmp (arg, "--help"))
 	usage (argv[0], 0);
       else if (!strcmp (arg, "--monitor"))
@@ -271,11 +300,21 @@ main (int argc, char *argv[])
       else if (arg[0] == '-')
 	usage (argv[0], 1);
       else {
-	numFilters++;
-       filters = (char **)realloc(filters, numFilters * sizeof(char *));
-	filters[j] = (char *)malloc((strlen(arg) + 1) * sizeof(char *));
-	snprintf(filters[j], strlen(arg) + 1, "%s", arg);
-	j++;
+          unsigned int filter_len;
+          numFilters++;
+          /* Prepend a rule (and a comma) to enable the monitor to eavesdrop.
+           * Prepending allows the user to add eavesdrop=false at command line
+           * in order to disable eavesdropping when needed */
+          filter_len = strlen (EAVESDROPPING_RULE) + 1 + strlen (arg) + 1;
+
+          filters = (char **) realloc (filters, numFilters * sizeof (char *));
+          if (filters == NULL)
+            oom ("adding a new filter slot");
+          filters[j] = (char *) malloc (filter_len * sizeof (char *));
+          if (filters[j] == NULL)
+            oom ("adding a new filter");
+          snprintf (filters[j], filter_len, "%s,%s", EAVESDROPPING_RULE, arg);
+          j++;
       }
     }
 
@@ -341,22 +380,22 @@ main (int argc, char *argv[])
   else
     {
       dbus_bus_add_match (connection,
-		          "type='signal'",
+		          EAVESDROPPING_RULE ",type='signal'",
 		          &error);
       if (dbus_error_is_set (&error))
         goto lose;
       dbus_bus_add_match (connection,
-		          "type='method_call'",
+		          EAVESDROPPING_RULE ",type='method_call'",
 		          &error);
       if (dbus_error_is_set (&error))
         goto lose;
       dbus_bus_add_match (connection,
-		          "type='method_return'",
+		          EAVESDROPPING_RULE ",type='method_return'",
 		          &error);
       if (dbus_error_is_set (&error))
         goto lose;
       dbus_bus_add_match (connection,
-		          "type='error'",
+		          EAVESDROPPING_RULE ",type='error'",
 		          &error);
       if (dbus_error_is_set (&error))
         goto lose;

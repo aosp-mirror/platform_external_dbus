@@ -63,14 +63,16 @@ _dbus_write_two (int               fd,
                  int               start2,
                  int               len2);
 
-dbus_bool_t _dbus_open_unix_socket (int              *fd,
-                                    DBusError        *error);
 int _dbus_connect_unix_socket (const char     *path,
                                dbus_bool_t     abstract,
                                DBusError      *error);
 int _dbus_listen_unix_socket  (const char     *path,
                                dbus_bool_t     abstract,
                                DBusError      *error);
+
+int _dbus_connect_exec (const char     *path,
+                        char *const    argv[],
+                        DBusError      *error);
 
 int _dbus_listen_systemd_sockets (int       **fd,
                                  DBusError *error);
@@ -80,6 +82,10 @@ dbus_bool_t _dbus_read_credentials (int               client_fd,
                                     DBusError        *error);
 dbus_bool_t _dbus_send_credentials (int              server_fd,
                                     DBusError       *error);
+
+dbus_bool_t _dbus_lookup_launchd_socket (DBusString *socket_path,
+                                         const char *launchd_env_var,
+                                         DBusError  *error);
 
 /** Information about a UNIX user */
 typedef struct DBusUserInfo  DBusUserInfo;
@@ -126,10 +132,11 @@ void        _dbus_group_info_free     (DBusGroupInfo    *info);
 
 dbus_uid_t    _dbus_getuid (void);
 dbus_uid_t    _dbus_geteuid (void);
-dbus_gid_t    _dbus_getgid (void);
 
 dbus_bool_t _dbus_parse_uid (const DBusString  *uid_str,
                              dbus_uid_t        *uid);
+
+void _dbus_close_all (void);
 
 /** @} */
 

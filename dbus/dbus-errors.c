@@ -78,6 +78,8 @@ typedef struct
   
 } DBusRealError;
 
+_DBUS_STATIC_ASSERT (sizeof (DBusRealError) == sizeof (DBusError));
+
 /**
  * Returns a longer message describing an error name.
  * If the error name is unknown, returns the name

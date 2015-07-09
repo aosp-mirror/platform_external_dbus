@@ -25,6 +25,7 @@
 #include "dbus-internals.h"
 #include "dbus-server-unix.h"
 #include "dbus-server-socket.h"
+#include "dbus-server-launchd.h"
 #include "dbus-transport-unix.h"
 #include "dbus-connection-internal.h"
 #include "dbus-sysdeps-unix.h"
@@ -178,7 +179,30 @@ _dbus_server_listen_platform_specific (DBusAddressEntry *entry,
       dbus_free (fds);
 
       return DBUS_SERVER_LISTEN_OK;
+	}
+#ifdef DBUS_ENABLE_LAUNCHD
+  else if (strcmp (method, "launchd") == 0)
+    {
+      const char *launchd_env_var = dbus_address_entry_get_value (entry, "env");
+      if (launchd_env_var == NULL)
+        {
+          _dbus_set_bad_address (error, "launchd", "env", NULL);
+          return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
+        }
+      *server_p = _dbus_server_new_for_launchd (launchd_env_var, error);
+
+      if (*server_p != NULL)
+        {
+          _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+          return DBUS_SERVER_LISTEN_OK;
+        }
+      else
+        {
+          _DBUS_ASSERT_ERROR_IS_SET(error);
+          return DBUS_SERVER_LISTEN_DID_NOT_CONNECT;
+        }
     }
+#endif
   else
     {
       /* If we don't handle the method, we return NULL with the
@@ -227,11 +251,18 @@ _dbus_server_new_for_domain_socket (const char     *path,
       goto failed_0;
     }
 
-  path_copy = _dbus_strdup (path);
-  if (path_copy == NULL)
+  if (abstract)
     {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      goto failed_0;
+      path_copy = NULL;
+    }
+  else
+    {
+      path_copy = _dbus_strdup (path);
+      if (path_copy == NULL)
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+          goto failed_0;
+        }
     }
 
   listen_fd = _dbus_listen_unix_socket (path, abstract, error);
@@ -249,7 +280,8 @@ _dbus_server_new_for_domain_socket (const char     *path,
       goto failed_2;
     }
 
-  _dbus_server_socket_own_filename(server, path_copy);
+  if (path_copy != NULL)
+    _dbus_server_socket_own_filename(server, path_copy);
 
   _dbus_string_free (&address);
 

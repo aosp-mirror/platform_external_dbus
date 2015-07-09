@@ -86,6 +86,8 @@ struct BusPolicyRule
     {
       /* can be NULL meaning "any" */
       char *service_name;
+      /* if prefix is set, any name starting with service_name can be owned */
+      unsigned int prefix : 1;
     } own;
 
     struct
@@ -154,11 +156,14 @@ dbus_bool_t      bus_client_policy_check_can_receive (BusClientPolicy  *policy,
                                                       DBusMessage      *message,
                                                       dbus_int32_t     *toggles);
 dbus_bool_t      bus_client_policy_check_can_own     (BusClientPolicy  *policy,
-                                                      DBusConnection   *connection,
                                                       const DBusString *service_name);
 dbus_bool_t      bus_client_policy_append_rule       (BusClientPolicy  *policy,
                                                       BusPolicyRule    *rule);
 void             bus_client_policy_optimize          (BusClientPolicy  *policy);
 
+#ifdef DBUS_BUILD_TESTS
+dbus_bool_t      bus_policy_check_can_own     (BusPolicy  *policy,
+                                               const DBusString *service_name);
+#endif
 
 #endif /* BUS_POLICY_H */

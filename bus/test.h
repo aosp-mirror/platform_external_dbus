@@ -32,7 +32,6 @@
 
 dbus_bool_t bus_dispatch_test         (const DBusString             *test_data_dir);
 dbus_bool_t bus_dispatch_sha1_test    (const DBusString             *test_data_dir);
-dbus_bool_t bus_policy_test           (const DBusString             *test_data_dir);
 dbus_bool_t bus_config_parser_test    (const DBusString             *test_data_dir);
 dbus_bool_t bus_config_parser_trivial_test (const DBusString        *test_data_dir);
 dbus_bool_t bus_signals_test          (const DBusString             *test_data_dir);

@@ -108,20 +108,28 @@ dbus_bool_t _dbus_is_verbose_real (void);
 #  define _dbus_is_verbose _dbus_is_verbose_real
 #else
 #  ifdef HAVE_ISO_VARARGS
-#    define _dbus_verbose(...)
+#    define _dbus_verbose(...) do { } while (0)
 #  elif defined (HAVE_GNUC_VARARGS)
-#    define _dbus_verbose(format...)
+#    define _dbus_verbose(format...) do { } while (0)
 #  else
 static void _dbus_verbose(const char * x,...) {;}
 #  endif
-#  define _dbus_verbose_reset()
+#  define _dbus_verbose_reset() do { } while (0)
 #  define _dbus_is_verbose() FALSE 
 #endif /* !DBUS_ENABLE_VERBOSE_MODE */
+
+void _dbus_trace_ref (const char *obj_name,
+                      void       *obj,
+                      int         old_refcount,
+                      int         new_refcount,
+                      const char *why,
+                      const char *env_var,
+                      int        *enabled);
 
 const char* _dbus_strerror (int error_number);
 
 #ifdef DBUS_DISABLE_ASSERT
-#define _dbus_assert(condition)
+#define _dbus_assert(condition) do { } while (0)
 #else
 void _dbus_real_assert (dbus_bool_t  condition,
                         const char  *condition_text,
@@ -133,7 +141,7 @@ void _dbus_real_assert (dbus_bool_t  condition,
 #endif /* !DBUS_DISABLE_ASSERT */
 
 #ifdef DBUS_DISABLE_ASSERT
-#define _dbus_assert_not_reached(explanation)
+#define _dbus_assert_not_reached(explanation) do { } while (0)
 #else
 void _dbus_real_assert_not_reached (const char *explanation,
                                     const char *file,
@@ -181,15 +189,11 @@ extern const char *_dbus_return_if_fail_warning_format;
 /* this is an assert and not an error, but in the typical --disable-checks case (you're trying
  * to really minimize code size), disabling these assertions makes sense.
  */
-#define _DBUS_ASSERT_ERROR_IS_SET(error)
-#define _DBUS_ASSERT_ERROR_IS_CLEAR(error)
-#define _DBUS_ASSERT_ERROR_CONTENT_IS_SET(error)
-#define _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR(error)
+#define _DBUS_ASSERT_ERROR_IS_SET(error) do { } while (0)
+#define _DBUS_ASSERT_ERROR_IS_CLEAR(error) do { } while (0)
 #else
 #define _DBUS_ASSERT_ERROR_IS_SET(error)   _dbus_assert ((error) == NULL || dbus_error_is_set ((error)))
 #define _DBUS_ASSERT_ERROR_IS_CLEAR(error) _dbus_assert ((error) == NULL || !dbus_error_is_set ((error)))
-#define _DBUS_ASSERT_ERROR_CONTENT_IS_SET(error)   _dbus_assert (dbus_error_is_set ((error)))
-#define _DBUS_ASSERT_ERROR_CONTENT_IS_CLEAR(error) _dbus_assert (!dbus_error_is_set ((error)))
 #endif
 
 #define _dbus_return_if_error_is_set(error) _dbus_return_if_fail ((error) == NULL || !dbus_error_is_set ((error)))
@@ -263,8 +267,6 @@ void _dbus_verbose_bytes_of_string (const DBusString    *str,
                                     int                  start,
                                     int                  len);
 
-const char* _dbus_header_field_to_string (int header_field);
-
 extern const char *_dbus_no_memory_message;
 #define _DBUS_SET_OOM(error) dbus_set_error_const ((error), DBUS_ERROR_NO_MEMORY, _dbus_no_memory_message)
 
@@ -302,10 +304,10 @@ extern int _dbus_current_generation;
 
 /* Thread initializers */
 #define _DBUS_LOCK_NAME(name)           _dbus_lock_##name
-#define _DBUS_DECLARE_GLOBAL_LOCK(name) extern DBusMutex  *_dbus_lock_##name
-#define _DBUS_DEFINE_GLOBAL_LOCK(name)  DBusMutex         *_dbus_lock_##name  
-#define _DBUS_LOCK(name)                _dbus_mutex_lock   (_dbus_lock_##name)
-#define _DBUS_UNLOCK(name)              _dbus_mutex_unlock (_dbus_lock_##name)
+#define _DBUS_DECLARE_GLOBAL_LOCK(name) extern DBusRMutex *_dbus_lock_##name
+#define _DBUS_DEFINE_GLOBAL_LOCK(name)  DBusRMutex        *_dbus_lock_##name
+#define _DBUS_LOCK(name)                _dbus_rmutex_lock   (_dbus_lock_##name)
+#define _DBUS_UNLOCK(name)              _dbus_rmutex_unlock (_dbus_lock_##name)
 
 /* 1-5 */
 _DBUS_DECLARE_GLOBAL_LOCK (list);
@@ -365,6 +367,12 @@ dbus_bool_t _dbus_read_uuid_file (const DBusString *filename,
                                   DBusError        *error);
 
 dbus_bool_t _dbus_get_local_machine_uuid_encoded (DBusString *uuid_str);
+
+#define _DBUS_PASTE2(a, b) a ## b
+#define _DBUS_PASTE(a, b) _DBUS_PASTE2 (a, b)
+#define _DBUS_STATIC_ASSERT(expr) \
+  typedef struct { char _assertion[(expr) ? 1 : -1]; } \
+  _DBUS_PASTE (_DBUS_STATIC_ASSERT_, __LINE__)
 
 DBUS_END_DECLS
 

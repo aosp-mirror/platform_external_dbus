@@ -38,10 +38,18 @@ DBUS_BEGIN_DECLS
  */
 
 DBUS_EXPORT
+DBUS_MALLOC
+DBUS_ALLOC_SIZE(1)
 void* dbus_malloc        (size_t bytes);
+
 DBUS_EXPORT
+DBUS_MALLOC
+DBUS_ALLOC_SIZE(1)
 void* dbus_malloc0       (size_t bytes);
+
 DBUS_EXPORT
+DBUS_MALLOC
+DBUS_ALLOC_SIZE(2)
 void* dbus_realloc       (void  *memory,
                           size_t bytes);
 DBUS_EXPORT

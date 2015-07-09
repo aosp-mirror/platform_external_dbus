@@ -43,18 +43,17 @@
  */
 static dbus_bool_t have_monotonic_clock = 0;
 
-typedef struct {
-  pthread_mutex_t lock; /**< lock protecting count field */
-  volatile int count;   /**< count of how many times lock holder has recursively locked */
-  volatile pthread_t holder; /**< holder of the lock if count >0,
-                                valid but arbitrary thread if count
-                                has ever been >0, uninitialized memory
-                                if count has never been >0 */
-} DBusMutexPThread;
+struct DBusRMutex {
+  pthread_mutex_t lock; /**< the lock */
+};
 
-typedef struct {
+struct DBusCMutex {
+  pthread_mutex_t lock; /**< the lock */
+};
+
+struct DBusCondVar {
   pthread_cond_t cond; /**< the condition */
-} DBusCondVarPThread;
+};
 
 #define DBUS_MUTEX(m)         ((DBusMutex*) m)
 #define DBUS_MUTEX_PTHREAD(m) ((DBusMutexPThread*) m)
@@ -77,13 +76,13 @@ typedef struct {
 } while (0)
 #endif /* !DBUS_DISABLE_ASSERT */
 
-static DBusMutex*
-_dbus_pthread_mutex_new (void)
+DBusCMutex *
+_dbus_platform_cmutex_new (void)
 {
-  DBusMutexPThread *pmutex;
+  DBusCMutex *pmutex;
   int result;
-  
-  pmutex = dbus_new (DBusMutexPThread, 1);
+
+  pmutex = dbus_new (DBusCMutex, 1);
   if (pmutex == NULL)
     return NULL;
 
@@ -99,105 +98,84 @@ _dbus_pthread_mutex_new (void)
       PTHREAD_CHECK ("pthread_mutex_init", result);
     }
 
-  /* Only written */
-  pmutex->count = 0;
-
-  /* There's no portable way to have a "null" pthread afaik so we
-   * can't set pmutex->holder to anything sensible.  We only access it
-   * once the lock is held (which means we've set it).
-   */
-  
-  return DBUS_MUTEX (pmutex);
+  return pmutex;
 }
 
-static void
-_dbus_pthread_mutex_free (DBusMutex *mutex)
+DBusRMutex *
+_dbus_platform_rmutex_new (void)
 {
-  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
+  DBusRMutex *pmutex;
+  pthread_mutexattr_t mutexattr;
+  int result;
 
-  _dbus_assert (pmutex->count == 0);
-  
-  PTHREAD_CHECK ("pthread_mutex_destroy", pthread_mutex_destroy (&pmutex->lock));
+  pmutex = dbus_new (DBusRMutex, 1);
+  if (pmutex == NULL)
+    return NULL;
 
-  dbus_free (pmutex);
-}
+  pthread_mutexattr_init (&mutexattr);
+  pthread_mutexattr_settype (&mutexattr, PTHREAD_MUTEX_RECURSIVE);
+  result = pthread_mutex_init (&pmutex->lock, &mutexattr);
+  pthread_mutexattr_destroy (&mutexattr);
 
-static void
-_dbus_pthread_mutex_lock (DBusMutex *mutex)
-{
-  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
-  pthread_t self = pthread_self ();
-
-  /* If the count is > 0 then someone had the lock, maybe us. If it is
-   * 0, then it might immediately change right after we read it,
-   * but it will be changed by another thread; i.e. if we read 0,
-   * we assume that this thread doesn't have the lock.
-   *
-   * Not 100% sure this is safe, but ... seems like it should be.
-   */
-  if (pmutex->count == 0)
+  if (result == ENOMEM || result == EAGAIN)
     {
-      /* We know we don't have the lock; someone may have the lock. */
-      
-      PTHREAD_CHECK ("pthread_mutex_lock", pthread_mutex_lock (&pmutex->lock));
-
-      /* We now have the lock. Count must be 0 since it must be 0 when
-       * the lock is released by another thread, and we just now got
-       * the lock.
-       */
-      _dbus_assert (pmutex->count == 0);
-      
-      pmutex->holder = self;
-      pmutex->count = 1;
+      dbus_free (pmutex);
+      return NULL;
     }
   else
     {
-      /* We know someone had the lock, possibly us. Thus
-       * pmutex->holder is not pointing to junk, though it may not be
-       * the lock holder anymore if the lock holder is not us.  If the
-       * lock holder is us, then we definitely have the lock.
-       */
-
-      if (pthread_equal (pmutex->holder, self))
-        {
-          /* We already have the lock. */
-          _dbus_assert (pmutex->count > 0);
-        }
-      else
-        {
-          /* Wait for the lock */
-          PTHREAD_CHECK ("pthread_mutex_lock", pthread_mutex_lock (&pmutex->lock));
-	  pmutex->holder = self;
-          _dbus_assert (pmutex->count == 0);
-        }
-
-      pmutex->count += 1;
+      PTHREAD_CHECK ("pthread_mutex_init", result);
     }
+
+  return pmutex;
 }
 
-static void
-_dbus_pthread_mutex_unlock (DBusMutex *mutex)
+void
+_dbus_platform_cmutex_free (DBusCMutex *mutex)
 {
-  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
-
-  _dbus_assert (pmutex->count > 0);
-  
-  pmutex->count -= 1;
-
-  if (pmutex->count == 0)
-    PTHREAD_CHECK ("pthread_mutex_unlock", pthread_mutex_unlock (&pmutex->lock));
-  
-  /* We leave pmutex->holder set to ourselves, its content is undefined if count is 0 */
+  PTHREAD_CHECK ("pthread_mutex_destroy", pthread_mutex_destroy (&mutex->lock));
+  dbus_free (mutex);
 }
 
-static DBusCondVar *
-_dbus_pthread_condvar_new (void)
+void
+_dbus_platform_rmutex_free (DBusRMutex *mutex)
 {
-  DBusCondVarPThread *pcond;
+  PTHREAD_CHECK ("pthread_mutex_destroy", pthread_mutex_destroy (&mutex->lock));
+  dbus_free (mutex);
+}
+
+void
+_dbus_platform_cmutex_lock (DBusCMutex *mutex)
+{
+  PTHREAD_CHECK ("pthread_mutex_lock", pthread_mutex_lock (&mutex->lock));
+}
+
+void
+_dbus_platform_rmutex_lock (DBusRMutex *mutex)
+{
+  PTHREAD_CHECK ("pthread_mutex_lock", pthread_mutex_lock (&mutex->lock));
+}
+
+void
+_dbus_platform_cmutex_unlock (DBusCMutex *mutex)
+{
+  PTHREAD_CHECK ("pthread_mutex_unlock", pthread_mutex_unlock (&mutex->lock));
+}
+
+void
+_dbus_platform_rmutex_unlock (DBusRMutex *mutex)
+{
+  PTHREAD_CHECK ("pthread_mutex_unlock", pthread_mutex_unlock (&mutex->lock));
+}
+
+DBusCondVar *
+_dbus_platform_condvar_new (void)
+{
+  DBusCondVar *pcond;
   pthread_condattr_t attr;
   int result;
   
-  pcond = dbus_new (DBusCondVarPThread, 1);
+  pcond = dbus_new (DBusCondVar, 1);
   if (pcond == NULL)
     return NULL;
 
@@ -220,56 +198,31 @@ _dbus_pthread_condvar_new (void)
       PTHREAD_CHECK ("pthread_cond_init", result);
     }
   
-  return DBUS_COND_VAR (pcond);
+  return pcond;
 }
 
-static void
-_dbus_pthread_condvar_free (DBusCondVar *cond)
-{  
-  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
-  
-  PTHREAD_CHECK ("pthread_cond_destroy", pthread_cond_destroy (&pcond->cond));
-
-  dbus_free (pcond);
-}
-
-static void
-_dbus_pthread_condvar_wait (DBusCondVar *cond,
-                            DBusMutex   *mutex)
+void
+_dbus_platform_condvar_free (DBusCondVar *cond)
 {
-  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
-  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
-  int old_count;
-  
-  _dbus_assert (pmutex->count > 0);
-  _dbus_assert (pthread_equal (pmutex->holder, pthread_self ()));
-
-  old_count = pmutex->count;
-  pmutex->count = 0;		/* allow other threads to lock */
-  PTHREAD_CHECK ("pthread_cond_wait", pthread_cond_wait (&pcond->cond, &pmutex->lock));
-  _dbus_assert (pmutex->count == 0);
-  pmutex->holder = pthread_self(); /* other threads may have locked the mutex in the meantime */
-
-  /* The order of this line and the above line is important.
-   * See the comments below at the end of _dbus_pthread_condvar_wait_timeout
-   */
-  pmutex->count = old_count;
+  PTHREAD_CHECK ("pthread_cond_destroy", pthread_cond_destroy (&cond->cond));
+  dbus_free (cond);
 }
 
-static dbus_bool_t
-_dbus_pthread_condvar_wait_timeout (DBusCondVar               *cond,
-                                    DBusMutex                 *mutex,
-                                    int                        timeout_milliseconds)
+void
+_dbus_platform_condvar_wait (DBusCondVar *cond,
+                             DBusCMutex  *mutex)
 {
-  DBusMutexPThread *pmutex = DBUS_MUTEX_PTHREAD (mutex);
-  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
+  PTHREAD_CHECK ("pthread_cond_wait", pthread_cond_wait (&cond->cond, &mutex->lock));
+}
+
+dbus_bool_t
+_dbus_platform_condvar_wait_timeout (DBusCondVar               *cond,
+                                     DBusCMutex                *mutex,
+                                     int                        timeout_milliseconds)
+{
   struct timeval time_now;
   struct timespec end_time;
   int result;
-  int old_count;
-  
-  _dbus_assert (pmutex->count > 0);
-  _dbus_assert (pthread_equal (pmutex->holder, pthread_self ()));  
 
 #ifdef HAVE_MONOTONIC_CLOCK
   if (have_monotonic_clock)
@@ -292,68 +245,22 @@ _dbus_pthread_condvar_wait_timeout (DBusCondVar               *cond,
       end_time.tv_nsec -= 1000*1000*1000;
     }
 
-  old_count = pmutex->count;
-  pmutex->count = 0;
-  result = pthread_cond_timedwait (&pcond->cond, &pmutex->lock, &end_time);
+  result = pthread_cond_timedwait (&cond->cond, &mutex->lock, &end_time);
   
   if (result != ETIMEDOUT)
     {
       PTHREAD_CHECK ("pthread_cond_timedwait", result);
     }
 
-  _dbus_assert (pmutex->count == 0);
-  pmutex->holder = pthread_self(); /* other threads may have locked the mutex in the meantime */
-
-  /* restore to old count after setting the owner back to self,
-   * If reversing this line with above line, the previous owner thread could
-   * get into the mutex without proper locking by passing the lock owner check.
-   */
-  pmutex->count = old_count;
-  
   /* return true if we did not time out */
   return result != ETIMEDOUT;
 }
 
-static void
-_dbus_pthread_condvar_wake_one (DBusCondVar *cond)
+void
+_dbus_platform_condvar_wake_one (DBusCondVar *cond)
 {
-  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
-
-  PTHREAD_CHECK ("pthread_cond_signal", pthread_cond_signal (&pcond->cond));
+  PTHREAD_CHECK ("pthread_cond_signal", pthread_cond_signal (&cond->cond));
 }
-
-static void
-_dbus_pthread_condvar_wake_all (DBusCondVar *cond)
-{
-  DBusCondVarPThread *pcond = DBUS_COND_VAR_PTHREAD (cond);
-  
-  PTHREAD_CHECK ("pthread_cond_broadcast", pthread_cond_broadcast (&pcond->cond));
-}
-
-static const DBusThreadFunctions pthread_functions =
-{
-  DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_NEW_MASK |
-  DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_FREE_MASK |
-  DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_LOCK_MASK |
-  DBUS_THREAD_FUNCTIONS_RECURSIVE_MUTEX_UNLOCK_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK|
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK,
-  NULL, NULL, NULL, NULL,
-  _dbus_pthread_condvar_new,
-  _dbus_pthread_condvar_free,
-  _dbus_pthread_condvar_wait,
-  _dbus_pthread_condvar_wait_timeout,
-  _dbus_pthread_condvar_wake_one,
-  _dbus_pthread_condvar_wake_all,
-  _dbus_pthread_mutex_new,
-  _dbus_pthread_mutex_free,
-  _dbus_pthread_mutex_lock,
-  _dbus_pthread_mutex_unlock
-};
 
 static void
 check_monotonic_clock (void)
@@ -368,6 +275,11 @@ check_monotonic_clock (void)
 dbus_bool_t
 _dbus_threads_init_platform_specific (void)
 {
+  /* These have static variables, and we need to handle both the case
+   * where dbus_threads_init() has been called and when it hasn't;
+   * so initialize them before any threads are allowed to enter.
+   */
   check_monotonic_clock ();
-  return dbus_threads_init (&pthread_functions);
+  (void) _dbus_check_setuid ();
+  return dbus_threads_init (NULL);
 }

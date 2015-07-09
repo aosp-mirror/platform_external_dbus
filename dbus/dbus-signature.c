@@ -283,16 +283,18 @@ dbus_signature_validate_single (const char       *signature,
  * A "container type" can contain basic types, or nested
  * container types. #DBUS_TYPE_INVALID is not a container type.
  *
- * This function will crash if passed a typecode that isn't
- * in dbus-protocol.h
+ * It is an error to pass an invalid type-code, other than DBUS_TYPE_INVALID,
+ * to this function. The valid type-codes are defined by dbus-protocol.h
+ * and can be checked with dbus_type_is_valid().
  *
+ * @param typecode either a valid type-code or DBUS_TYPE_INVALID
  * @returns #TRUE if type is a container
  */
 dbus_bool_t
 dbus_type_is_container (int typecode)
 {
   /* only reasonable (non-line-noise) typecodes are allowed */
-  _dbus_return_val_if_fail (_dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
+  _dbus_return_val_if_fail (dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
 			    FALSE);
   return TYPE_IS_CONTAINER (typecode);
 }
@@ -305,16 +307,18 @@ dbus_type_is_container (int typecode)
  * variants are not basic types.  #DBUS_TYPE_INVALID is not a basic
  * type.
  *
- * This function will crash if passed a typecode that isn't
- * in dbus-protocol.h 
+ * It is an error to pass an invalid type-code, other than DBUS_TYPE_INVALID,
+ * to this function. The valid type-codes are defined by dbus-protocol.h
+ * and can be checked with dbus_type_is_valid().
  *
+ * @param typecode either a valid type-code or DBUS_TYPE_INVALID
  * @returns #TRUE if type is basic
  */
 dbus_bool_t
 dbus_type_is_basic (int typecode)
 {
   /* only reasonable (non-line-noise) typecodes are allowed */
-  _dbus_return_val_if_fail (_dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
+  _dbus_return_val_if_fail (dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
 			    FALSE);
 
   /* everything that isn't invalid or a container */
@@ -334,16 +338,18 @@ dbus_type_is_basic (int typecode)
  * but struct is not considered a fixed type for purposes of this
  * function.
  *
- * This function will crash if passed a typecode that isn't
- * in dbus-protocol.h
- * 
+ * It is an error to pass an invalid type-code, other than DBUS_TYPE_INVALID,
+ * to this function. The valid type-codes are defined by dbus-protocol.h
+ * and can be checked with dbus_type_is_valid().
+ *
+ * @param typecode either a valid type-code or DBUS_TYPE_INVALID
  * @returns #FALSE if the type can occupy different lengths
  */
 dbus_bool_t
 dbus_type_is_fixed (int typecode)
 {
   /* only reasonable (non-line-noise) typecodes are allowed */
-  _dbus_return_val_if_fail (_dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
+  _dbus_return_val_if_fail (dbus_type_is_valid (typecode) || typecode == DBUS_TYPE_INVALID,
 			    FALSE);
   
   switch (typecode)
@@ -359,6 +365,44 @@ dbus_type_is_fixed (int typecode)
     case DBUS_TYPE_DOUBLE:
     case DBUS_TYPE_UNIX_FD:
       return TRUE;
+    default:
+      return FALSE;
+    }
+}
+
+/**
+ * Return #TRUE if the argument is a valid typecode.
+ * #DBUS_TYPE_INVALID surprisingly enough is not considered valid, and
+ * random unknown bytes aren't either. This function is safe with
+ * untrusted data.
+ *
+ * @param typecode a potential type-code
+ * @returns #TRUE if valid
+ */
+dbus_bool_t
+dbus_type_is_valid (int typecode)
+{
+  switch (typecode)
+    {
+    case DBUS_TYPE_BYTE:
+    case DBUS_TYPE_BOOLEAN:
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_UINT16:
+    case DBUS_TYPE_INT32:
+    case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_INT64:
+    case DBUS_TYPE_UINT64:
+    case DBUS_TYPE_DOUBLE:
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+    case DBUS_TYPE_SIGNATURE:
+    case DBUS_TYPE_ARRAY:
+    case DBUS_TYPE_STRUCT:
+    case DBUS_TYPE_DICT_ENTRY:
+    case DBUS_TYPE_VARIANT:
+    case DBUS_TYPE_UNIX_FD:
+      return TRUE;
+
     default:
       return FALSE;
     }

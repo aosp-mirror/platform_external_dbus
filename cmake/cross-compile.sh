@@ -28,8 +28,13 @@ else
     exit 1
 fi
 
+if ! TEMP=`mktemp --tmpdir -d dbus-cross-compile.XXXXXX`; then
+    echo "mktemp failed, try with coreutils 6.10 or later?" >&2
+    exit 1
+fi
+
 # make cmake happy 
-export TEMP=/tmp
+export TEMP
 
 HOST_CC=gcc; export HOST_CC;
 
@@ -67,10 +72,10 @@ done;
 unset x i ;
 
 if ! test -f "$cross_root/lib/libexpat.dll.a"; then
-    (cd /tmp; wget http://www.winkde.org/pub/kde/ports/win32/repository/win32libs/expat-2.0.1-bin.zip)
-    (cd /tmp; wget http://www.winkde.org/pub/kde/ports/win32/repository/win32libs/expat-2.0.1-lib.zip)
-    (cd $cross_root; unzip -x /tmp/expat-2.0.1-bin.zip)
-    (cd $cross_root; unzip -x /tmp/expat-2.0.1-lib.zip)
+    (cd $TEMP && wget http://www.winkde.org/pub/kde/ports/win32/repository/win32libs/expat-2.0.1-bin.zip)
+    (cd $TEMP && wget http://www.winkde.org/pub/kde/ports/win32/repository/win32libs/expat-2.0.1-lib.zip)
+    (cd $cross_root && unzip -x $TMP/expat-2.0.1-bin.zip)
+    (cd $cross_root && unzip -x $TMP/expat-2.0.1-lib.zip)
 fi 
 
 if test -f "$cross_root/lib/libexpat.dll.a"; then

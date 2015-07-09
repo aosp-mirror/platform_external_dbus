@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/sh
 
 SCRIPTNAME=$0
 WRAPPED_SCRIPT=$1

@@ -24,6 +24,7 @@
 #include <config.h>
 #include "dbus-mempool.h"
 #include "dbus-internals.h"
+#include "dbus-valgrind-internal.h"
 
 /**
  * @defgroup DBusMemPool memory pools
@@ -171,7 +172,9 @@ _dbus_mem_pool_new (int element_size,
 
   _dbus_assert ((pool->block_size %
                  pool->element_size) == 0);
-  
+
+  VALGRIND_CREATE_MEMPOOL (pool, 0, zero_elements)
+
   return pool;
 }
 
@@ -184,6 +187,8 @@ void
 _dbus_mem_pool_free (DBusMemPool *pool)
 {
   DBusMemBlock *block;
+
+  VALGRIND_DESTROY_MEMPOOL (pool)
 
   block = pool->blocks;
   while (block != NULL)
@@ -235,6 +240,8 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
           pool->blocks = block;
           pool->allocated_elements += 1;
 
+          VALGRIND_MEMPOOL_ALLOC (pool, (void *) &block->elements[0],
+              pool->element_size)
           return (void*) &block->elements[0];
         }
       else
@@ -254,11 +261,13 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
 
           pool->free_elements = pool->free_elements->next;
 
+          VALGRIND_MEMPOOL_ALLOC (pool, element, pool->element_size)
+
           if (pool->zero_elements)
             memset (element, '\0', pool->element_size);
 
           pool->allocated_elements += 1;
-          
+
           return element;
         }
       else
@@ -319,7 +328,8 @@ _dbus_mem_pool_alloc (DBusMemPool *pool)
           pool->blocks->used_so_far += pool->element_size;
 
           pool->allocated_elements += 1;
-          
+
+          VALGRIND_MEMPOOL_ALLOC (pool, element, pool->element_size)
           return element;
         }
     }
@@ -337,6 +347,8 @@ dbus_bool_t
 _dbus_mem_pool_dealloc (DBusMemPool *pool,
                         void        *element)
 {
+  VALGRIND_MEMPOOL_FREE (pool, element)
+
 #ifdef DBUS_BUILD_TESTS
   if (_dbus_disable_mem_pools ())
     {
@@ -380,6 +392,9 @@ _dbus_mem_pool_dealloc (DBusMemPool *pool,
       DBusFreedElement *freed;
       
       freed = element;
+      /* used for internal mempool administration */
+      VALGRIND_MAKE_MEM_UNDEFINED (freed, sizeof (freed));
+
       freed->next = pool->free_elements;
       pool->free_elements = freed;
       
@@ -389,6 +404,48 @@ _dbus_mem_pool_dealloc (DBusMemPool *pool,
       return pool->allocated_elements == 0;
     }
 }
+
+#ifdef DBUS_ENABLE_STATS
+void
+_dbus_mem_pool_get_stats (DBusMemPool   *pool,
+                          dbus_uint32_t *in_use_p,
+                          dbus_uint32_t *in_free_list_p,
+                          dbus_uint32_t *allocated_p)
+{
+  DBusMemBlock *block;
+  DBusFreedElement *freed;
+  dbus_uint32_t in_use = 0;
+  dbus_uint32_t in_free_list = 0;
+  dbus_uint32_t allocated = 0;
+
+  if (pool != NULL)
+    {
+      in_use = pool->element_size * pool->allocated_elements;
+
+      for (freed = pool->free_elements; freed != NULL; freed = freed->next)
+        {
+          in_free_list += pool->element_size;
+        }
+
+      for (block = pool->blocks; block != NULL; block = block->next)
+        {
+          if (block == pool->blocks)
+            allocated += pool->block_size;
+          else
+            allocated += block->used_so_far;
+        }
+    }
+
+  if (in_use_p != NULL)
+    *in_use_p = in_use;
+
+  if (in_free_list_p != NULL)
+    *in_free_list_p = in_free_list;
+
+  if (allocated_p != NULL)
+    *allocated_p = allocated;
+}
+#endif /* DBUS_ENABLE_STATS */
 
 /** @} */
 

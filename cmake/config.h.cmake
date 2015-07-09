@@ -16,7 +16,7 @@
 #cmakedefine DBUS_DAEMON_NAME "@DBUS_DAEMON_NAME@"
 #cmakedefine DBUS_SYSTEM_BUS_DEFAULT_ADDRESS  "@DBUS_SYSTEM_BUS_DEFAULT_ADDRESS@"
 #cmakedefine DBUS_MACHINE_UUID_FILE "@DBUS_MACHINE_UUID_FILE@"
-//#cmakedefine DBUS_SESSION_BUS_DEFAULT_ADDRESS "@DBUS_SESSION_BUS_DEFAULT_ADDRESS@"
+#cmakedefine DBUS_SESSION_BUS_DEFAULT_ADDRESS "@DBUS_SESSION_BUS_DEFAULT_ADDRESS@"
 #cmakedefine DBUS_DAEMONDIR "@DBUS_DAEMONDIR@"
 #cmakedefine PACKAGE "@PACKAGE@"
 /* Version number of package */
@@ -25,25 +25,18 @@
 #cmakedefine DBUS_MICRO_VERSION @DBUS_MICRO_VERSION@
 #cmakedefine DBUS_VERSION ((@DBUS_MAJOR_VERSION@ << 16) | (@DBUS_MINOR_VERSION@ << 8) | (@DBUS_MICRO_VERSION@))
 #cmakedefine DBUS_VERSION_STRING "@DBUS_VERSION_STRING@"
+#cmakedefine DBUS_ENABLE_STATS
 
 #define VERSION DBUS_VERSION_STRING
 
 #define TEST_LISTEN       "@TEST_LISTEN@"
-#define TEST_CONNECTION   "@TEST_CONNECTION@"
 
 // test binaries
+#define DBUS_TEST_EXEC "@DBUS_TEST_EXEC@"
+#define DBUS_EXEEXT "@EXEEXT@"
+
 /* Full path to test file test/test-exit in builddir */
 #define TEST_BUS_BINARY          "@TEST_BUS_BINARY@"
-/* Full path to test file test/test-exit in builddir */
-#define TEST_EXIT_BINARY          "@TEST_EXIT_BINARY@"
-/* Full path to test file test/test-segfault in builddir */
-#define TEST_SEGFAULT_BINARY      "@TEST_SEGFAULT_BINARY@"
-/* Full path to test file test/test-service in builddir */
-#define TEST_SERVICE_BINARY       "@TEST_SERVICE_BINARY@"
-/* Full path to test file test/test-shell-service in builddir */
-#define TEST_SHELL_SERVICE_BINARY "@TEST_SHELL_SERVICE_BINARY@"
-/* Full path to test file test/test-sleep-forever in builddir */
-#define TEST_SLEEP_FOREVER_BINARY "@TEST_SLEEP_FOREVER_BINARY@"
 
 /* Some dbus features */
 #cmakedefine DBUS_BUILD_TESTS 1
@@ -83,6 +76,11 @@
 #endif
 
 #cmakedefine DBUS_BUILD_X11 1
+/* For the moment, the cmake build system doesn't have an equivalent of
+ * the autoconf build system's --disable-x11-autolaunch */
+#ifdef DBUS_BUILD_X11
+# define DBUS_ENABLE_X11_AUTOLAUNCH 1
+#endif
 
 #define _DBUS_VA_COPY_ASSIGN(a1,a2) { a1 = a2; }
 
@@ -246,5 +244,9 @@
 #else
 #define _dbus_verbose_C_S _dbus_verbose
 #endif 
+
+# if defined(_MSC_VER) && !defined(inline)
+#define inline __inline
+#endif
 
 #endif  // _DBUS_CONFIG_H

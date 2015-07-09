@@ -27,26 +27,68 @@
 #include <dbus/dbus-types.h>
 #include <dbus/dbus-threads.h>
 
+/**
+ * @addtogroup DBusThreadsInternals
+ * @{
+ */
+
+/**
+ * A mutex which is recursive if possible, else non-recursive.
+ * This is typically recursive, but that cannot be relied upon.
+ */
+typedef struct DBusRMutex DBusRMutex;
+
+/**
+ * A mutex suitable for use with condition variables.
+ * This is typically non-recursive.
+ */
+typedef struct DBusCMutex DBusCMutex;
+
+/** @} */
+
 DBUS_BEGIN_DECLS
 
-DBusMutex*   _dbus_mutex_new                 (void);
-void         _dbus_mutex_free                (DBusMutex         *mutex);
-void         _dbus_mutex_lock                (DBusMutex         *mutex);
-void         _dbus_mutex_unlock              (DBusMutex         *mutex);
-void         _dbus_mutex_new_at_location     (DBusMutex        **location_p);
-void         _dbus_mutex_free_at_location    (DBusMutex        **location_p);
+void         _dbus_rmutex_lock               (DBusRMutex       *mutex);
+void         _dbus_rmutex_unlock             (DBusRMutex       *mutex);
+void         _dbus_rmutex_new_at_location    (DBusRMutex      **location_p);
+void         _dbus_rmutex_free_at_location   (DBusRMutex      **location_p);
+
+void         _dbus_cmutex_lock               (DBusCMutex       *mutex);
+void         _dbus_cmutex_unlock             (DBusCMutex       *mutex);
+void         _dbus_cmutex_new_at_location    (DBusCMutex      **location_p);
+void         _dbus_cmutex_free_at_location   (DBusCMutex      **location_p);
 
 DBusCondVar* _dbus_condvar_new               (void);
 void         _dbus_condvar_free              (DBusCondVar       *cond);
 void         _dbus_condvar_wait              (DBusCondVar       *cond,
-                                              DBusMutex         *mutex);
+                                              DBusCMutex        *mutex);
 dbus_bool_t  _dbus_condvar_wait_timeout      (DBusCondVar       *cond,
-                                              DBusMutex         *mutex,
+                                              DBusCMutex        *mutex,
                                               int                timeout_milliseconds);
 void         _dbus_condvar_wake_one          (DBusCondVar       *cond);
-void         _dbus_condvar_wake_all          (DBusCondVar       *cond);
 void         _dbus_condvar_new_at_location   (DBusCondVar      **location_p);
 void         _dbus_condvar_free_at_location  (DBusCondVar      **location_p);
+
+/* Private to threading implementations and dbus-threads.c */
+
+DBusRMutex  *_dbus_platform_rmutex_new       (void);
+void         _dbus_platform_rmutex_free      (DBusRMutex       *mutex);
+void         _dbus_platform_rmutex_lock      (DBusRMutex       *mutex);
+void         _dbus_platform_rmutex_unlock    (DBusRMutex       *mutex);
+
+DBusCMutex  *_dbus_platform_cmutex_new       (void);
+void         _dbus_platform_cmutex_free      (DBusCMutex       *mutex);
+void         _dbus_platform_cmutex_lock      (DBusCMutex       *mutex);
+void         _dbus_platform_cmutex_unlock    (DBusCMutex       *mutex);
+
+DBusCondVar* _dbus_platform_condvar_new      (void);
+void         _dbus_platform_condvar_free     (DBusCondVar       *cond);
+void         _dbus_platform_condvar_wait     (DBusCondVar       *cond,
+                                              DBusCMutex        *mutex);
+dbus_bool_t  _dbus_platform_condvar_wait_timeout (DBusCondVar   *cond,
+                                              DBusCMutex        *mutex,
+                                              int                timeout_milliseconds);
+void         _dbus_platform_condvar_wake_one (DBusCondVar       *cond);
 
 DBUS_END_DECLS
 

@@ -79,6 +79,9 @@ dbus_bool_t     dbus_signature_validate_single       (const char       *signatur
 						      DBusError        *error);
 
 DBUS_EXPORT
+dbus_bool_t     dbus_type_is_valid                   (int            typecode);
+
+DBUS_EXPORT
 dbus_bool_t     dbus_type_is_basic                   (int            typecode);
 DBUS_EXPORT
 dbus_bool_t     dbus_type_is_container               (int            typecode);

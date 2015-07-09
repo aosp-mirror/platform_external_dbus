@@ -250,7 +250,7 @@ _dbus_validate_signature_with_reason (const DBusString *type_str,
 
       if (last == DBUS_DICT_ENTRY_BEGIN_CHAR)
         {
-          if (!(_dbus_type_is_valid (*p) && dbus_type_is_basic (*p)))
+          if (!(dbus_type_is_valid (*p) && dbus_type_is_basic (*p)))
             {
               result = DBUS_INVALID_DICT_KEY_MUST_BE_BASIC_TYPE;
               goto out;
@@ -393,7 +393,7 @@ validate_body_helper (DBusTypeReader       *reader,
               {
                 int array_elem_type = _dbus_type_reader_get_element_type (reader);
 
-                if (!_dbus_type_is_valid (array_elem_type))
+                if (!dbus_type_is_valid (array_elem_type))
                   {
                     return DBUS_INVALID_UNKNOWN_TYPECODE;
                   }
@@ -1082,23 +1082,11 @@ _dbus_validate_error_name (const DBusString  *str,
     ((c) >= 'a' && (c) <= 'z') ||               \
     ((c) == '_') || ((c) == '-'))
 
-/**
- * Checks that the given range of the string is a valid bus name in
- * the D-Bus protocol. This includes a length restriction, etc., see
- * the specification.
- *
- * @todo this is inconsistent with most of DBusString in that
- * it allows a start,len range that extends past the string end.
- *
- * @param str the string
- * @param start first byte index to check
- * @param len number of bytes to check
- * @returns #TRUE if the byte range exists and is a valid name
- */
-dbus_bool_t
-_dbus_validate_bus_name (const DBusString  *str,
-                         int                start,
-                         int                len)
+static dbus_bool_t
+_dbus_validate_bus_name_full (const DBusString  *str,
+                              int                start,
+                              int                len,
+                              dbus_bool_t        is_namespace)
 {
   const unsigned char *s;
   const unsigned char *end;
@@ -1176,10 +1164,52 @@ _dbus_validate_bus_name (const DBusString  *str,
       ++s;
     }
 
-  if (_DBUS_UNLIKELY (last_dot == NULL))
+  if (!is_namespace && _DBUS_UNLIKELY (last_dot == NULL))
     return FALSE;
 
   return TRUE;
+}
+
+/**
+ * Checks that the given range of the string is a valid bus name in
+ * the D-Bus protocol. This includes a length restriction, etc., see
+ * the specification.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that extends past the string end.
+ *
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_validate_bus_name (const DBusString  *str,
+                         int                start,
+                         int                len)
+{
+  return _dbus_validate_bus_name_full (str, start, len, FALSE);
+}
+
+/**
+ * Checks that the given range of the string is a prefix of a valid bus name in
+ * the D-Bus protocol. Unlike _dbus_validate_bus_name(), this accepts strings
+ * with only one period-separated component.
+ *
+ * @todo this is inconsistent with most of DBusString in that
+ * it allows a start,len range that extends past the string end.
+ *
+ * @param str the string
+ * @param start first byte index to check
+ * @param len number of bytes to check
+ * @returns #TRUE if the byte range exists and is a valid name
+ */
+dbus_bool_t
+_dbus_validate_bus_namespace (const DBusString  *str,
+                              int                start,
+                              int                len)
+{
+  return _dbus_validate_bus_name_full (str, start, len, TRUE);
 }
 
 /**
@@ -1221,6 +1251,8 @@ DEFINE_DBUS_NAME_CHECK(error_name)
 DEFINE_DBUS_NAME_CHECK(bus_name)
 /** define _dbus_check_is_valid_signature() */
 DEFINE_DBUS_NAME_CHECK(signature)
+/** define _dbus_check_is_valid_utf8() */
+DEFINE_DBUS_NAME_CHECK(utf8)
 
 /** @} */
 

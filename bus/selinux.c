@@ -164,7 +164,7 @@ log_callback (const char *fmt, ...)
   }
 #endif /* HAVE_LIBAUDIT */
   
-  vsyslog (LOG_INFO, fmt, ap);
+  vsyslog (LOG_USER | LOG_INFO, fmt, ap);
   va_end(ap);
 }
 
@@ -342,7 +342,6 @@ bus_selinux_full_init (void)
     }
   else
     {
-      openlog ("dbus", LOG_PERROR, LOG_USER);
       _dbus_verbose ("Access Vector Cache (AVC) started.\n");
     }
 
@@ -1056,7 +1055,7 @@ _dbus_change_to_daemon_user  (const char    *user,
       capng_clear (CAPNG_SELECT_BOTH);
       capng_update (CAPNG_ADD, CAPNG_EFFECTIVE | CAPNG_PERMITTED,
                     CAP_AUDIT_WRITE);
-      rc = capng_change_id (uid, gid, 0);
+      rc = capng_change_id (uid, gid, CAPNG_DROP_SUPP_GRP);
       if (rc)
         {
           switch (rc) {
