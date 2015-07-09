@@ -80,6 +80,8 @@ LOCAL_CFLAGS+= \
 	-Wno-type-limits \
 	-Wno-unused-parameter
 
+LOCAL_CLANG := true
+
 ifeq ($(LOG_TO_ANDROID_LOGCAT),true)
 LOCAL_CFLAGS+= -DDBUS_ANDROID_LOG
 LOCAL_SHARED_LIBRARIES+= libcutils liblog
