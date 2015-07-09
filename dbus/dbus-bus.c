@@ -434,13 +434,14 @@ internal_bus_get (DBusBusType  type,
   _dbus_return_val_if_fail (type >= 0 && type < N_BUS_TYPES, NULL);
   _dbus_return_val_if_error_is_set (error, NULL);
 
+  connection = NULL;
+
   _DBUS_LOCK (bus);
 
   if (!init_connections_unlocked ())
     {
-      _DBUS_UNLOCK (bus);
       _DBUS_SET_OOM (error);
-      return NULL;
+      goto out;
     }
 
   /* We want to use the activation address even if the
@@ -462,9 +463,7 @@ internal_bus_get (DBusBusType  type,
     {
       connection = bus_connections[type];
       dbus_connection_ref (connection);
-      
-      _DBUS_UNLOCK (bus);
-      return connection;
+      goto out;
     }
 
   address = bus_connection_addresses[address_type];
@@ -472,8 +471,7 @@ internal_bus_get (DBusBusType  type,
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Unable to determine the address of the message bus (try 'man dbus-launch' and 'man dbus-daemon' for help)");
-      _DBUS_UNLOCK (bus);
-      return NULL;
+      goto out;
     }
 
   if (private)
@@ -483,19 +481,15 @@ internal_bus_get (DBusBusType  type,
   
   if (!connection)
     {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      _DBUS_UNLOCK (bus);
-      return NULL;
+      goto out;
     }
 
   if (!dbus_bus_register (connection, error))
     {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
       _dbus_connection_close_possibly_shared (connection);
       dbus_connection_unref (connection);
-
-      _DBUS_UNLOCK (bus);
-      return NULL;
+      connection = NULL;
+      goto out;
     }
 
   if (!private)
@@ -520,10 +514,12 @@ internal_bus_get (DBusBusType  type,
   bd->is_well_known = TRUE;
   _DBUS_UNLOCK (bus_datas);
 
-  
-  _DBUS_UNLOCK (bus);
+out:
+  /* Return a reference to the caller, or NULL with error set. */
+  if (connection == NULL)
+    _DBUS_ASSERT_ERROR_IS_SET (error);
 
-  /* Return a reference to the caller */
+  _DBUS_UNLOCK (bus);
   return connection;
 }
 
@@ -661,6 +657,8 @@ dbus_bus_register (DBusConnection *connection,
   _dbus_return_val_if_error_is_set (error, FALSE);
 
   retval = FALSE;
+  message = NULL;
+  reply = NULL;
 
   _DBUS_LOCK (bus_datas);
 
@@ -668,18 +666,16 @@ dbus_bus_register (DBusConnection *connection,
   if (bd == NULL)
     {
       _DBUS_SET_OOM (error);
-      _DBUS_UNLOCK (bus_datas);
-      return FALSE;
+      goto out;
     }
 
   if (bd->unique_name != NULL)
     {
       _dbus_verbose ("Ignoring attempt to register the same DBusConnection %s with the message bus a second time.\n",
                      bd->unique_name);
-      _DBUS_UNLOCK (bus_datas);
-
       /* Success! */
-      return TRUE;
+      retval = TRUE;
+      goto out;
     }
   
   message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
@@ -690,15 +686,11 @@ dbus_bus_register (DBusConnection *connection,
   if (!message)
     {
       _DBUS_SET_OOM (error);
-
-      _DBUS_UNLOCK (bus_datas);
-      return FALSE;
+      goto out;
     }
   
   reply = dbus_connection_send_with_reply_and_block (connection, message, -1, error);
 
-  dbus_message_unref (message);
-  
   if (reply == NULL)
     goto out;
   else if (dbus_set_error_from_message (error, reply))
@@ -718,14 +710,17 @@ dbus_bus_register (DBusConnection *connection,
   retval = TRUE;
   
  out:
+  _DBUS_UNLOCK (bus_datas);
+
+  if (message)
+    dbus_message_unref (message);
+
   if (reply)
     dbus_message_unref (reply);
 
   if (!retval)
     _DBUS_ASSERT_ERROR_IS_SET (error);
 
-  _DBUS_UNLOCK (bus_datas);
-  
   return retval;
 }
 
@@ -769,7 +764,7 @@ dbus_bus_set_unique_name (DBusConnection *connection,
                           const char     *unique_name)
 {
   BusData *bd;
-  dbus_bool_t success;
+  dbus_bool_t success = FALSE;
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (unique_name != NULL, FALSE);
@@ -778,13 +773,14 @@ dbus_bus_set_unique_name (DBusConnection *connection,
   
   bd = ensure_bus_data (connection);
   if (bd == NULL)
-    return FALSE;
+    goto out;
 
   _dbus_assert (bd->unique_name == NULL);
   
   bd->unique_name = _dbus_strdup (unique_name);
   success = bd->unique_name != NULL;
-  
+
+out:
   _DBUS_UNLOCK (bus_datas);
   
   return success;
@@ -812,7 +808,7 @@ const char*
 dbus_bus_get_unique_name (DBusConnection *connection)
 {
   BusData *bd;
-  const char *unique_name;
+  const char *unique_name = NULL;
 
   _dbus_return_val_if_fail (connection != NULL, NULL);
 
@@ -820,12 +816,13 @@ dbus_bus_get_unique_name (DBusConnection *connection)
   
   bd = ensure_bus_data (connection);
   if (bd == NULL)
-    return NULL;
+    goto out;
 
   unique_name = bd->unique_name;
 
+out:
   _DBUS_UNLOCK (bus_datas);
-  
+
   return unique_name;
 }
 
@@ -1432,11 +1429,17 @@ send_no_return_values (DBusConnection *connection,
  * If you pass #NULL for the error, this function will not
  * block; the match thus won't be added until you flush the
  * connection, and if there's an error adding the match
- * (only possible error is lack of resources in the bus),
- * you won't find out about it.
+ * you won't find out about it. This is generally acceptable, since the
+ * possible errors (including a lack of resources in the bus, the connection
+ * having exceeded its quota of active match rules, or the match rule being
+ * unparseable) are generally unrecoverable.
  *
  * If you pass non-#NULL for the error this function will
- * block until it gets a reply.
+ * block until it gets a reply. This may be useful when using match rule keys
+ * introduced in recent versions of D-Bus, like 'arg0namespace', to allow the
+ * application to fall back to less efficient match rules supported by older
+ * versions of the daemon if the running version is not new enough; or when
+ * using user-supplied rules rather than rules hard-coded at compile time.
  *
  * Normal API conventions would have the function return
  * a boolean value indicating whether the error was set,

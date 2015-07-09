@@ -32,6 +32,18 @@
  * @{
  */
 
+static dbus_bool_t _dbus_type_reader_greater_than              (const DBusTypeReader  *lhs,
+                                                                const DBusTypeReader  *rhs);
+
+static void       _dbus_type_writer_set_enabled           (DBusTypeWriter        *writer,
+                                                           dbus_bool_t            enabled);
+static dbus_bool_t _dbus_type_writer_write_reader_partial (DBusTypeWriter        *writer,
+                                                           DBusTypeReader        *reader,
+                                                           const DBusTypeReader  *start_after,
+                                                           int                    start_after_new_pos,
+                                                           int                    start_after_new_len,
+                                                           DBusList             **fixups);
+
 /** turn this on to get deluged in TypeReader verbose spam */
 #define RECURSIVE_MARSHAL_READ_TRACE  0
 
@@ -1428,7 +1440,7 @@ _dbus_type_reader_delete (DBusTypeReader        *reader,
   return retval;
 }
 
-/**
+/*
  * Compares two readers, which must be iterating over the same value data.
  * Returns #TRUE if the first parameter is further along than the second parameter.
  *
@@ -1436,7 +1448,7 @@ _dbus_type_reader_delete (DBusTypeReader        *reader,
  * @param rhs left-hand-side (first) parameter
  * @returns whether lhs is greater than rhs
  */
-dbus_bool_t
+static dbus_bool_t
 _dbus_type_reader_greater_than (const DBusTypeReader  *lhs,
                                 const DBusTypeReader  *rhs)
 {
@@ -2627,7 +2639,7 @@ writer_write_reader_helper (DBusTypeWriter       *writer,
   return FALSE;
 }
 
-/**
+/*
  * Iterate through all values in the given reader, writing a copy of
  * each value to the writer.  The reader will be moved forward to its
  * end position.
@@ -2658,7 +2670,7 @@ writer_write_reader_helper (DBusTypeWriter       *writer,
  * @param fixups list to append #DBusArrayLenFixup if the write was partial
  * @returns #FALSE if no memory
  */
-dbus_bool_t
+static dbus_bool_t
 _dbus_type_writer_write_reader_partial (DBusTypeWriter       *writer,
                                         DBusTypeReader       *reader,
                                         const DBusTypeReader *start_after,
@@ -2719,7 +2731,7 @@ _dbus_type_writer_write_reader (DBusTypeWriter       *writer,
   return _dbus_type_writer_write_reader_partial (writer, reader, NULL, 0, 0, NULL);
 }
 
-/**
+/*
  * If disabled, a writer can still be iterated forward and recursed/unrecursed
  * but won't write any values. Types will still be written unless the
  * writer is a "values only" writer, because the writer needs access to
@@ -2728,7 +2740,7 @@ _dbus_type_writer_write_reader (DBusTypeWriter       *writer,
  * @param writer the type writer
  * @param enabled #TRUE if values should be written
  */
-void
+static void
 _dbus_type_writer_set_enabled (DBusTypeWriter   *writer,
                                dbus_bool_t       enabled)
 {

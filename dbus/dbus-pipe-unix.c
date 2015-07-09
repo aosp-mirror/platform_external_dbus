@@ -50,7 +50,7 @@ _dbus_pipe_write (DBusPipe         *pipe,
 {
   int written;
   
-  written = _dbus_write (pipe->fd_or_handle, buffer, start, len);
+  written = _dbus_write (pipe->fd, buffer, start, len);
   if (written < 0)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -65,13 +65,13 @@ _dbus_pipe_write (DBusPipe         *pipe,
  *
  * @param pipe the pipe instance
  * @param error return location for an error
- * @returns #FALSE if error is set
+ * @returns -1 if error is set
  */
 int
 _dbus_pipe_close  (DBusPipe         *pipe,
                    DBusError        *error)
 {
-  if (_dbus_close (pipe->fd_or_handle, error) < 0)
+  if (!_dbus_close (pipe->fd, error))
     {
       return -1;
     }

@@ -50,12 +50,26 @@ struct DBusWatch
   void *data;                          /**< Application data. */
   DBusFreeFunction free_data_function; /**< Free the application data. */
   unsigned int enabled : 1;            /**< Whether it's enabled. */
+  unsigned int oom_last_time : 1;      /**< Whether it was OOM last time. */
 };
 
 dbus_bool_t
 _dbus_watch_get_enabled (DBusWatch *watch)
 {
   return watch->enabled;
+}
+
+dbus_bool_t
+_dbus_watch_get_oom_last_time (DBusWatch *watch)
+{
+  return watch->oom_last_time;
+}
+
+void
+_dbus_watch_set_oom_last_time (DBusWatch   *watch,
+                               dbus_bool_t  oom)
+{
+  watch->oom_last_time = oom;
 }
 
 /**
@@ -129,6 +143,9 @@ _dbus_watch_unref (DBusWatch *watch)
   watch->refcount -= 1;
   if (watch->refcount == 0)
     {
+      if (watch->fd != -1)
+        _dbus_warn ("this watch should have been invalidated");
+
       dbus_watch_set_data (watch, NULL, NULL); /* call free_data_function */
 
       if (watch->free_handler_data_function)
@@ -496,6 +513,8 @@ _dbus_watch_set_handler (DBusWatch        *watch,
 int
 dbus_watch_get_fd (DBusWatch *watch)
 {
+  _dbus_return_val_if_fail (watch != NULL, -1);
+
   return dbus_watch_get_unix_fd(watch);
 }
 
@@ -515,6 +534,8 @@ dbus_watch_get_fd (DBusWatch *watch)
 int
 dbus_watch_get_unix_fd (DBusWatch *watch)
 {
+  _dbus_return_val_if_fail (watch != NULL, -1);
+
   /* FIXME remove #ifdef and do this on a lower level
    * (watch should have set_socket and set_unix_fd and track
    * which it has, and the transport should provide the
@@ -542,6 +563,8 @@ dbus_watch_get_unix_fd (DBusWatch *watch)
 int
 dbus_watch_get_socket (DBusWatch *watch)
 {
+  _dbus_return_val_if_fail (watch != NULL, -1);
+
   return watch->fd;
 }
 
@@ -561,6 +584,7 @@ dbus_watch_get_socket (DBusWatch *watch)
 unsigned int
 dbus_watch_get_flags (DBusWatch *watch)
 {
+  _dbus_return_val_if_fail (watch != NULL, 0);
   _dbus_assert ((watch->flags & VALID_WATCH_FLAGS) == watch->flags);
 
   return watch->flags;
@@ -576,6 +600,8 @@ dbus_watch_get_flags (DBusWatch *watch)
 void*
 dbus_watch_get_data (DBusWatch *watch)
 {
+  _dbus_return_val_if_fail (watch != NULL, NULL);
+
   return watch->data;
 }
 
@@ -595,6 +621,8 @@ dbus_watch_set_data (DBusWatch        *watch,
                      void             *data,
                      DBusFreeFunction  free_data_function)
 {
+  _dbus_return_if_fail (watch != NULL);
+
   _dbus_verbose ("Setting watch fd %d data to data = %p function = %p from data = %p function = %p\n",
                  dbus_watch_get_socket (watch),
                  data, free_data_function, watch->data, watch->free_data_function);
@@ -616,7 +644,8 @@ dbus_watch_set_data (DBusWatch        *watch,
 dbus_bool_t
 dbus_watch_get_enabled (DBusWatch *watch)
 {
-  _dbus_assert (watch != NULL);
+  _dbus_return_val_if_fail (watch != NULL, FALSE);
+
   return watch->enabled;
 }
 
@@ -647,6 +676,8 @@ dbus_bool_t
 dbus_watch_handle (DBusWatch    *watch,
                    unsigned int  flags)
 {
+  _dbus_return_val_if_fail (watch != NULL, FALSE);
+
 #ifndef DBUS_DISABLE_CHECKS
   if (watch->fd < 0 || watch->flags == 0)
     {

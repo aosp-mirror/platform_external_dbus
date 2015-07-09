@@ -83,6 +83,8 @@ dbus_bool_t _dbus_file_exists (const char *filename);
 dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 
                                        char *s);
 
+dbus_bool_t _dbus_get_install_root(char *prefix, int len);
+
 #endif
 
 /** @} end of sysdeps-win.h */

@@ -90,34 +90,60 @@ DllMain (hinst_t hinstDLL,
   return TRUE;
 }
 
-static DBusMutex*
-_dbus_windows_mutex_new (void)
+DBusCMutex *
+_dbus_platform_cmutex_new (void)
 {
   HANDLE handle;
   handle = CreateMutex (NULL, FALSE, NULL);
-  return (DBusMutex *) handle;
+  return (DBusCMutex *) handle;
 }
 
-static void
-_dbus_windows_mutex_free (DBusMutex *mutex)
+DBusRMutex *
+_dbus_platform_rmutex_new (void)
+{
+  HANDLE handle;
+  handle = CreateMutex (NULL, FALSE, NULL);
+  return (DBusRMutex *) handle;
+}
+
+void
+_dbus_platform_cmutex_free (DBusCMutex *mutex)
 {
   CloseHandle ((HANDLE *) mutex);
 }
 
-static dbus_bool_t
-_dbus_windows_mutex_lock (DBusMutex *mutex)
+void
+_dbus_platform_rmutex_free (DBusRMutex *mutex)
 {
-  return WaitForSingleObject ((HANDLE *) mutex, INFINITE) != WAIT_FAILED;
+  CloseHandle ((HANDLE *) mutex);
 }
 
-static dbus_bool_t
-_dbus_windows_mutex_unlock (DBusMutex *mutex)
+void
+_dbus_platform_cmutex_lock (DBusCMutex *mutex)
 {
-  return ReleaseMutex ((HANDLE *) mutex) != 0;
+  WaitForSingleObject ((HANDLE *) mutex, INFINITE);
 }
 
-static DBusCondVar *
-_dbus_windows_condvar_new (void)
+void
+_dbus_platform_rmutex_lock (DBusRMutex *mutex)
+{
+  WaitForSingleObject ((HANDLE *) mutex, INFINITE);
+}
+
+void
+_dbus_platform_cmutex_unlock (DBusCMutex *mutex)
+{
+  ReleaseMutex ((HANDLE *) mutex);
+}
+
+void
+_dbus_platform_rmutex_unlock (DBusRMutex *mutex)
+{
+  ReleaseMutex ((HANDLE *) mutex);
+}
+
+DBusCondVar *
+_dbus_platform_condvar_new (void)
 {
   DBusCondVar *cond;
     
@@ -128,11 +154,11 @@ _dbus_windows_condvar_new (void)
   cond->list = NULL;
   
   InitializeCriticalSection (&cond->lock);
-  return (DBusCondVar *) cond;
+  return cond;
 }
 
-static void
-_dbus_windows_condvar_free (DBusCondVar *cond)
+void
+_dbus_platform_condvar_free (DBusCondVar *cond)
 {
   DeleteCriticalSection (&cond->lock);
   _dbus_list_clear (&cond->list);
@@ -141,7 +167,7 @@ _dbus_windows_condvar_free (DBusCondVar *cond)
 
 static dbus_bool_t
 _dbus_condvar_wait_win32 (DBusCondVar *cond,
-			  DBusMutex *mutex,
+			  DBusCMutex *mutex,
 			  int milliseconds)
 {
   DWORD retval;
@@ -168,9 +194,9 @@ _dbus_condvar_wait_win32 (DBusCondVar *cond,
   if (!ret)
     return FALSE; /* Prepend failed */
 
-  _dbus_mutex_unlock (mutex);
+  _dbus_platform_cmutex_unlock (mutex);
   retval = WaitForSingleObject (event, milliseconds);
-  _dbus_mutex_lock (mutex);
+  _dbus_platform_cmutex_lock (mutex);
   
   if (retval == WAIT_TIMEOUT)
     {
@@ -198,66 +224,37 @@ _dbus_condvar_wait_win32 (DBusCondVar *cond,
   return retval != WAIT_TIMEOUT;
 }
 
-static void
-_dbus_windows_condvar_wait (DBusCondVar *cond,
-                            DBusMutex   *mutex)
+void
+_dbus_platform_condvar_wait (DBusCondVar *cond,
+                             DBusCMutex  *mutex)
 {
   _dbus_condvar_wait_win32 (cond, mutex, INFINITE);
 }
 
-static dbus_bool_t
-_dbus_windows_condvar_wait_timeout (DBusCondVar               *cond,
-				     DBusMutex                 *mutex,
+dbus_bool_t
+_dbus_platform_condvar_wait_timeout (DBusCondVar               *cond,
+				     DBusCMutex                *mutex,
 				     int                        timeout_milliseconds)
 {
   return _dbus_condvar_wait_win32 (cond, mutex, timeout_milliseconds);
 }
 
-static void
-_dbus_windows_condvar_wake_one (DBusCondVar *cond)
+void
+_dbus_platform_condvar_wake_one (DBusCondVar *cond)
 {
   EnterCriticalSection (&cond->lock);
   
   if (cond->list != NULL)
-    SetEvent (_dbus_list_pop_first (&cond->list));
-    
+    {
+      SetEvent (_dbus_list_pop_first (&cond->list));
+      /* Avoid live lock by pushing the waiter to the mutex lock
+         instruction, which is fair.  If we don't do this, we could
+         acquire the condition variable again before the waiter has a
+         chance itself, leading to starvation.  */
+      Sleep (0);
+    }
   LeaveCriticalSection (&cond->lock);
 }
-
-static void
-_dbus_windows_condvar_wake_all (DBusCondVar *cond)
-{
-  EnterCriticalSection (&cond->lock);
-
-  while (cond->list != NULL)
-    SetEvent (_dbus_list_pop_first (&cond->list));
-  
-  LeaveCriticalSection (&cond->lock);
-}
-
-static const DBusThreadFunctions windows_functions =
-{
-  DBUS_THREAD_FUNCTIONS_MUTEX_NEW_MASK |
-  DBUS_THREAD_FUNCTIONS_MUTEX_FREE_MASK |
-  DBUS_THREAD_FUNCTIONS_MUTEX_LOCK_MASK |
-  DBUS_THREAD_FUNCTIONS_MUTEX_UNLOCK_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_NEW_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_FREE_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAIT_TIMEOUT_MASK |
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ONE_MASK|
-  DBUS_THREAD_FUNCTIONS_CONDVAR_WAKE_ALL_MASK,
-  _dbus_windows_mutex_new,
-  _dbus_windows_mutex_free,
-  _dbus_windows_mutex_lock,
-  _dbus_windows_mutex_unlock,
-  _dbus_windows_condvar_new,
-  _dbus_windows_condvar_free,
-  _dbus_windows_condvar_wait,
-  _dbus_windows_condvar_wait_timeout,
-  _dbus_windows_condvar_wake_one,
-  _dbus_windows_condvar_wake_all
-};
 
 dbus_bool_t
 _dbus_threads_init_platform_specific (void)
@@ -272,6 +269,6 @@ _dbus_threads_init_platform_specific (void)
 	return FALSE;
     }
 
-  return dbus_threads_init (&windows_functions);
+  return dbus_threads_init (NULL);
 }
 

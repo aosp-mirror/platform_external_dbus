@@ -30,6 +30,21 @@
 
 DBUS_BEGIN_DECLS
 
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+void _dbus_message_trace_ref (DBusMessage *message,
+                              int          old_refcount,
+                              int          new_refcount,
+                              const char  *why);
+#else
+/* this bypasses any "unused" warnings for the old and new refcount */
+#define _dbus_message_trace_ref(m, o, n, w) \
+  do \
+  {\
+    (void) (o); \
+    (void) (n); \
+  } while (0)
+#endif
+
 typedef struct DBusMessageLoader DBusMessageLoader;
 
 void _dbus_message_get_network_data  (DBusMessage       *message,
@@ -46,8 +61,7 @@ dbus_bool_t _dbus_message_add_counter           (DBusMessage  *message,
 void        _dbus_message_add_counter_link      (DBusMessage  *message,
                                                  DBusList     *link);
 void        _dbus_message_remove_counter        (DBusMessage  *message,
-                                                 DBusCounter  *counter,
-                                                 DBusList    **link_return);
+                                                 DBusCounter  *counter);
 
 DBusMessageLoader* _dbus_message_loader_new                   (void);
 DBusMessageLoader* _dbus_message_loader_ref                   (DBusMessageLoader  *loader);
@@ -83,6 +97,10 @@ long               _dbus_message_loader_get_max_message_size  (DBusMessageLoader
 void               _dbus_message_loader_set_max_message_unix_fds(DBusMessageLoader  *loader,
                                                                  long                n);
 long               _dbus_message_loader_get_max_message_unix_fds(DBusMessageLoader  *loader);
+
+typedef struct DBusInitialFDs DBusInitialFDs;
+DBusInitialFDs *_dbus_check_fdleaks_enter (void);
+void            _dbus_check_fdleaks_leave (DBusInitialFDs *fds);
 
 DBUS_END_DECLS
 

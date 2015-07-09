@@ -82,9 +82,9 @@ main (int argc, char *argv[])
     {
       long delta;
       
-      _dbus_get_current_time (&start_tv_sec, &start_tv_usec);
+      _dbus_get_monotonic_time (&start_tv_sec, &start_tv_usec);
       _run_iteration (conn);
-      _dbus_get_current_time (&end_tv_sec, &end_tv_usec);
+      _dbus_get_monotonic_time (&end_tv_sec, &end_tv_usec);
 
       /* we just care about seconds */
       delta = end_tv_sec - start_tv_sec;

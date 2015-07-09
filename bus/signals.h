@@ -31,13 +31,15 @@
 
 typedef enum
 {
-  BUS_MATCH_MESSAGE_TYPE = 1 << 0,
-  BUS_MATCH_INTERFACE    = 1 << 1,
-  BUS_MATCH_MEMBER       = 1 << 2,
-  BUS_MATCH_SENDER       = 1 << 3,
-  BUS_MATCH_DESTINATION  = 1 << 4,
-  BUS_MATCH_PATH         = 1 << 5,
-  BUS_MATCH_ARGS         = 1 << 6
+  BUS_MATCH_MESSAGE_TYPE            = 1 << 0,
+  BUS_MATCH_INTERFACE               = 1 << 1,
+  BUS_MATCH_MEMBER                  = 1 << 2,
+  BUS_MATCH_SENDER                  = 1 << 3,
+  BUS_MATCH_DESTINATION             = 1 << 4,
+  BUS_MATCH_PATH                    = 1 << 5,
+  BUS_MATCH_ARGS                    = 1 << 6,
+  BUS_MATCH_PATH_NAMESPACE          = 1 << 7,
+  BUS_MATCH_CLIENT_IS_EAVESDROPPING = 1 << 8
 } BusMatchFlags;
 
 BusMatchRule* bus_match_rule_new   (DBusConnection *matches_go_to);
@@ -55,11 +57,21 @@ dbus_bool_t bus_match_rule_set_sender       (BusMatchRule     *rule,
 dbus_bool_t bus_match_rule_set_destination  (BusMatchRule     *rule,
                                              const char       *destination);
 dbus_bool_t bus_match_rule_set_path         (BusMatchRule     *rule,
-                                             const char       *path);
+                                             const char       *path,
+                                             dbus_bool_t       is_namespace);
 dbus_bool_t bus_match_rule_set_arg          (BusMatchRule     *rule,
                                              int               arg,
                                              const DBusString *value,
-                                             dbus_bool_t       is_path);
+                                             dbus_bool_t       is_path,
+                                             dbus_bool_t       is_namespace);
+
+/* Calling this methods a client declares that it is creating a rule which
+ * needs to eavesdrop (e.g., dbus-monitor), any other created rules not
+ * setting themselves as eavesdropping won't receive any message not addressed
+ * to them, when eavedrop is enabled in the policy.  On the other hand, when
+ * eavedrop is not enabled in policy, this method won't have any effect */
+void bus_match_rule_set_client_is_eavesdropping (BusMatchRule     *rule,
+                                                 dbus_bool_t is_eavesdropping);
 
 BusMatchRule* bus_match_rule_parse (DBusConnection   *matches_go_to,
                                     const DBusString *rule_text,

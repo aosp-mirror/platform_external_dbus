@@ -2,24 +2,20 @@ project(test)
 
 add_definitions(${DBUS_INTERNAL_CLIENT_DEFINITIONS})
 
-add_library(dbus_testutils STATIC
+add_library(dbus-testutils STATIC
     ${CMAKE_SOURCE_DIR}/../test/test-utils.h
     ${CMAKE_SOURCE_DIR}/../test/test-utils.c
 )
-target_link_libraries(dbus_testutils ${DBUS_INTERNAL_LIBRARIES})
+target_link_libraries(dbus-testutils ${DBUS_INTERNAL_LIBRARIES})
 
 add_subdirectory( name-test )
 
 set (test-service_SOURCES
     ${CMAKE_SOURCE_DIR}/../test/test-service.c
-    ${CMAKE_SOURCE_DIR}/../test/test-utils.c
-    ${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
 
 set (test-names_SOURCES
     ${CMAKE_SOURCE_DIR}/../test/test-names.c
-    ${CMAKE_SOURCE_DIR}/../test/test-utils.c
-    ${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
 
 set (break_loader_SOURCES
@@ -28,8 +24,6 @@ set (break_loader_SOURCES
 
 set (test-shell-service_SOURCES
     ${CMAKE_SOURCE_DIR}/../test/test-shell-service.c
-    ${CMAKE_SOURCE_DIR}/../test/test-utils.c
-    ${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
 
 set (shell-test_SOURCES
@@ -52,22 +46,18 @@ set (test-sleep-forever_SOURCES
     ${CMAKE_SOURCE_DIR}/../test/test-sleep-forever.c
 )
 
-set (decode_gcov_SOURCES
-    ${CMAKE_SOURCE_DIR}/../test/decode-gcov.c
-)
-
 add_executable(test-service ${test-service_SOURCES})
-target_link_libraries(test-service ${DBUS_INTERNAL_LIBRARIES})
+target_link_libraries(test-service dbus-testutils)
 
 add_executable(test-names ${test-names_SOURCES})
-target_link_libraries(test-names ${DBUS_INTERNAL_LIBRARIES})
+target_link_libraries(test-names dbus-testutils)
 
 add_executable(shell-test ${shell-test_SOURCES})
 target_link_libraries(shell-test ${DBUS_INTERNAL_LIBRARIES})
-ADD_TEST(shell-test ${EXECUTABLE_OUTPUT_PATH}/shell-test${EXT})
+ADD_TEST(shell-test ${EXECUTABLE_OUTPUT_PATH}/shell-test${EXEEXT})
 
 add_executable(test-shell-service ${test-shell-service_SOURCES})
-target_link_libraries(test-shell-service ${DBUS_INTERNAL_LIBRARIES})
+target_link_libraries(test-shell-service dbus-testutils)
 
 add_executable(spawn-test ${spawn-test_SOURCES})
 target_link_libraries(spawn-test ${DBUS_INTERNAL_LIBRARIES})
@@ -80,9 +70,6 @@ target_link_libraries(test-segfault ${DBUS_INTERNAL_LIBRARIES})
 
 add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
 target_link_libraries(test-sleep-forever ${DBUS_INTERNAL_LIBRARIES})
-
-#add_executable(decode-gcov ${decode_gcov_SOURCES})
-#target_link_libraries(decode-gcov ${DBUS_INTERNAL_LIBRARIES})
 
 ### keep these in creation order, i.e. uppermost dirs first 
 set (TESTDIRS
@@ -141,10 +128,6 @@ FOREACH(FILE_TYPE *.conf.in *.service.in)
       GET_FILENAME_COMPONENT(FILENAME ${FILE} NAME)
       STRING(REGEX REPLACE "\\.in$" "" FILENAME ${FILENAME})
       SET (TARGET ${CMAKE_BINARY_DIR}/${DIR}/${FILENAME})
-      STRING(REGEX REPLACE "\\.in$" ".cmake" _file ${FILE})
-      IF (EXISTS ${_file})
-        SET (FILE ${_file})
-      ENDIF (EXISTS ${_file})
       configure_file(${FILE} ${TARGET} @ONLY IMMEDIATE)
       IF (CONFIG_VERBOSE)
         MESSAGE("${FILE}")

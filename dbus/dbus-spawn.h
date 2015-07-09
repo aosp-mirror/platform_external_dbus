@@ -35,12 +35,18 @@ typedef void (* DBusSpawnChildSetupFunc) (void *user_data);
 
 typedef struct DBusBabysitter DBusBabysitter;
 
+typedef void (* DBusBabysitterFinishedFunc) (DBusBabysitter *sitter,
+                                             void           *user_data);
+
 dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
                                                    char                     **argv,
                                                    char                     **env,
                                                    DBusSpawnChildSetupFunc    child_setup,
                                                    void                      *user_data,
                                                    DBusError                 *error);
+void        _dbus_babysitter_set_result_function  (DBusBabysitter            *sitter,
+                                                   DBusBabysitterFinishedFunc finished,
+                                                   void                      *user_data);
 DBusBabysitter* _dbus_babysitter_ref              (DBusBabysitter            *sitter);
 void        _dbus_babysitter_unref                (DBusBabysitter            *sitter);
 void        _dbus_babysitter_kill_child           (DBusBabysitter            *sitter);

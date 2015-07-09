@@ -446,7 +446,7 @@ randomly_change_one_type (const DBusString *orig_data,
     {
       int b;
       b = _dbus_string_get_byte (mutated, i);
-      if (_dbus_type_is_valid (b))
+      if (dbus_type_is_valid (b))
         {
           _dbus_string_set_byte (mutated, i, random_type ());
           return;
@@ -667,7 +667,7 @@ get_random_seed (void)
 
     fprintf (stderr, "could not open/read /dev/urandom, using current time for seed\n");
 
-    _dbus_get_current_time (NULL, &tv_usec);
+    _dbus_get_monotonic_time (NULL, &tv_usec);
 
     seed = tv_usec;
   }

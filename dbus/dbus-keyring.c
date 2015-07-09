@@ -143,8 +143,6 @@ _dbus_keyring_new (void)
 
   return keyring;
 
-  /*  out_4: */
-  _dbus_string_free (&keyring->filename_lock);
  out_3:
   _dbus_string_free (&keyring->filename);
  out_2:
@@ -355,7 +353,7 @@ add_new_key (DBusKey  **keys_p,
       goto out;
     }
 
-  _dbus_get_current_time (&timestamp, NULL);
+  _dbus_get_real_time (&timestamp, NULL);
       
   keys[n_keys-1].id = id;
   keys[n_keys-1].creation_time = timestamp;
@@ -430,7 +428,7 @@ _dbus_keyring_reload (DBusKeyring *keyring,
   retval = FALSE;
   have_lock = FALSE;
 
-  _dbus_get_current_time (&now, NULL);
+  _dbus_get_real_time (&now, NULL);
   
   if (add_new)
     {
@@ -719,6 +717,13 @@ _dbus_keyring_new_for_credentials (DBusCredentials  *credentials,
   DBusCredentials *our_credentials;
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  if (_dbus_check_setuid ())
+    {
+      dbus_set_error_const (error, DBUS_ERROR_NOT_SUPPORTED,
+                            "Unable to create DBus keyring when setuid");
+      return NULL;
+    }
   
   keyring = NULL;
   error_set = FALSE;
@@ -910,7 +915,7 @@ find_recent_key (DBusKeyring *keyring)
   int i;
   long tv_sec, tv_usec;
 
-  _dbus_get_current_time (&tv_sec, &tv_usec);
+  _dbus_get_real_time (&tv_sec, &tv_usec);
   
   i = 0;
   while (i < keyring->n_keys)
