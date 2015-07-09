@@ -70,6 +70,30 @@
       "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "789c5e2a_8f86a5ef",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 4
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 1041833
+      },
+      "writtenOn": "2015-07-09T23:17:55Z",
+      "side": 1,
+      "message": "It is built currently, yes. Ying will know why it\u0027s pulled in...",
+      "parentUuid": "d8970a01_98c90d21",
+      "range": {
+        "startLine": 77,
+        "startChar": 1,
+        "endLine": 77,
+        "endChar": 28
+      },
+      "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
     }
   ]
 }
