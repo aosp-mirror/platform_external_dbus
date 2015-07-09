@@ -46,6 +46,30 @@
       "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "d8970a01_98c90d21",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 4
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 1041833
+      },
+      "writtenOn": "2015-07-09T23:16:19Z",
+      "side": 1,
+      "message": "Or force Clang with LOCAL_CLANG :\u003d true.",
+      "parentUuid": "789c5e2a_efaba95e",
+      "range": {
+        "startLine": 77,
+        "startChar": 1,
+        "endLine": 77,
+        "endChar": 28
+      },
+      "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
     }
   ]
 }
