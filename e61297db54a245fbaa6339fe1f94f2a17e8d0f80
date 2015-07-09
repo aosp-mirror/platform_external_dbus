@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "1867e20f_184d0542",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-09T15:52:09Z",
+      "side": 1,
+      "message": "i wasn\u0027t sure about upstreaming most of these changes; i\u0027m sorely lacking in context (some of them just came from generic \"AOSP code dump\" commits) and unsure of whether upstream would want the changes.\n\nanother unfortunate thing is that 1.6.8 is still pretty ancient -- it was released in september 2012. i went with it because it\u0027s what chrome os is using. part of me is hopeful that this is just a temporary measure that\u0027ll be gone before we\u0027d consider upgrading to a newer version of d-bus.\n\nabout the larger Android.mk question: i had concerns that this would just bitrot if i put it in a file somewhere, so attaching it to the commit and saying \"here\u0027s were we are as of this point in time\" seemed a bit safer.",
+      "parentUuid": "731ba15b_b71130df",
+      "revId": "e61297db54a245fbaa6339fe1f94f2a17e8d0f80",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "d3260d9c_ec0bdf2c",
         "filename": "/COMMIT_MSG",
         "patchSetId": 2
@@ -30,6 +48,24 @@
       "writtenOn": "2015-07-09T15:45:27Z",
       "side": 1,
       "message": "i realize you may have no idea, but... why?\n\nafaict, the DBUS_USE_SYNC stuff should work fine on Android. and if you wanted to get fancy, we have \u003cstdatomic.h\u003e which is more portable and what the Android-specific crap got reimplemented in terms of anyway, so you could cut out a middleman. but i think the DBUS_USE_SYNC stuff should be fine?",
+      "revId": "e61297db54a245fbaa6339fe1f94f2a17e8d0f80",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1867e20f_98403508",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-09T15:52:09Z",
+      "side": 1,
+      "message": "yep, i have no idea. :-(\n\nthanks, i\u0027ll try removing this to see if it still works.",
+      "parentUuid": "d3260d9c_ec0bdf2c",
       "revId": "e61297db54a245fbaa6339fe1f94f2a17e8d0f80",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
