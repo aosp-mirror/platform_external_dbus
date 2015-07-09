@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "731ba15b_b71130df",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1003224
+      },
+      "writtenOn": "2015-07-09T15:45:27Z",
+      "side": 1,
+      "message": "(nice work! worth putting this in Android.mk for future upgraders, or are you planning on upstreaming anyway?)",
+      "revId": "e61297db54a245fbaa6339fe1f94f2a17e8d0f80",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "d3260d9c_ec0bdf2c",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 1003224
+      },
+      "writtenOn": "2015-07-09T15:45:27Z",
+      "side": 1,
+      "message": "i realize you may have no idea, but... why?\n\nafaict, the DBUS_USE_SYNC stuff should work fine on Android. and if you wanted to get fancy, we have \u003cstdatomic.h\u003e which is more portable and what the Android-specific crap got reimplemented in terms of anyway, so you could cut out a middleman. but i think the DBUS_USE_SYNC stuff should be fine?",
+      "revId": "e61297db54a245fbaa6339fe1f94f2a17e8d0f80",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    }
+  ]
+}
