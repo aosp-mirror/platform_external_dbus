@@ -22,6 +22,30 @@
       "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "586ddaeb_ae784fa0",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 4
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-09T23:15:52Z",
+      "side": 1,
+      "message": "sure thing -- thanks for pointing this out.\n\n(and just to make sure i understand: this is just meant for brillo right now. will it be built on other platforms even if it\u0027s not getting installed there?)",
+      "parentUuid": "789c5e2a_efaba95e",
+      "range": {
+        "startLine": 77,
+        "startChar": 1,
+        "endLine": 77,
+        "endChar": 28
+      },
+      "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
     }
   ]
 }
