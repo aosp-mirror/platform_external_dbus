@@ -166,6 +166,30 @@
       "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
       "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "586ddaeb_6e98f751",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 4
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-09T23:30:38Z",
+      "side": 1,
+      "message": "thanks, committed. (and to close the loop, it\u0027s at https://android-review.googlesource.com/#/c/158742/ )",
+      "parentUuid": "387026c3_2d068528",
+      "range": {
+        "startLine": 77,
+        "startChar": 1,
+        "endLine": 77,
+        "endChar": 28
+      },
+      "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
     }
   ]
 }
