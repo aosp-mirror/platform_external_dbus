@@ -2,6 +2,29 @@
   "comments": [
     {
       "key": {
+        "uuid": "98a11261_167cec93",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 4
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 1041833
+      },
+      "writtenOn": "2015-07-10T01:31:54Z",
+      "side": 1,
+      "message": "Ying, I\u0027m a bit surprised you +1-ed this. I thought the preferred style is spaces for indentation where possible (so in non-rules).\n\n(Not that I think it\u0027s necessary to fix, Colin will fix this soon, hopefully. :-) )",
+      "range": {
+        "startLine": 9,
+        "startChar": 0,
+        "endLine": 9,
+        "endChar": 1
+      },
+      "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "789c5e2a_efaba95e",
         "filename": "dbus/Android.mk",
         "patchSetId": 4
