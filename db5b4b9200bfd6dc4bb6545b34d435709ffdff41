@@ -49,6 +49,30 @@
     },
     {
       "key": {
+        "uuid": "789c5e2a_2a85ff12",
+        "filename": "dbus/Android.mk",
+        "patchSetId": 4
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 1074340
+      },
+      "writtenOn": "2015-07-10T03:15:12Z",
+      "side": 1,
+      "message": "is there a style guide or doc somewhere describing the desired direction for stuff like this?",
+      "parentUuid": "586ddaeb_a9d12942",
+      "range": {
+        "startLine": 9,
+        "startChar": 0,
+        "endLine": 9,
+        "endChar": 1
+      },
+      "revId": "db5b4b9200bfd6dc4bb6545b34d435709ffdff41",
+      "serverId": "85c56323-6fa9-3386-8a01-6480fb634889",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "789c5e2a_efaba95e",
         "filename": "dbus/Android.mk",
         "patchSetId": 4
