@@ -16,7 +16,6 @@ LOCAL_C_INCLUDES += $(dbusToolsCommonCIncludes)
 LOCAL_SHARED_LIBRARIES += $(dbusToolsCommonSharedLibraries)
 LOCAL_CFLAGS += $(dbusToolsCommonCFlags)
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
-LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := libdbus-tools-common
 include $(BUILD_STATIC_LIBRARY)
 
@@ -30,7 +29,6 @@ LOCAL_SHARED_LIBRARIES += $(dbusToolsCommonSharedLibraries)
 LOCAL_STATIC_LIBRARIES += libdbus-tools-common
 LOCAL_CFLAGS += $(dbusToolsCommonCFlags)
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
-LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := dbus-monitor
 include $(BUILD_EXECUTABLE)
 
@@ -44,6 +42,5 @@ LOCAL_SHARED_LIBRARIES += $(dbusToolsCommonSharedLibraries)
 LOCAL_STATIC_LIBRARIES += libdbus-tools-common
 LOCAL_CFLAGS += $(dbusToolsCommonCFlags)
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
-LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := dbus-send
 include $(BUILD_EXECUTABLE)
