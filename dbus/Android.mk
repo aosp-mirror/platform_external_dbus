@@ -28,6 +28,7 @@ LOCAL_SRC_FILES:= \
 	dbus-mempool.c \
 	dbus-memory.c \
 	dbus-message.c \
+	dbus-misc.c \
 	dbus-nonce.c \
 	dbus-pending-call.c \
 	dbus-pipe.c \
@@ -64,7 +65,7 @@ LOCAL_C_INCLUDES+= $(LOCAL_PATH)/..
 
 LOCAL_MODULE:=libdbus
 
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/..
 
 LOCAL_CFLAGS+= \
 	-DDBUS_COMPILATION \
