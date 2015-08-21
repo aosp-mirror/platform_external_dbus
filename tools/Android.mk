@@ -41,6 +41,5 @@ LOCAL_C_INCLUDES += $(dbusToolsCommonCIncludes)
 LOCAL_SHARED_LIBRARIES += $(dbusToolsCommonSharedLibraries)
 LOCAL_STATIC_LIBRARIES += libdbus-tools-common
 LOCAL_CFLAGS += $(dbusToolsCommonCFlags)
-LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE := dbus-send
 include $(BUILD_EXECUTABLE)
