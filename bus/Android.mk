@@ -36,7 +36,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES := \
 	libexpat \
-	libdbus
+	libdbus \
+	libstdc++
 
 LOCAL_MODULE:=dbus-daemon
 
