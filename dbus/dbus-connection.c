@@ -22,6 +22,7 @@
  */
 
 #include <config.h>
+#include <signal.h>
 #include "dbus-shared.h"
 #include "dbus-connection.h"
 #include "dbus-list.h"
@@ -4284,8 +4285,13 @@ _dbus_connection_update_dispatch_status_and_unlock (DBusConnection    *connectio
           CONNECTION_UNLOCK (connection);            
           
           _dbus_verbose ("Exiting on Disconnected signal\n");
-          _dbus_exit (1);
-          _dbus_assert_not_reached ("Call to exit() returned");
+          if (raise (SIGTERM) != 0)
+            {
+              _dbus_verbose ("Failed to raise a SIGTERM signal. Exiting\n");
+              _dbus_exit (1);
+              _dbus_assert_not_reached ("Call to exit() returned");
+            }
+          return;
         }
     }
   
