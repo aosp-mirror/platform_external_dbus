@@ -239,7 +239,7 @@ char**      _dbus_dup_string_array      (const char **array);
 #define _DBUS_UINT64_MAX DBUS_UINT64_CONSTANT (0xffffffffffffffff)
 #endif
 #define _DBUS_ONE_KILOBYTE 1024
-#define _DBUS_ONE_MEGABYTE 1024 * _DBUS_ONE_KILOBYTE
+#define _DBUS_ONE_MEGABYTE (1024 * _DBUS_ONE_KILOBYTE)
 #define _DBUS_ONE_HOUR_IN_MILLISECONDS (1000 * 60 * 60)
 #define _DBUS_USEC_PER_SECOND          (1000000)
 
@@ -304,8 +304,9 @@ extern int _dbus_current_generation;
 
 /* Thread initializers */
 #define _DBUS_LOCK_NAME(name)           _dbus_lock_##name
-#define _DBUS_DECLARE_GLOBAL_LOCK(name) extern DBusRMutex *_dbus_lock_##name
-#define _DBUS_DEFINE_GLOBAL_LOCK(name)  DBusRMutex        *_dbus_lock_##name
+/* NOLINT: clang-tidy warns about nonterminated statemet in macros. */
+#define _DBUS_DECLARE_GLOBAL_LOCK(name) extern DBusRMutex *_dbus_lock_##name /* NOLINT */
+#define _DBUS_DEFINE_GLOBAL_LOCK(name)  DBusRMutex        *_dbus_lock_##name /* NOLINT */
 #define _DBUS_LOCK(name)                _dbus_rmutex_lock   (_dbus_lock_##name)
 #define _DBUS_UNLOCK(name)              _dbus_rmutex_unlock (_dbus_lock_##name)
 

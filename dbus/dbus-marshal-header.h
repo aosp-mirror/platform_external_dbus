@@ -30,8 +30,8 @@
 typedef struct DBusHeader      DBusHeader;
 typedef struct DBusHeaderField DBusHeaderField;
 
-#define _DBUS_HEADER_FIELD_VALUE_UNKNOWN -1
-#define _DBUS_HEADER_FIELD_VALUE_NONEXISTENT -2
+#define _DBUS_HEADER_FIELD_VALUE_UNKNOWN     (-1)
+#define _DBUS_HEADER_FIELD_VALUE_NONEXISTENT (-2)
 
 /**
  * Cached information about a header field in the message

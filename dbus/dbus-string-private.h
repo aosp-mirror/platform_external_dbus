@@ -75,7 +75,7 @@ _DBUS_STATIC_ASSERT (sizeof (DBusRealString) == sizeof (DBusString));
  */
 #define DBUS_GENERIC_STRING_PREAMBLE(real) \
   do { \
-      (void) real; /* might be unused unless asserting */ \
+      (void) (real); /* might be unused unless asserting */ \
       _dbus_assert ((real) != NULL); \
       _dbus_assert (!(real)->invalid); \
       _dbus_assert ((real)->len >= 0); \
@@ -90,9 +90,10 @@ _DBUS_STATIC_ASSERT (sizeof (DBusRealString) == sizeof (DBusString));
  * the "real" variable pointing to DBusRealString. 
  * @param str the string
  */
-#define DBUS_STRING_PREAMBLE(str) DBusRealString *real = (DBusRealString*) str; \
-  DBUS_GENERIC_STRING_PREAMBLE (real);                                          \
-  _dbus_assert (!(real)->constant);                                             \
+#define DBUS_STRING_PREAMBLE(str) \
+  DBusRealString *real = (DBusRealString*) (str);  \
+  DBUS_GENERIC_STRING_PREAMBLE (real);             \
+  _dbus_assert (!(real)->constant);                \
   _dbus_assert (!(real)->locked)
 
 /**
@@ -102,8 +103,9 @@ _DBUS_STATIC_ASSERT (sizeof (DBusRealString) == sizeof (DBusString));
  *
  * @param str the string
  */
-#define DBUS_LOCKED_STRING_PREAMBLE(str) DBusRealString *real = (DBusRealString*) str; \
-  DBUS_GENERIC_STRING_PREAMBLE (real);                                                 \
+#define DBUS_LOCKED_STRING_PREAMBLE(str) \
+  DBusRealString *real = (DBusRealString*) (str);  \
+  DBUS_GENERIC_STRING_PREAMBLE (real);             \
   _dbus_assert (!(real)->constant)
 
 /**
@@ -111,7 +113,8 @@ _DBUS_STATIC_ASSERT (sizeof (DBusRealString) == sizeof (DBusString));
  * declares the "real" variable pointing to DBusRealString.
  * @param str the string.
  */
-#define DBUS_CONST_STRING_PREAMBLE(str) const DBusRealString *real = (DBusRealString*) str; \
+#define DBUS_CONST_STRING_PREAMBLE(str) \
+  const DBusRealString *real = (DBusRealString*) (str); \
   DBUS_GENERIC_STRING_PREAMBLE (real)
 
 /**
