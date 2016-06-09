@@ -79,7 +79,7 @@ typedef struct
   unsigned long last_tv_usec;
 } TimeoutCallback;
 
-#define TIMEOUT_CALLBACK(callback) ((TimeoutCallback*)callback)
+#define TIMEOUT_CALLBACK(callback) ((TimeoutCallback*)(callback))
 
 static TimeoutCallback*
 timeout_callback_new (DBusTimeout         *timeout)

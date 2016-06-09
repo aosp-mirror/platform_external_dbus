@@ -41,8 +41,8 @@
 #include <string.h>
 
 #define _DBUS_TYPE_IS_STRINGLIKE(type) \
-  (type == DBUS_TYPE_STRING || type == DBUS_TYPE_SIGNATURE || \
-   type == DBUS_TYPE_OBJECT_PATH)
+  ((type) == DBUS_TYPE_STRING || (type) == DBUS_TYPE_SIGNATURE || \
+   (type) == DBUS_TYPE_OBJECT_PATH)
 
 static void dbus_message_finalize (DBusMessage *message);
 
@@ -501,7 +501,7 @@ _dbus_message_set_signature (DBusMessage *message,
  */
 
 /** Avoid caching huge messages */
-#define MAX_MESSAGE_SIZE_TO_CACHE 10 * _DBUS_ONE_KILOBYTE
+#define MAX_MESSAGE_SIZE_TO_CACHE (10 * _DBUS_ONE_KILOBYTE)
 
 /** Avoid caching too many messages */
 #define MAX_MESSAGE_CACHE_SIZE    5
