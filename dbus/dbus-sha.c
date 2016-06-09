@@ -97,11 +97,11 @@ effort (for example the reengineering of a great many Capstone chips).
    rcs@cs.arizona.edu for discovering this */
 
 /*#define f1(x,y,z) ( ( x & y ) | ( ~x & z ) )          // Rounds  0-19 */
-#define f1(x,y,z)  ( z ^ ( x & ( y ^ z ) ) )           /* Rounds  0-19 */
-#define f2(x,y,z)  ( x ^ y ^ z )                       /* Rounds 20-39 */
+#define f1(x,y,z)  ( (z) ^ ( (x) & ( (y) ^ (z) ) ) )           /* Rounds  0-19 */
+#define f2(x,y,z)  ( (x) ^ (y) ^ (z) )                       /* Rounds 20-39 */
 /*#define f3(x,y,z) ( ( x & y ) | ( x & z ) | ( y & z ) )   // Rounds 40-59 */
-#define f3(x,y,z)  ( ( x & y ) | ( z & ( x | y ) ) )   /* Rounds 40-59 */
-#define f4(x,y,z)  ( x ^ y ^ z )                       /* Rounds 60-79 */
+#define f3(x,y,z)  ( ( (x) & (y) ) | ( (z) & ( (x) | (y) ) ) )   /* Rounds 40-59 */
+#define f4(x,y,z)  ( (x) ^ (y) ^ (z) )                       /* Rounds 60-79 */
 
 /* The SHA Mysterious Constants */
 
@@ -122,7 +122,7 @@ effort (for example the reengineering of a great many Capstone chips).
    are to be called with expressions as arguments */
 /* 32-bit rotate left - kludged with shifts */
 
-#define ROTL(n,X) ( ( ( X ) << n ) | ( ( X ) >> ( 32 - n ) ) )
+#define ROTL(n,X) ( ( ( X ) << (n) ) | ( ( X ) >> ( 32 - (n) ) ) )
 
 /* The initial expanding function.  The hash function is defined over an
    80-word expanded input array W, where the first 16 are copies of the input
@@ -138,8 +138,8 @@ effort (for example the reengineering of a great many Capstone chips).
    bit.  Thanks to Jim Gillogly, jim@rand.org, and an anonymous contributor
    for this information */
 
-#define expand(W,i) ( W[ i & 15 ] = ROTL( 1, ( W[ i & 15 ] ^ W[ (i - 14) & 15 ] ^ \
-                                                 W[ (i - 8) & 15 ] ^ W[ (i - 3) & 15 ] ) ) )
+#define expand(W,i) ( (W)[ (i) & 15 ] = ROTL( 1, ( (W)[ (i) & 15 ] ^ (W)[ ((i) - 14) & 15 ] ^ \
+                                                 (W)[ ((i) - 8) & 15 ] ^ (W)[ ((i) - 3) & 15 ] ) ) )
 
 
 /* The prototype SHA sub-round.  The fundamental sub-round is:
@@ -156,7 +156,7 @@ effort (for example the reengineering of a great many Capstone chips).
    the next 20 values from the W[] array each time */
 
 #define subRound(a, b, c, d, e, f, k, data) \
-   ( e += ROTL( 5, a ) + f( b, c, d ) + k + data, b = ROTL( 30, b ) )
+   ( (e) += ROTL( 5, a ) + f( b, c, d ) + (k) + (data), (b) = ROTL( 30, b ) )
 
 #endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 

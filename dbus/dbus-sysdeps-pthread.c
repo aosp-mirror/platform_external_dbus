@@ -55,11 +55,11 @@ struct DBusCondVar {
   pthread_cond_t cond; /**< the condition */
 };
 
-#define DBUS_MUTEX(m)         ((DBusMutex*) m)
-#define DBUS_MUTEX_PTHREAD(m) ((DBusMutexPThread*) m)
+#define DBUS_MUTEX(m)         ((DBusMutex*) (m))
+#define DBUS_MUTEX_PTHREAD(m) ((DBusMutexPThread*) (m))
 
-#define DBUS_COND_VAR(c)         ((DBusCondVar*) c)
-#define DBUS_COND_VAR_PTHREAD(c) ((DBusCondVarPThread*) c)
+#define DBUS_COND_VAR(c)         ((DBusCondVar*) (c))
+#define DBUS_COND_VAR_PTHREAD(c) ((DBusCondVarPThread*) (c))
 
 
 #ifdef DBUS_DISABLE_ASSERT
