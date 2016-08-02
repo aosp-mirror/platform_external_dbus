@@ -1,0 +1,9 @@
+subdirs = [
+    "bus",
+    "dbus",
+]
+
+cc_library_static {
+    name: "libdbus-headers",
+    export_include_dirs: ["."],
+}
