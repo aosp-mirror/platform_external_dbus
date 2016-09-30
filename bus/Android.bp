@@ -4,9 +4,9 @@ cc_binary {
     cflags: [
         "-O3",
         "-DDBUS_COMPILATION",
-        "-DDBUS_DAEMON_NAME=\\\"dbus-daemon\\\"",
-        "-DDBUS_SYSTEM_CONFIG_FILE=\\\"/system/etc/dbus.conf\\\"",
-        "-DDBUS_SESSION_CONFIG_FILE=\\\"/system/etc/session.conf\\\"",
+        "-DDBUS_DAEMON_NAME=\"dbus-daemon\"",
+        "-DDBUS_SYSTEM_CONFIG_FILE=\"/system/etc/dbus.conf\"",
+        "-DDBUS_SESSION_CONFIG_FILE=\"/system/etc/session.conf\"",
         "-Wno-address",
         "-Wno-empty-body",
         "-Wno-pointer-sign",
